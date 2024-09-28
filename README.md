@@ -1,6 +1,6 @@
 # `rustctl`
 
-Tooling for running a Rust (the game) server and an integrated web service on Linux.
+Tooling for running a _Rust_ (the game) server and an integrated web service on Linux.
 
 ### Intended usage
 
@@ -12,8 +12,8 @@ rustctl config init
 
 The configuration file will be at `/etc/rustctl/config.toml` by default.
 
-Then, enable three independent services using `systemd`. All of them will refer to the shared
-configuration file.
+Then, enable and start the three following services using [_systemd_][systemd-website]. All of them
+will refer to the shared configuration file.
 
 1. `rustctl web start`
 
@@ -23,14 +23,15 @@ configuration file.
 
 2. `rustctl game start`
 
-   This will install or update [SteamCMD][steamcmd-homepage] (game installer),
-   [RustDedicated][rustdedicated-homepage] (the game) and [Carbon][carbon-homepage] (a modding
+   This will install or update [_SteamCMD_][steamcmd-website] (game installer),
+   [_RustDedicated_][rustdedicated-website] (the game) and [_Carbon_][carbon-website] (a modding
    framework for the game) and then launch the game server.
 
 3. `rustctl health start`
 
    This will monitor the game server's health and restart it when necessary.
 
-[carbon-homepage]: https://carbonmod.gg/
-[rustdedicated-homepage]: https://steamdb.info/app/258550
-[steamcmd-homepage]: https://developer.valvesoftware.com/wiki/SteamCMD
+[carbon-website]: https://carbonmod.gg
+[rustdedicated-website]: https://steamdb.info/app/258550
+[steamcmd-website]: https://developer.valvesoftware.com/wiki/SteamCMD
+[systemd-website]: https://systemd.io
