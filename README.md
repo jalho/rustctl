@@ -35,3 +35,14 @@ will refer to the shared configuration file.
 [rustdedicated-website]: https://steamdb.info/app/258550
 [steamcmd-website]: https://developer.valvesoftware.com/wiki/SteamCMD
 [systemd-website]: https://systemd.io
+
+### Development
+
+```
+$ node --version
+v20.14.0
+
+$ node mock/steamcmd-distributor.mjs
+
+$ cargo run
+```
