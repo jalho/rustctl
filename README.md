@@ -1,46 +1,36 @@
 # `rustctl`
 
+Tooling for running a Rust (the game) server and an integrated web service on Linux.
+
 ### Intended usage
 
-First, initialize a shared, confidential configuration in the filesystem: `rustctl config init`.
-Then, enable three independent services using `systemd` (all of them will refer to the shared
-configuration file):
+First, initialize a shared, confidential configuration in the filesystem:
+
+```
+rustctl config init
+```
+
+The configuration file will be at `/etc/rustctl/config.toml` by default.
+
+Then, enable three independent services using `systemd`. All of them will refer to the shared
+configuration file.
 
 1. `rustctl web start`
+
+   The game and the web server are integrated over a Unix domain socket. Since the game can only
+   write to the socket once its reader (the web server) has initialized it, the web server must be
+   started before the game. This command will start the web server.
+
 2. `rustctl game start`
+
+   This will install or update [SteamCMD][steamcmd-homepage] (game installer),
+   [RustDedicated][rustdedicated-homepage] (the game) and [Carbon][carbon-homepage] (a modding
+   framework for the game) and then launch the game server.
+
 3. `rustctl health start`
 
-### Manual
+   This will monitor the game server's health and restart it when necessary.
 
-```txt
-rustctl v0.0.0
-
-SYNOPSIS
-
-      Set up a Rust game server, monitor its health or run a web server
-      integrated to the game.
-
-EXAMPLES
-
-    # Write default or show current configuration in `/etc/rustctl/config.toml`:
-
-      rustctl config show
-      rustctl config init
-
-    # Start the game server: Install, update, run:
-
-      rustctl game start
-
-    # Monitor the game server's health, restarting it when necessary:
-
-      rustctl health start
-
-    # Start the integrated web server:
-
-      rustctl web start
-
-    # Other stuff you might expect:
-
-      rustctl --help
-      rustctl --version
-```
+[carbon-homepage]: https://carbonmod.gg/
+[rustdedicated-homepage]: https://steamdb.info/app/258550
+[steamcmd-homepage]: https://developer.valvesoftware.com/wiki/SteamCMD
