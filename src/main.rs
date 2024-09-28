@@ -5,6 +5,7 @@ fn main() -> Result<(), args::ArgError> {
     let config: args::Config = args::Config::get_from_fs(args::Config::default_fs_path())?;
 
     match args::Command::get(argv)? {
+        args::Command::Config => todo!(),
         args::Command::GameStart => {
             println!(
                 "TODO: Download SteamCMD from {} to {:?}",

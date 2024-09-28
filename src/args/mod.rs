@@ -95,6 +95,7 @@ impl Config {
 
 /// The commands of the program.
 pub enum Command {
+    Config,
     GameStart,
     HealthStart,
     WebStart,
@@ -104,6 +105,8 @@ impl Command {
     pub fn get(argv: Vec<String>) -> Result<Self, ArgError> {
         if argv.len() < 2 {
             return Err(ArgError::ArgvLen);
+        } else if argv[1] == "config" {
+            return Ok(Self::Config);
         } else if argv[1] == "game" {
             return Ok(Self::GameStart);
         } else if argv[1] == "health" {
