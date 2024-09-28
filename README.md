@@ -6,9 +6,9 @@ First, initialize a shared, confidential configuration in the filesystem: `rustc
 Then, enable three independent services using `systemd` (all of them will refer to the shared
 configuration file):
 
-1. `rustctl game start`
-2. `rustctl health start`
-3. `rustctl web start`
+1. `rustctl web start`
+2. `rustctl game start`
+3. `rustctl health start`
 
 ### Manual
 
