@@ -4,5 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+log = "0.4.22"
+log4rs = "1.3.0"
 serde = { version= "1.0.210", features = ["serde_derive"] }
 toml = "0.8.19"
