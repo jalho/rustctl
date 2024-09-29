@@ -12,6 +12,7 @@ fn main() -> Result<(), args::ArgError> {
                 "TODO: Download SteamCMD from {} to {:?}",
                 config.download_url_steamcmd, config.rustctl_root_dir
             );
+            /* TODO: Only download SteamCMD if necessary */
             let _ = download_steamcmd();
         }
         args::Command::HealthStart => todo!(),
@@ -28,24 +29,29 @@ fn main() -> Result<(), args::ArgError> {
 }
 
 fn download_steamcmd() -> Result<(), std::io::Error> {
+    /* TODO: Parameterize */
     let url: &str = "127.0.0.1:8080";
-    let path: &str = "/steamcmd.tgz";
+    let path_out: &str = "/steamcmd.tgz";
+    let path_in: &str = "steamcmd.tgz";
     let mut stream: std::net::TcpStream = std::net::TcpStream::connect(url)?;
 
     let buf_out: String = format!(
         "GET {} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n",
-        path, url
+        path_out, url
     );
     use std::io::Write;
     stream.write_all(buf_out.as_bytes())?;
 
-    /* TODO: Stream the response to disk. */
+    /* TODO: Stream the response to disk */
+    /* TODO: Extract the .tgz */
+    /* TODO: Assert expected entry point exists (steamcmd.sh or something) */
     let mut buf_in = Vec::new();
     use std::io::Read;
     stream.read_to_end(&mut buf_in)?;
 
     let headers_end: usize = match buf_in.windows(4).position(|window| window == b"\r\n\r\n") {
         Some(pos) => pos,
+        /* TODO: Add fatal error case */
         None => todo!(),
     };
     let headers = &buf_in[..headers_end];
@@ -53,7 +59,7 @@ fn download_steamcmd() -> Result<(), std::io::Error> {
     let content_length = parse_content_length(headers).unwrap_or(body.len());
     let payload = &body[..content_length];
 
-    std::fs::write("steamcmd.tgz", payload)?;
+    std::fs::write(path_in, payload)?;
     return Ok(());
 }
 
