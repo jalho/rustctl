@@ -1,3 +1,5 @@
+Work in progress!
+
 # `rustctl`
 
 Tooling for running a _Rust_ (the game) server and an integrated web service on Linux.
@@ -31,10 +33,17 @@ will refer to the shared configuration file.
 
    This will monitor the game server's health and restart it when necessary.
 
-[carbon-website]: https://carbonmod.gg
-[rustdedicated-website]: https://steamdb.info/app/258550
-[steamcmd-website]: https://developer.valvesoftware.com/wiki/SteamCMD
-[systemd-website]: https://systemd.io
+### Example configuration
+
+As of commit `bc02990`. Not complete!
+
+```toml
+"rustctl_root_dir" = "/home/rust"
+
+"steamcmd_download_url"         = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz"
+"steamcmd_target_file_name_tgz" = "steamcmd.tgz"
+"steamcmd_executable_name"      = "steamcmd.sh"
+```
 
 ### Development
 
@@ -46,3 +55,8 @@ $ node mock/steamcmd-distributor.mjs
 
 $ cargo run
 ```
+
+[carbon-website]: https://carbonmod.gg
+[rustdedicated-website]: https://steamdb.info/app/258550
+[steamcmd-website]: https://developer.valvesoftware.com/wiki/SteamCMD
+[systemd-website]: https://systemd.io
