@@ -143,8 +143,9 @@ pub fn install_steamcmd(
         let paths: std::collections::HashSet<String> = extract_modified_paths(&stderr);
         let paths: Vec<&str> = paths.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
         log::info!(
-            "Extracted {} files from SteamCMD distribution: {}",
+            "Extracted {} files from SteamCMD distribution '{}': {}",
             paths.len(),
+            steamcmd_tgz_absolute.to_string_lossy(),
             paths.join(", ")
         );
     } else {
