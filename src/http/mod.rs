@@ -5,6 +5,7 @@ pub enum HttpError {
     BadUrl(String),
     IO(std::io::ErrorKind),
     HeaderDelimiterError(String),
+    EmptyPayload,
 }
 impl std::fmt::Debug for HttpError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -14,6 +15,7 @@ impl std::fmt::Debug for HttpError {
             Self::HeaderDelimiterError(arg0) => {
                 f.debug_tuple("HeaderDelimiterError").field(arg0).finish()
             }
+            Self::EmptyPayload => f.debug_tuple("EmptyPayload").finish(),
         }
     }
 }
@@ -91,7 +93,11 @@ pub fn stream_to_disk<R: std::io::Read>(
         }
     }
 
-    return Ok(total_bytes_written);
+    if total_bytes_written < 1 {
+        return Err(HttpError::EmptyPayload);
+    } else {
+        return Ok(total_bytes_written);
+    }
 }
 
 #[cfg(test)]
@@ -123,7 +129,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stream_to_disk_missing_delimiter() {
+    fn test_stream_to_disk_headers_too_large() {
         let mock_data: [u8; 10000] = [0; 10000]; // No \r\n\r\n within the first 8192 bytes
         let stream = MockStream::new(&mock_data);
         let path = std::path::PathBuf::from("/dev/null");
@@ -140,7 +146,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stream_to_disk_delimiter_found() {
+    fn test_stream_to_disk_ok() {
         let mock_data = b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\n\r\na";
         let stream = MockStream::new(mock_data);
         let path = std::path::PathBuf::from("/dev/null");
@@ -149,6 +155,18 @@ mod tests {
         match result {
             Ok(payload_bytes_received) => assert_eq!(payload_bytes_received, 1),
             Err(_) => panic!("expected payload_bytes_received: usize"),
+        }
+    }
+
+    #[test]
+    fn test_stream_to_disk_headers_delimiter_missing() {
+        let mock_data = b"HTTP/1.1 200 OK\r\nContent-Length:"; // abrupt end without \r\n\r\n
+        let stream = MockStream::new(mock_data);
+        let path = std::path::PathBuf::from("/dev/null");
+        let result = stream_to_disk(stream, &path);
+        match result {
+            Err(HttpError::EmptyPayload) => {}
+            _ => panic!("expected error EmptyPayload"),
         }
     }
 }
