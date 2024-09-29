@@ -1,6 +1,5 @@
 mod args;
 mod error;
-mod http;
 mod misc;
 mod text;
 

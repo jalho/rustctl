@@ -1,3 +1,0 @@
-# TODO
-
-- [ ] Extract steamcmd.tgz

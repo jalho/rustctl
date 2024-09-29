@@ -1,7 +1,5 @@
 //! Dumpster for miscellaneous stuff yet to be better categorized.
 
-use log::{debug, info};
-
 /// Initialize a global logging utility.
 pub fn init_logger() -> Result<log4rs::Handle, crate::args::ArgError> {
     let stdout = log4rs::append::console::ConsoleAppender::builder()
@@ -33,20 +31,13 @@ pub fn init_logger() -> Result<log4rs::Handle, crate::args::ArgError> {
 }
 
 pub enum InstallError {
-    HttpError(crate::http::HttpError),
     ExtractError(std::io::ErrorKind),
 }
 impl std::fmt::Debug for InstallError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::HttpError(arg0) => f.debug_tuple("HttpError").field(arg0).finish(),
             Self::ExtractError(arg0) => f.debug_tuple("ExtractError").field(arg0).finish(),
         }
-    }
-}
-impl From<crate::http::HttpError> for InstallError {
-    fn from(err: crate::http::HttpError) -> Self {
-        return Self::HttpError(err);
     }
 }
 
@@ -61,9 +52,21 @@ pub fn install_steamcmd(
     path.push(target_file_name);
 
     if !path.is_file() {
-        let mut response: std::net::TcpStream = crate::http::request(url)?;
-        let streamed_size: usize = crate::http::stream_to_disk(&mut response, &path)?;
-        log::info!("Downloaded SteamCMD: {} bytes from {}", streamed_size, url);
+        let response: reqwest::blocking::Response = match reqwest::blocking::get(url) {
+            Ok(n) => n,
+            Err(_) => todo!(),
+        };
+        let mut file: std::fs::File = match std::fs::File::create(path) {
+            Ok(n) => n,
+            Err(_) => todo!(),
+        };
+        let mut reader = std::io::BufReader::new(response);
+        // stream to disk
+        match std::io::copy(&mut reader, &mut file) {
+            Ok(_) => {}
+            Err(_) => todo!(),
+        }
+        log::info!("Downloaded SteamCMD from {}", url);
     } else {
         log::debug!(
             "SteamCMD distribution '{}' has been downloaded earlier -- Not downloading again",
@@ -95,8 +98,9 @@ pub fn install_steamcmd(
         let stderr = String::from_utf8(out.stderr).unwrap(); /* TODO: Make a FatalError */
         let paths: std::collections::HashSet<String> = extract_modified_paths(&stderr);
         let paths: Vec<&str> = paths.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
-        info!(
-            "Extracted files from SteamCMD distribution: {}",
+        log::info!(
+            "Extracted {} files from SteamCMD distribution: {}",
+            paths.len(),
             paths.join(", ")
         );
     }
