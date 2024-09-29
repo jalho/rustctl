@@ -1,7 +1,30 @@
 mod args;
 mod text;
 
-fn main() -> Result<(), args::ArgError> {
+enum FatalError {
+    ArgError(args::ArgError),
+    HttpError(HttpError),
+}
+impl std::fmt::Debug for FatalError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ArgError(arg0) => f.debug_tuple("ArgError").field(arg0).finish(),
+            Self::HttpError(arg0) => f.debug_tuple("HttpError").field(arg0).finish(),
+        }
+    }
+}
+impl From<args::ArgError> for FatalError {
+    fn from(err: args::ArgError) -> Self {
+        return Self::ArgError(err);
+    }
+}
+impl From<HttpError> for FatalError {
+    fn from(err: HttpError) -> Self {
+        return Self::HttpError(err);
+    }
+}
+
+fn main() -> Result<(), FatalError> {
     let argv: Vec<String> = std::env::args().collect();
     let config: args::Config = args::Config::get_from_fs(args::Config::default_fs_path())?;
 
@@ -24,13 +47,33 @@ fn main() -> Result<(), args::ArgError> {
     return Ok(());
 }
 
-fn download_steamcmd(url: String, download_dir: &std::path::PathBuf) -> Result<(), args::ArgError> {
+enum HttpError {
+    NoDelimiter,
+    BadUrl(String), /* TODO: Check this at config validation instead? */
+    IO(std::io::ErrorKind),
+}
+impl std::fmt::Debug for HttpError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NoDelimiter => write!(f, "NoDelimiter"),
+            Self::IO(arg0) => f.debug_tuple("IO").field(arg0).finish(),
+            Self::BadUrl(arg0) => f.debug_tuple("BadUrl").field(arg0).finish(),
+        }
+    }
+}
+impl From<std::io::Error> for HttpError {
+    fn from(err: std::io::Error) -> Self {
+        return Self::IO(err.kind());
+    }
+}
+
+fn download_steamcmd(url: String, download_dir: &std::path::PathBuf) -> Result<(), HttpError> {
     let (host, path): (&str, &str) =
         match url.strip_prefix("http://").and_then(|u| u.split_once('/')) {
             Some((n, m)) => (n, m),
             None => {
-                return Err(args::ArgError::ConfigInvalid(format!(
-                    "expected HTTP URL with path, got: '{}'",
+                return Err(HttpError::BadUrl(format!(
+                    "expected HTTP URL with path, got '{}'",
                     url
                 )));
             }
@@ -50,8 +93,9 @@ fn download_steamcmd(url: String, download_dir: &std::path::PathBuf) -> Result<(
 
     let headers_end: usize = match buf_in.windows(4).position(|window| window == b"\r\n\r\n") {
         Some(pos) => pos,
-        /* TODO: Add fatal error case */
-        None => todo!(),
+        None => {
+            return Err(HttpError::NoDelimiter);
+        }
     };
     let headers = &buf_in[..headers_end];
     let body = &buf_in[headers_end + 4..];
