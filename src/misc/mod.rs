@@ -46,7 +46,12 @@ pub fn install_steamcmd(
     let mut steamcmd_tgz_absolute: PathBuf = rustctl_root_dir.clone();
     steamcmd_tgz_absolute.push(steamcmd_tgz_filename);
 
-    if !steamcmd_tgz_absolute.is_file() {
+    if steamcmd_tgz_absolute.is_file() {
+        log::debug!(
+            "SteamCMD distribution '{}' has been downloaded earlier -- Not downloading again",
+            steamcmd_tgz_absolute.to_string_lossy()
+        );
+    } else {
         let response: reqwest::blocking::Response = match reqwest::blocking::get(url) {
             Ok(n) => n,
             Err(err) => {
@@ -87,17 +92,17 @@ pub fn install_steamcmd(
             _ => {}
         }
         log::info!("Downloaded SteamCMD from {}", url);
-    } else {
-        log::debug!(
-            "SteamCMD distribution '{}' has been downloaded earlier -- Not downloading again",
-            steamcmd_tgz_absolute.to_string_lossy()
-        );
     }
 
     let mut steamcmd_executable_absolute: std::path::PathBuf = rustctl_root_dir.clone();
     steamcmd_executable_absolute.push(steamcmd_executable_filename);
 
-    if !steamcmd_executable_absolute.is_file() {
+    if steamcmd_executable_absolute.is_file() {
+        log::debug!(
+            "SteamCMD executable '{}' has been extracted earlier -- Not extracting again",
+            steamcmd_executable_absolute.to_string_lossy()
+        );
+    } else {
         let cmd_strace: &str = "strace";
         let cmd_tar: &str = "tar";
         let out: std::process::Output = match std::process::Command::new(cmd_strace)
@@ -147,11 +152,6 @@ pub fn install_steamcmd(
             paths.len(),
             steamcmd_tgz_absolute.to_string_lossy(),
             paths.join(", ")
-        );
-    } else {
-        log::debug!(
-            "SteamCMD executable '{}' has been extracted earlier -- Not extracting again",
-            steamcmd_executable_absolute.to_string_lossy()
         );
     }
 
