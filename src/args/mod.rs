@@ -38,7 +38,9 @@ impl std::fmt::Debug for ArgError {
 #[derive(serde::Deserialize)]
 pub struct Config {
     /// Where _SteamCMD_ shall be downloaded from over the internet.
-    pub download_url_steamcmd: String,
+    pub steamcmd_download_url: String,
+    /// Name of a .tgz file in which the downloaded _SteamCMD_ distribution in saved.
+    pub steamcmd_target_file_name_tgz: String,
 
     /// Where the program shall install _SteamCMD_, _RustDedicated_, _Carbon_ etc.
     pub rustctl_root_dir: std::path::PathBuf,
