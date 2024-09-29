@@ -39,14 +39,14 @@ pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
 /// Install _SteamCMD_ (game server installer).
 pub fn install_steamcmd(
     url: &String,
-    download_dir: &std::path::PathBuf,
-    target_file_name: &std::path::PathBuf,
-    expected_extracted_steamcmd_entrypoint: &std::path::PathBuf,
+    rustctl_root_dir: &std::path::PathBuf,
+    steamcmd_tgz_filename: &std::path::PathBuf,
+    steamcmd_executable_filename: &std::path::PathBuf,
 ) -> Result<(), crate::error::FatalError> {
-    let mut path: PathBuf = download_dir.clone();
-    path.push(target_file_name);
+    let mut steamcmd_tgz_absolute: PathBuf = rustctl_root_dir.clone();
+    steamcmd_tgz_absolute.push(steamcmd_tgz_filename);
 
-    if !path.is_file() {
+    if !steamcmd_tgz_absolute.is_file() {
         let response: reqwest::blocking::Response = match reqwest::blocking::get(url) {
             Ok(n) => n,
             Err(err) => {
@@ -59,13 +59,13 @@ pub fn install_steamcmd(
                 ));
             }
         };
-        let mut file: std::fs::File = match std::fs::File::create(&path) {
+        let mut file: std::fs::File = match std::fs::File::create(&steamcmd_tgz_absolute) {
             Ok(n) => n,
             Err(err) => {
                 return Err(crate::error::FatalError::new(
                     format!(
                         "cannot install SteamCMD: cannot create file '{}'",
-                        path.to_string_lossy()
+                        steamcmd_tgz_absolute.to_string_lossy()
                     ),
                     Some(Box::new(err)),
                 ));
@@ -79,7 +79,7 @@ pub fn install_steamcmd(
                     format!(
                         "cannot install SteamCMD: cannot write response from '{}' to '{}'",
                         url,
-                        path.to_string_lossy()
+                        steamcmd_tgz_absolute.to_string_lossy()
                     ),
                     Some(Box::new(err)),
                 ));
@@ -90,21 +90,24 @@ pub fn install_steamcmd(
     } else {
         log::debug!(
             "SteamCMD distribution '{}' has been downloaded earlier -- Not downloading again",
-            path.to_string_lossy()
+            steamcmd_tgz_absolute.to_string_lossy()
         );
     }
 
-    let cmd_strace: &str = "strace";
-    let cmd_tar: &str = "tar";
-    if !expected_extracted_steamcmd_entrypoint.is_file() {
+    let mut steamcmd_executable_absolute: std::path::PathBuf = rustctl_root_dir.clone();
+    steamcmd_executable_absolute.push(steamcmd_executable_filename);
+
+    if !steamcmd_executable_absolute.is_file() {
+        let cmd_strace: &str = "strace";
+        let cmd_tar: &str = "tar";
         let out: std::process::Output = match std::process::Command::new(cmd_strace)
-            .current_dir(download_dir)
+            .current_dir(rustctl_root_dir)
             .args([
                 "-e",
                 "trace=file",
                 cmd_tar,
                 "-xzf",
-                &target_file_name.to_string_lossy(),
+                &steamcmd_tgz_filename.to_string_lossy(),
             ])
             .output()
         {
@@ -143,6 +146,11 @@ pub fn install_steamcmd(
             "Extracted {} files from SteamCMD distribution: {}",
             paths.len(),
             paths.join(", ")
+        );
+    } else {
+        log::debug!(
+            "SteamCMD executable '{}' has been extracted earlier -- Not extracting again",
+            steamcmd_executable_absolute.to_string_lossy()
         );
     }
 
