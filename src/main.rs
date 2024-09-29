@@ -5,7 +5,7 @@ mod misc;
 mod text;
 
 fn main() -> Result<(), error::FatalError> {
-    misc::init_logger();
+    misc::init_logger()?;
     log::debug!("Logger initialized");
 
     let argv: Vec<String> = std::env::args().collect();
