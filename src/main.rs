@@ -4,6 +4,9 @@ mod http;
 mod misc;
 mod text;
 
+/* TODO: Make descriptive error log everywhere where FatalError is bubbled from:
+Simplify it by only having it contain that message. */
+
 fn main() -> Result<(), error::FatalError> {
     misc::init_logger()?;
     log::debug!("Logger initialized");
@@ -18,6 +21,7 @@ fn main() -> Result<(), error::FatalError> {
                 &config.steamcmd_download_url,
                 &config.rustctl_root_dir,
                 &config.steamcmd_target_file_name_tgz,
+                &config.steamcmd_executable_name,
             )?;
         }
         args::Command::HealthStart => todo!(),
