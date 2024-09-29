@@ -67,7 +67,19 @@ impl From<std::io::Error> for HttpError {
     }
 }
 
+/// Download _SteamCMD_ (game server installer).
 fn download_steamcmd(url: String, download_dir: &std::path::PathBuf) -> Result<(), HttpError> {
+    let mut response: std::net::TcpStream = request_http(url)?;
+    /* TODO: Extract the .tgz */
+    /* TODO: Assert expected entry point exists (steamcmd.sh or something) */
+    let mut download_dir = download_dir.clone();
+    download_dir.push("steamcmd.tgz");
+    stream_to_disk(&mut response, &download_dir)?;
+    return Ok(());
+}
+
+/// Send an HTTP request.
+fn request_http(url: String) -> Result<std::net::TcpStream, HttpError> {
     let (host, path): (&str, &str) =
         match url.strip_prefix("http://").and_then(|u| u.split_once('/')) {
             Some((n, m)) => (n, m),
@@ -83,15 +95,10 @@ fn download_steamcmd(url: String, download_dir: &std::path::PathBuf) -> Result<(
         format!("GET /{path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n",);
     use std::io::Write;
     stream.write_all(buf_out.as_bytes())?;
-
-    /* TODO: Extract the .tgz */
-    /* TODO: Assert expected entry point exists (steamcmd.sh or something) */
-    let mut download_dir = download_dir.clone();
-    download_dir.push("steamcmd.tgz");
-    stream_to_disk(&mut stream, &download_dir)?;
-    return Ok(());
+    return Ok(stream);
 }
 
+/// Stream an HTTP response payload to disk.
 fn stream_to_disk<R: std::io::Read>(
     mut stream: R,
     download_dir: &std::path::PathBuf,
@@ -103,6 +110,7 @@ fn stream_to_disk<R: std::io::Read>(
     let mut file_out: std::fs::File = std::fs::File::create(download_dir)?;
     let mut total_bytes_written: usize = 0;
 
+    /* TODO: Wait for headers delimiter only up till some threshold? */
     loop {
         let bytes_read: usize = stream.read(&mut buffer)?;
         if bytes_read == 0 {
