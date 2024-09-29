@@ -18,3 +18,17 @@ pub fn init_logger() -> log4rs::Handle {
     let logger: log4rs::Handle = log4rs::init_config(logger_config).unwrap();
     return logger;
 }
+
+/// Install _SteamCMD_ (game server installer).
+pub fn install_steamcmd(
+    url: &String,
+    download_dir: &std::path::PathBuf,
+) -> Result<usize, crate::http::HttpError> {
+    let mut response: std::net::TcpStream = crate::http::request(url)?;
+    /* TODO: Extract the .tgz */
+    /* TODO: Assert expected entry point exists (steamcmd.sh or something) */
+    let mut download_dir = download_dir.clone();
+    download_dir.push("steamcmd.tgz");
+    let streamed_size: usize = crate::http::stream_to_disk(&mut response, &download_dir)?;
+    return Ok(streamed_size);
+}
