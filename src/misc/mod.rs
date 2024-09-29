@@ -60,7 +60,7 @@ pub fn install_steamcmd(
     if !path.is_file() {
         let mut response: std::net::TcpStream = crate::http::request(url)?;
         let streamed_size: usize = crate::http::stream_to_disk(&mut response, &path)?;
-        log::debug!("Downloaded SteamCMD: {} bytes from {}", streamed_size, url);
+        log::info!("Downloaded SteamCMD: {} bytes from {}", streamed_size, url);
     } else {
         log::debug!(
             "SteamCMD distribution '{}' has been downloaded earlier -- Not downloading again",
