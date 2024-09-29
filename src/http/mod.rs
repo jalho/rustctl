@@ -20,7 +20,7 @@ impl From<std::io::Error> for HttpError {
 }
 
 /// Send an HTTP request.
-pub fn request(url: String) -> Result<std::net::TcpStream, HttpError> {
+pub fn request(url: &String) -> Result<std::net::TcpStream, HttpError> {
     let (host, path): (&str, &str) =
         match url.strip_prefix("http://").and_then(|u| u.split_once('/')) {
             Some((n, m)) => (n, m),

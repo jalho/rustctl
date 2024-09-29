@@ -5,7 +5,7 @@ mod misc;
 mod text;
 
 fn main() -> Result<(), error::FatalError> {
-    _ = misc::init_logger();
+    misc::init_logger();
     log::debug!("Logger initialized");
 
     let argv: Vec<String> = std::env::args().collect();
@@ -15,7 +15,8 @@ fn main() -> Result<(), error::FatalError> {
         args::Command::Config => todo!(),
         args::Command::GameStart => {
             /* TODO: Only download SteamCMD if necessary */
-            let _ = download_steamcmd(config.download_url_steamcmd, &config.rustctl_root_dir)?;
+            let download_size: usize = get_steamcmd(&config.download_url_steamcmd, &config.rustctl_root_dir)?;
+            log::debug!("Downloaded SteamCMD: {} bytes from {}", download_size, config.download_url_steamcmd);
         }
         args::Command::HealthStart => todo!(),
         args::Command::Help => {
@@ -31,15 +32,15 @@ fn main() -> Result<(), error::FatalError> {
 }
 
 /// Download _SteamCMD_ (game server installer).
-fn download_steamcmd(
-    url: String,
+fn get_steamcmd(
+    url: &String,
     download_dir: &std::path::PathBuf,
-) -> Result<(), http::HttpError> {
+) -> Result<usize, http::HttpError> {
     let mut response: std::net::TcpStream = http::request(url)?;
     /* TODO: Extract the .tgz */
     /* TODO: Assert expected entry point exists (steamcmd.sh or something) */
     let mut download_dir = download_dir.clone();
     download_dir.push("steamcmd.tgz");
-    http::stream_to_disk(&mut response, &download_dir)?;
-    return Ok(());
+    let streamed_size: usize = http::stream_to_disk(&mut response, &download_dir)?;
+    return Ok(streamed_size);
 }
