@@ -1,4 +1,5 @@
 mod args;
+mod text;
 
 fn main() -> Result<(), args::ArgError> {
     let argv: Vec<String> = std::env::args().collect();
@@ -14,10 +15,11 @@ fn main() -> Result<(), args::ArgError> {
             let _ = download_steamcmd();
         }
         args::Command::HealthStart => todo!(),
+        args::Command::Help => {
+            println!("{}", text::HELPTEXT);
+        }
         args::Command::Version => {
-            let package_name = env!("CARGO_PKG_NAME");
-            let version = env!("CARGO_PKG_VERSION");
-            println!("{} v{}", package_name, version);
+            println!("{}", text::INFOTEXT);
         }
         args::Command::WebStart => todo!(),
     };

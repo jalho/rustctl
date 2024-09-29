@@ -98,6 +98,7 @@ pub enum Command {
     Config,
     GameStart,
     HealthStart,
+    Help,
     Version,
     WebStart,
 }
@@ -112,6 +113,8 @@ impl Command {
             return Ok(Self::GameStart);
         } else if argv[1] == "health" {
             return Ok(Self::HealthStart);
+        } else if argv[1] == "--help" {
+            return Ok(Self::Help);
         } else if argv[1] == "web" {
             return Ok(Self::WebStart);
         } else if argv[1] == "--version" {
