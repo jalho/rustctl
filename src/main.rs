@@ -84,38 +84,50 @@ fn download_steamcmd(url: String, download_dir: &std::path::PathBuf) -> Result<(
     use std::io::Write;
     stream.write_all(buf_out.as_bytes())?;
 
-    /* TODO: Stream the response to disk */
     /* TODO: Extract the .tgz */
     /* TODO: Assert expected entry point exists (steamcmd.sh or something) */
-    let mut buf_in = Vec::new();
-    use std::io::Read;
-    stream.read_to_end(&mut buf_in)?;
-
-    let headers_end: usize = match buf_in.windows(4).position(|window| window == b"\r\n\r\n") {
-        Some(pos) => pos,
-        None => {
-            return Err(HttpError::NoDelimiter);
-        }
-    };
-    let headers = &buf_in[..headers_end];
-    let body = &buf_in[headers_end + 4..];
-    let content_length = parse_content_length(headers).unwrap_or(body.len());
-    let payload = &body[..content_length];
-
     let mut download_dir = download_dir.clone();
     download_dir.push("steamcmd.tgz");
-    std::fs::write(download_dir, payload)?;
+    stream_to_disk(&mut stream, &download_dir)?;
     return Ok(());
 }
 
-fn parse_content_length(headers: &[u8]) -> Option<usize> {
-    let headers_str = String::from_utf8_lossy(headers);
-    for line in headers_str.lines() {
-        if line.to_lowercase().starts_with("content-length:") {
-            if let Some(length) = line.split(':').nth(1) {
-                return length.trim().parse().ok();
+fn stream_to_disk<R: std::io::Read>(
+    mut stream: R,
+    download_dir: &std::path::PathBuf,
+) -> std::result::Result<usize, std::io::Error> {
+    let mut buffer: [u8; 8192] = [0; 8192];
+    let mut buffer_headers: Vec<u8> = Vec::new();
+    let delimiter: &[u8; 4] = b"\r\n\r\n";
+
+    let mut file_out: std::fs::File = std::fs::File::create(download_dir)?;
+    let mut total_bytes_written: usize = 0;
+
+    loop {
+        let bytes_read: usize = stream.read(&mut buffer)?;
+        if bytes_read == 0 {
+            break;
+        }
+        buffer_headers.extend_from_slice(&buffer[..bytes_read]);
+
+        // only write data that follows headers...
+        if let Some(i) = buffer_headers.windows(4).position(|n| n == delimiter) {
+            let body_start: usize = i + delimiter.len();
+            use std::io::Write;
+            file_out.write_all(&buffer_headers[body_start..])?;
+            total_bytes_written += buffer_headers.len() - body_start;
+
+            // ...and then write the rest of the data till the end
+            while let Ok(bytes_read) = stream.read(&mut buffer) {
+                if bytes_read == 0 {
+                    break;
+                }
+                file_out.write_all(&buffer[..bytes_read])?;
+                total_bytes_written += bytes_read;
             }
+            break;
         }
     }
-    None
+
+    return Ok(total_bytes_written);
 }
