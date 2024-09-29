@@ -1,3 +1,6 @@
+//! HTTP stuff.
+
+/// Failures related to HTTP operations.
 pub enum HttpError {
     BadUrl(String),
     IO(std::io::ErrorKind),
