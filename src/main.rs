@@ -1,25 +1,12 @@
 mod args;
 mod error;
 mod http;
+mod misc;
 mod text;
 
 fn main() -> Result<(), error::FatalError> {
-    let stdout = log4rs::append::console::ConsoleAppender::builder()
-        .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
-            "[{d(%Y-%m-%dT%H:%M:%S%.3fZ)}] [{l}] - {m}{n}",
-        )))
-        .build();
-    let logger_config: log4rs::Config = log4rs::Config::builder()
-        .appender(log4rs::config::Appender::builder().build("stdout", Box::new(stdout)))
-        .build(
-            log4rs::config::Root::builder()
-                .appender("stdout")
-                .build(log::LevelFilter::Debug),
-        )
-        .unwrap();
-    _ = log4rs::init_config(logger_config).unwrap();
-    use log::info;
-    info!("Logger configured");
+    _ = misc::init_logger();
+    log::debug!("Logger initialized");
 
     let argv: Vec<String> = std::env::args().collect();
     let config: args::Config = args::Config::get_from_fs(args::Config::default_fs_path())?;
