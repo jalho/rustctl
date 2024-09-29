@@ -22,9 +22,9 @@ fn main() -> Result<(), error::FatalError> {
         }
     };
 
-    match args::Command::get(argv)? {
-        args::Command::Config => todo!(),
-        args::Command::GameStart => {
+    match args::Command::get(argv) {
+        Ok(args::Command::Config) => todo!(),
+        Ok(args::Command::GameStart) => {
             match misc::install_steamcmd(
                 &config.steamcmd_download_url,
                 &config.rustctl_root_dir,
@@ -38,14 +38,18 @@ fn main() -> Result<(), error::FatalError> {
                 _ => {}
             };
         }
-        args::Command::HealthStart => todo!(),
-        args::Command::Help => {
+        Ok(args::Command::HealthStart) => todo!(),
+        Ok(args::Command::Help) => {
             println!("{}", text::HELPTEXT);
         }
-        args::Command::Version => {
+        Ok(args::Command::Version) => {
             println!("{}", text::INFOTEXT);
         }
-        args::Command::WebStart => todo!(),
+        Ok(args::Command::WebStart) => todo!(),
+        Err(err) => {
+            log::error!("{}", err);
+            return Err(err);
+        }
     };
 
     return Ok(());
