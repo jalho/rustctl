@@ -13,7 +13,7 @@ fn main() -> Result<(), args::ArgError> {
                 config.download_url_steamcmd, config.rustctl_root_dir
             );
             /* TODO: Only download SteamCMD if necessary */
-            let _ = download_steamcmd();
+            let _ = download_steamcmd()?;
         }
         args::Command::HealthStart => todo!(),
         args::Command::Help => {

@@ -8,14 +8,14 @@ pub enum ArgError {
     ArgvLen,
     /// Unknown argument failure.
     ArgUnknown,
-    /// Filesystem read failure.
-    ConfigReadFs(std::io::ErrorKind),
-    /// TOML format parsing, missing or bad value failures.
+    /// Filesystem or networking read failures etm.
+    IO(std::io::ErrorKind),
+    /// TOML format parsing, missing or bad value failures etm.
     ConfigInvalid(String),
 }
 impl From<std::io::Error> for ArgError {
     fn from(err: std::io::Error) -> Self {
-        return Self::ConfigReadFs(err.kind());
+        return Self::IO(err.kind());
     }
 }
 impl From<toml::de::Error> for ArgError {
@@ -28,7 +28,7 @@ impl std::fmt::Debug for ArgError {
         match self {
             Self::ArgvLen => write!(f, "ArgvLen"),
             Self::ArgUnknown => write!(f, "ArgUnknown"),
-            Self::ConfigReadFs(arg0) => f.debug_tuple("ConfigReadFs").field(arg0).finish(),
+            Self::IO(arg0) => f.debug_tuple("IO").field(arg0).finish(),
             Self::ConfigInvalid(arg0) => f.debug_tuple("ConfigInvalid").field(arg0).finish(),
         }
     }
