@@ -14,6 +14,11 @@ fn main() -> Result<(), args::ArgError> {
             let _ = download_steamcmd();
         }
         args::Command::HealthStart => todo!(),
+        args::Command::Version => {
+            let package_name = env!("CARGO_PKG_NAME");
+            let version = env!("CARGO_PKG_VERSION");
+            println!("{} v{}", package_name, version);
+        }
         args::Command::WebStart => todo!(),
     };
 
