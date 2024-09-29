@@ -15,19 +15,17 @@ pub fn init_logger() -> Result<log4rs::Handle, crate::args::ArgError> {
                 .build(log::LevelFilter::Debug),
         ) {
         Ok(n) => n,
-        Err(_) => {
+        Err(err) => {
             return Err(crate::args::ArgError::ConfigInvalid(format!(
-                "TODO: Describe log4rs error"
+                "{:?}",
+                err.errors()
             )));
         }
     };
     let logger: log4rs::Handle = match log4rs::init_config(logger_config) {
         Ok(n) => n,
-        Err(_) => {
-            return Err(crate::args::ArgError::ConfigInvalid(format!(
-                "TODO: Describe log4rs error"
-            )))
-        }
+        // SetLoggerError is not really an arg error but whatever
+        Err(err) => return Err(crate::args::ArgError::ConfigInvalid(format!("{}", err))),
     };
     return Ok(logger);
 }
