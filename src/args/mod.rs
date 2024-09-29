@@ -121,13 +121,15 @@ impl Command {
     /// Determine the command based on the program's arguments.
     pub fn get(argv: Vec<String>) -> Result<Self, crate::error::FatalError> {
         let arg_count_min: usize = 2;
-        let arg1: &String = &argv[1];
         if argv.len() < arg_count_min {
             return Err(crate::error::FatalError::new(
                 format!("expected at least {} arguments", arg_count_min),
                 None,
             ));
-        } else if arg1 == "config" {
+        }
+
+        let arg1: &String = &argv[1];
+        if arg1 == "config" {
             return Ok(Self::Config);
         } else if arg1 == "game" {
             return Ok(Self::GameStart);
