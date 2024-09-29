@@ -57,8 +57,8 @@ pub fn install_steamcmd(
     let mut response: std::net::TcpStream = crate::http::request(url)?;
     /* TODO: Extract the .tgz */
     /* TODO: Assert expected entry point exists (steamcmd.sh or something) */
-    let mut download_dir = download_dir.clone();
-    download_dir.push(target_file_name);
-    let streamed_size: usize = crate::http::stream_to_disk(&mut response, &download_dir)?;
+    let mut path = download_dir.clone();
+    path.push(target_file_name);
+    let streamed_size: usize = crate::http::stream_to_disk(&mut response, &path)?;
     return Ok(streamed_size);
 }
