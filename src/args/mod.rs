@@ -1,39 +1,5 @@
 //! Configuration for the program.
 
-use std::os::unix::fs::PermissionsExt;
-
-/// Errors regarding bad args given to the program.
-pub enum ArgError {
-    /// Unexpected amount of arguments failure.
-    ArgvLen,
-    /// Unknown argument failure.
-    ArgUnknown,
-    /// Filesystem or networking read failures etm.
-    IO(std::io::ErrorKind),
-    /// TOML format parsing, missing or bad value failures etm.
-    ConfigInvalid(String),
-}
-impl From<std::io::Error> for ArgError {
-    fn from(err: std::io::Error) -> Self {
-        return Self::IO(err.kind());
-    }
-}
-impl From<toml::de::Error> for ArgError {
-    fn from(err: toml::de::Error) -> Self {
-        return Self::ConfigInvalid(String::from(err.message()));
-    }
-}
-impl std::fmt::Debug for ArgError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::ArgvLen => write!(f, "ArgvLen"),
-            Self::ArgUnknown => write!(f, "ArgUnknown"),
-            Self::IO(arg0) => f.debug_tuple("IO").field(arg0).finish(),
-            Self::ConfigInvalid(arg0) => f.debug_tuple("ConfigInvalid").field(arg0).finish(),
-        }
-    }
-}
-
 /// Configuration for the program.
 #[derive(serde::Deserialize)]
 pub struct Config {
@@ -54,18 +20,56 @@ impl Config {
     }
 
     /// Get configuration from filesystem.
-    pub fn get_from_fs(config_file_path: std::path::PathBuf) -> Result<Self, ArgError> {
-        let content_raw: String = std::fs::read_to_string(&config_file_path)?;
-        let config_parsed: Config = toml::from_str(&content_raw)?;
+    pub fn get_from_fs(
+        config_file_path: std::path::PathBuf,
+    ) -> Result<Self, crate::error::FatalError> {
+        let content_raw: String = match std::fs::read_to_string(&config_file_path) {
+            Ok(n) => n,
+            Err(err) => {
+                return Err(crate::error::FatalError::new(
+                    format!(
+                        "cannot read config from filesystem: '{}'",
+                        config_file_path.to_string_lossy()
+                    ),
+                    Some(Box::new(err)),
+                ));
+            }
+        };
+        let config_parsed: Config = match toml::from_str(&content_raw) {
+            Ok(n) => n,
+            Err(err) => {
+                return Err(crate::error::FatalError::new(
+                    format!(
+                        "cannot parse config from TOML: '{}'",
+                        config_file_path.to_string_lossy()
+                    ),
+                    Some(Box::new(err)),
+                ));
+            }
+        };
 
         if !config_parsed.rustctl_root_dir.is_dir() {
-            return Err(ArgError::ConfigInvalid(format!(
-                "not a directory: '{}'",
-                config_parsed.rustctl_root_dir.to_string_lossy()
-            )));
+            return Err(crate::error::FatalError::new(
+                format!(
+                    "bad program root directory: not a directory: '{}'",
+                    config_parsed.rustctl_root_dir.to_string_lossy()
+                ),
+                None,
+            ));
         }
 
-        let meta: std::fs::Metadata = std::fs::metadata(&config_parsed.rustctl_root_dir)?;
+        let meta: std::fs::Metadata = match std::fs::metadata(&config_parsed.rustctl_root_dir) {
+            Ok(n) => n,
+            Err(err) => {
+                return Err(crate::error::FatalError::new(
+                    format!(
+                        "bad program root directory: cannot read metadata: '{}'",
+                        config_parsed.rustctl_root_dir.to_string_lossy()
+                    ),
+                    Some(Box::new(err)),
+                ));
+            }
+        };
 
         use std::os::unix::fs::MetadataExt;
         let owner_uid: u32 = meta.uid();
@@ -75,22 +79,29 @@ impl Config {
         intended use case (single user Debian system). */
         let required_owner_uid: u32 = 1000;
         if owner_uid != required_owner_uid {
-            return Err(ArgError::ConfigInvalid(format!(
-                "not owned by user {}: '{}'",
-                required_owner_uid,
-                &config_parsed.rustctl_root_dir.to_string_lossy()
-            )));
+            return Err(crate::error::FatalError::new(
+                format!(
+                    "bad program root directory: not owned by user {}: '{}'",
+                    required_owner_uid,
+                    config_parsed.rustctl_root_dir.to_string_lossy()
+                ),
+                None,
+            ));
         }
 
+        use std::os::unix::fs::PermissionsExt;
         let permissions: u32 = meta.permissions().mode();
         let can_read = permissions & 0o400 != 0;
         let can_write = permissions & 0o200 != 0;
         let can_execute = permissions & 0o100 != 0;
         if !can_read || !can_write || !can_execute {
-            return Err(ArgError::ConfigInvalid(format!(
-                "rwx permissions required: '{}'",
-                config_parsed.rustctl_root_dir.to_string_lossy()
-            )));
+            return Err(crate::error::FatalError::new(
+                format!(
+                    "bad program root directory: missing rwx permissions: '{}'",
+                    config_parsed.rustctl_root_dir.to_string_lossy()
+                ),
+                None,
+            ));
         }
 
         return Ok(config_parsed);
@@ -108,23 +119,31 @@ pub enum Command {
 }
 impl Command {
     /// Determine the command based on the program's arguments.
-    pub fn get(argv: Vec<String>) -> Result<Self, ArgError> {
-        if argv.len() < 2 {
-            return Err(ArgError::ArgvLen);
-        } else if argv[1] == "config" {
+    pub fn get(argv: Vec<String>) -> Result<Self, crate::error::FatalError> {
+        let arg_count_min: usize = 2;
+        let arg1: &String = &argv[1];
+        if argv.len() < arg_count_min {
+            return Err(crate::error::FatalError::new(
+                format!("expected at least {} arguments", arg_count_min),
+                None,
+            ));
+        } else if arg1 == "config" {
             return Ok(Self::Config);
-        } else if argv[1] == "game" {
+        } else if arg1 == "game" {
             return Ok(Self::GameStart);
-        } else if argv[1] == "health" {
+        } else if arg1 == "health" {
             return Ok(Self::HealthStart);
-        } else if argv[1] == "--help" {
+        } else if arg1 == "--help" {
             return Ok(Self::Help);
-        } else if argv[1] == "web" {
+        } else if arg1 == "web" {
             return Ok(Self::WebStart);
-        } else if argv[1] == "--version" {
+        } else if arg1 == "--version" {
             return Ok(Self::Version);
         } else {
-            return Err(ArgError::ArgUnknown);
+            return Err(crate::error::FatalError::new(
+                format!("unknown argument: '{}'", arg1),
+                None,
+            ));
         }
     }
 }

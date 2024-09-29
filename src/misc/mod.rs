@@ -1,7 +1,9 @@
 //! Dumpster for miscellaneous stuff yet to be better categorized.
 
+use std::path::PathBuf;
+
 /// Initialize a global logging utility.
-pub fn init_logger() -> Result<log4rs::Handle, crate::args::ArgError> {
+pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
     let stdout = log4rs::append::console::ConsoleAppender::builder()
         .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
             "[{d(%Y-%m-%dT%H:%M:%S%.3f)}] {h([{l}])} - {m}{n}",
@@ -16,29 +18,22 @@ pub fn init_logger() -> Result<log4rs::Handle, crate::args::ArgError> {
         ) {
         Ok(n) => n,
         Err(err) => {
-            return Err(crate::args::ArgError::ConfigInvalid(format!(
-                "{:?}",
-                err.errors()
-            )));
+            return Err(crate::error::FatalError::new(
+                format!("bad logger config"),
+                Some(Box::new(err)),
+            ));
         }
     };
     let logger: log4rs::Handle = match log4rs::init_config(logger_config) {
         Ok(n) => n,
-        // SetLoggerError is not really an arg error but whatever
-        Err(err) => return Err(crate::args::ArgError::ConfigInvalid(format!("{}", err))),
+        Err(err) => {
+            return Err(crate::error::FatalError::new(
+                format!("bad instantiation of logger"),
+                Some(Box::new(err)),
+            ));
+        }
     };
     return Ok(logger);
-}
-
-pub enum InstallError {
-    ExtractError(std::io::ErrorKind),
-}
-impl std::fmt::Debug for InstallError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::ExtractError(arg0) => f.debug_tuple("ExtractError").field(arg0).finish(),
-        }
-    }
 }
 
 /// Install _SteamCMD_ (game server installer).
@@ -47,24 +42,49 @@ pub fn install_steamcmd(
     download_dir: &std::path::PathBuf,
     target_file_name: &std::path::PathBuf,
     expected_extracted_steamcmd_entrypoint: &std::path::PathBuf,
-) -> Result<(), InstallError> {
-    let mut path = download_dir.clone();
+) -> Result<(), crate::error::FatalError> {
+    let mut path: PathBuf = download_dir.clone();
     path.push(target_file_name);
 
     if !path.is_file() {
         let response: reqwest::blocking::Response = match reqwest::blocking::get(url) {
             Ok(n) => n,
-            Err(_) => todo!(),
+            Err(err) => {
+                return Err(crate::error::FatalError::new(
+                    format!(
+                        "cannot install SteamCMD: cannot fetch distribution from '{}'",
+                        url
+                    ),
+                    Some(Box::new(err)),
+                ));
+            }
         };
-        let mut file: std::fs::File = match std::fs::File::create(path) {
+        let mut file: std::fs::File = match std::fs::File::create(&path) {
             Ok(n) => n,
-            Err(_) => todo!(),
+            Err(err) => {
+                return Err(crate::error::FatalError::new(
+                    format!(
+                        "cannot install SteamCMD: cannot create file '{}'",
+                        path.to_string_lossy()
+                    ),
+                    Some(Box::new(err)),
+                ));
+            }
         };
         let mut reader = std::io::BufReader::new(response);
         // stream to disk
         match std::io::copy(&mut reader, &mut file) {
-            Ok(_) => {}
-            Err(_) => todo!(),
+            Err(err) => {
+                return Err(crate::error::FatalError::new(
+                    format!(
+                        "cannot install SteamCMD: cannot write response from '{}' to '{}'",
+                        url,
+                        path.to_string_lossy()
+                    ),
+                    Some(Box::new(err)),
+                ));
+            }
+            _ => {}
         }
         log::info!("Downloaded SteamCMD from {}", url);
     } else {
@@ -75,13 +95,14 @@ pub fn install_steamcmd(
     }
 
     let cmd_strace: &str = "strace";
+    let cmd_tar: &str = "tar";
     if !expected_extracted_steamcmd_entrypoint.is_file() {
         let out: std::process::Output = match std::process::Command::new(cmd_strace)
             .current_dir(download_dir)
             .args([
                 "-e",
                 "trace=file",
-                "tar",
+                cmd_tar,
                 "-xzf",
                 &target_file_name.to_string_lossy(),
             ])
@@ -89,13 +110,33 @@ pub fn install_steamcmd(
         {
             Ok(n) => n,
             Err(err) => {
-                return Err(InstallError::ExtractError(err.kind()));
+                return Err(crate::error::FatalError::new(
+                    format!(
+                        "cannot install SteamCMD: cannot execute '{}' with '{}'",
+                        cmd_tar, cmd_strace
+                    ),
+                    Some(Box::new(err)),
+                ));
             }
         };
         if !out.status.success() {
-            todo!(); /* TODO: Make a FatalError */
+            return Err(crate::error::FatalError::new(
+                format!(
+                    "cannot install SteamCMD: '{}' with '{}' exited unsuccessful status",
+                    cmd_tar, cmd_strace
+                ),
+                None,
+            ));
         }
-        let stderr = String::from_utf8(out.stderr).unwrap(); /* TODO: Make a FatalError */
+        let stderr = match String::from_utf8(out.stderr) {
+            Ok(n) => n,
+            Err(err) => {
+                return Err(crate::error::FatalError::new(
+                    format!("cannot check SteamCMD installation: cannot collect STDERR of '{}' as UTF-8", cmd_strace),
+                    Some(Box::new(err)),
+                ));
+            }
+        };
         let paths: std::collections::HashSet<String> = extract_modified_paths(&stderr);
         let paths: Vec<&str> = paths.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
         log::info!(
