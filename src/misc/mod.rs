@@ -53,12 +53,22 @@ pub fn install_steamcmd(
     url: &String,
     download_dir: &std::path::PathBuf,
     target_file_name: &String,
-) -> Result<usize, InstallError> {
-    let mut response: std::net::TcpStream = crate::http::request(url)?;
-    /* TODO: Extract the .tgz */
-    /* TODO: Assert expected entry point exists (steamcmd.sh or something) */
+) -> Result<(), InstallError> {
     let mut path = download_dir.clone();
     path.push(target_file_name);
-    let streamed_size: usize = crate::http::stream_to_disk(&mut response, &path)?;
-    return Ok(streamed_size);
+
+    if !path.is_file() {
+        let mut response: std::net::TcpStream = crate::http::request(url)?;
+        let streamed_size: usize = crate::http::stream_to_disk(&mut response, &path)?;
+        log::debug!("Downloaded SteamCMD: {} bytes from {}", streamed_size, url);
+    } else {
+        log::debug!(
+            "SteamCMD distribution '{}' has been downloaded earlier -- Not downloading again",
+            path.to_string_lossy()
+        );
+    }
+
+    /* TODO: Assert expected entry point exists (steamcmd.sh or something): extract the .tgz if not yet extracted */
+
+    return Ok(());
 }

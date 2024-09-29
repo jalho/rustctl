@@ -14,17 +14,11 @@ fn main() -> Result<(), error::FatalError> {
     match args::Command::get(argv)? {
         args::Command::Config => todo!(),
         args::Command::GameStart => {
-            /* TODO: Only download SteamCMD if necessary */
-            let download_size: usize = misc::install_steamcmd(
+            misc::install_steamcmd(
                 &config.steamcmd_download_url,
                 &config.rustctl_root_dir,
                 &config.steamcmd_target_file_name_tgz,
             )?;
-            log::debug!(
-                "Downloaded SteamCMD: {} bytes from {}",
-                download_size,
-                config.steamcmd_download_url
-            );
         }
         args::Command::HealthStart => todo!(),
         args::Command::Help => {
