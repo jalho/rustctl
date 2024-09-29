@@ -4,7 +4,7 @@
 pub fn init_logger() -> Result<log4rs::Handle, crate::args::ArgError> {
     let stdout = log4rs::append::console::ConsoleAppender::builder()
         .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
-            "[{d(%Y-%m-%dT%H:%M:%S%.3f)}] [{l}] - {m}{n}",
+            "[{d(%Y-%m-%dT%H:%M:%S%.3f)}] {h([{l}])} - {m}{n}",
         )))
         .build();
     let logger_config: log4rs::Config = match log4rs::Config::builder()
