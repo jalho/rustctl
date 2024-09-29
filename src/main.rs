@@ -9,7 +9,7 @@ fn main() -> Result<(), args::ArgError> {
         args::Command::Config => todo!(),
         args::Command::GameStart => {
             /* TODO: Only download SteamCMD if necessary */
-            let _ = download_steamcmd(config.download_url_steamcmd)?;
+            let _ = download_steamcmd(config.download_url_steamcmd, &config.rustctl_root_dir)?;
         }
         args::Command::HealthStart => todo!(),
         args::Command::Help => {
@@ -24,18 +24,18 @@ fn main() -> Result<(), args::ArgError> {
     return Ok(());
 }
 
-fn download_steamcmd(url: String) -> Result<(), std::io::Error> {
+fn download_steamcmd(url: String, download_dir: &std::path::PathBuf) -> Result<(), args::ArgError> {
     let (host, path): (&str, &str) =
         match url.strip_prefix("http://").and_then(|u| u.split_once('/')) {
             Some((n, m)) => (n, m),
-            /* TODO: Add fatal error case */
-            None => todo!(),
+            None => {
+                return Err(args::ArgError::ConfigInvalid(format!(
+                    "expected HTTP URL with path, got: '{}'",
+                    url
+                )));
+            }
         };
-
-    /* TODO: Parameterize */
-    let path_in: &str = "steamcmd.tgz";
     let mut stream: std::net::TcpStream = std::net::TcpStream::connect(host)?;
-
     let buf_out: String =
         format!("GET /{path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n",);
     use std::io::Write;
@@ -58,7 +58,9 @@ fn download_steamcmd(url: String) -> Result<(), std::io::Error> {
     let content_length = parse_content_length(headers).unwrap_or(body.len());
     let payload = &body[..content_length];
 
-    std::fs::write(path_in, payload)?;
+    let mut download_dir = download_dir.clone();
+    download_dir.push("steamcmd.tgz");
+    std::fs::write(download_dir, payload)?;
     return Ok(());
 }
 
