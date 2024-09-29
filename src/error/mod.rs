@@ -4,12 +4,14 @@
 pub enum FatalError {
     ArgError(crate::args::ArgError),
     HttpError(crate::http::HttpError),
+    InstallError(crate::misc::InstallError),
 }
 impl std::fmt::Debug for FatalError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ArgError(arg0) => f.debug_tuple("ArgError").field(arg0).finish(),
             Self::HttpError(arg0) => f.debug_tuple("HttpError").field(arg0).finish(),
+            Self::InstallError(arg0) => f.debug_tuple("InstallError").field(arg0).finish(),
         }
     }
 }
@@ -21,5 +23,10 @@ impl From<crate::args::ArgError> for FatalError {
 impl From<crate::http::HttpError> for FatalError {
     fn from(err: crate::http::HttpError) -> Self {
         return Self::HttpError(err);
+    }
+}
+impl From<crate::misc::InstallError> for FatalError {
+    fn from(err: crate::misc::InstallError) -> Self {
+        return Self::InstallError(err);
     }
 }

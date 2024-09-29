@@ -4,12 +4,16 @@
 pub enum HttpError {
     BadUrl(String),
     IO(std::io::ErrorKind),
+    HeaderDelimiterError(String),
 }
 impl std::fmt::Debug for HttpError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::IO(arg0) => f.debug_tuple("IO").field(arg0).finish(),
             Self::BadUrl(arg0) => f.debug_tuple("BadUrl").field(arg0).finish(),
+            Self::HeaderDelimiterError(arg0) => {
+                f.debug_tuple("HeaderDelimiterError").field(arg0).finish()
+            }
         }
     }
 }
@@ -43,7 +47,7 @@ pub fn request(url: &String) -> Result<std::net::TcpStream, HttpError> {
 pub fn stream_to_disk<R: std::io::Read>(
     mut stream: R,
     download_dir: &std::path::PathBuf,
-) -> std::result::Result<usize, std::io::Error> {
+) -> std::result::Result<usize, HttpError> {
     let mut buffer: [u8; 8192] = [0; 8192];
     let mut buffer_headers: Vec<u8> = Vec::new();
     let delimiter: &[u8; 4] = b"\r\n\r\n";

@@ -30,12 +30,30 @@ pub fn init_logger() -> Result<log4rs::Handle, crate::args::ArgError> {
     return Ok(logger);
 }
 
+pub enum InstallError {
+    HttpError(crate::http::HttpError),
+    ExtractError,
+}
+impl std::fmt::Debug for InstallError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::HttpError(arg0) => f.debug_tuple("HttpError").field(arg0).finish(),
+            Self::ExtractError => write!(f, "ExtractError"),
+        }
+    }
+}
+impl From<crate::http::HttpError> for InstallError {
+    fn from(err: crate::http::HttpError) -> Self {
+        return Self::HttpError(err);
+    }
+}
+
 /// Install _SteamCMD_ (game server installer).
 pub fn install_steamcmd(
     url: &String,
     download_dir: &std::path::PathBuf,
     target_file_name: &String,
-) -> Result<usize, crate::http::HttpError> {
+) -> Result<usize, InstallError> {
     let mut response: std::net::TcpStream = crate::http::request(url)?;
     /* TODO: Extract the .tgz */
     /* TODO: Assert expected entry point exists (steamcmd.sh or something) */
