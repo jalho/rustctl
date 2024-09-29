@@ -49,7 +49,7 @@ fn main() -> Result<(), FatalError> {
 
 enum HttpError {
     NoDelimiter,
-    BadUrl(String), /* TODO: Check this at config validation instead? */
+    BadUrl(String),
     IO(std::io::ErrorKind),
 }
 impl std::fmt::Debug for HttpError {
