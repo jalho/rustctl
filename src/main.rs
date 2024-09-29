@@ -11,9 +11,28 @@ fn main() -> Result<(), error::FatalError> {
         }
         _ => {}
     };
-    log::debug!("Logger initialized");
 
     let argv: Vec<String> = std::env::args().collect();
+    let command: args::Command = match args::Command::get(argv) {
+        Ok(n) => n,
+        Err(err) => {
+            log::error!("{}", err);
+            return Err(err);
+        }
+    };
+
+    match command {
+        args::Command::Help => {
+            println!("{}", text::HELPTEXT);
+            return Ok(());
+        }
+        args::Command::Version => {
+            println!("{}", text::INFOTEXT);
+            return Ok(());
+        }
+        _ => {}
+    }
+
     let config: args::Config = match args::Config::get_from_fs(args::Config::default_fs_path()) {
         Ok(n) => n,
         Err(err) => {
@@ -22,9 +41,9 @@ fn main() -> Result<(), error::FatalError> {
         }
     };
 
-    match args::Command::get(argv) {
-        Ok(args::Command::Config) => todo!(),
-        Ok(args::Command::GameStart) => {
+    match command {
+        args::Command::Config => todo!(),
+        args::Command::GameStart => {
             match misc::install_steamcmd(
                 &config.steamcmd_download_url,
                 &config.rustctl_root_dir,
@@ -38,19 +57,11 @@ fn main() -> Result<(), error::FatalError> {
                 _ => {}
             };
         }
-        Ok(args::Command::HealthStart) => todo!(),
-        Ok(args::Command::Help) => {
-            println!("{}", text::HELPTEXT);
-        }
-        Ok(args::Command::Version) => {
-            println!("{}", text::INFOTEXT);
-        }
-        Ok(args::Command::WebStart) => todo!(),
-        Err(err) => {
-            log::error!("{}", err);
-            return Err(err);
-        }
-    };
+        args::Command::HealthStart => todo!(),
+        args::Command::Help => todo!(),
+        args::Command::Version => todo!(),
+        args::Command::WebStart => todo!(),
+    }
 
     return Ok(());
 }
