@@ -8,12 +8,8 @@ fn main() -> Result<(), args::ArgError> {
     match args::Command::get(argv)? {
         args::Command::Config => todo!(),
         args::Command::GameStart => {
-            println!(
-                "TODO: Download SteamCMD from {} to {:?}",
-                config.download_url_steamcmd, config.rustctl_root_dir
-            );
             /* TODO: Only download SteamCMD if necessary */
-            let _ = download_steamcmd()?;
+            let _ = download_steamcmd(config.download_url_steamcmd)?;
         }
         args::Command::HealthStart => todo!(),
         args::Command::Help => {
@@ -28,17 +24,20 @@ fn main() -> Result<(), args::ArgError> {
     return Ok(());
 }
 
-fn download_steamcmd() -> Result<(), std::io::Error> {
-    /* TODO: Parameterize */
-    let url: &str = "127.0.0.1:8080";
-    let path_out: &str = "/steamcmd.tgz";
-    let path_in: &str = "steamcmd.tgz";
-    let mut stream: std::net::TcpStream = std::net::TcpStream::connect(url)?;
+fn download_steamcmd(url: String) -> Result<(), std::io::Error> {
+    let (host, path): (&str, &str) =
+        match url.strip_prefix("http://").and_then(|u| u.split_once('/')) {
+            Some((n, m)) => (n, m),
+            /* TODO: Add fatal error case */
+            None => todo!(),
+        };
 
-    let buf_out: String = format!(
-        "GET {} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n",
-        path_out, url
-    );
+    /* TODO: Parameterize */
+    let path_in: &str = "steamcmd.tgz";
+    let mut stream: std::net::TcpStream = std::net::TcpStream::connect(host)?;
+
+    let buf_out: String =
+        format!("GET /{path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n",);
     use std::io::Write;
     stream.write_all(buf_out.as_bytes())?;
 
