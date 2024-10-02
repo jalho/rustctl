@@ -146,7 +146,7 @@ fn run_with_strace(
     argv: Vec<&str>,
     cwd: &std::path::PathBuf,
 ) -> Result<Vec<String>, StraceFilesError> {
-    let strace_argv = vec![vec!["-e", "trace=file", cmd], argv].concat();
+    let strace_argv = vec![vec!["-ff", "-e", "trace=file", cmd], argv].concat();
     let out: std::process::Output = std::process::Command::new(CMD_STRACE)
         .current_dir(cwd)
         .args(strace_argv)
