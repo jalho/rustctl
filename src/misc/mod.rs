@@ -50,7 +50,6 @@ pub fn install_update_game_server(
     let mut steamcmd_executable_absolute: std::path::PathBuf = rustctl_root_dir.clone();
     steamcmd_executable_absolute.push(steamcmd_executable_filename);
 
-    // TODO: Accept &std::path::PathBuf in run_with_strace?
     let steamcmd_executable_absolute: &str = &steamcmd_executable_absolute.to_string_lossy();
 
     /* Game server installation location must be different than where the installer is for some reason... */
@@ -96,11 +95,6 @@ pub fn install_update_game_server(
     };
     paths_touched.sort();
 
-    /* TODO: Fix fs strace with SteamCMD... The installation DOES yield
-    `./installations/RustDedicated` (The main thing we want!) yet the way we use
-    strace doesn't pick it up. However, it does detect `./installations/steamapps/downloading/258550/RustDedicated`
-    among other things! No idea what OS mechanism yields the `./installations/RustDedicated`...
-    (Already tried adding "rename" to the watched syscalls -- Did not help!) */
     log::info!(
         "Installed or updated {} game server files with SteamCMD: {}",
         paths_touched.len(),
