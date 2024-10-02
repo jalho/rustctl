@@ -154,7 +154,7 @@ fn run_with_strace(
     if !out.status.success() {
         return Err(StraceFilesError::ExitStatus);
     }
-    let stderr = String::from_utf8(out.stderr)?;
+    let stderr: String = String::from_utf8(out.stderr)?;
     let paths: std::collections::HashSet<String> = extract_modified_paths(&stderr);
     return Ok(paths.into_iter().collect());
 }
