@@ -69,7 +69,7 @@ pub fn install_update_game_server(
         "Installing or updating game server with SteamCMD to '{}'",
         game_server_install_dir.to_string_lossy()
     );
-    let paths_touched: Vec<String> = match run_with_strace(
+    let mut paths_touched: Vec<String> = match run_with_strace(
         steamcmd_executable_absolute,
         vec![
             "+force_install_dir",
@@ -94,6 +94,7 @@ pub fn install_update_game_server(
         },
         Ok(n) => n,
     };
+    paths_touched.sort();
 
     /* TODO: Fix strace with SteamCMD... Gotta dive some levels of indirection? Sample log:
     ```
@@ -227,7 +228,7 @@ pub fn install_steamcmd(
         );
     } else {
         let cmd_tar: &str = "tar";
-        let paths_touched: Vec<String> = match run_with_strace(
+        let mut paths_touched: Vec<String> = match run_with_strace(
             cmd_tar,
             vec!["-xzf", &steamcmd_tgz_filename.to_string_lossy()],
             rustctl_root_dir,
@@ -253,6 +254,8 @@ pub fn install_steamcmd(
                 ))
             }
         };
+        paths_touched.sort();
+
         log::info!(
             "Extracted {} files from SteamCMD distribution '{}': {}",
             paths_touched.len(),
