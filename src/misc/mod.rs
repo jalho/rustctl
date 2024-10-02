@@ -96,12 +96,11 @@ pub fn install_update_game_server(
     };
     paths_touched.sort();
 
-    /* TODO: Fix strace with SteamCMD... Gotta dive some levels of indirection? Sample log:
-    ```
-    [2024-10-02T21:56:54.929] [INFO] - Installing or updating game server with SteamCMD to '/home/rust/installations'
-    [2024-10-02T22:01:03.724] [INFO] - Installed or updated 1 game server files with SteamCMD: /dev/tty
-    ```
-    Expecting more like dozens or hundreds of touched paths, `./installations/RustDedicated` among them... */
+    /* TODO: Fix fs strace with SteamCMD... The installation DOES yield
+    `./installations/RustDedicated` (The main thing we want!) yet the way we use
+    strace doesn't pick it up. However, it does detect `./installations/steamapps/downloading/258550/RustDedicated`
+    among other things! No idea what OS mechanism yields the `./installations/RustDedicated`...
+    (Already tried adding "rename" to the watched syscalls -- Did not help!) */
     log::info!(
         "Installed or updated {} game server files with SteamCMD: {}",
         paths_touched.len(),
