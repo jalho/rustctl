@@ -2,6 +2,10 @@
 
 use std::path::PathBuf;
 
+use log::info;
+
+const CMD_STRACE: &str = "strace";
+
 /// Initialize a global logging utility.
 pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
     let stdout = log4rs::append::console::ConsoleAppender::builder()
@@ -34,6 +38,112 @@ pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
         }
     };
     return Ok(logger);
+}
+
+/// Install or update an existing installation of the game server.
+pub fn install_update_game_server(
+    rustctl_root_dir: &std::path::PathBuf,
+    steamcmd_executable_filename: &std::path::PathBuf,
+) -> Result<(), crate::error::FatalError> {
+    let mut steamcmd_executable_absolute: std::path::PathBuf = rustctl_root_dir.clone();
+    steamcmd_executable_absolute.push(steamcmd_executable_filename);
+
+    // TODO: Accept &std::path::PathBuf in run_with_strace?
+    let steamcmd_executable_absolute: &str = &steamcmd_executable_absolute.to_string_lossy();
+
+    /* Game server installation location must be different than where the installer is for some reason... */
+    let mut game_server_install_dir: std::path::PathBuf = rustctl_root_dir.clone();
+    game_server_install_dir.push("installations"); // TODO: Parameterize game server installation dir!
+    if !game_server_install_dir.is_dir() {
+        match std::fs::create_dir(&game_server_install_dir) {
+            Ok(_) => {}
+            Err(err) => {
+                return Err(crate::error::FatalError::new(format!("cannot install or update game server: cannot create installation directory '{}'", game_server_install_dir.to_string_lossy()), Some(Box::new(err))));
+            }
+        }
+    }
+
+    info!(
+        "Installing or updating game server with SteamCMD to '{}'",
+        game_server_install_dir.to_string_lossy()
+    );
+    let paths_touched: Vec<String> = match run_with_strace(
+        steamcmd_executable_absolute,
+        vec![
+            "+force_install_dir",
+            &game_server_install_dir.to_string_lossy(),
+            "+login",
+            "anonymous",
+            "+app_update",
+            "258550",
+            "validate",
+            "+quit",
+        ],
+        rustctl_root_dir,
+    ) {
+        Err(StraceFilesError::DecodeUtf8(err)) => {
+            return Err(crate::error::FatalError::new(format!("cannot install or update game server: cannot decode output of '{CMD_STRACE}' with '{steamcmd_executable_absolute}' as UTF-8"), Some(Box::new(err))))
+        },
+        Err(StraceFilesError::ExitStatus) => {
+            return Err(crate::error::FatalError::new(format!("cannot install or update game server: '{CMD_STRACE}' with '{steamcmd_executable_absolute}' exited with unsuccessful status"), None))
+        },
+        Err(StraceFilesError::IO(err)) => {
+            return Err(crate::error::FatalError::new(format!("cannot install or update game server: cannot execute '{CMD_STRACE}' with '{steamcmd_executable_absolute}'"), Some(Box::new(err))))
+        },
+        Ok(n) => n,
+    };
+
+    /* TODO: Fix strace with SteamCMD... Gotta dive some levels of indirection? Sample log:
+    ```
+    [2024-10-02T21:56:54.929] [INFO] - Installing or updating game server with SteamCMD to '/home/rust/installations'
+    [2024-10-02T22:01:03.724] [INFO] - Installed or updated 1 game server files with SteamCMD: /dev/tty
+    ```
+    Expecting more like dozens or hundreds of touched paths, `./installations/RustDedicated` among them... */
+    log::info!(
+        "Installed or updated {} game server files with SteamCMD: {}",
+        paths_touched.len(),
+        paths_touched.join(", ")
+    );
+
+    // TODO: Assert expected game server entrypoint (`./installations/RustDedicated`) exists after installation!
+
+    return Ok(());
+}
+
+/// Failures with running a command with strace, watching touched filesystem.
+enum StraceFilesError {
+    IO(std::io::Error),
+    ExitStatus,
+    DecodeUtf8(std::string::FromUtf8Error),
+}
+impl From<std::io::Error> for StraceFilesError {
+    fn from(err: std::io::Error) -> Self {
+        return Self::IO(err);
+    }
+}
+impl From<std::string::FromUtf8Error> for StraceFilesError {
+    fn from(err: std::string::FromUtf8Error) -> Self {
+        return Self::DecodeUtf8(err);
+    }
+}
+
+/// Run a given command with strace, watching touched filesystem.
+fn run_with_strace(
+    cmd: &str,
+    argv: Vec<&str>,
+    cwd: &std::path::PathBuf,
+) -> Result<Vec<String>, StraceFilesError> {
+    let strace_argv = vec![vec!["-e", "trace=file", cmd], argv].concat();
+    let out: std::process::Output = std::process::Command::new(CMD_STRACE)
+        .current_dir(cwd)
+        .args(strace_argv)
+        .output()?;
+    if !out.status.success() {
+        return Err(StraceFilesError::ExitStatus);
+    }
+    let stderr = String::from_utf8(out.stderr)?;
+    let paths: std::collections::HashSet<String> = extract_modified_paths(&stderr);
+    return Ok(paths.into_iter().collect());
 }
 
 /// Install _SteamCMD_ (game server installer).
@@ -103,56 +213,49 @@ pub fn install_steamcmd(
             steamcmd_executable_absolute.to_string_lossy()
         );
     } else {
-        let cmd_strace: &str = "strace";
         let cmd_tar: &str = "tar";
-        let out: std::process::Output = match std::process::Command::new(cmd_strace)
-            .current_dir(rustctl_root_dir)
-            .args([
-                "-e",
-                "trace=file",
-                cmd_tar,
-                "-xzf",
-                &steamcmd_tgz_filename.to_string_lossy(),
-            ])
-            .output()
-        {
+        let paths_touched: Vec<String> = match run_with_strace(
+            cmd_tar,
+            vec!["-xzf", &steamcmd_tgz_filename.to_string_lossy()],
+            rustctl_root_dir,
+        ) {
             Ok(n) => n,
-            Err(err) => {
+            Err(StraceFilesError::DecodeUtf8(err)) => {
                 return Err(crate::error::FatalError::new(
                     format!(
-                        "cannot install SteamCMD: cannot execute '{}' with '{}'",
-                        cmd_tar, cmd_strace
+                        "cannot install SteamCMD: cannot decode output of '{CMD_STRACE}' with '{cmd_tar}' as UTF-8",
                     ),
                     Some(Box::new(err)),
-                ));
+                ))
             }
-        };
-        if !out.status.success() {
-            return Err(crate::error::FatalError::new(
-                format!(
-                    "cannot install SteamCMD: '{}' with '{}' exited unsuccessful status",
-                    cmd_tar, cmd_strace
-                ),
-                None,
-            ));
-        }
-        let stderr = match String::from_utf8(out.stderr) {
-            Ok(n) => n,
-            Err(err) => {
+            Err(StraceFilesError::ExitStatus) => {
+                return Err(crate::error::FatalError::new(format!("cannot install SteamCMD: '{CMD_STRACE}' with '{cmd_tar}' exited with unsuccessful status"), None))
+            }
+            Err(StraceFilesError::IO(err)) => {
                 return Err(crate::error::FatalError::new(
-                    format!("cannot check SteamCMD installation: cannot collect STDERR of '{}' as UTF-8", cmd_strace),
+                    format!(
+                        "cannot install SteamCMD: cannot execute '{CMD_STRACE}' with '{cmd_tar}'",
+                    ),
                     Some(Box::new(err)),
-                ));
+                ))
             }
         };
-        let paths: std::collections::HashSet<String> = extract_modified_paths(&stderr);
-        let paths: Vec<&str> = paths.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
         log::info!(
             "Extracted {} files from SteamCMD distribution '{}': {}",
-            paths.len(),
+            paths_touched.len(),
             steamcmd_tgz_absolute.to_string_lossy(),
-            paths.join(", ")
+            paths_touched.join(", ")
         );
+    }
+
+    if !steamcmd_executable_absolute.is_file() {
+        return Err(crate::error::FatalError::new(
+            format!(
+                "unexpected distribution of SteamCMD: did not contain file '{}'",
+                steamcmd_executable_filename.to_string_lossy()
+            ),
+            None,
+        ));
     }
 
     return Ok(());

@@ -56,6 +56,17 @@ fn main() -> Result<(), error::FatalError> {
                 }
                 _ => {}
             };
+
+            match misc::install_update_game_server(
+                &config.rustctl_root_dir,
+                &config.steamcmd_executable_name,
+            ) {
+                Err(err) => {
+                    log::error!("{}", err);
+                    return Err(err);
+                }
+                _ => {}
+            }
         }
         args::Command::HealthStart => todo!(),
         args::Command::Help => todo!(),
