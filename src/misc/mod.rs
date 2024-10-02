@@ -295,7 +295,7 @@ fn extract_modified_paths(strace_output: &str) -> std::collections::HashSet<Stri
             || line.contains("utimensat")
             || line.contains("write")
         {
-            for path in extract_quoted_substrings(line) {
+            if let Some(path) = extract_quoted_substring(line) {
                 modified_paths.insert(path);
             }
         }
@@ -303,8 +303,8 @@ fn extract_modified_paths(strace_output: &str) -> std::collections::HashSet<Stri
     return modified_paths;
 }
 
-fn extract_quoted_substrings(input: &str) -> std::collections::HashSet<String> {
-    let mut quoted_substrings: std::collections::HashSet<String> = std::collections::HashSet::new();
+fn extract_quoted_substring(input: &str) -> Option<String> {
+    let mut last_quoted_substring: Option<String> = None;
     let mut in_quotes: bool = false;
     let mut start: usize = 0;
 
@@ -314,7 +314,7 @@ fn extract_quoted_substrings(input: &str) -> std::collections::HashSet<String> {
                 if in_quotes {
                     // if closing a quote, capture the substring
                     if start < i {
-                        quoted_substrings.insert(input[start..i].to_string());
+                        last_quoted_substring = Some(input[start..i].to_string());
                     }
                     in_quotes = false; // close the quote
                 } else {
@@ -327,7 +327,7 @@ fn extract_quoted_substrings(input: &str) -> std::collections::HashSet<String> {
         }
     }
 
-    return quoted_substrings;
+    return last_quoted_substring;
 }
 
 #[cfg(test)]
@@ -344,7 +344,9 @@ mod tests {
         "#;
         let modified_paths = extract_modified_paths(strace_output);
 
-        // renamed
+        // renamed (from)
+        assert_eq!(modified_paths.contains("/home/rust/installations/steamapps/downloading/258550/RustDedicated"), false);
+        // renamed (to)
         assert!(modified_paths.contains("/home/rust/installations/RustDedicated"));
 
         // opened in modifying mode
