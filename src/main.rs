@@ -60,6 +60,7 @@ fn main() -> Result<(), error::FatalError> {
             match misc::install_update_game_server(
                 &config.rustctl_root_dir,
                 &config.steamcmd_executable_name,
+                &config.steamcmd_installations_dir_name,
             ) {
                 Err(err) => {
                     log::error!("{}", err);

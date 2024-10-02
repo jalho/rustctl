@@ -3,15 +3,20 @@
 /// Configuration for the program.
 #[derive(serde::Deserialize)]
 pub struct Config {
+    /// Where the program shall install _SteamCMD_, _RustDedicated_, _Carbon_ etc.
+    pub rustctl_root_dir: std::path::PathBuf,
+
     /// Where _SteamCMD_ shall be downloaded from over the internet.
     pub steamcmd_download_url: String,
     /// Name of a .tgz file in which the downloaded _SteamCMD_ distribution shall be saved.
     pub steamcmd_target_file_name_tgz: std::path::PathBuf,
     /// Name of the _SteamCMD_ executable expected to be extracted from the distributed .tgz file.
     pub steamcmd_executable_name: std::path::PathBuf,
+    /// Name of directory within `rustctl_root_dir` in which SteamCMD shall install the game server.
+    /// For whatever reason this must be different from the directory in which the installer itself
+    /// (SteamCMD) is installed.
+    pub steamcmd_installations_dir_name: std::path::PathBuf,
 
-    /// Where the program shall install _SteamCMD_, _RustDedicated_, _Carbon_ etc.
-    pub rustctl_root_dir: std::path::PathBuf,
 }
 impl Config {
     /// Where the configuration of this program will be stored at by default.

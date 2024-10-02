@@ -44,6 +44,7 @@ pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
 pub fn install_update_game_server(
     rustctl_root_dir: &std::path::PathBuf,
     steamcmd_executable_filename: &std::path::PathBuf,
+    steamcmd_installations_dir_name: &std::path::PathBuf,
 ) -> Result<(), crate::error::FatalError> {
     let mut steamcmd_executable_absolute: std::path::PathBuf = rustctl_root_dir.clone();
     steamcmd_executable_absolute.push(steamcmd_executable_filename);
@@ -53,7 +54,7 @@ pub fn install_update_game_server(
 
     /* Game server installation location must be different than where the installer is for some reason... */
     let mut game_server_install_dir: std::path::PathBuf = rustctl_root_dir.clone();
-    game_server_install_dir.push("installations"); // TODO: Parameterize game server installation dir!
+    game_server_install_dir.push(steamcmd_installations_dir_name);
     if !game_server_install_dir.is_dir() {
         match std::fs::create_dir(&game_server_install_dir) {
             Ok(_) => {}
