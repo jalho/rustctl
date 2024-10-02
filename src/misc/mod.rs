@@ -45,6 +45,7 @@ pub fn install_update_game_server(
     rustctl_root_dir: &std::path::PathBuf,
     steamcmd_executable_filename: &std::path::PathBuf,
     steamcmd_installations_dir_name: &std::path::PathBuf,
+    game_server_executable_filename: &std::path::PathBuf,
 ) -> Result<(), crate::error::FatalError> {
     let mut steamcmd_executable_absolute: std::path::PathBuf = rustctl_root_dir.clone();
     steamcmd_executable_absolute.push(steamcmd_executable_filename);
@@ -106,7 +107,18 @@ pub fn install_update_game_server(
         paths_touched.join(", ")
     );
 
-    // TODO: Assert expected game server entrypoint (`./installations/RustDedicated`) exists after installation!
+    let mut game_server_executable_absolute: std::path::PathBuf = game_server_install_dir.clone();
+    game_server_executable_absolute.push(game_server_executable_filename);
+    if !game_server_executable_absolute.is_file() {
+        return Err(crate::error::FatalError::new(
+            format!(
+                "unexpected game server installation: did not contain file '{}' ('{}')",
+                game_server_executable_filename.to_string_lossy(),
+                game_server_executable_absolute.to_string_lossy(),
+            ),
+            None,
+        ));
+    }
 
     return Ok(());
 }
@@ -252,8 +264,9 @@ pub fn install_steamcmd(
     if !steamcmd_executable_absolute.is_file() {
         return Err(crate::error::FatalError::new(
             format!(
-                "unexpected distribution of SteamCMD: did not contain file '{}'",
-                steamcmd_executable_filename.to_string_lossy()
+                "unexpected distribution of SteamCMD: did not contain file '{}' ('{}')",
+                steamcmd_executable_filename.to_string_lossy(),
+                steamcmd_executable_absolute.to_string_lossy(),
             ),
             None,
         ));
