@@ -35,14 +35,17 @@ will refer to the shared configuration file.
 
 ### Example configuration
 
-As of commit `bc02990`. Not complete!
+As of commit `b222e07`. Not complete!
 
 ```toml
 "rustctl_root_dir" = "/home/rust"
 
-"steamcmd_download_url"         = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz"
-"steamcmd_target_file_name_tgz" = "steamcmd.tgz"
-"steamcmd_executable_name"      = "steamcmd.sh"
+"steamcmd_download_url"           = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz"
+"steamcmd_target_file_name_tgz"   = "steamcmd.tgz"
+"steamcmd_executable_name"        = "steamcmd.sh"
+
+"steamcmd_installations_dir_name" = "installations"
+"game_server_executable_name"     = "RustDedicated"
 ```
 
 ### Development
