@@ -155,7 +155,13 @@ fn run_with_strace(
         return Err(StraceFilesError::ExitStatus);
     }
     let stderr: String = String::from_utf8(out.stderr)?;
+
+    // TODO: Stat the collected paths to see which ones still exist in case e.g. some file was
+    // renamed multiple times (and thus its old names rename in the collection). Also if there are
+    // hundreds of modified or new files (or thousands, like in the case of fresh install of the
+    // game server), only log the biggest ones (per the stat) or something...
     let paths: std::collections::HashSet<String> = extract_modified_paths(&stderr);
+
     return Ok(paths.into_iter().collect());
 }
 
@@ -346,7 +352,11 @@ mod tests {
         let modified_paths = extract_modified_paths(strace_output);
 
         // renamed (from)
-        assert_eq!(modified_paths.contains("/home/rust/installations/steamapps/downloading/258550/RustDedicated"), false);
+        assert_eq!(
+            modified_paths
+                .contains("/home/rust/installations/steamapps/downloading/258550/RustDedicated"),
+            false
+        );
         // renamed (to)
         assert!(modified_paths.contains("/home/rust/installations/RustDedicated"));
 
@@ -355,7 +365,8 @@ mod tests {
         assert!(modified_paths.contains("/tmp/dumps"));
 
         // removed
-        assert!(modified_paths.contains("/home/rust/installations/steamapps/downloading/state_258550_258552.patch"));
+        assert!(modified_paths
+            .contains("/home/rust/installations/steamapps/downloading/state_258550_258552.patch"));
 
         // only accessed
         assert_eq!(
