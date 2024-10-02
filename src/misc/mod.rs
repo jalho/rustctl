@@ -281,23 +281,21 @@ pub fn install_steamcmd(
 fn extract_modified_paths(strace_output: &str) -> std::collections::HashSet<String> {
     let mut modified_paths: std::collections::HashSet<String> = std::collections::HashSet::new();
     for line in strace_output.lines() {
-        if line.contains("openat") || line.contains("open") {
-            if line.contains("O_WRONLY")
-                || line.contains("O_RDWR")
-                || line.contains("O_CREAT")
-                || line.contains("O_TRUNC")
-            {
-                if let Some(path) = extract_path_from_syscall(line) {
-                    modified_paths.insert(path);
-                }
-            }
-        } else if line.contains("write")
-            || line.contains("pwrite")
-            || line.contains("unlink")
+        let mut_mode: bool = line.contains("O_WRONLY")
+            || line.contains("O_RDWR")
+            || line.contains("O_CREAT")
+            || line.contains("O_TRUNC");
+
+        if (line.contains("open") && mut_mode)
+            || (line.contains("openat") && mut_mode)
             || line.contains("chmod")
+            || line.contains("pwrite")
+            || line.contains("rename")
+            || line.contains("unlink")
             || line.contains("utimensat")
+            || line.contains("write")
         {
-            if let Some(path) = extract_path_from_syscall(line) {
+            for path in extract_quoted_substrings(line) {
                 modified_paths.insert(path);
             }
         }
@@ -305,15 +303,31 @@ fn extract_modified_paths(strace_output: &str) -> std::collections::HashSet<Stri
     return modified_paths;
 }
 
-/// Extract file path from an `strace` output syscall line.
-fn extract_path_from_syscall(line: &str) -> Option<String> {
-    // find the first occurrence of a string that looks like a file path (i.e. a quoted string)
-    if let Some(start) = line.find('\"') {
-        if let Some(end) = line[start + 1..].find('\"') {
-            return Some(line[start + 1..start + 1 + end].to_string());
+fn extract_quoted_substrings(input: &str) -> std::collections::HashSet<String> {
+    let mut quoted_substrings: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut in_quotes: bool = false;
+    let mut start: usize = 0;
+
+    for (i, c) in input.char_indices() {
+        match c {
+            '\"' => {
+                if in_quotes {
+                    // if closing a quote, capture the substring
+                    if start < i {
+                        quoted_substrings.insert(input[start..i].to_string());
+                    }
+                    in_quotes = false; // close the quote
+                } else {
+                    // if opening a quote, mark the start
+                    in_quotes = true;
+                    start = i + 1; // move start past the quote
+                }
+            }
+            _ => {}
         }
     }
-    return None;
+
+    return quoted_substrings;
 }
 
 #[cfg(test)]
@@ -323,16 +337,26 @@ mod tests {
     #[test]
     fn test_extract_modified_paths() {
         let strace_output = r#"
-        openat(AT_FDCWD, "/etc/passwd", O_RDONLY|O_CLOEXEC) = 3
-        openat(AT_FDCWD, "dummy-steamcmd.txt", O_WRONLY|O_CREAT|O_EXCL|O_NOCTTY|O_NONBLOCK|O_CLOEXEC, 0644) = 4
-        write(4, "some data", 9) = 9
-        utimensat(4, NULL, [UTIME_OMIT, {tv_sec=1727534497, tv_nsec=0}], 0) = 0
-        openat(AT_FDCWD, "/etc/group", O_RDONLY|O_CLOEXEC) = 3
-        unlink("old-file.txt") = 0
+        [pid 30158] openat(AT_FDCWD, "steamcmd.sh", O_WRONLY|O_CREAT|O_EXCL|O_NOCTTY|O_NONBLOCK|O_CLOEXEC, 0764) = 4
+        [pid 30159] openat(AT_FDCWD, "steamcmd.tgz", O_RDONLY) = 3
+        [pid 30208] access("/home/rust/installations/RustDedicated_Data", F_OK) = -1 ENOENT (No such file or directory)
+        [pid 30208] rename("/home/rust/installations/steamapps/downloading/258550/RustDedicated", "/home/rust/installations/RustDedicated") = 0
         "#;
         let modified_paths = extract_modified_paths(strace_output);
-        assert!(modified_paths.contains("/etc/passwd") == false); // not modified
-        assert!(modified_paths.contains("dummy-steamcmd.txt")); // created/modified
-        assert!(modified_paths.contains("old-file.txt")); // deleted
+
+        // renamed
+        assert!(modified_paths.contains("/home/rust/installations/RustDedicated"));
+
+        // opened in modifying mode
+        assert!(modified_paths.contains("steamcmd.sh"));
+
+        // only accessed
+        assert_eq!(
+            modified_paths.contains("/home/rust/installations/RustDedicated_Data"),
+            false
+        );
+
+        // opened in non modifying mode
+        assert_eq!(modified_paths.contains("steamcmd.tgz"), false);
     }
 }
