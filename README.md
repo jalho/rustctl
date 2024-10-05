@@ -35,7 +35,7 @@ will refer to the shared configuration file.
 
 ### Example configuration
 
-As of commit `b222e07`. Not complete!
+As of commit `2d2f797`. Not complete!
 
 ```toml
 "rustctl_root_dir" = "/home/rust"
@@ -46,6 +46,17 @@ As of commit `b222e07`. Not complete!
 
 "steamcmd_installations_dir_name" = "installations"
 "game_server_executable_name"     = "RustDedicated"
+"game_server_argv" = [
+    "-batchmode",
+    "+server.identity",
+    "instance0",
+    "+rcon.port",
+    "28016",
+    "+rcon.web",
+    "1",
+    "+rcon.password",
+    "Your_Rcon_Password",
+]
 ```
 
 ### Development
