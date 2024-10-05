@@ -68,7 +68,7 @@ pub fn install_update_game_server(
         "Installing or updating game server with SteamCMD to '{}'",
         game_server_install_dir.to_string_lossy()
     );
-    let mut paths_touched: Vec<String> = match run_with_strace(
+    let paths_touched: Vec<(String, u64)> = match run_with_strace(
         steamcmd_executable_absolute,
         vec![
             "+force_install_dir",
@@ -93,12 +93,18 @@ pub fn install_update_game_server(
         },
         Ok(n) => n,
     };
-    paths_touched.sort();
+    let paths_touched_subset = paths_touched.iter().take(10);
 
     log::info!(
-        "Installed or updated {} game server files with SteamCMD: {}",
+        "Installed or updated {} game server files with SteamCMD: Biggest {}: {}",
         paths_touched.len(),
-        paths_touched.join(", ")
+        paths_touched_subset.len(),
+        paths_touched_subset
+            .into_iter()
+            .cloned()
+            .map(|(path, size)| format!("{} bytes: {}", human_readable_size(size), path))
+            .collect::<Vec<String>>()
+            .join(", ")
     );
 
     let mut game_server_executable_absolute: std::path::PathBuf = game_server_install_dir.clone();
@@ -139,7 +145,7 @@ fn run_with_strace(
     cmd: &str,
     argv: Vec<&str>,
     cwd: &std::path::PathBuf,
-) -> Result<Vec<String>, StraceFilesError> {
+) -> Result<Vec<(String, u64)>, StraceFilesError> {
     let strace_argv = vec![vec!["-ff", "-e", "trace=file", cmd], argv].concat();
     let out: std::process::Output = std::process::Command::new(CMD_STRACE)
         .current_dir(cwd)
@@ -150,13 +156,9 @@ fn run_with_strace(
     }
     let stderr: String = String::from_utf8(out.stderr)?;
 
-    // TODO: Stat the collected paths to see which ones still exist in case e.g. some file was
-    // renamed multiple times (and thus its old names rename in the collection). Also if there are
-    // hundreds of modified or new files (or thousands, like in the case of fresh install of the
-    // game server), only log the biggest ones (per the stat) or something...
-    let paths: std::collections::HashSet<String> = extract_modified_paths(&stderr);
+    let paths: Vec<(String, u64)> = get_sizes(extract_modified_paths(&stderr));
 
-    return Ok(paths.into_iter().collect());
+    return Ok(paths);
 }
 
 /// Install _SteamCMD_ (game server installer).
@@ -227,7 +229,7 @@ pub fn install_steamcmd(
         );
     } else {
         let cmd_tar: &str = "tar";
-        let mut paths_touched: Vec<String> = match run_with_strace(
+        let paths_touched: Vec<(String, u64)> = match run_with_strace(
             cmd_tar,
             vec!["-xzf", &steamcmd_tgz_filename.to_string_lossy()],
             rustctl_root_dir,
@@ -253,13 +255,20 @@ pub fn install_steamcmd(
                 ))
             }
         };
-        paths_touched.sort();
+
+        let paths_touched_subset = paths_touched.iter().take(10);
 
         log::info!(
-            "Extracted {} files from SteamCMD distribution '{}': {}",
+            "Extracted {} files from SteamCMD distribution '{}': Biggest {}: {}",
             paths_touched.len(),
             steamcmd_tgz_absolute.to_string_lossy(),
-            paths_touched.join(", ")
+            paths_touched_subset.len(),
+            paths_touched_subset
+                .into_iter()
+                .cloned()
+                .map(|(path, size)| format!("{} bytes: {}", human_readable_size(size), path))
+                .collect::<Vec<String>>()
+                .join(", ")
         );
     }
 
@@ -275,6 +284,19 @@ pub fn install_steamcmd(
     }
 
     return Ok(());
+}
+
+fn human_readable_size(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
+    let mut size: f64 = bytes as f64;
+    let mut unit: usize = 0;
+
+    while size >= 1000.0 && unit < UNITS.len() - 1 {
+        size /= 1000.0;
+        unit += 1;
+    }
+
+    return format!("{:.2} {}", size, UNITS[unit]);
 }
 
 /// Extract filesystem paths from `strace` output that were modified (created, written to etc.)
@@ -300,6 +322,17 @@ fn extract_modified_paths(strace_output: &str) -> std::collections::HashSet<Stri
         }
     }
     return modified_paths;
+}
+
+fn get_sizes(paths: std::collections::HashSet<String>) -> Vec<(String, u64)> {
+    let mut paths_with_sizes: Vec<(String, u64)> = vec![];
+    for modified_path in &paths {
+        if let Ok(metadata) = std::fs::metadata(modified_path) {
+            paths_with_sizes.push((modified_path.to_string(), metadata.len()));
+        }
+    }
+    paths_with_sizes.sort_by(|a, b| b.1.cmp(&a.1));
+    return paths_with_sizes;
 }
 
 fn extract_quoted_substring(input: &str) -> Option<String> {
