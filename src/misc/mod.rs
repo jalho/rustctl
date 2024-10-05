@@ -3,6 +3,7 @@
 use log::{debug, error, info};
 
 const CMD_STRACE: &str = "strace";
+const ENV_LD_LIBRARY_PATH: &str = "LD_LIBRARY_PATH";
 
 /// Initialize a global logging utility.
 pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
@@ -55,17 +56,17 @@ pub fn start_game(
         game_server_argv,
     ]
     .concat();
-    /* TODO: Fix lib load: set LD_LIBRARY_PATH="/home/rust/linux64"? (comes with SteamCMD distribution, contains "steamclient.so")
-    ```
-    [2024-10-05T17:17:02.212] [DEBUG] - STDERR: dlopen failed trying to load:
-    [2024-10-05T17:17:02.212] [DEBUG] - STDERR: steamclient.so
-    [2024-10-05T17:17:02.212] [DEBUG] - STDERR: with error:
-    [2024-10-05T17:17:02.212] [DEBUG] - STDERR: steamclient.so: cannot open shared object file: No such file or directory
-    [2024-10-05T17:17:02.308] [DEBUG] - STDERR: [S_API] SteamAPI_Init(): Loaded '/home/jka/.steam/debian-installation/linux64/steamclient.so' OK.  (First tried local 'steamclient.so')
-    ``` */
+    let libs_paths: String = match std::env::var(ENV_LD_LIBRARY_PATH) {
+        Ok(n) => n,
+        Err(_) => String::from(""),
+    };
     let mut child: std::process::Child = match std::process::Command::new(CMD_STRACE)
         .current_dir(cwd)
         .args(argv)
+        .env(
+            ENV_LD_LIBRARY_PATH,
+            format!("{libs_paths}:/home/rust/linux64"), // TODO: Parameterize LD_LIBRARY_PATH: The game server will attempt to load "steamclient.so" from there
+        )
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
