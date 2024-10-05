@@ -80,18 +80,7 @@ fn main() -> Result<(), error::FatalError> {
                 tx_stderr,
                 game_server_cwd,
                 config.game_server_executable_name,
-                // TODO: Get game argv from config!
-                vec![
-                    "-batchmode",
-                    "+server.identity",
-                    "instance0",
-                    "+rcon.port",
-                    "28016",
-                    "+rcon.web",
-                    "1",
-                    "+rcon.password",
-                    "Your_Rcon_Password",
-                ],
+                config.game_server_argv.iter().map(|s| s.as_str()).collect(),
             );
             let (th_stdout_rx, th_stderr_rx) = misc::handle_game_fs_events(rx_stdout, rx_stderr);
 

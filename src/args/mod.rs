@@ -19,6 +19,7 @@ pub struct Config {
 
     /// Name of the game server executable that is expected to be installed by SteamCMD: E.g. `RustDedicated`.
     pub game_server_executable_name: std::path::PathBuf,
+    pub game_server_argv: Vec<String>,
 }
 impl Config {
     /// Where the configuration of this program will be stored at by default.
