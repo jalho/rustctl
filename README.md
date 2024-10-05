@@ -59,17 +59,6 @@ As of commit `2d2f797`. Not complete!
 ]
 ```
 
-### Development
-
-```
-$ node --version
-v20.14.0
-
-$ node mock/steamcmd-distributor.mjs
-
-$ cargo run
-```
-
 [carbon-website]: https://carbonmod.gg
 [rustdedicated-website]: https://steamdb.info/app/258550
 [steamcmd-website]: https://developer.valvesoftware.com/wiki/SteamCMD
