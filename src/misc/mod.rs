@@ -71,8 +71,24 @@ pub fn start_game(
             ));
         }
     };
-    let stdout = child.stdout.take().unwrap();
-    let stderr = child.stderr.take().unwrap();
+    let stdout: std::process::ChildStdout = match child.stdout.take() {
+        Some(n) => n,
+        None => {
+            return Err(crate::error::FatalError::new(
+                format!("cannot launch game with {CMD_STRACE}: cannot get handle for STDOUT"),
+                None,
+            ));
+        }
+    };
+    let stderr: std::process::ChildStderr = match child.stderr.take() {
+        Some(n) => n,
+        None => {
+            return Err(crate::error::FatalError::new(
+                format!("cannot launch game with {CMD_STRACE}: cannot get handle for STDERR"),
+                None,
+            ));
+        }
+    };
 
     let th_stdout = std::thread::spawn(move || {
         let reader = std::io::BufReader::new(stdout);
