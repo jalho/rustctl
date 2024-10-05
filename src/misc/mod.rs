@@ -1,7 +1,5 @@
 //! Dumpster for miscellaneous stuff yet to be better categorized.
 
-use std::path::PathBuf;
-
 use log::info;
 
 const CMD_STRACE: &str = "strace";
@@ -156,7 +154,8 @@ fn run_with_strace(
     }
     let stderr: String = String::from_utf8(out.stderr)?;
 
-    let paths: Vec<(String, u64)> = get_sizes(extract_modified_paths(&stderr));
+    let paths: std::collections::HashSet<String> = extract_modified_paths(&stderr, &cwd);
+    let paths: Vec<(String, u64)> = get_sizes(paths);
 
     return Ok(paths);
 }
@@ -168,7 +167,7 @@ pub fn install_steamcmd(
     steamcmd_tgz_filename: &std::path::PathBuf,
     steamcmd_executable_filename: &std::path::PathBuf,
 ) -> Result<(), crate::error::FatalError> {
-    let mut steamcmd_tgz_absolute: PathBuf = rustctl_root_dir.clone();
+    let mut steamcmd_tgz_absolute: std::path::PathBuf = rustctl_root_dir.clone();
     steamcmd_tgz_absolute.push(steamcmd_tgz_filename);
 
     if steamcmd_tgz_absolute.is_file() {
@@ -300,7 +299,7 @@ fn human_readable_size(bytes: u64) -> String {
 }
 
 /// Extract filesystem paths from `strace` output that were modified (created, written to etc.)
-fn extract_modified_paths(strace_output: &str) -> std::collections::HashSet<String> {
+fn extract_modified_paths(strace_output: &str, cwd: &std::path::PathBuf) -> std::collections::HashSet<String> {
     let mut modified_paths: std::collections::HashSet<String> = std::collections::HashSet::new();
     for line in strace_output.lines() {
         let mut_mode: bool = line.contains("O_WRONLY")
@@ -317,7 +316,14 @@ fn extract_modified_paths(strace_output: &str) -> std::collections::HashSet<Stri
             || line.contains("write")
         {
             if let Some(path) = extract_quoted_substring(line) {
-                modified_paths.insert(path);
+                let file_path = std::path::Path::new(&path);
+                let file_path_absolute: String;
+                if file_path.is_absolute() {
+                    file_path_absolute = path;
+                } else {
+                    file_path_absolute = cwd.join(file_path).to_string_lossy().to_string();
+                }
+                modified_paths.insert(file_path_absolute);
             }
         }
     }
@@ -368,15 +374,17 @@ mod tests {
 
     #[test]
     fn test_extract_modified_paths() {
+        let cwd = std::path::Path::new("/home/rust");
         let strace_output = r#"
         [pid 30158] openat(AT_FDCWD, "steamcmd.sh", O_WRONLY|O_CREAT|O_EXCL|O_NOCTTY|O_NONBLOCK|O_CLOEXEC, 0764) = 4
         [pid 30159] openat(AT_FDCWD, "steamcmd.tgz", O_RDONLY) = 3
+        [pid 30159] openat(AT_FDCWD, "/some/absolute/path.txt", O_RDONLY) = 3
         [pid 30167] chmod("/tmp/dumps", 0777)   = 0
         [pid 30208] access("/home/rust/installations/RustDedicated_Data", F_OK) = -1 ENOENT (No such file or directory)
         [pid 30208] rename("/home/rust/installations/steamapps/downloading/258550/RustDedicated", "/home/rust/installations/RustDedicated") = 0
         [pid 30209] unlink("/home/rust/installations/steamapps/downloading/state_258550_258552.patch") = 0
         "#;
-        let modified_paths = extract_modified_paths(strace_output);
+        let modified_paths = extract_modified_paths(strace_output, &cwd.to_path_buf());
 
         // renamed (from)
         assert_eq!(
@@ -388,7 +396,7 @@ mod tests {
         assert!(modified_paths.contains("/home/rust/installations/RustDedicated"));
 
         // modified
-        assert!(modified_paths.contains("steamcmd.sh"));
+        assert!(modified_paths.contains("/home/rust/steamcmd.sh"));
         assert!(modified_paths.contains("/tmp/dumps"));
 
         // removed
@@ -403,5 +411,7 @@ mod tests {
 
         // opened in non modifying mode
         assert_eq!(modified_paths.contains("steamcmd.tgz"), false);
+        assert_eq!(modified_paths.contains("/home/rust/steamcmd.tgz"), false);
+        assert_eq!(modified_paths.contains("/some/absolute/path.txt"), false);
     }
 }
