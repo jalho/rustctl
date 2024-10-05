@@ -38,6 +38,67 @@ pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
     return Ok(logger);
 }
 
+// TODO: Remove unwraps!
+pub fn start_game(
+    tx_stdout: std::sync::mpsc::Sender<String>,
+    tx_stderr: std::sync::mpsc::Sender<String>,
+    cwd: std::path::PathBuf,
+    game_server_executable_filename: std::path::PathBuf,
+    game_server_argv: Vec<&str>,
+) -> (std::thread::JoinHandle<()>, std::thread::JoinHandle<()>) {
+    let mut game_server_executable_absolute: std::path::PathBuf = cwd.clone();
+    game_server_executable_absolute.push(game_server_executable_filename);
+    let game_server_executable_absolute: String = game_server_executable_absolute
+        .to_string_lossy()
+        .to_string();
+    let argv = vec![
+        vec!["-ff", "-e", "trace=file", &game_server_executable_absolute],
+        game_server_argv,
+    ]
+    .concat();
+    let mut child = std::process::Command::new(CMD_STRACE)
+        .current_dir(cwd)
+        .args(argv)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let stdout = child.stdout.take().unwrap();
+    let stderr = child.stderr.take().unwrap();
+
+    let th_stdout = std::thread::spawn(move || {
+        let reader = std::io::BufReader::new(stdout);
+        use std::io::BufRead;
+        for line in reader.lines() {
+            tx_stdout.send(line.unwrap()).unwrap();
+        }
+    });
+    let th_stderr = std::thread::spawn(move || {
+        let reader = std::io::BufReader::new(stderr);
+        use std::io::BufRead;
+        for line in reader.lines() {
+            tx_stderr.send(line.unwrap()).unwrap();
+        }
+    });
+
+    return (th_stdout, th_stderr);
+}
+
+pub fn handle_game_fs_events(
+    rx_stdout: std::sync::mpsc::Receiver<String>,
+    rx_stderr: std::sync::mpsc::Receiver<String>,
+) -> (std::thread::JoinHandle<()>, std::thread::JoinHandle<()>) {
+    let th_stdout = std::thread::spawn(move || loop {
+        let msg: String = rx_stdout.recv().unwrap();
+        println!("STDOUT: {msg}");
+    });
+    let th_stderr = std::thread::spawn(move || loop {
+        let msg: String = rx_stderr.recv().unwrap();
+        println!("STDERR: {msg}");
+    });
+    return (th_stdout, th_stderr);
+}
+
 /// Install or update an existing installation of the game server.
 pub fn install_update_game_server(
     rustctl_root_dir: &std::path::PathBuf,
@@ -299,7 +360,10 @@ fn human_readable_size(bytes: u64) -> String {
 }
 
 /// Extract filesystem paths from `strace` output that were modified (created, written to etc.)
-fn extract_modified_paths(strace_output: &str, cwd: &std::path::PathBuf) -> std::collections::HashSet<String> {
+fn extract_modified_paths(
+    strace_output: &str,
+    cwd: &std::path::PathBuf,
+) -> std::collections::HashSet<String> {
     let mut modified_paths: std::collections::HashSet<String> = std::collections::HashSet::new();
     for line in strace_output.lines() {
         let mut_mode: bool = line.contains("O_WRONLY")
