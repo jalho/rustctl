@@ -45,7 +45,7 @@ pub fn start_game(
     cwd: std::path::PathBuf,
     game_server_executable_filename: std::path::PathBuf,
     game_server_argv: Vec<&str>,
-) -> (std::thread::JoinHandle<()>, std::thread::JoinHandle<()>) {
+) -> Result<(std::thread::JoinHandle<()>, std::thread::JoinHandle<()>), crate::error::FatalError> {
     let mut game_server_executable_absolute: std::path::PathBuf = cwd.clone();
     game_server_executable_absolute.push(game_server_executable_filename);
     let game_server_executable_absolute: String = game_server_executable_absolute
@@ -56,13 +56,21 @@ pub fn start_game(
         game_server_argv,
     ]
     .concat();
-    let mut child = std::process::Command::new(CMD_STRACE)
+    let mut child: std::process::Child = match std::process::Command::new(CMD_STRACE)
         .current_dir(cwd)
         .args(argv)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
-        .unwrap();
+    {
+        Ok(n) => n,
+        Err(err) => {
+            return Err(crate::error::FatalError::new(
+                format!("cannot launch game with {CMD_STRACE}: cannot spawn"),
+                Some(Box::new(err)),
+            ));
+        }
+    };
     let stdout = child.stdout.take().unwrap();
     let stderr = child.stderr.take().unwrap();
 
@@ -81,7 +89,7 @@ pub fn start_game(
         }
     });
 
-    return (th_stdout, th_stderr);
+    return Ok((th_stdout, th_stderr));
 }
 
 pub fn handle_game_fs_events(
