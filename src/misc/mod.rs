@@ -55,6 +55,14 @@ pub fn start_game(
         game_server_argv,
     ]
     .concat();
+    /* TODO: Fix lib load: set LD_LIBRARY_PATH="/home/rust/linux64"? (comes with SteamCMD distribution, contains "steamclient.so")
+    ```
+    [2024-10-05T17:17:02.212] [DEBUG] - STDERR: dlopen failed trying to load:
+    [2024-10-05T17:17:02.212] [DEBUG] - STDERR: steamclient.so
+    [2024-10-05T17:17:02.212] [DEBUG] - STDERR: with error:
+    [2024-10-05T17:17:02.212] [DEBUG] - STDERR: steamclient.so: cannot open shared object file: No such file or directory
+    [2024-10-05T17:17:02.308] [DEBUG] - STDERR: [S_API] SteamAPI_Init(): Loaded '/home/jka/.steam/debian-installation/linux64/steamclient.so' OK.  (First tried local 'steamclient.so')
+    ``` */
     let mut child: std::process::Child = match std::process::Command::new(CMD_STRACE)
         .current_dir(cwd)
         .args(argv)
