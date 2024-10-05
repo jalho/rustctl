@@ -1,6 +1,6 @@
 //! Dumpster for miscellaneous stuff yet to be better categorized.
 
-use log::info;
+use log::{debug, error, info};
 
 const CMD_STRACE: &str = "strace";
 
@@ -38,7 +38,6 @@ pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
     return Ok(logger);
 }
 
-// TODO: Remove unwraps!
 pub fn start_game(
     tx_stdout: std::sync::mpsc::Sender<String>,
     tx_stderr: std::sync::mpsc::Sender<String>,
@@ -94,14 +93,40 @@ pub fn start_game(
         let reader = std::io::BufReader::new(stdout);
         use std::io::BufRead;
         for line in reader.lines() {
-            tx_stdout.send(line.unwrap()).unwrap();
+            let line = match line {
+                Ok(n) => n,
+                Err(err) => {
+                    error!("Cannot read game server STDOUT: {:#?}", err);
+                    continue;
+                }
+            };
+            match tx_stdout.send(line) {
+                Err(err) => {
+                    error!("Cannot send game server STDOUT: {:#?}", err);
+                    return;
+                }
+                _ => {}
+            }
         }
     });
     let th_stderr = std::thread::spawn(move || {
         let reader = std::io::BufReader::new(stderr);
         use std::io::BufRead;
         for line in reader.lines() {
-            tx_stderr.send(line.unwrap()).unwrap();
+            let line = match line {
+                Ok(n) => n,
+                Err(err) => {
+                    error!("Cannot read game server STDERR: {:#?}", err);
+                    continue;
+                }
+            };
+            match tx_stderr.send(line) {
+                Err(err) => {
+                    error!("Cannot send game server STDERR: {:#?}", err);
+                    return;
+                }
+                _ => {}
+            }
         }
     });
 
@@ -113,12 +138,24 @@ pub fn handle_game_fs_events(
     rx_stderr: std::sync::mpsc::Receiver<String>,
 ) -> (std::thread::JoinHandle<()>, std::thread::JoinHandle<()>) {
     let th_stdout = std::thread::spawn(move || loop {
-        let msg: String = rx_stdout.recv().unwrap();
-        println!("STDOUT: {msg}");
+        let msg: String = match rx_stdout.recv() {
+            Ok(n) => n,
+            Err(err) => {
+                error!("Cannot receive game server STDOUT: {:#?}", err);
+                return;
+            }
+        };
+        debug!("STDOUT: {msg}");
     });
     let th_stderr = std::thread::spawn(move || loop {
-        let msg: String = rx_stderr.recv().unwrap();
-        println!("STDERR: {msg}");
+        let msg: String = match rx_stderr.recv() {
+            Ok(n) => n,
+            Err(err) => {
+                error!("Cannot receive game server STDERR: {:#?}", err);
+                return;
+            }
+        };
+        debug!("STDERR: {msg}");
     });
     return (th_stdout, th_stderr);
 }
