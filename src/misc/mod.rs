@@ -196,19 +196,14 @@ pub fn handle_game_fs_events(
 
 /// Install or update an existing installation of the game server.
 pub fn install_update_game_server(
-    rustctl_root_dir: &std::path::PathBuf,
-    steamcmd_executable_filename: &std::path::PathBuf,
-    steamcmd_installations_dir_name: &std::path::PathBuf,
-    game_server_executable_filename: &std::path::PathBuf,
+    config: &crate::args::Config,
 ) -> Result<(), crate::error::FatalError> {
-    let mut steamcmd_executable_absolute: std::path::PathBuf = rustctl_root_dir.clone();
-    steamcmd_executable_absolute.push(steamcmd_executable_filename);
-
+    let steamcmd_executable_absolute: std::path::PathBuf =
+        config.get_absolute_steamcmd_executable();
     let steamcmd_executable_absolute: &str = &steamcmd_executable_absolute.to_string_lossy();
 
     /* Game server installation location must be different than where the installer is for some reason... */
-    let mut game_server_install_dir: std::path::PathBuf = rustctl_root_dir.clone();
-    game_server_install_dir.push(steamcmd_installations_dir_name);
+    let game_server_install_dir: std::path::PathBuf = config.get_absolute_steamcmd_installations();
     if !game_server_install_dir.is_dir() {
         match std::fs::create_dir(&game_server_install_dir) {
             Ok(_) => {}
@@ -234,7 +229,7 @@ pub fn install_update_game_server(
             "validate",
             "+quit",
         ],
-        rustctl_root_dir,
+        &config.get_absolute_root(),
     ) {
         Err(StraceFilesError::DecodeUtf8(err)) => {
             return Err(crate::error::FatalError::new(format!("cannot install or update game server: cannot decode output of '{CMD_STRACE}' with '{steamcmd_executable_absolute}' as UTF-8"), Some(Box::new(err))))
@@ -261,13 +256,17 @@ pub fn install_update_game_server(
             .join(", ")
     );
 
-    let mut game_server_executable_absolute: std::path::PathBuf = game_server_install_dir.clone();
-    game_server_executable_absolute.push(game_server_executable_filename);
+    let game_server_executable_absolute: std::path::PathBuf =
+        config.get_absolute_gameserver_executable();
     if !game_server_executable_absolute.is_file() {
+        let name: &std::ffi::OsStr = match game_server_executable_absolute.file_name() {
+            Some(n) => n,
+            None => unreachable!(), // TODO: Remove "unreachable"
+        };
         return Err(crate::error::FatalError::new(
             format!(
                 "unexpected game server installation: did not contain file '{}' ('{}')",
-                game_server_executable_filename.to_string_lossy(),
+                name.to_string_lossy(),
                 game_server_executable_absolute.to_string_lossy(),
             ),
             None,
@@ -423,7 +422,7 @@ pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error
     if !steamcmd_executable_absolute.is_file() {
         let name: &std::ffi::OsStr = match steamcmd_executable_absolute.file_name() {
             Some(n) => n,
-            None => unreachable!(),
+            None => unreachable!(), // TODO: Remove "unreachable"
         };
         return Err(crate::error::FatalError::new(
             format!(
