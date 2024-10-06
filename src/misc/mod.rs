@@ -168,8 +168,14 @@ pub fn handle_game_fs_events(
         };
         let paths_touched: std::collections::HashSet<String> = extract_modified_paths(&msg, &cwd);
         if paths_touched.len() > 0 {
-            if let Some(s) = paths_touched.into_iter().next() {
-                debug!("STDERR: '{s}': {msg}");
+            if let Some(game_server_file_touched) = paths_touched.into_iter().next() {
+                // the game server attempts to do a bunch of openat(AT_FDCWD, "/sys/kernel/**/trace_marker", O_WRONLY)
+                if game_server_file_touched == "/sys/kernel/tracing/trace_marker"
+                    || game_server_file_touched == "/sys/kernel/debug/tracing/trace_marker"
+                {
+                    continue;
+                }
+                debug!("STDERR: '{game_server_file_touched}': {msg}");
             }
         }
     });
