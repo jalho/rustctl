@@ -70,15 +70,13 @@ fn main() -> Result<(), error::FatalError> {
                 _ => {}
             }
 
-            let mut game_server_cwd: std::path::PathBuf = config.rustctl_root_dir.clone();
-            game_server_cwd.push(config.steamcmd_installations_dir_name);
-
             let (tx_stdout, rx_stdout) = std::sync::mpsc::channel::<String>();
             let (tx_stderr, rx_stderr) = std::sync::mpsc::channel::<String>();
             let (th_stdout_tx, th_stderr_tx) = match misc::start_game(
                 tx_stdout,
                 tx_stderr,
-                &game_server_cwd,
+                &config.rustctl_root_dir,
+                &config.steamcmd_installations_dir_name,
                 config.game_server_executable_name,
                 config.game_server_argv.iter().map(|s| s.as_str()).collect(),
             ) {
@@ -88,6 +86,9 @@ fn main() -> Result<(), error::FatalError> {
                     return Err(err);
                 }
             };
+
+            let mut game_server_cwd: std::path::PathBuf = config.rustctl_root_dir.clone();
+            game_server_cwd.push(config.steamcmd_installations_dir_name);
             let (th_stdout_rx, th_stderr_rx) =
                 misc::handle_game_fs_events(rx_stdout, rx_stderr, game_server_cwd);
 
