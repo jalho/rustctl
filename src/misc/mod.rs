@@ -42,7 +42,7 @@ pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
 pub fn start_game(
     tx_stdout: std::sync::mpsc::Sender<String>,
     tx_stderr: std::sync::mpsc::Sender<String>,
-    cwd: std::path::PathBuf,
+    cwd: &std::path::PathBuf,
     game_server_executable_filename: std::path::PathBuf,
     game_server_argv: Vec<&str>,
 ) -> Result<(std::thread::JoinHandle<()>, std::thread::JoinHandle<()>), crate::error::FatalError> {
@@ -145,6 +145,7 @@ pub fn start_game(
 pub fn handle_game_fs_events(
     rx_stdout: std::sync::mpsc::Receiver<String>,
     rx_stderr: std::sync::mpsc::Receiver<String>,
+    cwd: std::path::PathBuf,
 ) -> (std::thread::JoinHandle<()>, std::thread::JoinHandle<()>) {
     let th_stdout = std::thread::spawn(move || loop {
         let msg: String = match rx_stdout.recv() {
@@ -156,6 +157,7 @@ pub fn handle_game_fs_events(
         };
         debug!("STDOUT: {msg}");
     });
+
     let th_stderr = std::thread::spawn(move || loop {
         let msg: String = match rx_stderr.recv() {
             Ok(n) => n,
@@ -164,7 +166,12 @@ pub fn handle_game_fs_events(
                 return;
             }
         };
-        debug!("STDERR: {msg}");
+        let paths_touched: std::collections::HashSet<String> = extract_modified_paths(&msg, &cwd);
+        if paths_touched.len() > 0 {
+            if let Some(s) = paths_touched.into_iter().next() {
+                debug!("STDERR: '{s}': {msg}");
+            }
+        }
     });
     return (th_stdout, th_stderr);
 }
