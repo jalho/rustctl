@@ -152,7 +152,7 @@ pub fn start_game(
 pub fn handle_game_fs_events(
     rx_stdout: std::sync::mpsc::Receiver<String>,
     rx_stderr: std::sync::mpsc::Receiver<String>,
-    cwd: std::path::PathBuf,
+    config: &crate::args::Config,
 ) -> (std::thread::JoinHandle<()>, std::thread::JoinHandle<()>) {
     let th_stdout = std::thread::spawn(move || loop {
         let msg: String = match rx_stdout.recv() {
@@ -165,6 +165,7 @@ pub fn handle_game_fs_events(
         info!("{msg}");
     });
 
+    let game_server_cwd: std::path::PathBuf = config.get_absolute_steamcmd_installations();
     let th_stderr = std::thread::spawn(move || loop {
         let msg: String = match rx_stderr.recv() {
             Ok(n) => n,
@@ -173,7 +174,8 @@ pub fn handle_game_fs_events(
                 return;
             }
         };
-        let paths_touched: std::collections::HashSet<String> = extract_modified_paths(&msg, &cwd);
+        let paths_touched: std::collections::HashSet<String> =
+            extract_modified_paths(&msg, &game_server_cwd);
         if paths_touched.len() > 0 {
             if let Some(game_server_file_touched) = paths_touched.into_iter().next() {
                 // the game server attempts to do a bunch of openat(AT_FDCWD, "/sys/kernel/**/trace_marker", O_WRONLY)

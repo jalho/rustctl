@@ -75,10 +75,8 @@ fn main() -> Result<(), error::FatalError> {
                 }
             };
 
-            let mut game_server_cwd: std::path::PathBuf = config.rustctl_root_dir.clone();
-            game_server_cwd.push(config.steamcmd_installations_dir_name);
             let (th_stdout_rx, th_stderr_rx) =
-                misc::handle_game_fs_events(rx_stdout, rx_stderr, game_server_cwd);
+                misc::handle_game_fs_events(rx_stdout, rx_stderr, &config);
 
             _ = th_stdout_tx.join();
             _ = th_stderr_tx.join();

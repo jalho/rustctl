@@ -1,8 +1,5 @@
 //! Configuration for the program.
 
-/* TODO: Only construct the various necessary absolute filesystem paths once and pass references
-to them around rather than doing so many clones everywhere...  */
-
 /// Configuration for the program.
 #[derive(serde::Deserialize)]
 pub struct Config {
