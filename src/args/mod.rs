@@ -7,21 +7,21 @@ to them around rather than doing so many clones everywhere...  */
 #[derive(serde::Deserialize)]
 pub struct Config {
     /// Where the program shall install _SteamCMD_, _RustDedicated_, _Carbon_ etc.
-    pub rustctl_root_dir: std::path::PathBuf,
+    rustctl_root_dir: std::path::PathBuf,
 
     /// Where _SteamCMD_ shall be downloaded from over the internet.
     pub steamcmd_download_url: String,
     /// Name of a .tgz file in which the downloaded _SteamCMD_ distribution shall be saved.
-    pub steamcmd_target_file_name_tgz: std::path::PathBuf,
+    steamcmd_target_file_name_tgz: std::path::PathBuf,
     /// Name of the _SteamCMD_ executable expected to be extracted from the distributed .tgz file: E.g. `steamcmd.sh`.
-    pub steamcmd_executable_name: std::path::PathBuf,
+    steamcmd_executable_name: std::path::PathBuf,
     /// Name of directory within `rustctl_root_dir` in which SteamCMD shall install the game server.
     /// For whatever reason this must be different from the directory in which the installer itself
     /// (SteamCMD) is installed.
-    pub steamcmd_installations_dir_name: std::path::PathBuf,
+    steamcmd_installations_dir_name: std::path::PathBuf,
 
     /// Name of the game server executable that is expected to be installed by SteamCMD: E.g. `RustDedicated`.
-    pub game_server_executable_name: std::path::PathBuf,
+    game_server_executable_name: std::path::PathBuf,
     pub game_server_argv: Vec<String>,
 }
 impl Config {
@@ -116,6 +116,31 @@ impl Config {
         }
 
         return Ok(config_parsed);
+    }
+
+    pub fn get_absolute_root(&self) -> std::path::PathBuf {
+        return self.rustctl_root_dir.clone();
+    }
+    pub fn get_absolute_steamcmd_archive(&self) -> std::path::PathBuf {
+        let mut path = self.rustctl_root_dir.clone();
+        path.push(self.steamcmd_target_file_name_tgz.clone());
+        return path;
+    }
+    pub fn get_absolute_steamcmd_executable(&self) -> std::path::PathBuf {
+        let mut path = self.rustctl_root_dir.clone();
+        path.push(self.steamcmd_executable_name.clone());
+        return path;
+    }
+    pub fn get_absolute_steamcmd_installations(&self) -> std::path::PathBuf {
+        let mut path = self.rustctl_root_dir.clone();
+        path.push(self.steamcmd_installations_dir_name.clone());
+        return path;
+    }
+    pub fn get_absolute_gameserver_executable(&self) -> std::path::PathBuf {
+        let mut path = self.rustctl_root_dir.clone();
+        path.push(self.steamcmd_installations_dir_name.clone());
+        path.push(self.game_server_executable_name.clone());
+        return path;
     }
 }
 
