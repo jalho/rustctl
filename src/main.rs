@@ -44,12 +44,7 @@ fn main() -> Result<(), error::FatalError> {
     match command {
         args::Command::Config => todo!(),
         args::Command::GameStart => {
-            match misc::install_steamcmd(
-                &config.steamcmd_download_url,
-                &config.rustctl_root_dir,
-                &config.steamcmd_target_file_name_tgz,
-                &config.steamcmd_executable_name,
-            ) {
+            match misc::install_steamcmd(&config) {
                 Err(err) => {
                     log::error!("{}", err);
                     return Err(err);

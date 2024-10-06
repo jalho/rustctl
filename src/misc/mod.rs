@@ -317,33 +317,27 @@ fn run_with_strace(
 }
 
 /// Install _SteamCMD_ (game server installer).
-pub fn install_steamcmd(
-    url: &String,
-    rustctl_root_dir: &std::path::PathBuf,
-    steamcmd_tgz_filename: &std::path::PathBuf,
-    steamcmd_executable_filename: &std::path::PathBuf,
-) -> Result<(), crate::error::FatalError> {
-    let mut steamcmd_tgz_absolute: std::path::PathBuf = rustctl_root_dir.clone();
-    steamcmd_tgz_absolute.push(steamcmd_tgz_filename);
-
+pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error::FatalError> {
+    let steamcmd_tgz_absolute: std::path::PathBuf = config.get_absolute_steamcmd_archive();
     if steamcmd_tgz_absolute.is_file() {
         log::debug!(
             "SteamCMD distribution '{}' has been downloaded earlier -- Not downloading again",
             steamcmd_tgz_absolute.to_string_lossy()
         );
     } else {
-        let response: reqwest::blocking::Response = match reqwest::blocking::get(url) {
-            Ok(n) => n,
-            Err(err) => {
-                return Err(crate::error::FatalError::new(
-                    format!(
-                        "cannot install SteamCMD: cannot fetch distribution from '{}'",
-                        url
-                    ),
-                    Some(Box::new(err)),
-                ));
-            }
-        };
+        let response: reqwest::blocking::Response =
+            match reqwest::blocking::get(&config.steamcmd_download_url) {
+                Ok(n) => n,
+                Err(err) => {
+                    return Err(crate::error::FatalError::new(
+                        format!(
+                            "cannot install SteamCMD: cannot fetch distribution from '{}'",
+                            config.steamcmd_download_url
+                        ),
+                        Some(Box::new(err)),
+                    ));
+                }
+            };
         let mut file: std::fs::File = match std::fs::File::create(&steamcmd_tgz_absolute) {
             Ok(n) => n,
             Err(err) => {
@@ -363,7 +357,7 @@ pub fn install_steamcmd(
                 return Err(crate::error::FatalError::new(
                     format!(
                         "cannot install SteamCMD: cannot write response from '{}' to '{}'",
-                        url,
+                        config.steamcmd_download_url,
                         steamcmd_tgz_absolute.to_string_lossy()
                     ),
                     Some(Box::new(err)),
@@ -371,12 +365,11 @@ pub fn install_steamcmd(
             }
             _ => {}
         }
-        log::info!("Downloaded SteamCMD from {}", url);
+        log::info!("Downloaded SteamCMD from {}", config.steamcmd_download_url);
     }
 
-    let mut steamcmd_executable_absolute: std::path::PathBuf = rustctl_root_dir.clone();
-    steamcmd_executable_absolute.push(steamcmd_executable_filename);
-
+    let steamcmd_executable_absolute: std::path::PathBuf =
+        config.get_absolute_steamcmd_executable();
     if steamcmd_executable_absolute.is_file() {
         log::debug!(
             "SteamCMD executable '{}' has been extracted earlier -- Not extracting again",
@@ -386,8 +379,8 @@ pub fn install_steamcmd(
         let cmd_tar: &str = "tar";
         let paths_touched: Vec<(String, u64)> = match run_with_strace(
             cmd_tar,
-            vec!["-xzf", &steamcmd_tgz_filename.to_string_lossy()],
-            rustctl_root_dir,
+            vec!["-xzf", &steamcmd_tgz_absolute.to_string_lossy()],
+            &config.get_absolute_root(),
         ) {
             Ok(n) => n,
             Err(StraceFilesError::DecodeUtf8(err)) => {
@@ -428,10 +421,14 @@ pub fn install_steamcmd(
     }
 
     if !steamcmd_executable_absolute.is_file() {
+        let name: &std::ffi::OsStr = match steamcmd_executable_absolute.file_name() {
+            Some(n) => n,
+            None => unreachable!(),
+        };
         return Err(crate::error::FatalError::new(
             format!(
                 "unexpected distribution of SteamCMD: did not contain file '{}' ('{}')",
-                steamcmd_executable_filename.to_string_lossy(),
+                name.to_string_lossy(),
                 steamcmd_executable_absolute.to_string_lossy(),
             ),
             None,
