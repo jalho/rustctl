@@ -65,9 +65,7 @@ fn main() -> Result<(), error::FatalError> {
             let (th_stdout_tx, th_stderr_tx) = match misc::start_game(
                 tx_stdout,
                 tx_stderr,
-                &config.rustctl_root_dir,
-                &config.steamcmd_installations_dir_name,
-                config.game_server_executable_name,
+                &config,
                 config.game_server_argv.iter().map(|s| s.as_str()).collect(),
             ) {
                 Ok(n) => n,

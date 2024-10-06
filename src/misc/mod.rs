@@ -42,22 +42,18 @@ pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
 pub fn start_game(
     tx_stdout: std::sync::mpsc::Sender<String>,
     tx_stderr: std::sync::mpsc::Sender<String>,
-    rustctl_root_dir: &std::path::PathBuf,
-    steamcmd_installations_dir_name: &std::path::PathBuf,
-    game_server_executable_filename: std::path::PathBuf,
+    config: &crate::args::Config,
     game_server_argv: Vec<&str>,
 ) -> Result<(std::thread::JoinHandle<()>, std::thread::JoinHandle<()>), crate::error::FatalError> {
-    let mut steamcmd_installations_dir_absolute: std::path::PathBuf = rustctl_root_dir.clone();
-    steamcmd_installations_dir_absolute.push(steamcmd_installations_dir_name);
-
-    let mut game_server_executable_absolute: std::path::PathBuf =
-        steamcmd_installations_dir_absolute.clone();
-    game_server_executable_absolute.push(game_server_executable_filename);
-    let game_server_executable_absolute: String = game_server_executable_absolute
+    let steamcmd_installations_dir_absolute: std::path::PathBuf =
+        config.get_absolute_steamcmd_installations();
+    let game_server_executable_absolute: std::path::PathBuf =
+        config.get_absolute_gameserver_executable();
+    let game_server_executable_absolute: &str = &game_server_executable_absolute
         .to_string_lossy()
         .to_string();
     let argv = vec![
-        vec!["-ff", "-e", "trace=file", &game_server_executable_absolute],
+        vec!["-ff", "-e", "trace=file", game_server_executable_absolute],
         game_server_argv,
     ]
     .concat();
@@ -68,12 +64,11 @@ pub fn start_game(
     };
 
     // the game server will attempt to load "steamclient.so" from here
-    let mut libs_path_steam = rustctl_root_dir.clone();
-    libs_path_steam.push("linux64");
+    let libs_path_steam = config.get_absolute_steam_libs();
     let libs_path_steam: String = libs_path_steam.to_string_lossy().to_string();
 
     let mut child: std::process::Child = match std::process::Command::new(CMD_STRACE)
-        .current_dir(&game_server_executable_absolute)
+        .current_dir(&steamcmd_installations_dir_absolute)
         .args(argv)
         .env(
             ENV_LD_LIBRARY_PATH,

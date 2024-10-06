@@ -131,6 +131,11 @@ impl Config {
         path.push(self.steamcmd_executable_name.clone());
         return path;
     }
+    pub fn get_absolute_steam_libs(&self) -> std::path::PathBuf {
+        let mut path = self.rustctl_root_dir.clone();
+        path.push("linux64");
+        return path;
+    }
     pub fn get_absolute_steamcmd_installations(&self) -> std::path::PathBuf {
         let mut path = self.rustctl_root_dir.clone();
         path.push(self.steamcmd_installations_dir_name.clone());
