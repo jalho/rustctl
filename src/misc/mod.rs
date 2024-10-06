@@ -63,6 +63,7 @@ pub fn start_game(
         Err(_) => String::from(""),
     };
 
+    // TODO: Assert that the required libs exist!
     // the game server will attempt to load "steamclient.so" from here
     let libs_path_steam = config.get_absolute_steam_libs();
     let libs_path_steam: String = libs_path_steam.to_string_lossy().to_string();
@@ -258,7 +259,15 @@ pub fn install_update_game_server(
     if !game_server_executable_absolute.is_file() {
         let name: &std::ffi::OsStr = match game_server_executable_absolute.file_name() {
             Some(n) => n,
-            None => unreachable!(), // TODO: Remove "unreachable"
+            None => {
+                return Err(crate::error::FatalError::new(
+                    format!(
+                        "bad config: game server executable absolute path does not end with file name: '{}'",
+                        game_server_executable_absolute.to_string_lossy(),
+                    ),
+                    None,
+                ));
+            }
         };
         return Err(crate::error::FatalError::new(
             format!(
@@ -419,7 +428,15 @@ pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error
     if !steamcmd_executable_absolute.is_file() {
         let name: &std::ffi::OsStr = match steamcmd_executable_absolute.file_name() {
             Some(n) => n,
-            None => unreachable!(), // TODO: Remove "unreachable"
+            None => {
+                return Err(crate::error::FatalError::new(
+                    format!(
+                        "bad config: SteamCMD executable absolute path does not end with file name: '{}'",
+                        steamcmd_executable_absolute.to_string_lossy(),
+                    ),
+                    None,
+                ));
+            }
         };
         return Err(crate::error::FatalError::new(
             format!(
