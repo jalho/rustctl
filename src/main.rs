@@ -91,11 +91,10 @@ fn main() -> Result<(), error::FatalError> {
             let (th_stdout_rx, th_stderr_rx) =
                 misc::handle_game_fs_events(rx_stdout, rx_stderr, game_server_cwd);
 
-            // TODO: Remove unwraps!
-            th_stdout_tx.join().unwrap();
-            th_stderr_tx.join().unwrap();
-            th_stdout_rx.join().unwrap();
-            th_stderr_rx.join().unwrap();
+            _ = th_stdout_tx.join();
+            _ = th_stderr_tx.join();
+            _ = th_stdout_rx.join();
+            _ = th_stderr_rx.join();
         }
         args::Command::HealthStart => todo!(),
         args::Command::Help => todo!(),
