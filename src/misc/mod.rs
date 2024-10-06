@@ -155,7 +155,7 @@ pub fn handle_game_fs_events(
                 return;
             }
         };
-        debug!("STDOUT: {msg}");
+        info!("{msg}");
     });
 
     let th_stderr = std::thread::spawn(move || loop {
@@ -175,7 +175,7 @@ pub fn handle_game_fs_events(
                 {
                     continue;
                 }
-                debug!("STDERR: '{game_server_file_touched}': {msg}");
+                debug!("{msg}");
             }
         }
     });
