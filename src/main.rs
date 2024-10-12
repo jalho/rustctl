@@ -52,6 +52,9 @@ fn main() -> Result<(), error::FatalError> {
                 _ => {}
             };
 
+            // TODO: Install or update Carbon modding framework, and apply custom configs:
+            // Namely set modded to false
+
             match misc::install_update_game_server(&config) {
                 Err(err) => {
                     log::error!("{}", err);

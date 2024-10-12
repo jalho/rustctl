@@ -67,6 +67,7 @@ pub fn start_game(
     let libs_path_steam = config.get_absolute_steam_libs();
     let libs_path_steam: String = libs_path_steam.to_string_lossy().to_string();
 
+    // TODO: Start the game with Carbon modding framework enabled
     let mut child: std::process::Child = match std::process::Command::new(CMD_STRACE)
         .current_dir(&steamcmd_installations_dir_absolute)
         .args(argv)
