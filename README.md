@@ -69,10 +69,6 @@ In order for a player to be able to spawn on such server, you must issue command
 because otherwise at least using the default seed 1337 players seem to spawn
 under terrain.
 
-TODO: Figure out how to define a custom spawn point! The `antihack.terrain_protection 0`
-method is only viable for testing purposes. In actual usage world size tends to be
-3500-4500, and using those sizes the random spawns work fine.
-
 [carbon-website]: https://carbonmod.gg
 [rustdedicated-website]: https://steamdb.info/app/258550
 [steamcmd-website]: https://developer.valvesoftware.com/wiki/SteamCMD
