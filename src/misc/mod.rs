@@ -63,7 +63,6 @@ pub fn start_game(
         Err(_) => String::from(""),
     };
 
-    // TODO: Assert that the required libs exist!
     // the game server will attempt to load "steamclient.so" from here
     let libs_path_steam = config.get_absolute_steam_libs();
     let libs_path_steam: String = libs_path_steam.to_string_lossy().to_string();
