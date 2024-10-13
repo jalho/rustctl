@@ -35,7 +35,7 @@ will refer to the shared configuration file.
 
 ### Example configuration
 
-As of commit `2d2f797`. Not complete!
+As of commit `1e5719c8`. Not complete!
 
 ```toml
 "rustctl_root_dir" = "/home/rust"
@@ -43,6 +43,9 @@ As of commit `2d2f797`. Not complete!
 "steamcmd_download_url"           = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz"
 "steamcmd_target_file_name_tgz"   = "steamcmd.tgz"
 "steamcmd_executable_name"        = "steamcmd.sh"
+
+"carbon_download_url"             = "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Release.tar.gz"
+"carbon_target_file_name_tgz"     = "carbon.tgz"
 
 "steamcmd_installations_dir_name" = "installations"
 "game_server_appmanifest"         = "steamapps/appmanifest_258550.acf"
@@ -57,6 +60,8 @@ As of commit `2d2f797`. Not complete!
     "1",
     "+rcon.password",
     "Your_Rcon_Password",
+    "+server.worldsize",
+    "1000",
 ]
 ```
 
