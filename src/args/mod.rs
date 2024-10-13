@@ -17,6 +17,11 @@ pub struct Config {
     /// (SteamCMD) is installed.
     steamcmd_installations_dir_name: std::path::PathBuf,
 
+    /// Where _Carbon_ shall be downloaded from over the internet.
+    pub carbon_download_url: String,
+    /// Name of a .tgz file in which the downloaded _Carbon_ distribution shall be saved.
+    carbon_target_file_name_tgz: std::path::PathBuf,
+
     /// Path from SteamCMD installations dir to "app manifest file" of the
     /// game server that contains information of e.g. the build ID. "Build IDs
     /// are a globally incrementing number. Build IDs are updated when a new
@@ -142,6 +147,18 @@ impl Config {
     pub fn get_absolute_steamcmd_installations(&self) -> std::path::PathBuf {
         let mut path = self.rustctl_root_dir.clone();
         path.push(self.steamcmd_installations_dir_name.clone());
+        return path;
+    }
+    pub fn get_absolute_carbon_archive(&self) -> std::path::PathBuf {
+        let mut path = self.rustctl_root_dir.clone();
+        path.push(self.carbon_target_file_name_tgz.clone());
+        return path;
+    }
+    pub fn get_absolute_carbon_executable(&self) -> std::path::PathBuf {
+        let mut path = self.rustctl_root_dir.clone();
+        path.push("carbon");
+        path.push("tools");
+        path.push("environment.sh");
         return path;
     }
     pub fn get_absolute_gameserver_appmanifest(&self) -> std::path::PathBuf {

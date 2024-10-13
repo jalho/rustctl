@@ -486,6 +486,128 @@ pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error
     return Ok(());
 }
 
+/// Install _Carbon_ (game modding framework).
+pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::FatalError> {
+    let carbon_tgz_absolute: std::path::PathBuf = config.get_absolute_carbon_archive();
+    if carbon_tgz_absolute.is_file() {
+        log::debug!(
+            "Carbon distribution '{}' has been downloaded earlier -- Not downloading again",
+            carbon_tgz_absolute.to_string_lossy()
+        );
+    } else {
+        let response: reqwest::blocking::Response =
+            match reqwest::blocking::get(&config.carbon_download_url) {
+                Ok(n) => n,
+                Err(err) => {
+                    return Err(crate::error::FatalError::new(
+                        format!(
+                            "cannot install Carbon: cannot fetch distribution from '{}'",
+                            config.carbon_download_url
+                        ),
+                        Some(Box::new(err)),
+                    ));
+                }
+            };
+        let mut file: std::fs::File = match std::fs::File::create(&carbon_tgz_absolute) {
+            Ok(n) => n,
+            Err(err) => {
+                return Err(crate::error::FatalError::new(
+                    format!(
+                        "cannot install Carbon: cannot create file '{}'",
+                        carbon_tgz_absolute.to_string_lossy()
+                    ),
+                    Some(Box::new(err)),
+                ));
+            }
+        };
+        let mut reader = std::io::BufReader::new(response);
+        // stream to disk
+        match std::io::copy(&mut reader, &mut file) {
+            Err(err) => {
+                return Err(crate::error::FatalError::new(
+                    format!(
+                        "cannot install Carbon: cannot write response from '{}' to '{}'",
+                        config.carbon_download_url,
+                        carbon_tgz_absolute.to_string_lossy()
+                    ),
+                    Some(Box::new(err)),
+                ));
+            }
+            _ => {}
+        }
+        log::info!("Downloaded Carbon from {}", config.carbon_download_url);
+    }
+
+    let carbon_executable_absolute: std::path::PathBuf = config.get_absolute_carbon_executable();
+    let cmd_tar: &str = "tar";
+    let paths_touched: Vec<(String, u64)> = match run_with_strace(
+        cmd_tar,
+        vec!["-xzf", &carbon_tgz_absolute.to_string_lossy()],
+        &config.get_absolute_root(),
+    ) {
+        Ok(n) => n,
+        Err(StraceFilesError::DecodeUtf8(err)) => {
+            return Err(crate::error::FatalError::new(
+                format!(
+                    "cannot install Carbon: cannot decode output of '{CMD_STRACE}' with '{cmd_tar}' as UTF-8",
+                ),
+                Some(Box::new(err)),
+            ))
+        }
+        Err(StraceFilesError::ExitStatus) => {
+            return Err(crate::error::FatalError::new(format!("cannot install Carbon: '{CMD_STRACE}' with '{cmd_tar}' exited with unsuccessful status"), None))
+        }
+        Err(StraceFilesError::IO(err)) => {
+            return Err(crate::error::FatalError::new(
+                format!(
+                    "cannot install Carbon: cannot execute '{CMD_STRACE}' with '{cmd_tar}'",
+                ),
+                Some(Box::new(err)),
+            ))
+        }
+    };
+
+    let paths_touched_subset = paths_touched.iter().take(10);
+
+    log::info!(
+        "Extracted {} files from Carbon distribution '{}': Biggest {}: {}",
+        paths_touched.len(),
+        carbon_tgz_absolute.to_string_lossy(),
+        paths_touched_subset.len(),
+        paths_touched_subset
+            .into_iter()
+            .cloned()
+            .map(|(path, size)| format!("{} bytes: {}", human_readable_size(size), path))
+            .collect::<Vec<String>>()
+            .join(", ")
+    );
+
+    if !carbon_executable_absolute.is_file() {
+        let name: &std::ffi::OsStr = match carbon_executable_absolute.file_name() {
+            Some(n) => n,
+            None => {
+                return Err(crate::error::FatalError::new(
+                    format!(
+                        "bad config: Carbon executable absolute path does not end with file name: '{}'",
+                        carbon_executable_absolute.to_string_lossy(),
+                    ),
+                    None,
+                ));
+            }
+        };
+        return Err(crate::error::FatalError::new(
+            format!(
+                "unexpected distribution of Carbon: did not contain file '{}' ('{}')",
+                name.to_string_lossy(),
+                carbon_executable_absolute.to_string_lossy(),
+            ),
+            None,
+        ));
+    }
+
+    return Ok(());
+}
+
 fn human_readable_size(bytes: u64) -> String {
     const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
     let mut size: f64 = bytes as f64;

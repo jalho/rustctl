@@ -63,6 +63,14 @@ fn main() -> Result<(), error::FatalError> {
                 _ => {}
             }
 
+            match misc::install_carbon(&config) {
+                Err(err) => {
+                    log::error!("{}", err);
+                    return Err(err);
+                }
+                _ => {}
+            }
+
             let (tx_stdout, rx_stdout) = std::sync::mpsc::channel::<String>();
             let (tx_stderr, rx_stderr) = std::sync::mpsc::channel::<String>();
             let (th_stdout_tx, th_stderr_tx) = match misc::start_game(
