@@ -52,11 +52,12 @@ pub fn start_game(
     let game_server_executable_absolute: &str = &game_server_executable_absolute
         .to_string_lossy()
         .to_string();
-    let argv = vec![
-        vec!["-ff", "-e", "trace=file", game_server_executable_absolute],
-        game_server_argv,
-    ]
-    .concat();
+    // TODO: Get Carbon sourcable from config
+    let startup_with_argv: String = format!(
+        "source /home/rust/carbon/tools/environment.sh && {game_server_executable_absolute} {}",
+        game_server_argv.join(" ")
+    );
+    let argv = vec!["-ff", "-e", "trace=file", "bash", "-c", &startup_with_argv];
 
     let libs_paths_prev: String = match std::env::var(ENV_LD_LIBRARY_PATH) {
         Ok(n) => n,
