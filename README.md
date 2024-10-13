@@ -45,6 +45,7 @@ As of commit `2d2f797`. Not complete!
 "steamcmd_executable_name"        = "steamcmd.sh"
 
 "steamcmd_installations_dir_name" = "installations"
+"game_server_appmanifest"         = "steamapps/appmanifest_258550.acf"
 "game_server_executable_name"     = "RustDedicated"
 "game_server_argv" = [
     "-batchmode",

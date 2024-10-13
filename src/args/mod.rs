@@ -17,6 +17,12 @@ pub struct Config {
     /// (SteamCMD) is installed.
     steamcmd_installations_dir_name: std::path::PathBuf,
 
+    /// Path from SteamCMD installations dir to "app manifest file" of the
+    /// game server that contains information of e.g. the build ID. "Build IDs
+    /// are a globally incrementing number. Build IDs are updated when a new
+    /// build of an application is pushed."
+    /// E.g. `steamapps/appmanifest_258550.acf`
+    game_server_appmanifest: std::path::PathBuf,
     /// Name of the game server executable that is expected to be installed by SteamCMD: E.g. `RustDedicated`.
     game_server_executable_name: std::path::PathBuf,
     pub game_server_argv: Vec<String>,
@@ -136,6 +142,12 @@ impl Config {
     pub fn get_absolute_steamcmd_installations(&self) -> std::path::PathBuf {
         let mut path = self.rustctl_root_dir.clone();
         path.push(self.steamcmd_installations_dir_name.clone());
+        return path;
+    }
+    pub fn get_absolute_gameserver_appmanifest(&self) -> std::path::PathBuf {
+        let mut path = self.rustctl_root_dir.clone();
+        path.push(self.steamcmd_installations_dir_name.clone());
+        path.push(self.game_server_appmanifest.clone());
         return path;
     }
     pub fn get_absolute_gameserver_executable(&self) -> std::path::PathBuf {

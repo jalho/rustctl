@@ -211,6 +211,48 @@ pub fn install_update_game_server(
         }
     }
 
+    // only update & validate against remote if not checked recently
+    let manifest_path: std::path::PathBuf = config.get_absolute_gameserver_appmanifest();
+    let manifest_modified: Option<std::time::SystemTime> = match manifest_path.metadata() {
+        Ok(n) => {
+            match n.modified() {
+                Ok(n) => Some(n),
+                Err(err) => {
+                    return Err(crate::error::FatalError::new(
+                        format!("cannot determine last modification time of game server app manifest '{}'", manifest_path.to_string_lossy()),
+                        Some(Box::new(err)),
+                    ));
+                }
+            }
+        }
+        _ => {
+            // case fresh install
+            None
+        }
+    };
+    if let Some(n) = manifest_modified {
+        let now: std::time::SystemTime = std::time::SystemTime::now();
+        match now.duration_since(n) {
+            Ok(manifest_age) => {
+                let cooldown = std::time::Duration::from_secs(60 * 15);
+                if manifest_age < cooldown {
+                    info!("Game server seems to have been updated recently: App manifest '{}' was last modified {} seconds ago, cooldown being {} seconds -- Not updating again!",
+                          manifest_path.to_string_lossy(), manifest_age.as_secs(), cooldown.as_secs());
+                    return Ok(());
+                } else {
+                    debug!("Game server app manifest '{}' was last modified {} seconds ago -- Update cooldown is {} seconds",
+                           manifest_path.to_string_lossy(), manifest_age.as_secs(), cooldown.as_secs());
+                }
+            }
+            Err(err) => {
+                return Err(crate::error::FatalError::new(
+                    format!("cannot determine time since last modification of game server app manifest '{}'", manifest_path.to_string_lossy()),
+                    Some(Box::new(err)),
+                ));
+            }
+        }
+    }
+
     info!(
         "Installing or updating game server with SteamCMD to '{}'",
         game_server_install_dir.to_string_lossy()
@@ -320,10 +362,6 @@ fn run_with_strace(
 
     return Ok(paths);
 }
-
-// TODO: Add support for only validating the installation against a remote
-//       if not checked recently (detect by modif time of
-//       "/home/rust/installations/steamapps/appmanifest_258550.acf")
 
 /// Install _SteamCMD_ (game server installer).
 pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error::FatalError> {
