@@ -417,56 +417,48 @@ pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error
 
     let steamcmd_executable_absolute: std::path::PathBuf =
         config.get_absolute_steamcmd_executable();
-    // TODO: Always extract
-    if steamcmd_executable_absolute.is_file() {
-        log::debug!(
-            "SteamCMD executable '{}' has been extracted earlier -- Not extracting again",
-            steamcmd_executable_absolute.to_string_lossy()
-        );
-    } else {
-        let cmd_tar: &str = "tar";
-        let paths_touched: Vec<(String, u64)> = match run_with_strace(
-            cmd_tar,
-            vec!["-xzf", &steamcmd_tgz_absolute.to_string_lossy()],
-            &config.get_absolute_root(),
-        ) {
-            Ok(n) => n,
-            Err(StraceFilesError::DecodeUtf8(err)) => {
-                return Err(crate::error::FatalError::new(
-                    format!(
-                        "cannot install SteamCMD: cannot decode output of '{CMD_STRACE}' with '{cmd_tar}' as UTF-8",
-                    ),
-                    Some(Box::new(err)),
-                ))
-            }
-            Err(StraceFilesError::ExitStatus) => {
-                return Err(crate::error::FatalError::new(format!("cannot install SteamCMD: '{CMD_STRACE}' with '{cmd_tar}' exited with unsuccessful status"), None))
-            }
-            Err(StraceFilesError::IO(err)) => {
-                return Err(crate::error::FatalError::new(
-                    format!(
-                        "cannot install SteamCMD: cannot execute '{CMD_STRACE}' with '{cmd_tar}'",
-                    ),
-                    Some(Box::new(err)),
-                ))
-            }
-        };
+    let cmd_tar: &str = "tar";
+    let paths_touched: Vec<(String, u64)> = match run_with_strace(
+        cmd_tar,
+        vec!["-xzf", &steamcmd_tgz_absolute.to_string_lossy()],
+        &config.get_absolute_root(),
+    ) {
+        Ok(n) => n,
+        Err(StraceFilesError::DecodeUtf8(err)) => {
+            return Err(crate::error::FatalError::new(
+                format!(
+                    "cannot install SteamCMD: cannot decode output of '{CMD_STRACE}' with '{cmd_tar}' as UTF-8",
+                ),
+                Some(Box::new(err)),
+            ))
+        }
+        Err(StraceFilesError::ExitStatus) => {
+            return Err(crate::error::FatalError::new(format!("cannot install SteamCMD: '{CMD_STRACE}' with '{cmd_tar}' exited with unsuccessful status"), None))
+        }
+        Err(StraceFilesError::IO(err)) => {
+            return Err(crate::error::FatalError::new(
+                format!(
+                    "cannot install SteamCMD: cannot execute '{CMD_STRACE}' with '{cmd_tar}'",
+                ),
+                Some(Box::new(err)),
+            ))
+        }
+    };
 
-        let paths_touched_subset = paths_touched.iter().take(10);
+    let paths_touched_subset = paths_touched.iter().take(10);
 
-        log::info!(
-            "Extracted {} files from SteamCMD distribution '{}': Biggest {}: {}",
-            paths_touched.len(),
-            steamcmd_tgz_absolute.to_string_lossy(),
-            paths_touched_subset.len(),
-            paths_touched_subset
-                .into_iter()
-                .cloned()
-                .map(|(path, size)| format!("{} bytes: {}", human_readable_size(size), path))
-                .collect::<Vec<String>>()
-                .join(", ")
-        );
-    }
+    log::info!(
+        "Extracted {} files from SteamCMD distribution '{}': Biggest {}: {}",
+        paths_touched.len(),
+        steamcmd_tgz_absolute.to_string_lossy(),
+        paths_touched_subset.len(),
+        paths_touched_subset
+            .into_iter()
+            .cloned()
+            .map(|(path, size)| format!("{} bytes: {}", human_readable_size(size), path))
+            .collect::<Vec<String>>()
+            .join(", ")
+    );
 
     if !steamcmd_executable_absolute.is_file() {
         let name: &std::ffi::OsStr = match steamcmd_executable_absolute.file_name() {
