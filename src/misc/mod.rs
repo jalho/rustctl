@@ -321,6 +321,10 @@ fn run_with_strace(
     return Ok(paths);
 }
 
+// TODO: Add support for only validating the installation against a remote
+//       if not checked recently (detect by modif time of
+//       "/home/rust/installations/steamapps/appmanifest_258550.acf")
+
 /// Install _SteamCMD_ (game server installer).
 pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error::FatalError> {
     let steamcmd_tgz_absolute: std::path::PathBuf = config.get_absolute_steamcmd_archive();
@@ -375,6 +379,7 @@ pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error
 
     let steamcmd_executable_absolute: std::path::PathBuf =
         config.get_absolute_steamcmd_executable();
+    // TODO: Always extract
     if steamcmd_executable_absolute.is_file() {
         log::debug!(
             "SteamCMD executable '{}' has been extracted earlier -- Not extracting again",
