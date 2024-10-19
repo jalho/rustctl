@@ -606,6 +606,8 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
         ));
     }
 
+    // TODO: Apply custom configs to Carbon: Namely set modded to false
+
     return Ok(());
 }
 
