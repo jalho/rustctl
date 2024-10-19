@@ -35,7 +35,7 @@ will refer to the shared configuration file.
 
 ### Example configuration
 
-As of commit `1e5719c8`. Not complete!
+As of commit `81e78da`. Not complete!
 
 ```toml
 "rustctl_root_dir" = "/home/rust"
@@ -54,6 +54,8 @@ As of commit `1e5719c8`. Not complete!
     "-batchmode",
     "+server.identity",
     "instance0",
+    "+server.port",
+    "28015",
     "+rcon.port",
     "28016",
     "+rcon.web",
@@ -62,8 +64,20 @@ As of commit `1e5719c8`. Not complete!
     "Your_Rcon_Password",
     "+server.worldsize",
     "1000",
+    "+server.seed",
+    "1234",
+    "+server.maxplayers",
+    "10",
+    "+server.hostname",
+    "0.0.0.0",
 ]
 ```
+
+### Manual tests
+
+| date       | commit  | system                            | asserts                               |
+| ---------- | ------- | --------------------------------- | ------------------------------------- |
+| 2024-10-19 | 81e78da | Arch Linux, kernel 6.11.2-arch1-1 | Game is fully functional with Carbon. |
 
 ### Cheatsheet
 
