@@ -75,9 +75,9 @@ As of commit `81e78da`. Not complete!
 
 ### Manual tests
 
-| date       | commit  | system                            | asserts                               |
-| ---------- | ------- | --------------------------------- | ------------------------------------- |
-| 2024-10-19 | 81e78da | Arch Linux, kernel 6.11.2-arch1-1 | Game is fully functional with Carbon. |
+| date       | commit  | system                                                     | asserts                               |
+| ---------- | ------- | ---------------------------------------------------------- | ------------------------------------- |
+| 2024-10-19 | 81e78da | Arch Linux, kernel 6.11.2-arch1-1, strace v6.11, tar v1.35 | Game is fully functional with Carbon. |
 
 ### Cheatsheet
 
