@@ -546,7 +546,7 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
     let paths_touched: Vec<(String, u64)> = match run_with_strace(
         cmd_tar,
         vec!["-xzf", &carbon_tgz_absolute.to_string_lossy()],
-        &config.get_absolute_root(),
+        &config.get_absolute_steamcmd_installations(),
     ) {
         Ok(n) => n,
         Err(StraceFilesError::DecodeUtf8(err)) => {

@@ -151,11 +151,13 @@ impl Config {
     }
     pub fn get_absolute_carbon_archive(&self) -> std::path::PathBuf {
         let mut path = self.rustctl_root_dir.clone();
+        path.push(self.steamcmd_installations_dir_name.clone());
         path.push(self.carbon_target_file_name_tgz.clone());
         return path;
     }
     pub fn get_absolute_carbon_executable(&self) -> std::path::PathBuf {
         let mut path = self.rustctl_root_dir.clone();
+        path.push(self.steamcmd_installations_dir_name.clone());
         path.push("carbon");
         path.push("tools");
         path.push("environment.sh");
