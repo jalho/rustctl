@@ -52,9 +52,12 @@ pub fn start_game(
     let game_server_executable_absolute: &str = &game_server_executable_absolute
         .to_string_lossy()
         .to_string();
-    // TODO: Get Carbon sourcable from config
+    let carbon_executable_absolute: String = config
+        .get_absolute_carbon_executable()
+        .to_string_lossy()
+        .to_string();
     let startup_with_argv: String = format!(
-        "source /home/rust/carbon/tools/environment.sh && {game_server_executable_absolute} {}",
+        "source {carbon_executable_absolute} && {game_server_executable_absolute} {}",
         game_server_argv.join(" ")
     );
     let argv = vec!["-ff", "-e", "trace=file", "bash", "-c", &startup_with_argv];
@@ -68,7 +71,6 @@ pub fn start_game(
     let libs_path_steam = config.get_absolute_steam_libs();
     let libs_path_steam: String = libs_path_steam.to_string_lossy().to_string();
 
-    // TODO: Start the game with Carbon modding framework enabled
     let mut child: std::process::Child = match std::process::Command::new(CMD_STRACE)
         .current_dir(&steamcmd_installations_dir_absolute)
         .args(argv)
