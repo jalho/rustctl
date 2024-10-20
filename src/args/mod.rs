@@ -163,6 +163,13 @@ impl Config {
         path.push("environment.sh");
         return path;
     }
+    pub fn get_absolute_carbon_config_path(&self) -> std::path::PathBuf {
+        let mut path = self.rustctl_root_dir.clone();
+        path.push(self.steamcmd_installations_dir_name.clone());
+        path.push("carbon");
+        path.push("config.json");
+        return path;
+    }
     pub fn get_absolute_gameserver_appmanifest(&self) -> std::path::PathBuf {
         let mut path = self.rustctl_root_dir.clone();
         path.push(self.steamcmd_installations_dir_name.clone());

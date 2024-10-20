@@ -608,8 +608,88 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
         ));
     }
 
-    // TODO: Apply custom configs to Carbon: Namely set modded to false
+    let carbon_config_absolute: std::path::PathBuf = config.get_absolute_carbon_config_path();
+    if !carbon_config_absolute.is_file() {
+        return Err(crate::error::FatalError::new(
+            format!(
+                "unexpected distribution of Carbon: did not contain file '{}'",
+                carbon_config_absolute.to_string_lossy(),
+            ),
+            None,
+        ));
+    }
+    configure_carbon(&carbon_config_absolute)?;
+    info!(
+        "Configured Carbon: Set 'IsModded' to false in '{}'",
+        carbon_config_absolute.to_string_lossy()
+    );
 
+    return Ok(());
+}
+
+fn configure_carbon(
+    config_path_absolute: &std::path::PathBuf,
+) -> Result<(), crate::error::FatalError> {
+    let json_content: String = match std::fs::read_to_string(&config_path_absolute) {
+        Ok(n) => n,
+        Err(err) => {
+            return Err(crate::error::FatalError::new(
+                format!(
+                    "cannot configure Carbon: cannot read config file '{}'",
+                    config_path_absolute.to_string_lossy()
+                ),
+                Some(Box::new(err)),
+            ));
+        }
+    };
+    let mut json_data: serde_json::Value = match serde_json::from_str(&json_content) {
+        Ok(n) => n,
+        Err(err) => {
+            return Err(crate::error::FatalError::new(
+                format!(
+                    "cannot configure Carbon: cannot deserialize JSON config file '{}'",
+                    config_path_absolute.to_string_lossy()
+                ),
+                Some(Box::new(err)),
+            ));
+        }
+    };
+    if let Some(ismod_value) = json_data.get_mut("IsModded") {
+        if ismod_value == true {
+            *ismod_value = serde_json::json!(false);
+        }
+    }
+    let new_json_content: String = match serde_json::to_string_pretty(&json_data) {
+        Ok(n) => n,
+        Err(_) => {
+            // we just deserialized succesfully so surely we can serialize
+            unreachable!()
+        }
+    };
+    let mut file = match std::fs::File::create(&config_path_absolute) {
+        Ok(n) => n,
+        Err(err) => {
+            return Err(crate::error::FatalError::new(
+                format!(
+                    "cannot configure Carbon: cannot open config file in write mode: '{}'",
+                    config_path_absolute.to_string_lossy()
+                ),
+                Some(Box::new(err)),
+            ));
+        }
+    };
+    match std::io::Write::write_all(&mut file, new_json_content.as_bytes()) {
+        Err(err) => {
+            return Err(crate::error::FatalError::new(
+                format!(
+                    "cannot configure Carbon: cannot write config file '{}'",
+                    config_path_absolute.to_string_lossy()
+                ),
+                Some(Box::new(err)),
+            ));
+        }
+        _ => {}
+    }
     return Ok(());
 }
 
