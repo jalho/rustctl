@@ -21,6 +21,14 @@ fn main() -> Result<(), error::FatalError> {
         }
     };
 
+    let config: args::Config = match args::Config::new() {
+        Ok(n) => n,
+        Err(err) => {
+            log::error!("{}", err);
+            return Err(err);
+        }
+    };
+
     match command {
         args::Command::Help => {
             println!("{}", text::HELPTEXT);
@@ -32,14 +40,6 @@ fn main() -> Result<(), error::FatalError> {
         }
         _ => {}
     }
-
-    let config: args::Config = match args::Config::get_from_fs(args::Config::default_fs_path()) {
-        Ok(n) => n,
-        Err(err) => {
-            log::error!("{}", err);
-            return Err(err);
-        }
-    };
 
     match command {
         args::Command::Config => todo!(),
@@ -70,12 +70,8 @@ fn main() -> Result<(), error::FatalError> {
 
             let (tx_stdout, rx_stdout) = std::sync::mpsc::channel::<String>();
             let (tx_stderr, rx_stderr) = std::sync::mpsc::channel::<String>();
-            let (th_stdout_tx, th_stderr_tx) = match misc::start_game(
-                tx_stdout,
-                tx_stderr,
-                &config,
-                config.game_server_argv.iter().map(|s| s.as_str()).collect(),
-            ) {
+            let (th_stdout_tx, th_stderr_tx) = match misc::start_game(tx_stdout, tx_stderr, &config)
+            {
                 Ok(n) => n,
                 Err(err) => {
                     log::error!("{}", err);

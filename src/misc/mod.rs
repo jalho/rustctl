@@ -43,22 +43,33 @@ pub fn start_game(
     tx_stdout: std::sync::mpsc::Sender<String>,
     tx_stderr: std::sync::mpsc::Sender<String>,
     config: &crate::args::Config,
-    game_server_argv: Vec<&str>,
 ) -> Result<(std::thread::JoinHandle<()>, std::thread::JoinHandle<()>), crate::error::FatalError> {
-    let steamcmd_installations_dir_absolute: std::path::PathBuf =
-        config.get_absolute_steamcmd_installations();
-    let game_server_executable_absolute: std::path::PathBuf =
-        config.get_absolute_gameserver_executable();
-    let game_server_executable_absolute: &str = &game_server_executable_absolute
-        .to_string_lossy()
-        .to_string();
-    let carbon_executable_absolute: String = config
-        .get_absolute_carbon_executable()
-        .to_string_lossy()
-        .to_string();
     let startup_with_argv: String = format!(
-        "source {carbon_executable_absolute} && {game_server_executable_absolute} {}",
-        game_server_argv.join(" ")
+        "source {} && {} {}",
+        &config.carbon_executable,
+        &config.game_executable,
+        vec![
+            "-batchmode",
+            "+server.identity",
+            "instance0",
+            "+server.port",
+            "28015",
+            "+rcon.port",
+            "28016",
+            "+rcon.web",
+            "1",
+            "+rcon.password",
+            "Your_Rcon_Password",
+            "+server.worldsize",
+            "1000",
+            "+server.seed",
+            "1234",
+            "+server.maxplayers",
+            "10",
+            "+server.hostname",
+            "0.0.0.0",
+        ]
+        .join(" ")
     );
     let argv = vec!["-ff", "-e", "trace=file", "bash", "-c", &startup_with_argv];
 
@@ -67,16 +78,12 @@ pub fn start_game(
         Err(_) => String::from(""),
     };
 
-    // the game server will attempt to load "steamclient.so" from here
-    let libs_path_steam = config.get_absolute_steam_libs();
-    let libs_path_steam: String = libs_path_steam.to_string_lossy().to_string();
-
     let mut child: std::process::Child = match std::process::Command::new(CMD_STRACE)
-        .current_dir(&steamcmd_installations_dir_absolute)
+        .current_dir(&config.steamcmd_installations.path)
         .args(argv)
         .env(
             ENV_LD_LIBRARY_PATH,
-            format!("{libs_paths_prev}:{libs_path_steam}"),
+            format!("{libs_paths_prev}:{}", &config.steamcmd_libs),
         )
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -169,7 +176,7 @@ pub fn handle_game_fs_events(
         info!("{msg}");
     });
 
-    let game_server_cwd: std::path::PathBuf = config.get_absolute_steamcmd_installations();
+    let game_server_cwd: std::path::PathBuf = config.steamcmd_installations.path.clone();
     let th_stderr = std::thread::spawn(move || loop {
         let msg: String = match rx_stderr.recv() {
             Ok(n) => n,
@@ -199,30 +206,34 @@ pub fn handle_game_fs_events(
 pub fn install_update_game_server(
     config: &crate::args::Config,
 ) -> Result<(), crate::error::FatalError> {
-    let steamcmd_executable_absolute: std::path::PathBuf =
-        config.get_absolute_steamcmd_executable();
-    let steamcmd_executable_absolute: &str = &steamcmd_executable_absolute.to_string_lossy();
+    let steamcmd_executable_absolute = &config.steamcmd_executable;
 
     /* Game server installation location must be different than where the installer is for some reason... */
-    let game_server_install_dir: std::path::PathBuf = config.get_absolute_steamcmd_installations();
-    if !game_server_install_dir.is_dir() {
-        match std::fs::create_dir(&game_server_install_dir) {
+    if !&config.steamcmd_installations.path.is_dir() {
+        match std::fs::create_dir(&config.steamcmd_installations.path) {
             Ok(_) => {}
             Err(err) => {
-                return Err(crate::error::FatalError::new(format!("cannot install or update game server: cannot create installation directory '{}'", game_server_install_dir.to_string_lossy()), Some(Box::new(err))));
+                return Err(crate::error::FatalError::new(
+                    format!("cannot install or update game server: cannot create installation directory '{}'",
+                        config.steamcmd_installations),
+                    Some(Box::new(err))),
+                );
             }
         }
     }
 
     // only update & validate against remote if not checked recently
-    let manifest_path: std::path::PathBuf = config.get_absolute_gameserver_appmanifest();
-    let manifest_modified: Option<std::time::SystemTime> = match manifest_path.metadata() {
+    let manifest_modified: Option<std::time::SystemTime> = match &config
+        .game_manifest
+        .path
+        .metadata()
+    {
         Ok(n) => {
             match n.modified() {
                 Ok(n) => Some(n),
                 Err(err) => {
                     return Err(crate::error::FatalError::new(
-                        format!("cannot determine last modification time of game server app manifest '{}'", manifest_path.to_string_lossy()),
+                        format!("cannot determine last modification time of game server app manifest '{}'", &config.game_manifest),
                         Some(Box::new(err)),
                     ));
                 }
@@ -240,16 +251,16 @@ pub fn install_update_game_server(
                 let cooldown = std::time::Duration::from_secs(60 * 15);
                 if manifest_age < cooldown {
                     info!("Game server seems to have been updated recently: App manifest '{}' was last modified {} seconds ago, cooldown being {} seconds -- Not updating again!",
-                          manifest_path.to_string_lossy(), manifest_age.as_secs(), cooldown.as_secs());
+                          &config.game_manifest, manifest_age.as_secs(), cooldown.as_secs());
                     return Ok(());
                 } else {
                     debug!("Game server app manifest '{}' was last modified {} seconds ago -- Update cooldown is {} seconds",
-                           manifest_path.to_string_lossy(), manifest_age.as_secs(), cooldown.as_secs());
+                           &config.game_manifest, manifest_age.as_secs(), cooldown.as_secs());
                 }
             }
             Err(err) => {
                 return Err(crate::error::FatalError::new(
-                    format!("cannot determine time since last modification of game server app manifest '{}'", manifest_path.to_string_lossy()),
+                    format!("cannot determine time since last modification of game server app manifest '{}'", &config.game_manifest),
                     Some(Box::new(err)),
                 ));
             }
@@ -258,13 +269,13 @@ pub fn install_update_game_server(
 
     info!(
         "Installing or updating game server with SteamCMD to '{}'",
-        game_server_install_dir.to_string_lossy()
+        &config.steamcmd_installations
     );
     let paths_touched: Vec<(String, u64)> = match run_with_strace(
-        steamcmd_executable_absolute,
+        &format!("{}", steamcmd_executable_absolute),
         vec![
             "+force_install_dir",
-            &game_server_install_dir.to_string_lossy(),
+            &format!("{}", config.steamcmd_installations),
             "+login",
             "anonymous",
             "+app_update",
@@ -272,7 +283,7 @@ pub fn install_update_game_server(
             "validate",
             "+quit",
         ],
-        &config.get_absolute_root(),
+        &config.root_dir.path,
     ) {
         Err(StraceFilesError::DecodeUtf8(err)) => {
             return Err(crate::error::FatalError::new(format!("cannot install or update game server: cannot decode output of '{CMD_STRACE}' with '{steamcmd_executable_absolute}' as UTF-8"), Some(Box::new(err))))
@@ -299,26 +310,11 @@ pub fn install_update_game_server(
             .join(", ")
     );
 
-    let game_server_executable_absolute: std::path::PathBuf =
-        config.get_absolute_gameserver_executable();
-    if !game_server_executable_absolute.is_file() {
-        let name: &std::ffi::OsStr = match game_server_executable_absolute.file_name() {
-            Some(n) => n,
-            None => {
-                return Err(crate::error::FatalError::new(
-                    format!(
-                        "bad config: game server executable absolute path does not end with file name: '{}'",
-                        game_server_executable_absolute.to_string_lossy(),
-                    ),
-                    None,
-                ));
-            }
-        };
+    if !&config.game_executable.path.is_file() {
         return Err(crate::error::FatalError::new(
             format!(
-                "unexpected game server installation: did not contain file '{}' ('{}')",
-                name.to_string_lossy(),
-                game_server_executable_absolute.to_string_lossy(),
+                "unexpected game server installation: did not contain file '{}'",
+                &config.game_executable,
             ),
             None,
         ));
@@ -368,33 +364,32 @@ fn run_with_strace(
 
 /// Install _SteamCMD_ (game server installer).
 pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error::FatalError> {
-    let steamcmd_tgz_absolute: std::path::PathBuf = config.get_absolute_steamcmd_archive();
-    if steamcmd_tgz_absolute.is_file() {
+    if config.steamcmd_archive.path.is_file() {
         log::debug!(
             "SteamCMD distribution '{}' has been downloaded earlier -- Not downloading again",
-            steamcmd_tgz_absolute.to_string_lossy()
+            &config.steamcmd_archive
         );
     } else {
         let response: reqwest::blocking::Response =
-            match reqwest::blocking::get(&config.steamcmd_download_url) {
+            match reqwest::blocking::get(&config.steamcmd_download) {
                 Ok(n) => n,
                 Err(err) => {
                     return Err(crate::error::FatalError::new(
                         format!(
                             "cannot install SteamCMD: cannot fetch distribution from '{}'",
-                            config.steamcmd_download_url
+                            &config.steamcmd_download
                         ),
                         Some(Box::new(err)),
                     ));
                 }
             };
-        let mut file: std::fs::File = match std::fs::File::create(&steamcmd_tgz_absolute) {
+        let mut file: std::fs::File = match std::fs::File::create(&config.steamcmd_archive.path) {
             Ok(n) => n,
             Err(err) => {
                 return Err(crate::error::FatalError::new(
                     format!(
                         "cannot install SteamCMD: cannot create file '{}'",
-                        steamcmd_tgz_absolute.to_string_lossy()
+                        &config.steamcmd_archive
                     ),
                     Some(Box::new(err)),
                 ));
@@ -407,24 +402,21 @@ pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error
                 return Err(crate::error::FatalError::new(
                     format!(
                         "cannot install SteamCMD: cannot write response from '{}' to '{}'",
-                        config.steamcmd_download_url,
-                        steamcmd_tgz_absolute.to_string_lossy()
+                        &config.steamcmd_download, &config.steamcmd_archive
                     ),
                     Some(Box::new(err)),
                 ));
             }
             _ => {}
         }
-        log::info!("Downloaded SteamCMD from {}", config.steamcmd_download_url);
+        log::info!("Downloaded SteamCMD from {}", &config.steamcmd_download);
     }
 
-    let steamcmd_executable_absolute: std::path::PathBuf =
-        config.get_absolute_steamcmd_executable();
     let cmd_tar: &str = "tar";
     let paths_touched: Vec<(String, u64)> = match run_with_strace(
         cmd_tar,
-        vec!["-xzf", &steamcmd_tgz_absolute.to_string_lossy()],
-        &config.get_absolute_root(),
+        vec!["-xzf", &format!("{}", &config.steamcmd_archive)],
+        &config.root_dir.path, // TODO: Bind to the archive's location
     ) {
         Ok(n) => n,
         Err(StraceFilesError::DecodeUtf8(err)) => {
@@ -453,7 +445,7 @@ pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error
     log::info!(
         "Extracted {} files from SteamCMD distribution '{}': Biggest {}: {}",
         paths_touched.len(),
-        steamcmd_tgz_absolute.to_string_lossy(),
+        &config.steamcmd_archive,
         paths_touched_subset.len(),
         paths_touched_subset
             .into_iter()
@@ -463,24 +455,11 @@ pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error
             .join(", ")
     );
 
-    if !steamcmd_executable_absolute.is_file() {
-        let name: &std::ffi::OsStr = match steamcmd_executable_absolute.file_name() {
-            Some(n) => n,
-            None => {
-                return Err(crate::error::FatalError::new(
-                    format!(
-                        "bad config: SteamCMD executable absolute path does not end with file name: '{}'",
-                        steamcmd_executable_absolute.to_string_lossy(),
-                    ),
-                    None,
-                ));
-            }
-        };
+    if !&config.steamcmd_executable.path.is_file() {
         return Err(crate::error::FatalError::new(
             format!(
-                "unexpected distribution of SteamCMD: did not contain file '{}' ('{}')",
-                name.to_string_lossy(),
-                steamcmd_executable_absolute.to_string_lossy(),
+                "unexpected distribution of SteamCMD: did not contain file '{}'",
+                &config.steamcmd_executable,
             ),
             None,
         ));
@@ -491,33 +470,32 @@ pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error
 
 /// Install _Carbon_ (game modding framework).
 pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::FatalError> {
-    let carbon_tgz_absolute: std::path::PathBuf = config.get_absolute_carbon_archive();
-    if carbon_tgz_absolute.is_file() {
+    if config.carbon_archive.path.is_file() {
         log::debug!(
             "Carbon distribution '{}' has been downloaded earlier -- Not downloading again",
-            carbon_tgz_absolute.to_string_lossy()
+            &config.carbon_archive
         );
     } else {
         let response: reqwest::blocking::Response =
-            match reqwest::blocking::get(&config.carbon_download_url) {
+            match reqwest::blocking::get(&config.carbon_download) {
                 Ok(n) => n,
                 Err(err) => {
                     return Err(crate::error::FatalError::new(
                         format!(
                             "cannot install Carbon: cannot fetch distribution from '{}'",
-                            config.carbon_download_url
+                            config.carbon_download
                         ),
                         Some(Box::new(err)),
                     ));
                 }
             };
-        let mut file: std::fs::File = match std::fs::File::create(&carbon_tgz_absolute) {
+        let mut file: std::fs::File = match std::fs::File::create(&config.carbon_archive.path) {
             Ok(n) => n,
             Err(err) => {
                 return Err(crate::error::FatalError::new(
                     format!(
                         "cannot install Carbon: cannot create file '{}'",
-                        carbon_tgz_absolute.to_string_lossy()
+                        &config.carbon_archive
                     ),
                     Some(Box::new(err)),
                 ));
@@ -530,23 +508,21 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
                 return Err(crate::error::FatalError::new(
                     format!(
                         "cannot install Carbon: cannot write response from '{}' to '{}'",
-                        config.carbon_download_url,
-                        carbon_tgz_absolute.to_string_lossy()
+                        &config.carbon_download, &config.carbon_archive
                     ),
                     Some(Box::new(err)),
                 ));
             }
             _ => {}
         }
-        log::info!("Downloaded Carbon from {}", config.carbon_download_url);
+        log::info!("Downloaded Carbon from {}", &config.carbon_download);
     }
 
-    let carbon_executable_absolute: std::path::PathBuf = config.get_absolute_carbon_executable();
     let cmd_tar: &str = "tar";
     let paths_touched: Vec<(String, u64)> = match run_with_strace(
         cmd_tar,
-        vec!["-xzf", &carbon_tgz_absolute.to_string_lossy()],
-        &config.get_absolute_steamcmd_installations(),
+        vec!["-xzf", &format!("{}", &config.carbon_archive)],
+        &config.steamcmd_installations.path, // TODO: Refer to the archive's location
     ) {
         Ok(n) => n,
         Err(StraceFilesError::DecodeUtf8(err)) => {
@@ -575,7 +551,7 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
     log::info!(
         "Extracted {} files from Carbon distribution '{}': Biggest {}: {}",
         paths_touched.len(),
-        carbon_tgz_absolute.to_string_lossy(),
+        &config.carbon_archive,
         paths_touched_subset.len(),
         paths_touched_subset
             .into_iter()
@@ -585,43 +561,35 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
             .join(", ")
     );
 
-    if !carbon_executable_absolute.is_file() {
-        let name: &std::ffi::OsStr = match carbon_executable_absolute.file_name() {
-            Some(n) => n,
-            None => {
-                return Err(crate::error::FatalError::new(
-                    format!(
-                        "bad config: Carbon executable absolute path does not end with file name: '{}'",
-                        carbon_executable_absolute.to_string_lossy(),
-                    ),
-                    None,
-                ));
-            }
-        };
+    if !config.carbon_executable.path.is_file() {
         return Err(crate::error::FatalError::new(
             format!(
-                "unexpected distribution of Carbon: did not contain file '{}' ('{}')",
-                name.to_string_lossy(),
-                carbon_executable_absolute.to_string_lossy(),
+                "unexpected distribution of Carbon: did not contain file '{}'",
+                &config.carbon_executable,
             ),
             None,
         ));
     }
 
-    let carbon_config_absolute: std::path::PathBuf = config.get_absolute_carbon_config_path();
-    if !carbon_config_absolute.is_file() {
+    /*
+      TODO: Fix Carbon config manipulation: It seems the config file doesn't
+      exist in the downloaded archive and cannot be created with just
+      `IsModded: false` because it get overwritten at startup. Maybe the
+      value can be changed via some API after startup?
+    */
+    if !&config.carbon_config.path.is_file() {
         return Err(crate::error::FatalError::new(
             format!(
                 "unexpected distribution of Carbon: did not contain file '{}'",
-                carbon_config_absolute.to_string_lossy(),
+                &config.carbon_config,
             ),
             None,
         ));
     }
-    configure_carbon(&carbon_config_absolute)?;
+    configure_carbon(&config.carbon_config.path)?;
     info!(
         "Configured Carbon: Set 'IsModded' to false in '{}'",
-        carbon_config_absolute.to_string_lossy()
+        &config.carbon_config
     );
 
     return Ok(());

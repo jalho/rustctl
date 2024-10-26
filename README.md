@@ -35,42 +35,12 @@ will refer to the shared configuration file.
 
 ### Example configuration
 
-As of commit `81e78da`. Not complete!
+As of commit `TODO`.
 
 ```toml
-"rustctl_root_dir" = "/home/rust"
-
-"steamcmd_download_url"           = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz"
-"steamcmd_target_file_name_tgz"   = "steamcmd.tgz"
-"steamcmd_executable_name"        = "steamcmd.sh"
-
-"carbon_download_url"             = "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Release.tar.gz"
-"carbon_target_file_name_tgz"     = "carbon.tgz"
-
-"steamcmd_installations_dir_name" = "installations"
-"game_server_appmanifest"         = "steamapps/appmanifest_258550.acf"
-"game_server_executable_name"     = "RustDedicated"
-"game_server_argv" = [
-    "-batchmode",
-    "+server.identity",
-    "instance0",
-    "+server.port",
-    "28015",
-    "+rcon.port",
-    "28016",
-    "+rcon.web",
-    "1",
-    "+rcon.password",
-    "Your_Rcon_Password",
-    "+server.worldsize",
-    "1000",
-    "+server.seed",
-    "1234",
-    "+server.maxplayers",
-    "10",
-    "+server.hostname",
-    "0.0.0.0",
-]
+"root_dir"          = "/home/rust/"
+"steamcmd_download" = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz"
+"carbon_download"   = "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Release.tar.gz"
 ```
 
 ### Manual tests

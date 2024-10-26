@@ -1,186 +1,134 @@
 //! Configuration for the program.
 
-/// Configuration for the program.
+/// Configuration source from the filesystem.
 #[derive(serde::Deserialize)]
+struct ConfigSrcFs {
+    root_dir: String,
+    steamcmd_download: String,
+    carbon_download: String,
+}
+
+pub struct Path {
+    pub path: std::path::PathBuf,
+}
+impl std::fmt::Display for Path {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self.path.to_string_lossy()))
+    }
+}
+
+/// Final configuration for the program constructed from sources like the
+/// command line argument vector and a filesystem source.
 pub struct Config {
-    /// Where the program shall install _SteamCMD_, _RustDedicated_, _Carbon_ etc.
-    rustctl_root_dir: std::path::PathBuf,
+    pub root_dir: Path,
 
-    /// Where _SteamCMD_ shall be downloaded from over the internet.
-    pub steamcmd_download_url: String,
-    /// Name of a .tgz file in which the downloaded _SteamCMD_ distribution shall be saved.
-    steamcmd_target_file_name_tgz: std::path::PathBuf,
-    /// Name of the _SteamCMD_ executable expected to be extracted from the distributed .tgz file: E.g. `steamcmd.sh`.
-    steamcmd_executable_name: std::path::PathBuf,
-    /// Name of directory within `rustctl_root_dir` in which SteamCMD shall install the game server.
-    /// For whatever reason this must be different from the directory in which the installer itself
-    /// (SteamCMD) is installed.
-    steamcmd_installations_dir_name: std::path::PathBuf,
+    pub steamcmd_download: String,
+    pub steamcmd_archive: Path,
+    pub steamcmd_executable: Path,
+    pub steamcmd_installations: Path,
+    pub steamcmd_libs: Path,
 
-    /// Where _Carbon_ shall be downloaded from over the internet.
-    pub carbon_download_url: String,
-    /// Name of a .tgz file in which the downloaded _Carbon_ distribution shall be saved.
-    carbon_target_file_name_tgz: std::path::PathBuf,
+    pub carbon_download: String,
+    pub carbon_archive: Path,
+    pub carbon_executable: Path,
+    pub carbon_config: Path,
 
-    /// Path from SteamCMD installations dir to "app manifest file" of the
-    /// game server that contains information of e.g. the build ID. "Build IDs
-    /// are a globally incrementing number. Build IDs are updated when a new
-    /// build of an application is pushed."
-    /// E.g. `steamapps/appmanifest_258550.acf`
-    game_server_appmanifest: std::path::PathBuf,
-    /// Name of the game server executable that is expected to be installed by SteamCMD: E.g. `RustDedicated`.
-    game_server_executable_name: std::path::PathBuf,
-    pub game_server_argv: Vec<String>,
+    pub game_manifest: Path,
+    pub game_executable: Path,
 }
 impl Config {
-    /// Where the configuration of this program will be stored at by default.
-    pub fn default_fs_path() -> std::path::PathBuf {
-        return "/etc/rustctl/config.toml".into();
-    }
-
-    /// Get configuration from filesystem.
-    pub fn get_from_fs(
-        config_file_path: std::path::PathBuf,
-    ) -> Result<Self, crate::error::FatalError> {
-        let content_raw: String = match std::fs::read_to_string(&config_file_path) {
+    pub fn new() -> Result<Self, crate::error::FatalError> {
+        let config_file_path: &'static str = "/etc/rustctl/config.toml";
+        let config_content: String = match std::fs::read_to_string(config_file_path) {
             Ok(n) => n,
             Err(err) => {
                 return Err(crate::error::FatalError::new(
                     format!(
-                        "cannot read config from filesystem: '{}'",
-                        config_file_path.to_string_lossy()
-                    ),
+                    "cannot initialize config from filesystem: cannot read '{config_file_path}'"
+                ),
                     Some(Box::new(err)),
-                ));
+                ))
             }
         };
-        let config_parsed: Config = match toml::from_str(&content_raw) {
+        let config: ConfigSrcFs = match toml::from_str(&config_content) {
             Ok(n) => n,
             Err(err) => {
                 return Err(crate::error::FatalError::new(
                     format!(
-                        "cannot parse config from TOML: '{}'",
-                        config_file_path.to_string_lossy()
-                    ),
+                    "cannot initialize config from filesystem: invalid content in '{config_file_path}'"
+                ),
                     Some(Box::new(err)),
-                ));
+                ))
             }
         };
+        let root_dir: std::path::PathBuf =
+            match <std::path::PathBuf as std::str::FromStr>::from_str(&config.root_dir) {
+                Ok(n) => n,
+                Err(_) => {
+                    // not sure what the from_str -> Result<> is for...
+                    unreachable!();
+                }
+            };
 
-        if !config_parsed.rustctl_root_dir.is_dir() {
-            return Err(crate::error::FatalError::new(
-                format!(
-                    "bad program root directory: not a directory: '{}'",
-                    config_parsed.rustctl_root_dir.to_string_lossy()
-                ),
-                None,
-            ));
-        }
+        let mut steamcmd_archive: std::path::PathBuf = root_dir.clone();
+        steamcmd_archive.push("steamcmd.tgz");
 
-        let meta: std::fs::Metadata = match std::fs::metadata(&config_parsed.rustctl_root_dir) {
-            Ok(n) => n,
-            Err(err) => {
-                return Err(crate::error::FatalError::new(
-                    format!(
-                        "bad program root directory: cannot read metadata: '{}'",
-                        config_parsed.rustctl_root_dir.to_string_lossy()
-                    ),
-                    Some(Box::new(err)),
-                ));
-            }
-        };
+        let mut steamcmd_executable: std::path::PathBuf = root_dir.clone();
+        steamcmd_executable.push("steamcmd.sh");
 
-        use std::os::unix::fs::MetadataExt;
-        let owner_uid: u32 = meta.uid();
+        let mut steamcmd_installations: std::path::PathBuf = root_dir.clone();
+        steamcmd_installations.push("game-server");
 
-        /* Really needed to only check that the current user owns the dir, but
-        it is easier to just check against uid 1000 which suffices for my
-        intended use case (single user Debian system). */
-        let required_owner_uid: u32 = 1000;
-        if owner_uid != required_owner_uid {
-            return Err(crate::error::FatalError::new(
-                format!(
-                    "bad program root directory: not owned by user {}: '{}'",
-                    required_owner_uid,
-                    config_parsed.rustctl_root_dir.to_string_lossy()
-                ),
-                None,
-            ));
-        }
+        let mut steamcmd_libs: std::path::PathBuf = root_dir.clone();
+        steamcmd_libs.push("linux64");
 
-        use std::os::unix::fs::PermissionsExt;
-        let permissions: u32 = meta.permissions().mode();
-        let can_read = permissions & 0o400 != 0;
-        let can_write = permissions & 0o200 != 0;
-        let can_execute = permissions & 0o100 != 0;
-        if !can_read || !can_write || !can_execute {
-            return Err(crate::error::FatalError::new(
-                format!(
-                    "bad program root directory: missing rwx permissions: '{}'",
-                    config_parsed.rustctl_root_dir.to_string_lossy()
-                ),
-                None,
-            ));
-        }
+        let mut carbon_archive: std::path::PathBuf = steamcmd_installations.clone();
+        carbon_archive.push("carbon.tgz");
 
-        return Ok(config_parsed);
-    }
+        let mut carbon_executable: std::path::PathBuf = steamcmd_installations.clone();
+        carbon_executable.push("carbon/tools/environment.sh");
 
-    pub fn get_absolute_root(&self) -> std::path::PathBuf {
-        return self.rustctl_root_dir.clone();
-    }
-    pub fn get_absolute_steamcmd_archive(&self) -> std::path::PathBuf {
-        let mut path = self.rustctl_root_dir.clone();
-        path.push(self.steamcmd_target_file_name_tgz.clone());
-        return path;
-    }
-    pub fn get_absolute_steamcmd_executable(&self) -> std::path::PathBuf {
-        let mut path = self.rustctl_root_dir.clone();
-        path.push(self.steamcmd_executable_name.clone());
-        return path;
-    }
-    pub fn get_absolute_steam_libs(&self) -> std::path::PathBuf {
-        let mut path = self.rustctl_root_dir.clone();
-        path.push("linux64");
-        return path;
-    }
-    pub fn get_absolute_steamcmd_installations(&self) -> std::path::PathBuf {
-        let mut path = self.rustctl_root_dir.clone();
-        path.push(self.steamcmd_installations_dir_name.clone());
-        return path;
-    }
-    pub fn get_absolute_carbon_archive(&self) -> std::path::PathBuf {
-        let mut path = self.rustctl_root_dir.clone();
-        path.push(self.steamcmd_installations_dir_name.clone());
-        path.push(self.carbon_target_file_name_tgz.clone());
-        return path;
-    }
-    pub fn get_absolute_carbon_executable(&self) -> std::path::PathBuf {
-        let mut path = self.rustctl_root_dir.clone();
-        path.push(self.steamcmd_installations_dir_name.clone());
-        path.push("carbon");
-        path.push("tools");
-        path.push("environment.sh");
-        return path;
-    }
-    pub fn get_absolute_carbon_config_path(&self) -> std::path::PathBuf {
-        let mut path = self.rustctl_root_dir.clone();
-        path.push(self.steamcmd_installations_dir_name.clone());
-        path.push("carbon");
-        path.push("config.json");
-        return path;
-    }
-    pub fn get_absolute_gameserver_appmanifest(&self) -> std::path::PathBuf {
-        let mut path = self.rustctl_root_dir.clone();
-        path.push(self.steamcmd_installations_dir_name.clone());
-        path.push(self.game_server_appmanifest.clone());
-        return path;
-    }
-    pub fn get_absolute_gameserver_executable(&self) -> std::path::PathBuf {
-        let mut path = self.rustctl_root_dir.clone();
-        path.push(self.steamcmd_installations_dir_name.clone());
-        path.push(self.game_server_executable_name.clone());
-        return path;
+        let mut carbon_config: std::path::PathBuf = steamcmd_installations.clone();
+        carbon_config.push("carbon/config.json");
+
+        let mut game_manifest: std::path::PathBuf = steamcmd_installations.clone();
+        game_manifest.push("steamapps/appmanifest_258550.acf");
+
+        let mut game_executable: std::path::PathBuf = steamcmd_installations.clone();
+        game_executable.push("RustDedicated");
+
+        return Ok(Self {
+            root_dir: Path { path: root_dir },
+            steamcmd_download: config.steamcmd_download,
+            steamcmd_archive: Path {
+                path: steamcmd_archive,
+            },
+            steamcmd_executable: Path {
+                path: steamcmd_executable,
+            },
+            steamcmd_installations: Path {
+                path: steamcmd_installations,
+            },
+            steamcmd_libs: Path {
+                path: steamcmd_libs,
+            },
+            carbon_download: config.carbon_download,
+            carbon_archive: Path {
+                path: carbon_archive,
+            },
+            carbon_executable: Path {
+                path: carbon_executable,
+            },
+            carbon_config: Path {
+                path: carbon_config,
+            },
+            game_manifest: Path {
+                path: game_manifest,
+            },
+            game_executable: Path {
+                path: game_executable,
+            },
+        });
     }
 }
 
