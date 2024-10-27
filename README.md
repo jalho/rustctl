@@ -35,7 +35,7 @@ will refer to the shared configuration file.
 
 ### Example configuration
 
-As of commit `TODO`.
+As of commit `a8b5ea1c`.
 
 ```toml
 "root_dir"          = "/home/rust/"
@@ -47,6 +47,7 @@ As of commit `TODO`.
 
 | date       | commit  | system                                                     | asserts                                  |
 | ---------- | ------- | ---------------------------------------------------------- | ---------------------------------------- |
+| 2024-10-27 | a8b5ea1c| Debian 12, kernel 6.1.0-26-amd64, strace v6.1, tar v1.34   | Game server seems healthy based on logs. |
 | 2024-10-19 | 81e78da | Arch Linux, kernel 6.11.2-arch1-1, strace v6.11, tar v1.35 | Game is fully functional with Carbon.    |
 | 2024-10-19 | 81e78da | Debian 12, kernel 6.1.0-26-amd64, strace v6.1, tar v1.34   | Game server seems healthy based on logs. |
 
