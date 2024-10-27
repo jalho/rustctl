@@ -576,6 +576,11 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
       exist in the downloaded archive and cannot be created with just
       `IsModded: false` because it get overwritten at startup. Maybe the
       value can be changed via some API after startup?
+
+      Consider this command that can be issued via WebSocket RCON:
+      `c.gocommunity`
+      docs: https://docs.carbonmod.gg/docs/core/commands#c.gocommunity
+      [Accessed 2024-10-27]
     */
     if !&config.carbon_config.path.is_file() {
         return Err(crate::error::FatalError::new(
