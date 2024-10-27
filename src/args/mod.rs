@@ -8,33 +8,45 @@ struct ConfigSrcFs {
     carbon_download: String,
 }
 
-pub struct Path {
+pub struct PathAbsolute {
+    /// Absolute path to a file or directory.
     pub path: std::path::PathBuf,
 }
-impl std::fmt::Display for Path {
+impl std::fmt::Display for PathAbsolute {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("{}", self.path.to_string_lossy()))
+    }
+}
+impl PathAbsolute {
+    pub fn parent(&self) -> std::path::PathBuf {
+        let parent_path: std::path::PathBuf = match self.path.parent() {
+            Some(n) => n.to_path_buf(),
+            None => {
+                todo!(); // TODO: Somehow ensure this is unreachable...
+            }
+        };
+        return parent_path;
     }
 }
 
 /// Final configuration for the program constructed from sources like the
 /// command line argument vector and a filesystem source.
 pub struct Config {
-    pub root_dir: Path,
+    pub root_dir: PathAbsolute,
 
     pub steamcmd_download: String,
-    pub steamcmd_archive: Path,
-    pub steamcmd_executable: Path,
-    pub steamcmd_installations: Path,
-    pub steamcmd_libs: Path,
+    pub steamcmd_archive: PathAbsolute,
+    pub steamcmd_executable: PathAbsolute,
+    pub steamcmd_installations: PathAbsolute,
+    pub steamcmd_libs: PathAbsolute,
 
     pub carbon_download: String,
-    pub carbon_archive: Path,
-    pub carbon_executable: Path,
-    pub carbon_config: Path,
+    pub carbon_archive: PathAbsolute,
+    pub carbon_executable: PathAbsolute,
+    pub carbon_config: PathAbsolute,
 
-    pub game_manifest: Path,
-    pub game_executable: Path,
+    pub game_manifest: PathAbsolute,
+    pub game_executable: PathAbsolute,
 }
 impl Config {
     pub fn new() -> Result<Self, crate::error::FatalError> {
@@ -77,7 +89,7 @@ impl Config {
         steamcmd_executable.push("steamcmd.sh");
 
         let mut steamcmd_installations: std::path::PathBuf = root_dir.clone();
-        steamcmd_installations.push("game-server");
+        steamcmd_installations.push("installations");
 
         let mut steamcmd_libs: std::path::PathBuf = root_dir.clone();
         steamcmd_libs.push("linux64");
@@ -98,34 +110,34 @@ impl Config {
         game_executable.push("RustDedicated");
 
         return Ok(Self {
-            root_dir: Path { path: root_dir },
+            root_dir: PathAbsolute { path: root_dir },
             steamcmd_download: config.steamcmd_download,
-            steamcmd_archive: Path {
+            steamcmd_archive: PathAbsolute {
                 path: steamcmd_archive,
             },
-            steamcmd_executable: Path {
+            steamcmd_executable: PathAbsolute {
                 path: steamcmd_executable,
             },
-            steamcmd_installations: Path {
+            steamcmd_installations: PathAbsolute {
                 path: steamcmd_installations,
             },
-            steamcmd_libs: Path {
+            steamcmd_libs: PathAbsolute {
                 path: steamcmd_libs,
             },
             carbon_download: config.carbon_download,
-            carbon_archive: Path {
+            carbon_archive: PathAbsolute {
                 path: carbon_archive,
             },
-            carbon_executable: Path {
+            carbon_executable: PathAbsolute {
                 path: carbon_executable,
             },
-            carbon_config: Path {
+            carbon_config: PathAbsolute {
                 path: carbon_config,
             },
-            game_manifest: Path {
+            game_manifest: PathAbsolute {
                 path: game_manifest,
             },
-            game_executable: Path {
+            game_executable: PathAbsolute {
                 path: game_executable,
             },
         });

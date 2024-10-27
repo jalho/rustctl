@@ -416,7 +416,7 @@ pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error
     let paths_touched: Vec<(String, u64)> = match run_with_strace(
         cmd_tar,
         vec!["-xzf", &format!("{}", &config.steamcmd_archive)],
-        &config.root_dir.path, // TODO: Bind to the archive's location
+        &config.steamcmd_archive.parent(),
     ) {
         Ok(n) => n,
         Err(StraceFilesError::DecodeUtf8(err)) => {
@@ -522,7 +522,7 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
     let paths_touched: Vec<(String, u64)> = match run_with_strace(
         cmd_tar,
         vec!["-xzf", &format!("{}", &config.carbon_archive)],
-        &config.steamcmd_installations.path, // TODO: Refer to the archive's location
+        &config.carbon_archive.parent(),
     ) {
         Ok(n) => n,
         Err(StraceFilesError::DecodeUtf8(err)) => {
