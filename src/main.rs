@@ -15,14 +15,6 @@ fn main() -> Result<(), error::FatalError> {
         }
     };
 
-    let config: args::Config = match args::Config::new() {
-        Ok(n) => n,
-        Err(err) => {
-            log::error!("{}", err);
-            return Err(err);
-        }
-    };
-
     match command {
         args::Command::Help => {
             println!("{}", text::HELPTEXT);
@@ -34,6 +26,14 @@ fn main() -> Result<(), error::FatalError> {
         }
         _ => {}
     }
+
+    let config: args::Config = match args::Config::new() {
+        Ok(n) => n,
+        Err(err) => {
+            log::error!("{}", err);
+            return Err(err);
+        }
+    };
 
     match command {
         args::Command::Config => todo!(),
