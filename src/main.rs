@@ -4,13 +4,7 @@ mod misc;
 mod text;
 
 fn main() -> Result<(), error::FatalError> {
-    match misc::init_logger() {
-        Err(err) => {
-            log::error!("{}", err);
-            return Err(err);
-        }
-        _ => {}
-    };
+    misc::init_logger()?;
 
     let argv: Vec<String> = std::env::args().collect();
     let command: args::Command = match args::Command::get(argv) {
