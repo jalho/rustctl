@@ -82,7 +82,12 @@ fn main() -> Result<(), error::FatalError> {
                 tx_game_server_state,
             );
 
-            misc::configure_carbon(rx_game_server_state, &config)?;
+            // TODO: Force termination of spawned child processes when something goes wrong at startup!
+            //       (Namely terminate the game server that seems hung for whatever reason...)
+            if let Err(err) = misc::configure_carbon(rx_game_server_state, &config) {
+                log::error!("{}", err);
+                return Err(err);
+            }
 
             _ = th_stdout_tx.join();
             _ = th_stderr_tx.join();
