@@ -254,14 +254,13 @@ pub fn install_update_game_server(
         let now: std::time::SystemTime = std::time::SystemTime::now();
         match now.duration_since(n) {
             Ok(manifest_age) => {
-                let cooldown = std::time::Duration::from_secs(60 * 15);
-                if manifest_age < cooldown {
+                if &manifest_age < &config.game_startup_update_cooldown {
                     info!("Game server seems to have been updated recently: App manifest '{}' was last modified {} seconds ago, cooldown being {} seconds -- Not updating again!",
-                          &config.game_manifest, manifest_age.as_secs(), cooldown.as_secs());
+                          &config.game_manifest, manifest_age.as_secs(), &config.game_startup_update_cooldown.as_secs());
                     return Ok(());
                 } else {
                     debug!("Game server app manifest '{}' was last modified {} seconds ago -- Update cooldown is {} seconds",
-                           &config.game_manifest, manifest_age.as_secs(), cooldown.as_secs());
+                           &config.game_manifest, manifest_age.as_secs(), &config.game_startup_update_cooldown.as_secs());
                 }
             }
             Err(err) => {

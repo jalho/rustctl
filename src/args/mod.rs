@@ -46,6 +46,7 @@ pub struct Config {
     pub carbon_config: PathAbsolute,
 
     pub game_manifest: PathAbsolute,
+    pub game_startup_update_cooldown: std::time::Duration,
     pub game_executable: PathAbsolute,
 
     /// RCON password intended more like an internal constant rather
@@ -119,6 +120,7 @@ impl Config {
 
         return Ok(Self {
             root_dir: PathAbsolute { path: root_dir },
+
             steamcmd_download: config.steamcmd_download,
             steamcmd_archive: PathAbsolute {
                 path: steamcmd_archive,
@@ -132,6 +134,7 @@ impl Config {
             steamcmd_libs: PathAbsolute {
                 path: steamcmd_libs,
             },
+
             carbon_download: config.carbon_download,
             carbon_archive: PathAbsolute {
                 path: carbon_archive,
@@ -142,12 +145,15 @@ impl Config {
             carbon_config: PathAbsolute {
                 path: carbon_config,
             },
+
             game_manifest: PathAbsolute {
                 path: game_manifest,
             },
+            game_startup_update_cooldown: std::time::Duration::from_secs(60 * 60),
             game_executable: PathAbsolute {
                 path: game_executable,
             },
+
             rcon_password: String::from("Your_Rcon_Password"),
         });
     }
