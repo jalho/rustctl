@@ -47,6 +47,14 @@ pub struct Config {
 
     pub game_manifest: PathAbsolute,
     pub game_executable: PathAbsolute,
+
+    /// RCON password intended more like an internal constant rather
+    /// than sensitive configuration value: The plan is to not expose
+    /// the RCON service publicly at all but instead implement a limited
+    /// wrapper around it, and the wrapper alone should be concerned
+    /// with the RCON password, thus making it just an internal
+    /// constant.
+    pub rcon_password: String,
 }
 impl Config {
     pub fn new() -> Result<Self, crate::error::FatalError> {
@@ -140,6 +148,7 @@ impl Config {
             game_executable: PathAbsolute {
                 path: game_executable,
             },
+            rcon_password: String::from("Your_Rcon_Password"),
         });
     }
 }

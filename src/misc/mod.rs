@@ -59,7 +59,7 @@ pub fn start_game(
             "+rcon.web",
             "1",
             "+rcon.password",
-            "Your_Rcon_Password",
+            &config.rcon_password,
             "+server.worldsize",
             "1000",
             "+server.seed",
