@@ -72,9 +72,10 @@ fn main() -> Result<(), error::FatalError> {
                     return Err(err);
                 }
             };
-
             let (th_stdout_rx, th_stderr_rx) =
                 misc::handle_game_fs_events(rx_stdout, rx_stderr, &config);
+
+            misc::configure_carbon(&config.carbon_config.path)?;
 
             _ = th_stdout_tx.join();
             _ = th_stderr_tx.join();

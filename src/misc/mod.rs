@@ -571,98 +571,19 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
         ));
     }
 
-    /*
-      TODO: Fix Carbon config manipulation: It seems the config file doesn't
-      exist in the downloaded archive and cannot be created with just
-      `IsModded: false` because it get overwritten at startup. Maybe the
-      value can be changed via some API after startup?
+    return Ok(());
+}
 
-      Consider this command that can be issued via WebSocket RCON:
+pub fn configure_carbon(
+    _config_path_absolute: &std::path::PathBuf,
+) -> Result<(), crate::error::FatalError> {
+    /*
+      WebSocket RCON:
       `c.gocommunity`
       docs: https://docs.carbonmod.gg/docs/core/commands#c.gocommunity
       [Accessed 2024-10-27]
     */
-    if !&config.carbon_config.path.is_file() {
-        return Err(crate::error::FatalError::new(
-            format!(
-                "unexpected distribution of Carbon: did not contain file '{}'",
-                &config.carbon_config,
-            ),
-            None,
-        ));
-    }
-    configure_carbon(&config.carbon_config.path)?;
-    info!(
-        "Configured Carbon: Set 'IsModded' to false in '{}'",
-        &config.carbon_config
-    );
-
-    return Ok(());
-}
-
-fn configure_carbon(
-    config_path_absolute: &std::path::PathBuf,
-) -> Result<(), crate::error::FatalError> {
-    let json_content: String = match std::fs::read_to_string(&config_path_absolute) {
-        Ok(n) => n,
-        Err(err) => {
-            return Err(crate::error::FatalError::new(
-                format!(
-                    "cannot configure Carbon: cannot read config file '{}'",
-                    config_path_absolute.to_string_lossy()
-                ),
-                Some(Box::new(err)),
-            ));
-        }
-    };
-    let mut json_data: serde_json::Value = match serde_json::from_str(&json_content) {
-        Ok(n) => n,
-        Err(err) => {
-            return Err(crate::error::FatalError::new(
-                format!(
-                    "cannot configure Carbon: cannot deserialize JSON config file '{}'",
-                    config_path_absolute.to_string_lossy()
-                ),
-                Some(Box::new(err)),
-            ));
-        }
-    };
-    if let Some(ismod_value) = json_data.get_mut("IsModded") {
-        if ismod_value == true {
-            *ismod_value = serde_json::json!(false);
-        }
-    }
-    let new_json_content: String = match serde_json::to_string_pretty(&json_data) {
-        Ok(n) => n,
-        Err(_) => {
-            // we just deserialized succesfully so surely we can serialize
-            unreachable!()
-        }
-    };
-    let mut file = match std::fs::File::create(&config_path_absolute) {
-        Ok(n) => n,
-        Err(err) => {
-            return Err(crate::error::FatalError::new(
-                format!(
-                    "cannot configure Carbon: cannot open config file in write mode: '{}'",
-                    config_path_absolute.to_string_lossy()
-                ),
-                Some(Box::new(err)),
-            ));
-        }
-    };
-    match std::io::Write::write_all(&mut file, new_json_content.as_bytes()) {
-        Err(err) => {
-            return Err(crate::error::FatalError::new(
-                format!(
-                    "cannot configure Carbon: cannot write config file '{}'",
-                    config_path_absolute.to_string_lossy()
-                ),
-                Some(Box::new(err)),
-            ));
-        }
-        _ => {}
-    }
+    debug!("TODO: Issue `c.gocommunity` via WebSocket RCON once the game server startup is considered completed");
     return Ok(());
 }
 
