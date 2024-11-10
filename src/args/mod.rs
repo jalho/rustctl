@@ -43,7 +43,6 @@ pub struct Config {
     pub carbon_download: String,
     pub carbon_archive: PathAbsolute,
     pub carbon_executable: PathAbsolute,
-    pub carbon_config: PathAbsolute,
 
     pub game_manifest: PathAbsolute,
     pub game_startup_update_cooldown: std::time::Duration,
@@ -141,9 +140,6 @@ impl Config {
             },
             carbon_executable: PathAbsolute {
                 path: carbon_executable,
-            },
-            carbon_config: PathAbsolute {
-                path: carbon_config,
             },
 
             game_manifest: PathAbsolute {

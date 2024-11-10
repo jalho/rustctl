@@ -160,12 +160,17 @@ pub fn start_game(
     return Ok((th_stdout, th_stderr));
 }
 
+pub enum GameServerState {
+    Playable,
+}
+
 /// Handle game server's emitted log lines (STDOUT) and the wrapping strace's
 /// filesystem detected events (STDERR).
 pub fn handle_game_server_events(
     rx_stdout: std::sync::mpsc::Receiver<String>,
     rx_stderr: std::sync::mpsc::Receiver<String>,
     config: &crate::args::Config,
+    tx_game_server_state: std::sync::mpsc::Sender<GameServerState>,
 ) -> (std::thread::JoinHandle<()>, std::thread::JoinHandle<()>) {
     let th_stdout = std::thread::spawn(move || loop {
         let msg: String = match rx_stdout.recv() {
@@ -177,8 +182,13 @@ pub fn handle_game_server_events(
         };
         info!("{msg}");
         if msg == "Server startup complete" {
-            // TODO: Publish a message about the game server having reached a playable state
-            debug!("Game server is probably playable now!");
+            match tx_game_server_state.send(GameServerState::Playable) {
+                Err(err) => {
+                    error!("Cannot send game server state across threads: {:#?}", err);
+                    return;
+                }
+                _ => {}
+            }
         }
     });
 
@@ -580,15 +590,33 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
 }
 
 pub fn configure_carbon(
-    _config_path_absolute: &std::path::PathBuf,
+    rx_game_server_state: std::sync::mpsc::Receiver<GameServerState>,
+    config: &crate::args::Config,
 ) -> Result<(), crate::error::FatalError> {
+    let startup_timeout: std::time::Duration = std::time::Duration::from_secs(60 * 5);
+    match rx_game_server_state.recv_timeout(startup_timeout) {
+        Ok(GameServerState::Playable) => {
+            // The expected case: Game server eventually becomes playable after startup.
+        }
+        Err(err) => {
+            return Err(crate::error::FatalError::new(
+                format!(
+                    "server startup completion not detected within {} minutes",
+                    startup_timeout.as_secs() / 60
+                ),
+                Some(Box::new(err)),
+            ));
+        }
+    };
+
     /*
       WebSocket RCON:
       `c.gocommunity`
       docs: https://docs.carbonmod.gg/docs/core/commands#c.gocommunity
       [Accessed 2024-10-27]
     */
-    debug!("TODO: Issue `c.gocommunity` via WebSocket RCON once the game server startup is considered completed");
+    debug!("TODO: Configure Caron 'IsModded' as false via WebSocket RCON: `c.gocommunity` -- Use password '{}'", &config.rcon_password);
+
     return Ok(());
 }
 
