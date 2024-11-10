@@ -305,7 +305,7 @@ pub fn install_update_game_server(
         paths_touched_subset
             .into_iter()
             .cloned()
-            .map(|(path, size)| format!("{} bytes: {}", human_readable_size(size), path))
+            .map(|(path, size)| format!("{}: {}", human_readable_size(size), path))
             .collect::<Vec<String>>()
             .join(", ")
     );
@@ -450,7 +450,7 @@ pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error
         paths_touched_subset
             .into_iter()
             .cloned()
-            .map(|(path, size)| format!("{} bytes: {}", human_readable_size(size), path))
+            .map(|(path, size)| format!("{}: {}", human_readable_size(size), path))
             .collect::<Vec<String>>()
             .join(", ")
     );
@@ -556,7 +556,7 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
         paths_touched_subset
             .into_iter()
             .cloned()
-            .map(|(path, size)| format!("{} bytes: {}", human_readable_size(size), path))
+            .map(|(path, size)| format!("{}: {}", human_readable_size(size), path))
             .collect::<Vec<String>>()
             .join(", ")
     );
