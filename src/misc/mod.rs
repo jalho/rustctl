@@ -160,7 +160,9 @@ pub fn start_game(
     return Ok((th_stdout, th_stderr));
 }
 
-pub fn handle_game_fs_events(
+/// Handle game server's emitted log lines (STDOUT) and the wrapping strace's
+/// filesystem detected events (STDERR).
+pub fn handle_game_server_events(
     rx_stdout: std::sync::mpsc::Receiver<String>,
     rx_stderr: std::sync::mpsc::Receiver<String>,
     config: &crate::args::Config,
@@ -174,6 +176,10 @@ pub fn handle_game_fs_events(
             }
         };
         info!("{msg}");
+        if msg == "Server startup complete" {
+            // TODO: Publish a message about the game server having reached a playable state
+            debug!("Game server is probably playable now!");
+        }
     });
 
     let game_server_cwd: std::path::PathBuf = config.steamcmd_installations.path.clone();
