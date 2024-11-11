@@ -615,7 +615,7 @@ pub fn configure_carbon(
       docs: https://docs.carbonmod.gg/docs/core/commands#c.gocommunity
       [Accessed 2024-10-27]
     */
-    debug!("TODO: Configure Caron 'IsModded' as false via WebSocket RCON: `c.gocommunity` -- Use password '{}'", &config.rcon_password);
+    debug!("TODO: Configure Carbon 'IsModded' as false via WebSocket RCON: `c.gocommunity` -- Use password '{}'", &config.rcon_password);
 
     return Ok(());
 }
