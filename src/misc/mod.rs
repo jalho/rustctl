@@ -589,6 +589,63 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
     return Ok(());
 }
 
+// TODO: Establish a WebSocket connection once after game server startup and keep using it for the duration of the program
+fn ws_rcon_command(
+    config: &crate::args::Config,
+    rcon_command: &str,
+) -> Result<(), crate::error::FatalError> {
+    // TODO: Get RCON port (28016/tcp) from config -- Used in at least 2 places!
+    let (mut websocket, _) =
+        match tungstenite::connect(format!("ws://127.0.0.1:28016/{}", &config.rcon_password)) {
+            Ok((websocket, http_response)) => (websocket, http_response),
+            Err(err) => {
+                return Err(crate::error::FatalError::new(
+                    format!("cannot connect WebSocket for RCON"),
+                    Some(Box::new(err)),
+                ));
+            }
+        };
+
+    match websocket.send(tungstenite::Message::Text(
+        format!(
+            "{{ \"Identifier\": 42, \"Message\": \"{}\" }}",
+            rcon_command
+        )
+        .into(),
+    )) {
+        Err(err) => {
+            return Err(crate::error::FatalError::new(
+                format!("cannot send RCON command over WebSocket"),
+                Some(Box::new(err)),
+            ));
+        }
+        _ => {}
+    }
+    debug!(
+        "Sent RCON command over WebSocket: '{}' -- Waiting for response...",
+        rcon_command
+    );
+    loop {
+        let msg = match websocket.read() {
+            Ok(n) => n,
+            Err(err) => {
+                return Err(crate::error::FatalError::new(
+                    format!("cannot read RCON response over WebSocket"),
+                    Some(Box::new(err)),
+                ));
+            }
+        };
+        debug!("Got RCON message: {:#?}", msg);
+        if let Ok(text) = msg.into_text() {
+            if text.contains("\"Identifier\": 42") {
+                break;
+            }
+        }
+    }
+
+    return Ok(());
+}
+
 pub fn configure_carbon(
     rx_game_server_state: std::sync::mpsc::Receiver<GameServerState>,
     config: &crate::args::Config,
@@ -615,7 +672,7 @@ pub fn configure_carbon(
       docs: https://docs.carbonmod.gg/docs/core/commands#c.gocommunity
       [Accessed 2024-10-27]
     */
-    debug!("TODO: Configure Carbon 'IsModded' as false via WebSocket RCON: `c.gocommunity` -- Use password '{}'", &config.rcon_password);
+    ws_rcon_command(&config, "c.gocommunity")?;
 
     return Ok(());
 }
