@@ -1,7 +1,5 @@
 //! Dumpster for miscellaneous stuff yet to be better categorized.
 
-use std::os::unix::process::CommandExt;
-
 const CMD_STRACE: &str = "strace";
 const ENV_LD_LIBRARY_PATH: &str = "LD_LIBRARY_PATH";
 
