@@ -82,17 +82,6 @@ fn main() -> Result<(), error::FatalError> {
                 tx_game_server_state,
             );
 
-            /* TODO: Why does terminating the program no longer terminate the
-            (grand)child process 'RustDedicated'? Try e.g. setting a dedicated
-            PID & PGID on the child 'strace'?
-
-            older commit 1f2a11: Terminating the program terminates both child 'strace' and (grand)child
-                                 'RustDedicated'
-
-            newer commit 1a2431: Terminating the program no longer terminates the (grand)child, but does add
-                                 termination capability to when the child 'strace' is #killpg'd as part of
-                                 shutdown cleanup
-            */
             if let Err(err) = misc::configure_carbon(rx_game_server_state, &config) {
                 /* We want to kill a (grand)child process spawned by child
                 process (strace), and the only way to do that AFAIK is by using

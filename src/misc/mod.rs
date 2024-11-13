@@ -1,5 +1,7 @@
 //! Dumpster for miscellaneous stuff yet to be better categorized.
 
+use std::os::unix::process::CommandExt;
+
 const CMD_STRACE: &str = "strace";
 const ENV_LD_LIBRARY_PATH: &str = "LD_LIBRARY_PATH";
 
@@ -87,7 +89,17 @@ pub fn start_game(
     let mut child: std::process::Child = match std::os::unix::process::CommandExt::before_exec(
         &mut std::process::Command::new(CMD_STRACE),
         || {
-            unsafe { libc::setpgid(0, 0) };
+            /* We need a to set a dedicated PID & PGID in order to be able to control
+            termination of both the child 'strace' and (grand)child 'RustDedicated' (the
+            game server). */
+            let pid_for_game = match get_free_pid() {
+                Ok(n) => n,
+                Err(err) => {
+                    log::error!("cannot launch game: cannot determine a free PID");
+                    return Err(err);
+                }
+            };
+            unsafe { libc::setpgid(pid_for_game, pid_for_game) };
             return Ok(());
         },
     )
@@ -172,6 +184,21 @@ pub fn start_game(
     let child_pgid: libc::pid_t = unsafe { libc::getpgid(child.id() as libc::pid_t) };
 
     return Ok((child_pgid, th_stdout, th_stderr));
+}
+
+fn get_free_pid() -> std::io::Result<i32> {
+    #[allow(deprecated)]
+    let mut dummy_process: std::process::Child = std::process::Command::new("sleep")
+        .arg("0")
+        .before_exec(|| {
+            let pid = unsafe { libc::getpid() }; // TODO: Remove the setpgid?
+            unsafe { libc::setpgid(pid, pid) };
+            return Ok(());
+        })
+        .spawn()?;
+    let pgid = dummy_process.id() as i32;
+    let _ = dummy_process.wait();
+    return Ok(pgid);
 }
 
 pub enum GameServerState {
