@@ -682,8 +682,7 @@ pub fn configure_carbon(
     rx_game_server_state: std::sync::mpsc::Receiver<GameServerState>,
     config: &crate::args::Config,
 ) -> Result<(), crate::error::FatalError> {
-    let startup_timeout: std::time::Duration = std::time::Duration::from_secs(60 * 30);
-    match rx_game_server_state.recv_timeout(startup_timeout) {
+    match rx_game_server_state.recv_timeout(config.game_startup_timeout) {
         Ok(GameServerState::Playable) => {
             // The expected case: Game server eventually becomes playable after startup.
         }
@@ -691,7 +690,7 @@ pub fn configure_carbon(
             return Err(crate::error::FatalError::new(
                 format!(
                     "server startup completion not detected within {} minutes",
-                    startup_timeout.as_secs() / 60
+                    config.game_startup_timeout.as_secs() / 60
                 ),
                 Some(Box::new(err)),
             ));
