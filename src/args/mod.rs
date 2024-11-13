@@ -56,6 +56,7 @@ pub struct Config {
     /// with the RCON password, thus making it just an internal
     /// constant.
     pub rcon_password: String,
+    pub rcon_port: u32,
 }
 impl Config {
     pub fn new() -> Result<Self, crate::error::FatalError> {
@@ -153,6 +154,7 @@ impl Config {
             },
 
             rcon_password: String::from("Your_Rcon_Password"),
+            rcon_port: 28016,
         });
     }
 }

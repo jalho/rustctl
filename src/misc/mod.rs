@@ -60,7 +60,7 @@ pub fn start_game(
             "+server.port",
             "28015",
             "+rcon.port",
-            "28016",
+            &config.rcon_port.to_string(),
             "+rcon.web",
             "1",
             "+rcon.password",
@@ -626,17 +626,19 @@ fn ws_rcon_command(
     config: &crate::args::Config,
     rcon_command: &str,
 ) -> Result<(), crate::error::FatalError> {
-    // TODO: Get RCON port (28016/tcp) from config -- Used in at least 2 places!
-    let (mut websocket, _) =
-        match tungstenite::connect(format!("ws://127.0.0.1:28016/{}", &config.rcon_password)) {
-            Ok((websocket, http_response)) => (websocket, http_response),
-            Err(err) => {
-                return Err(crate::error::FatalError::new(
-                    format!("cannot connect WebSocket for RCON"),
-                    Some(Box::new(err)),
-                ));
-            }
-        };
+    let (mut websocket, _) = match tungstenite::connect(format!(
+        "ws://127.0.0.1:{}/{}",
+        &config.rcon_port.to_string(),
+        &config.rcon_password
+    )) {
+        Ok((websocket, http_response)) => (websocket, http_response),
+        Err(err) => {
+            return Err(crate::error::FatalError::new(
+                format!("cannot connect WebSocket for RCON"),
+                Some(Box::new(err)),
+            ));
+        }
+    };
 
     match websocket.send(tungstenite::Message::Text(
         format!(
