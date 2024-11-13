@@ -186,19 +186,12 @@ pub fn start_game(
     return Ok((child_pgid, th_stdout, th_stderr));
 }
 
-fn get_free_pid() -> std::io::Result<i32> {
-    #[allow(deprecated)]
-    let mut dummy_process: std::process::Child = std::process::Command::new("sleep")
-        .arg("0")
-        .before_exec(|| {
-            let pid = unsafe { libc::getpid() }; // TODO: Remove the setpgid?
-            unsafe { libc::setpgid(pid, pid) };
-            return Ok(());
-        })
-        .spawn()?;
-    let pgid = dummy_process.id() as i32;
-    let _ = dummy_process.wait();
-    return Ok(pgid);
+fn get_free_pid() -> Result<i32, std::io::Error> {
+    let mut insomniac: std::process::Child =
+        std::process::Command::new("sleep").arg("0").spawn()?;
+    let pid = insomniac.id() as i32;
+    let _ = insomniac.wait();
+    return Ok(pid);
 }
 
 pub enum GameServerState {
