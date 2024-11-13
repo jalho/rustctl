@@ -1,5 +1,7 @@
 //! Dumpster for miscellaneous stuff yet to be better categorized.
 
+use std::os::unix::process::CommandExt;
+
 use log::{debug, error, info};
 
 const CMD_STRACE: &str = "strace";
@@ -43,7 +45,14 @@ pub fn start_game(
     tx_stdout: std::sync::mpsc::Sender<String>,
     tx_stderr: std::sync::mpsc::Sender<String>,
     config: &crate::args::Config,
-) -> Result<(std::thread::JoinHandle<()>, std::thread::JoinHandle<()>), crate::error::FatalError> {
+) -> Result<
+    (
+        libc::pid_t,
+        std::thread::JoinHandle<()>,
+        std::thread::JoinHandle<()>,
+    ),
+    crate::error::FatalError,
+> {
     let startup_with_argv: String = format!(
         "source {} && {} {}",
         &config.carbon_executable,
@@ -78,7 +87,14 @@ pub fn start_game(
         Err(_) => String::from(""),
     };
 
+    #[allow(deprecated)] // TODO: Refactor so that we don't need to use the deprecated `before_exec`
     let mut child: std::process::Child = match std::process::Command::new(CMD_STRACE)
+        /* Spawn in a managed process group such that we can terminate both
+        strace and its child (the game server). */
+        .before_exec(|| {
+            unsafe { libc::setpgid(0, 0) };
+            return Ok(());
+        })
         .current_dir(&config.steamcmd_installations.path)
         .args(argv)
         .env(
@@ -157,7 +173,9 @@ pub fn start_game(
         }
     });
 
-    return Ok((th_stdout, th_stderr));
+    let child_pgid: libc::pid_t = unsafe { libc::getpgid(child.id() as libc::pid_t) };
+
+    return Ok((child_pgid, th_stdout, th_stderr));
 }
 
 pub enum GameServerState {
@@ -650,7 +668,7 @@ pub fn configure_carbon(
     rx_game_server_state: std::sync::mpsc::Receiver<GameServerState>,
     config: &crate::args::Config,
 ) -> Result<(), crate::error::FatalError> {
-    let startup_timeout: std::time::Duration = std::time::Duration::from_secs(60 * 30);
+    let startup_timeout: std::time::Duration = std::time::Duration::from_secs(1);
     match rx_game_server_state.recv_timeout(startup_timeout) {
         Ok(GameServerState::Playable) => {
             // The expected case: Game server eventually becomes playable after startup.

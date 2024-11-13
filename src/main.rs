@@ -64,14 +64,14 @@ fn main() -> Result<(), error::FatalError> {
 
             let (tx_stdout, rx_stdout) = std::sync::mpsc::channel::<String>();
             let (tx_stderr, rx_stderr) = std::sync::mpsc::channel::<String>();
-            let (th_stdout_tx, th_stderr_tx) = match misc::start_game(tx_stdout, tx_stderr, &config)
-            {
-                Ok(n) => n,
-                Err(err) => {
-                    log::error!("{}", err);
-                    return Err(err);
-                }
-            };
+            let (game_pgid, th_stdout_tx, th_stderr_tx) =
+                match misc::start_game(tx_stdout, tx_stderr, &config) {
+                    Ok(n) => n,
+                    Err(err) => {
+                        log::error!("{}", err);
+                        return Err(err);
+                    }
+                };
 
             let (tx_game_server_state, rx_game_server_state) =
                 std::sync::mpsc::channel::<misc::GameServerState>();
@@ -82,9 +82,11 @@ fn main() -> Result<(), error::FatalError> {
                 tx_game_server_state,
             );
 
-            // TODO: Force termination of spawned child processes when something goes wrong at startup!
-            //       (Namely terminate the game server that seems hung for whatever reason...)
             if let Err(err) = misc::configure_carbon(rx_game_server_state, &config) {
+                /* We want to kill a (grand)child process spawned by child
+                process (strace), and the only way to do that AFAIK is by using
+                process groups over an unsafe libc API. */
+                unsafe { libc::killpg(game_pgid, libc::SIGKILL) };
                 log::error!("{}", err);
                 return Err(err);
             }
