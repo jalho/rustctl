@@ -1,9 +1,5 @@
 //! Dumpster for miscellaneous stuff yet to be better categorized.
 
-use std::os::unix::process::CommandExt;
-
-use log::{debug, error, info};
-
 const CMD_STRACE: &str = "strace";
 const ENV_LD_LIBRARY_PATH: &str = "LD_LIBRARY_PATH";
 
@@ -88,22 +84,22 @@ pub fn start_game(
     };
 
     #[allow(deprecated)] // TODO: Refactor so that we don't need to use the deprecated `before_exec`
-    let mut child: std::process::Child = match std::process::Command::new(CMD_STRACE)
-        /* Spawn in a managed process group such that we can terminate both
-        strace and its child (the game server). */
-        .before_exec(|| {
+    let mut child: std::process::Child = match std::os::unix::process::CommandExt::before_exec(
+        &mut std::process::Command::new(CMD_STRACE),
+        || {
             unsafe { libc::setpgid(0, 0) };
             return Ok(());
-        })
-        .current_dir(&config.steamcmd_installations.path)
-        .args(argv)
-        .env(
-            ENV_LD_LIBRARY_PATH,
-            format!("{libs_paths_prev}:{}", &config.steamcmd_libs),
-        )
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
+        },
+    )
+    .current_dir(&config.steamcmd_installations.path)
+    .args(argv)
+    .env(
+        ENV_LD_LIBRARY_PATH,
+        format!("{libs_paths_prev}:{}", &config.steamcmd_libs),
+    )
+    .stdout(std::process::Stdio::piped())
+    .stderr(std::process::Stdio::piped())
+    .spawn()
     {
         Ok(n) => n,
         Err(err) => {
@@ -139,13 +135,13 @@ pub fn start_game(
             let line = match line {
                 Ok(n) => n,
                 Err(err) => {
-                    error!("Cannot read game server STDOUT: {:#?}", err);
+                    log::error!("Cannot read game server STDOUT: {:#?}", err);
                     continue;
                 }
             };
             match tx_stdout.send(line) {
                 Err(err) => {
-                    error!("Cannot send game server STDOUT: {:#?}", err);
+                    log::error!("Cannot send game server STDOUT: {:#?}", err);
                     return;
                 }
                 _ => {}
@@ -159,13 +155,13 @@ pub fn start_game(
             let line = match line {
                 Ok(n) => n,
                 Err(err) => {
-                    error!("Cannot read game server STDERR: {:#?}", err);
+                    log::error!("Cannot read game server STDERR: {:#?}", err);
                     continue;
                 }
             };
             match tx_stderr.send(line) {
                 Err(err) => {
-                    error!("Cannot send game server STDERR: {:#?}", err);
+                    log::error!("Cannot send game server STDERR: {:#?}", err);
                     return;
                 }
                 _ => {}
@@ -194,15 +190,15 @@ pub fn handle_game_server_events(
         let msg: String = match rx_stdout.recv() {
             Ok(n) => n,
             Err(err) => {
-                error!("Cannot receive game server STDOUT: {:#?}", err);
+                log::error!("Cannot receive game server STDOUT: {:#?}", err);
                 return;
             }
         };
-        info!("{msg}");
+        log::info!("{msg}");
         if msg == "Server startup complete" {
             match tx_game_server_state.send(GameServerState::Playable) {
                 Err(err) => {
-                    error!("Cannot send game server state across threads: {:#?}", err);
+                    log::error!("Cannot send game server state across threads: {:#?}", err);
                     return;
                 }
                 _ => {}
@@ -215,7 +211,7 @@ pub fn handle_game_server_events(
         let msg: String = match rx_stderr.recv() {
             Ok(n) => n,
             Err(err) => {
-                error!("Cannot receive game server STDERR: {:#?}", err);
+                log::error!("Cannot receive game server STDERR: {:#?}", err);
                 return;
             }
         };
@@ -229,7 +225,7 @@ pub fn handle_game_server_events(
                 {
                     continue;
                 }
-                debug!("{msg}");
+                log::debug!("{msg}");
             }
         }
     });
@@ -283,11 +279,11 @@ pub fn install_update_game_server(
         match now.duration_since(n) {
             Ok(manifest_age) => {
                 if &manifest_age < &config.game_startup_update_cooldown {
-                    info!("Game server seems to have been updated recently: App manifest '{}' was last modified {} seconds ago, cooldown being {} seconds -- Not updating again!",
+                    log::info!("Game server seems to have been updated recently: App manifest '{}' was last modified {} seconds ago, cooldown being {} seconds -- Not updating again!",
                           &config.game_manifest, manifest_age.as_secs(), &config.game_startup_update_cooldown.as_secs());
                     return Ok(());
                 } else {
-                    debug!("Game server app manifest '{}' was last modified {} seconds ago -- Update cooldown is {} seconds",
+                    log::debug!("Game server app manifest '{}' was last modified {} seconds ago -- Update cooldown is {} seconds",
                            &config.game_manifest, manifest_age.as_secs(), &config.game_startup_update_cooldown.as_secs());
                 }
             }
@@ -300,7 +296,7 @@ pub fn install_update_game_server(
         }
     }
 
-    info!(
+    log::info!(
         "Installing or updating game server with SteamCMD to '{}'",
         &config.steamcmd_installations
     );
@@ -639,7 +635,7 @@ fn ws_rcon_command(
         }
         _ => {}
     }
-    debug!(
+    log::debug!(
         "Sent RCON command over WebSocket: '{}' -- Waiting for response...",
         rcon_command
     );
@@ -653,7 +649,7 @@ fn ws_rcon_command(
                 ));
             }
         };
-        debug!("Got RCON message: {:#?}", msg);
+        log::debug!("Got RCON message: {:#?}", msg);
         if let Ok(text) = msg.into_text() {
             if text.contains("\"Identifier\": 42") {
                 break;
@@ -668,7 +664,7 @@ pub fn configure_carbon(
     rx_game_server_state: std::sync::mpsc::Receiver<GameServerState>,
     config: &crate::args::Config,
 ) -> Result<(), crate::error::FatalError> {
-    let startup_timeout: std::time::Duration = std::time::Duration::from_secs(1);
+    let startup_timeout: std::time::Duration = std::time::Duration::from_secs(60 * 30);
     match rx_game_server_state.recv_timeout(startup_timeout) {
         Ok(GameServerState::Playable) => {
             // The expected case: Game server eventually becomes playable after startup.
