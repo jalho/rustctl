@@ -621,26 +621,13 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
     return Ok(());
 }
 
-// TODO: Establish a WebSocket connection once after game server startup and keep using it for the duration of the program
 fn ws_rcon_command(
-    config: &crate::args::Config,
+    mut rcon_websocket: tungstenite::WebSocket<
+        tungstenite::stream::MaybeTlsStream<std::net::TcpStream>,
+    >,
     rcon_command: &str,
 ) -> Result<(), crate::error::FatalError> {
-    let (mut websocket, _) = match tungstenite::connect(format!(
-        "ws://127.0.0.1:{}/{}",
-        &config.rcon_port.to_string(),
-        &config.rcon_password
-    )) {
-        Ok((websocket, http_response)) => (websocket, http_response),
-        Err(err) => {
-            return Err(crate::error::FatalError::new(
-                format!("cannot connect WebSocket for RCON"),
-                Some(Box::new(err)),
-            ));
-        }
-    };
-
-    match websocket.send(tungstenite::Message::Text(
+    match rcon_websocket.send(tungstenite::Message::Text(
         format!(
             "{{ \"Identifier\": 42, \"Message\": \"{}\" }}",
             rcon_command
@@ -660,7 +647,7 @@ fn ws_rcon_command(
         rcon_command
     );
     loop {
-        let msg = match websocket.read() {
+        let msg = match rcon_websocket.read() {
             Ok(n) => n,
             Err(err) => {
                 return Err(crate::error::FatalError::new(
@@ -680,10 +667,13 @@ fn ws_rcon_command(
     return Ok(());
 }
 
-pub fn configure_carbon(
+pub fn get_rcon_websocket(
     rx_game_server_state: std::sync::mpsc::Receiver<GameServerState>,
     config: &crate::args::Config,
-) -> Result<(), crate::error::FatalError> {
+) -> Result<
+    tungstenite::WebSocket<tungstenite::stream::MaybeTlsStream<std::net::TcpStream>>,
+    crate::error::FatalError,
+> {
     match rx_game_server_state.recv_timeout(config.game_startup_timeout) {
         Ok(GameServerState::Playable) => {
             // The expected case: Game server eventually becomes playable after startup.
@@ -698,14 +688,34 @@ pub fn configure_carbon(
             ));
         }
     };
+    let (websocket, _) = match tungstenite::connect(format!(
+        "ws://127.0.0.1:{}/{}",
+        &config.rcon_port.to_string(),
+        &config.rcon_password
+    )) {
+        Ok((websocket, http_response)) => (websocket, http_response),
+        Err(err) => {
+            return Err(crate::error::FatalError::new(
+                format!("cannot connect WebSocket for RCON"),
+                Some(Box::new(err)),
+            ));
+        }
+    };
+    return Ok(websocket);
+}
 
+pub fn configure_carbon(
+    rcon_websocket: tungstenite::WebSocket<
+        tungstenite::stream::MaybeTlsStream<std::net::TcpStream>,
+    >,
+) -> Result<(), crate::error::FatalError> {
     /*
       WebSocket RCON:
       `c.gocommunity`
       docs: https://docs.carbonmod.gg/docs/core/commands#c.gocommunity
       [Accessed 2024-10-27]
     */
-    ws_rcon_command(&config, "c.gocommunity")?;
+    ws_rcon_command(rcon_websocket, "c.gocommunity")?;
 
     return Ok(());
 }

@@ -82,7 +82,15 @@ fn main() -> Result<(), error::FatalError> {
                 tx_game_server_state,
             );
 
-            if let Err(err) = misc::configure_carbon(rx_game_server_state, &config) {
+            let rcon_websocket = match misc::get_rcon_websocket(rx_game_server_state, &config) {
+                Ok(n) => n,
+                Err(err) => {
+                    log::error!("{}", err);
+                    return Err(err);
+                }
+            };
+
+            if let Err(err) = misc::configure_carbon(rcon_websocket) {
                 /* We want to kill a (grand)child process spawned by child
                 process (strace), and the only way to do that AFAIK is by using
                 process groups over an unsafe libc API. */
