@@ -83,7 +83,7 @@ pub fn start_game(
         Err(_) => String::from(""),
     };
 
-    #[allow(deprecated)] // TODO: Refactor so that we don't need to use the deprecated `before_exec`
+    #[allow(deprecated)]
     let mut child: std::process::Child = match std::os::unix::process::CommandExt::before_exec(
         &mut std::process::Command::new(CMD_STRACE),
         || {

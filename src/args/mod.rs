@@ -22,7 +22,8 @@ impl PathAbsolute {
         let parent_path: std::path::PathBuf = match self.path.parent() {
             Some(n) => n.to_path_buf(),
             None => {
-                todo!(); // TODO: Somehow ensure this is unreachable...
+                // cba
+                unreachable!();
             }
         };
         return parent_path;
