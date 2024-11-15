@@ -198,7 +198,7 @@ pub enum GameServerState {
 
 /// Handle game server's emitted log lines (STDOUT) and the wrapping strace's
 /// filesystem detected events (STDERR).
-pub fn handle_game_server_events(
+pub fn handle_game_server_fs_events(
     rx_stdout: std::sync::mpsc::Receiver<String>,
     rx_stderr: std::sync::mpsc::Receiver<String>,
     config: &crate::args::Config,
