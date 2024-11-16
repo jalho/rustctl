@@ -252,6 +252,22 @@ pub fn handle_game_server_fs_events(
                         //       for "normal" log level as of commit `e1b5913` and
                         //       latest deps as of 2024-11-16 (specific to my machine):
                         //       $ grep -vE "faccessat2|/sys/kernel/|/home/jka/\.steam/|carbon.*\.log|inotify_add_watch|/home/jka/.config|/home/rust/installations/carbon/managed/.*\.dll|/tmp/|statx|/dev/|/home/rust/installations/RustDedicated_Data/Managed/.*\.dll|/home/rust/installations/carbon/temp/"
+
+                        /*
+                          TODO: Ignore Carbon .log files at specific trusted paths. Seen e.g.:
+                            openat /home/rust/installations/carbon/logs/archive/Carbon.Core.backup.2024.11.16.log
+                            openat /home/rust/installations/carbon/logs/Carbon.Bootstrap.log
+                            openat /home/rust/installations/carbon/logs/Carbon.Core.log
+                            openat /home/rust/installations/carbon/logs/Carbon.Harmony.log
+                            openat /home/rust/installations/carbon/logs/Carbon.Preloader.log
+
+                          TODO: Ignore Rust .dll files...
+                            openat /home/rust/installations/RustDedicated_Data/Managed/
+
+                          TODO: Ignore Carbon .dlls...
+                            openat /home/rust/installations/carbon/managed/
+                            openat /home/rust/installations/carbon/managed/lib/
+                        */
                         if is_fs_edit(&strace_output) && in_scope(cwd, &strace_output) {
                             log::info!(
                                 "{} {}",
