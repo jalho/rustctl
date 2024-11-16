@@ -281,8 +281,11 @@ fn is_fs_edit(operation: &StraceLine) -> bool {
         return false;
     }
 
-    // filesystem meta operations
-    if operation.syscall_name == "getcwd" || operation.syscall_name == "chdir" {
+    // other
+    if operation.syscall_name == "getcwd"
+        || operation.syscall_name == "chdir"
+        || operation.syscall_name == "inotify_add_watch"
+    {
         return false;
     }
 
