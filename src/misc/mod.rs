@@ -231,39 +231,58 @@ pub fn handle_game_server_fs_events(
     });
 
     let log_level: crate::args::LogLevel = config.log_level.clone();
-    let th_stderr = std::thread::spawn(move || loop {
-        let msg: String = match rx_stderr.recv() {
-            Ok(n) => n,
-            Err(err) => {
-                log::error!("Cannot receive game server STDERR: {:#?}", err);
-                return;
-            }
-        };
-        match log_level {
-            crate::args::LogLevel::normal => {
-                if let Some(strace_output) = parse_syscall_and_string_args(&msg) {
-                    // TODO: Make the `is_fs_edit` logic more robust: Only make
-                    //       log of really changed files, perhaps only in some
-                    //       select paths, and ignore some likely uninteresting
-                    //       spam? An example of a somewhat sensible filter
-                    //       for "normal" log level as of commit `e1b5913` and
-                    //       latest deps as of 2024-11-16 (specific to my machine):
-                    //       $ grep -vE "faccessat2|/sys/kernel/|/home/jka/\.steam/|carbon.*\.log|inotify_add_watch|/home/jka/.config|/home/rust/installations/carbon/managed/.*\.dll|/tmp/|statx|/dev/|/home/rust/installations/RustDedicated_Data/Managed/.*\.dll|/home/rust/installations/carbon/temp/"
-                    if is_fs_edit(&strace_output) {
-                        log::info!(
-                            "{} {}",
-                            strace_output.syscall_name,
-                            strace_output.argv_strings.join(" ")
-                        );
+    let cwd: String = config.root_dir.to_string();
+    let th_stderr = std::thread::spawn(move || {
+        let cwd: &str = &cwd;
+        loop {
+            let msg: String = match rx_stderr.recv() {
+                Ok(n) => n,
+                Err(err) => {
+                    log::error!("Cannot receive game server STDERR: {:#?}", err);
+                    return;
+                }
+            };
+            match log_level {
+                crate::args::LogLevel::normal => {
+                    if let Some(strace_output) = parse_syscall_and_string_args(&msg) {
+                        // TODO: Make the `is_fs_edit` logic more robust: Only make
+                        //       log of really changed files, perhaps only in some
+                        //       select paths, and ignore some likely uninteresting
+                        //       spam? An example of a somewhat sensible filter
+                        //       for "normal" log level as of commit `e1b5913` and
+                        //       latest deps as of 2024-11-16 (specific to my machine):
+                        //       $ grep -vE "faccessat2|/sys/kernel/|/home/jka/\.steam/|carbon.*\.log|inotify_add_watch|/home/jka/.config|/home/rust/installations/carbon/managed/.*\.dll|/tmp/|statx|/dev/|/home/rust/installations/RustDedicated_Data/Managed/.*\.dll|/home/rust/installations/carbon/temp/"
+                        if is_fs_edit(&strace_output) && in_scope(cwd, &strace_output) {
+                            log::info!(
+                                "{} {}",
+                                strace_output.syscall_name,
+                                strace_output.argv_strings.join(" ")
+                            );
+                        }
                     }
                 }
-            }
-            crate::args::LogLevel::all => {
-                log::debug!("{msg}\n{:#?}", parse_syscall_and_string_args(&msg));
+                crate::args::LogLevel::all => {
+                    log::debug!("{msg}\n{:#?}", parse_syscall_and_string_args(&msg));
+                }
             }
         }
     });
     return (th_stdout, th_stderr);
+}
+
+/// Determine whether a given strace operation concerns something in scope of
+/// managing the game server, i.e. is at least not outside of the configured
+/// root dir where every command is expected to take place. Not exhaustive check
+/// but trims away all kinds of debug and temp paths like `/sys/kernel/`, `/tmp/`
+/// etc.
+fn in_scope(root_dir: &str, operation: &StraceLine) -> bool {
+    for str_arg in &operation.argv_strings {
+        // cba with cross platform -- this is a very Linux specific implementation anyway
+        if str_arg.starts_with(&root_dir) || !str_arg.starts_with("/") {
+            return true;
+        }
+    }
+    return false;
 }
 
 /// Determine whether a given parsed output line of strace represents an
