@@ -242,7 +242,13 @@ pub fn handle_game_server_fs_events(
         match log_level {
             crate::args::LogLevel::normal => {
                 if let Some(strace_output) = parse_syscall_and_string_args(&msg) {
-                    // TODO: Make the `is_fs_edit` logic more robust: Only make log of really changed files, perhaps only in some select paths?
+                    // TODO: Make the `is_fs_edit` logic more robust: Only make
+                    //       log of really changed files, perhaps only in some
+                    //       select paths, and ignore some likely uninteresting
+                    //       spam? An example of a somewhat sensible filter
+                    //       for "normal" log level as of commit `e1b5913` and
+                    //       latest deps as of 2024-11-16 (specific to my machine):
+                    //       $ grep -vE "faccessat2|/sys/kernel/|/home/jka/\.steam/|carbon.*\.log|inotify_add_watch|/home/jka/.config|/home/rust/installations/carbon/managed/.*\.dll|/tmp/|statx|/dev/|/home/rust/installations/RustDedicated_Data/Managed/.*\.dll|/home/rust/installations/carbon/temp/"
                     if is_fs_edit(&strace_output) {
                         log::info!(
                             "{} {}",
