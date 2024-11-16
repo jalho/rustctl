@@ -275,6 +275,7 @@ pub fn handle_game_server_fs_net_events(
                          // outbound networking
                             && !is_network_response(&strace_output)
                             && in_scope_networking(&strace_output)
+                            && filter_tcp_connect_ipv4(&strace_output)
                         {
                             log::info!(
                                 "{} {}",
@@ -291,6 +292,23 @@ pub fn handle_game_server_fs_net_events(
         }
     });
     return (th_stdout, th_stderr);
+}
+
+fn filter_tcp_connect_ipv4(operation: &StraceLine) -> bool {
+    if operation.syscall_name != "connect" {
+        return true;
+    }
+    let addr: &String = match operation.argv_strings.first() {
+        Some(n) => n,
+        None => {
+            return false;
+        }
+    };
+    let matcher: regex::Regex = match regex::Regex::new(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}") {
+        Ok(n) => n,
+        Err(_) => unreachable!(),
+    };
+    return matcher.is_match(addr);
 }
 
 /// Discriminate networking syscalls that don't directly indicate outbound
