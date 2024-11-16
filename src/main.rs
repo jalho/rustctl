@@ -76,12 +76,8 @@ fn main() -> Result<(), error::FatalError> {
 
             let (tx_game_server_state, rx_game_server_state) =
                 std::sync::mpsc::channel::<misc::GameServerState>();
-            let (th_stdout_rx, th_stderr_rx) = misc::handle_game_server_fs_events(
-                rx_stdout,
-                rx_stderr,
-                &config,
-                tx_game_server_state,
-            );
+            let (th_stdout_rx, th_stderr_rx) =
+                misc::handle_game_server_fs_events(rx_stdout, rx_stderr, tx_game_server_state);
 
             let rcon_websocket = match misc::get_rcon_websocket(rx_game_server_state, &config) {
                 Ok(n) => n,

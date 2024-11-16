@@ -201,7 +201,6 @@ pub enum GameServerState {
 pub fn handle_game_server_fs_events(
     rx_stdout: std::sync::mpsc::Receiver<String>,
     rx_stderr: std::sync::mpsc::Receiver<String>,
-    config: &crate::args::Config,
     tx_game_server_state: std::sync::mpsc::Sender<GameServerState>,
 ) -> (std::thread::JoinHandle<()>, std::thread::JoinHandle<()>) {
     let th_stdout = std::thread::spawn(move || loop {
@@ -224,7 +223,6 @@ pub fn handle_game_server_fs_events(
         }
     });
 
-    let game_server_cwd: std::path::PathBuf = config.steamcmd_installations.path.clone();
     let th_stderr = std::thread::spawn(move || loop {
         let msg: String = match rx_stderr.recv() {
             Ok(n) => n,
@@ -233,21 +231,49 @@ pub fn handle_game_server_fs_events(
                 return;
             }
         };
-        let paths_touched: std::collections::HashSet<String> =
-            extract_modified_paths(&msg, &game_server_cwd);
-        if paths_touched.len() > 0 {
-            if let Some(game_server_file_touched) = paths_touched.into_iter().next() {
-                // the game server attempts to do a bunch of openat(AT_FDCWD, "/sys/kernel/**/trace_marker", O_WRONLY)
-                if game_server_file_touched == "/sys/kernel/tracing/trace_marker"
-                    || game_server_file_touched == "/sys/kernel/debug/tracing/trace_marker"
-                {
-                    continue;
-                }
-                log::debug!("{msg}");
+        if let Some(strace_output) = parse_syscall_and_string_args(&msg) {
+            if is_fs_edit(&strace_output) {
+                log::debug!(
+                    "{}\t{:?}\t{}",
+                    strace_output.syscall_name,
+                    strace_output.constants,
+                    strace_output
+                        .argv_strings
+                        .last()
+                        .unwrap_or(&String::from(""))
+                );
             }
         }
     });
     return (th_stdout, th_stderr);
+}
+
+/// Determine whether a given parsed output line of strace represents an
+/// operation that caused changes in the filesystem, such as files written or
+/// removed etc.
+fn is_fs_edit(operation: &StraceLine) -> bool {
+    // read-only operations
+    if operation.syscall_name == "openat" && operation.constants.contains(&String::from("O_RDONLY"))
+    {
+        return false;
+    }
+
+    // filesystem checks
+    if operation.syscall_name == "newfstatat"
+        || operation.syscall_name == "stat"
+        || operation.syscall_name == "lstat"
+        || operation.syscall_name == "readlink"
+        || operation.syscall_name == "access"
+    {
+        return false;
+    }
+
+    // filesystem meta operations
+    if operation.syscall_name == "getcwd" || operation.syscall_name == "chdir" {
+        return false;
+    }
+
+    return true;
 }
 
 /// Install or update an existing installation of the game server.
@@ -639,11 +665,11 @@ fn human_readable_size(bytes: u64) -> String {
 
 /// Extract filesystem paths from `strace` output that were modified (created, written to etc.)
 pub fn extract_modified_paths(
-    strace_output: &str,
+    strace_output_raw: &str,
     cwd: &std::path::PathBuf,
 ) -> std::collections::HashSet<String> {
     let mut modified_paths: std::collections::HashSet<String> = std::collections::HashSet::new();
-    for line in strace_output.lines() {
+    for line in strace_output_raw.lines() {
         let mut_mode: bool = line.contains("O_WRONLY")
             || line.contains("O_RDWR")
             || line.contains("O_CREAT")
@@ -657,15 +683,18 @@ pub fn extract_modified_paths(
             || line.contains("unlink")
             || line.contains("write")
         {
-            if let Some(path) = extract_quoted_substring(line) {
-                let file_path = std::path::Path::new(&path);
-                let file_path_absolute: String;
-                if file_path.is_absolute() {
-                    file_path_absolute = path;
-                } else {
-                    file_path_absolute = cwd.join(file_path).to_string_lossy().to_string();
+            if let Some(strace_output) = parse_syscall_and_string_args(line) {
+                if let Some(last_string_arg) = strace_output.argv_strings.last() {
+                    let last_string_arg: String = last_string_arg.to_owned();
+                    let file_path: &std::path::Path = std::path::Path::new(&last_string_arg);
+                    let file_path_absolute: String;
+                    if file_path.is_absolute() {
+                        file_path_absolute = last_string_arg;
+                    } else {
+                        file_path_absolute = cwd.join(file_path).to_string_lossy().to_string();
+                    }
+                    modified_paths.insert(file_path_absolute);
                 }
-                modified_paths.insert(file_path_absolute);
             }
         }
     }
@@ -683,36 +712,112 @@ pub fn get_sizes(paths: std::collections::HashSet<String>) -> Vec<(String, u64)>
     return paths_with_sizes;
 }
 
-fn extract_quoted_substring(input: &str) -> Option<String> {
-    let mut last_quoted_substring: Option<String> = None;
-    let mut in_quotes: bool = false;
-    let mut start: usize = 0;
+#[derive(PartialEq, std::fmt::Debug)]
+struct StraceLine {
+    syscall_name: String,
+    argv_strings: Vec<String>,
+    constants: Vec<String>,
+}
 
-    for (i, c) in input.char_indices() {
-        match c {
-            '\"' => {
-                if in_quotes {
-                    // if closing a quote, capture the substring
-                    if start < i {
-                        last_quoted_substring = Some(input[start..i].to_string());
-                    }
-                    in_quotes = false; // close the quote
-                } else {
-                    // if opening a quote, mark the start
-                    in_quotes = true;
-                    start = i + 1; // move start past the quote
-                }
-            }
-            _ => {}
-        }
-    }
+/// Parse name of the syscall and all of its passed string arguments from a
+/// single line of strace output.
+fn parse_syscall_and_string_args(strace_output_line: &str) -> Option<StraceLine> {
+    let syscall_re: regex::Regex = regex::Regex::new(r"(\w+)\(").ok()?;
+    let syscall_name: String = syscall_re
+        .captures(strace_output_line)?
+        .get(1)?
+        .as_str()
+        .to_string();
 
-    return last_quoted_substring;
+    let quoted_re: regex::Regex = regex::Regex::new(r#""(.*?)""#).ok()?;
+    let strings: Vec<String> = quoted_re
+        .captures_iter(strace_output_line)
+        .filter_map(|n| n.get(1).map(|m| m.as_str().to_string()))
+        .collect::<Vec<_>>();
+
+    let constants_re: regex::Regex = regex::Regex::new(r#"[A-Z_]+"#).ok()?;
+    let constants: Vec<String> = constants_re
+        .captures_iter(strace_output_line)
+        .filter_map(|n| n.get(0).map(|m| m.as_str().to_string()))
+        .collect::<Vec<_>>();
+
+    return Some(StraceLine {
+        syscall_name,
+        argv_strings: strings,
+        constants,
+    });
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_parse_syscall_and_string_args() {
+        /*
+            Case syscall + 1 string arg
+        */
+        let actual: Option<StraceLine> = parse_syscall_and_string_args(
+            r#"[pid 18596] faccessat2(AT_FDCWD, "temp.txt", W_OK, AT_EACCESS) = 0"#,
+        );
+        let expected: Option<StraceLine> = Some(StraceLine {
+            syscall_name: String::from("faccessat2"),
+            argv_strings: vec![String::from("temp.txt")],
+            constants: vec![
+                String::from("AT_FDCWD"),
+                String::from("W_OK"),
+                String::from("AT_EACCESS"),
+            ],
+        });
+        assert_eq!(
+            actual, expected,
+            "syscall name and one string arg parsed from fork line"
+        );
+
+        /*
+            Case syscall + 2 string args
+        */
+        let actual: Option<StraceLine> = parse_syscall_and_string_args(
+            r#"[pid 25024] renameat2(AT_FDCWD, "temp.txt", AT_FDCWD, "temp2.txt", RENAME_NOREPLACE) = 0"#,
+        );
+        let expected: Option<StraceLine> = Some(StraceLine {
+            syscall_name: String::from("renameat2"),
+            argv_strings: vec![String::from("temp.txt"), String::from("temp2.txt")],
+            constants: vec![
+                String::from("AT_FDCWD"),
+                String::from("AT_FDCWD"),
+                String::from("RENAME_NOREPLACE"),
+            ],
+        });
+
+        assert_eq!(
+            actual, expected,
+            "syscall name and two string args parsed from fork line"
+        );
+
+        /*
+            Case not-fork
+        */
+        let actual: Option<StraceLine> = parse_syscall_and_string_args(
+            r#"openat(AT_FDCWD, "temp.txt", O_WRONLY|O_CREAT|O_TRUNC, 0666) = 3"#,
+        );
+        let expected: Option<StraceLine> = Some(StraceLine {
+            syscall_name: String::from("openat"),
+            argv_strings: vec![String::from("temp.txt")],
+            constants: vec![
+                String::from("AT_FDCWD"),
+                String::from("O_WRONLY"),
+                String::from("O_CREAT"),
+                String::from("O_TRUNC"),
+            ],
+        });
+        assert_eq!(
+            actual, expected,
+            "syscall name and one string arg parsed from not-fork line"
+        );
+
+        // TODO: Add test case for UPPER_CASE_FILENAME.txt: Should not be considered a "constant"
+    }
 
     #[test]
     fn test_extract_modified_paths() {
