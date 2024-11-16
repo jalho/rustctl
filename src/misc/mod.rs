@@ -273,6 +273,7 @@ fn is_fs_edit(operation: &StraceLine) -> bool {
     // filesystem checks
     if operation.syscall_name == "newfstatat"
         || operation.syscall_name == "stat"
+        || operation.syscall_name == "statx"
         || operation.syscall_name == "lstat"
         || operation.syscall_name == "readlink"
         || operation.syscall_name == "access"
