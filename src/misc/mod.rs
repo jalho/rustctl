@@ -199,10 +199,12 @@ pub enum GameServerState {
 /// Handle game server's emitted log lines (STDOUT) and the wrapping strace's
 /// filesystem detected events (STDERR).
 pub fn handle_game_server_fs_events(
+    config: &crate::args::Config,
     rx_stdout: std::sync::mpsc::Receiver<String>,
     rx_stderr: std::sync::mpsc::Receiver<String>,
     tx_game_server_state: std::sync::mpsc::Sender<GameServerState>,
 ) -> (std::thread::JoinHandle<()>, std::thread::JoinHandle<()>) {
+    let log_level: crate::args::LogLevel = config.log_level.clone();
     let th_stdout = std::thread::spawn(move || loop {
         let msg: String = match rx_stdout.recv() {
             Ok(n) => n,
@@ -211,7 +213,12 @@ pub fn handle_game_server_fs_events(
                 return;
             }
         };
-        log::info!("{msg}");
+        match log_level {
+            crate::args::LogLevel::normal => {}
+            crate::args::LogLevel::all => {
+                log::info!("{msg}");
+            }
+        }
         if msg == "Server startup complete" {
             match tx_game_server_state.send(GameServerState::Playable) {
                 Err(err) => {
@@ -223,6 +230,7 @@ pub fn handle_game_server_fs_events(
         }
     });
 
+    let log_level: crate::args::LogLevel = config.log_level.clone();
     let th_stderr = std::thread::spawn(move || loop {
         let msg: String = match rx_stderr.recv() {
             Ok(n) => n,
@@ -231,17 +239,21 @@ pub fn handle_game_server_fs_events(
                 return;
             }
         };
-        if let Some(strace_output) = parse_syscall_and_string_args(&msg) {
-            if is_fs_edit(&strace_output) {
-                log::debug!(
-                    "{}\t{:?}\t{}",
-                    strace_output.syscall_name,
-                    strace_output.constants,
-                    strace_output
-                        .argv_strings
-                        .last()
-                        .unwrap_or(&String::from(""))
-                );
+        match log_level {
+            crate::args::LogLevel::normal => {
+                if let Some(strace_output) = parse_syscall_and_string_args(&msg) {
+                    // TODO: Make the `is_fs_edit` logic more robust: Only make log of really changed files, perhaps only in some select paths?
+                    if is_fs_edit(&strace_output) {
+                        log::info!(
+                            "{} {}",
+                            strace_output.syscall_name,
+                            strace_output.argv_strings.join(" ")
+                        );
+                    }
+                }
+            }
+            crate::args::LogLevel::all => {
+                log::debug!("{msg}\n{:#?}", parse_syscall_and_string_args(&msg));
             }
         }
     });
@@ -735,7 +747,7 @@ fn parse_syscall_and_string_args(strace_output_line: &str) -> Option<StraceLine>
         .filter_map(|n| n.get(1).map(|m| m.as_str().to_string()))
         .collect::<Vec<_>>();
 
-    let constants_re: regex::Regex = regex::Regex::new(r#"[A-Z_]+"#).ok()?;
+    let constants_re: regex::Regex = regex::Regex::new(r#"[A-Z_]{2,}"#).ok()?;
     let constants: Vec<String> = constants_re
         .captures_iter(strace_output_line)
         .filter_map(|n| n.get(0).map(|m| m.as_str().to_string()))

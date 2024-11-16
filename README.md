@@ -35,10 +35,11 @@ will refer to the shared configuration file.
 
 ### Example configuration
 
-As of commit `a8b5ea1c`.
+As of commit `TODO`.
 
 ```toml
 "root_dir"          = "/home/rust/"
+"log_level"         = "all" # all | normal
 "steamcmd_download" = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz"
 "carbon_download"   = "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Release.tar.gz"
 ```

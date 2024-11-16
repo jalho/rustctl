@@ -1,11 +1,26 @@
 //! Configuration for the program.
 
+#[derive(serde::Deserialize, Clone)]
+#[allow(non_camel_case_types)]
+pub enum LogLevel {
+    /// Log only the most interesting things in the context of running the
+    /// program in normal use (as opposed to development). Such things are
+    /// changes made to the system running the game or to the game instance,
+    /// lifecycle stuff and any error or warnings that should be investigated
+    /// and fixed.
+    normal,
+    /// Log everything including all output from game server and its wrapping
+    ///  strace and all kinds of debugging information.
+    all,
+}
+
 /// Configuration source from the filesystem.
 #[derive(serde::Deserialize)]
 struct ConfigSrcFs {
     root_dir: String,
     steamcmd_download: String,
     carbon_download: String,
+    log_level: LogLevel,
 }
 
 pub struct PathAbsolute {
@@ -34,6 +49,7 @@ impl PathAbsolute {
 /// command line argument vector and a filesystem source.
 pub struct Config {
     pub root_dir: PathAbsolute,
+    pub log_level: LogLevel,
 
     pub steamcmd_download: String,
     pub steamcmd_archive: PathAbsolute,
@@ -73,7 +89,7 @@ impl Config {
                 ))
             }
         };
-        let config: ConfigSrcFs = match toml::from_str(&config_content) {
+        let config_from_fs: ConfigSrcFs = match toml::from_str(&config_content) {
             Ok(n) => n,
             Err(err) => {
                 return Err(crate::error::FatalError::new(
@@ -85,10 +101,9 @@ impl Config {
             }
         };
         let root_dir: std::path::PathBuf =
-            match <std::path::PathBuf as std::str::FromStr>::from_str(&config.root_dir) {
+            match <std::path::PathBuf as std::str::FromStr>::from_str(&config_from_fs.root_dir) {
                 Ok(n) => n,
                 Err(_) => {
-                    // not sure what the from_str -> Result<> is for...
                     unreachable!();
                 }
             };
@@ -122,8 +137,9 @@ impl Config {
 
         return Ok(Self {
             root_dir: PathAbsolute { path: root_dir },
+            log_level: config_from_fs.log_level,
 
-            steamcmd_download: config.steamcmd_download,
+            steamcmd_download: config_from_fs.steamcmd_download,
             steamcmd_archive: PathAbsolute {
                 path: steamcmd_archive,
             },
@@ -137,7 +153,7 @@ impl Config {
                 path: steamcmd_libs,
             },
 
-            carbon_download: config.carbon_download,
+            carbon_download: config_from_fs.carbon_download,
             carbon_archive: PathAbsolute {
                 path: carbon_archive,
             },
