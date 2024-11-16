@@ -254,8 +254,6 @@ pub fn handle_game_server_fs_events(
 pub fn install_update_game_server(
     config: &crate::args::Config,
 ) -> Result<(), crate::error::FatalError> {
-    let steamcmd_executable_absolute = &config.steamcmd_executable;
-
     /* Game server installation location must be different than where the installer is for some reason... */
     if !&config.steamcmd_installations.path.is_dir() {
         match std::fs::create_dir(&config.steamcmd_installations.path) {
@@ -318,23 +316,24 @@ pub fn install_update_game_server(
         "Installing or updating game server with SteamCMD to '{}'",
         &config.steamcmd_installations
     );
-    let executable = format!("{}", steamcmd_executable_absolute);
-    let install_dir = format!("{}", config.steamcmd_installations);
-    let cmdv_steamcmd: Vec<&str> = vec![
-        &executable,
-        "+force_install_dir",
-        &install_dir,
-        "+login",
-        "anonymous",
-        "+app_update",
-        "258550",
-        "validate",
-        "+quit",
-    ];
-    let mut cmd_steamcmd = crate::proc::Command::strace(&config.root_dir.path, cmdv_steamcmd);
+    let steamcmd_executable: String = config.steamcmd_executable.to_string();
+    let steamcmd_installations_dir: String = config.steamcmd_installations.to_string();
+    let mut cmd_steamcmd = crate::proc::Command::strace(
+        &config.root_dir.path,
+        vec![
+            &steamcmd_executable,
+            "+force_install_dir",
+            &steamcmd_installations_dir,
+            "+login",
+            "anonymous",
+            "+app_update",
+            "258550",
+            "validate",
+            "+quit",
+        ],
+    );
     let paths_touched: Vec<(String, u64)> = cmd_steamcmd.run_to_end()?;
     let paths_touched_subset = paths_touched.iter().take(10);
-
     log::info!(
         "Installed or updated {} game server files with SteamCMD: Biggest {}: {}",
         paths_touched.len(),
@@ -410,12 +409,13 @@ pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error
         log::info!("Downloaded SteamCMD from {}", &config.steamcmd_download);
     }
 
-    let extractable = &format!("{}", &config.steamcmd_archive);
-    let cmdv_tar: Vec<&str> = vec!["tar", "-xzf", extractable];
-    let mut cmd_tar = crate::proc::Command::strace(&config.steamcmd_archive.parent(), cmdv_tar);
+    let steamcmd_extractable: String = config.steamcmd_archive.to_string();
+    let mut cmd_tar = crate::proc::Command::strace(
+        &config.steamcmd_archive.parent(),
+        vec!["tar", "-xzf", &steamcmd_extractable],
+    );
     let paths_touched: Vec<(String, u64)> = cmd_tar.run_to_end()?;
     let paths_touched_subset = paths_touched.iter().take(10);
-
     log::info!(
         "Extracted {} files from SteamCMD distribution '{}': Biggest {}: {}",
         paths_touched.len(),
@@ -492,12 +492,13 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
         log::info!("Downloaded Carbon from {}", &config.carbon_download);
     }
 
-    let extractable = &format!("{}", &config.carbon_archive);
-    let cmdv_tar: Vec<&str> = vec!["tar", "-xzf", extractable];
-    let mut cmd_tar = crate::proc::Command::strace(&config.carbon_archive.parent(), cmdv_tar);
+    let carbon_extractable: String = config.carbon_archive.to_string();
+    let mut cmd_tar = crate::proc::Command::strace(
+        &config.carbon_archive.parent(),
+        vec!["tar", "-xzf", &carbon_extractable],
+    );
     let paths_touched: Vec<(String, u64)> = cmd_tar.run_to_end()?;
     let paths_touched_subset = paths_touched.iter().take(10);
-
     log::info!(
         "Extracted {} files from Carbon distribution '{}': Biggest {}: {}",
         paths_touched.len(),

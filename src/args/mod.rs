@@ -14,7 +14,7 @@ pub struct PathAbsolute {
 }
 impl std::fmt::Display for PathAbsolute {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{}", self.path.to_string_lossy()))
+        f.write_fmt(format_args!("{}", self.path.to_string_lossy().to_string()))
     }
 }
 impl PathAbsolute {
