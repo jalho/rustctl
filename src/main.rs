@@ -76,7 +76,7 @@ fn main() -> Result<(), error::FatalError> {
 
             let (tx_game_server_state, rx_game_server_state) =
                 std::sync::mpsc::channel::<misc::GameServerState>();
-            let (th_stdout_rx, th_stderr_rx) = misc::handle_game_server_fs_events(
+            let (th_stdout_rx, th_stderr_rx) = misc::handle_game_server_fs_net_events(
                 &config,
                 rx_stdout,
                 rx_stderr,

@@ -76,7 +76,14 @@ pub fn start_game(
         ]
         .join(" ")
     );
-    let argv = vec!["-ff", "-e", "trace=file", "bash", "-c", &startup_with_argv];
+    let argv = vec![
+        "-ff",
+        "-e",
+        "trace=file,network",
+        "bash",
+        "-c",
+        &startup_with_argv,
+    ];
 
     let libs_paths_prev: String = match std::env::var(ENV_LD_LIBRARY_PATH) {
         Ok(n) => n,
@@ -197,8 +204,8 @@ pub enum GameServerState {
 }
 
 /// Handle game server's emitted log lines (STDOUT) and the wrapping strace's
-/// filesystem detected events (STDERR).
-pub fn handle_game_server_fs_events(
+/// filesystem and network traced events (STDERR).
+pub fn handle_game_server_fs_net_events(
     config: &crate::args::Config,
     rx_stdout: std::sync::mpsc::Receiver<String>,
     rx_stderr: std::sync::mpsc::Receiver<String>,
@@ -253,12 +260,21 @@ pub fn handle_game_server_fs_events(
             };
             match log_level {
                 crate::args::LogLevel::normal => {
+                    /*
+                        TODO: Clean this mess! Define some filtering mechanism
+                              that is easier to comprehend...
+                    */
                     if let Some(strace_output) = parse_syscall_and_string_args(&msg) {
-                        if is_fs_edit(&strace_output)
-                            && in_scope(root_dir, &strace_output)
+                        if
+                        // filesystem modifications
+                        (is_fs_edit(&strace_output)
+                            && in_scope_filesystem(root_dir, &strace_output)
                             && !is_filetype_at(&strace_output, "log", carbon_logs_dir)
                             && !is_filetype_at(&strace_output, "dll", carbon_libs_dir)
-                            && !is_filetype_at(&strace_output, "dll", game_libs_dir)
+                            && !is_filetype_at(&strace_output, "dll", game_libs_dir))
+                         // outbound networking
+                            && !is_network_response(&strace_output)
+                            && in_scope_networking(&strace_output)
                         {
                             log::info!(
                                 "{} {}",
@@ -275,6 +291,24 @@ pub fn handle_game_server_fs_events(
         }
     });
     return (th_stdout, th_stderr);
+}
+
+/// Discriminate networking syscalls that don't directly indicate outbound
+/// traffic, i.e. those that only prepare for it or deal with already made
+/// traffic or are otherwise uninteresting.
+fn in_scope_networking(operation: &StraceLine) -> bool {
+    if operation.syscall_name == "socket"
+        || operation.syscall_name == "socketpair"
+        || operation.syscall_name == "setsockopt"
+        || operation.syscall_name == "getpeername"
+    {
+        return false;
+    }
+    return true;
+}
+
+fn is_network_response(operation: &StraceLine) -> bool {
+    return operation.syscall_name == "recvfrom" || operation.syscall_name == "recvmsg";
 }
 
 fn is_filetype_at(operation: &StraceLine, extension: &str, path_prefix: &str) -> bool {
@@ -296,7 +330,14 @@ fn is_filetype_at(operation: &StraceLine, extension: &str, path_prefix: &str) ->
 /// root dir where every command is expected to take place. Not exhaustive check
 /// but trims away all kinds of debug and temp paths like `/sys/kernel/`, `/tmp/`
 /// etc.
-fn in_scope(root_dir: &str, operation: &StraceLine) -> bool {
+fn in_scope_filesystem(root_dir: &str, operation: &StraceLine) -> bool {
+    // discriminate e.g. networking stuff
+    let is_fs_event: bool = operation.syscall_name == "openat";
+    if !is_fs_event {
+        return true;
+    }
+
+    // check the filesystem scope
     for str_arg in &operation.argv_strings {
         // cba with cross platform -- this is a very Linux specific implementation anyway
         if str_arg.starts_with(&root_dir) || !str_arg.starts_with("/") {
