@@ -60,11 +60,14 @@ pub struct Config {
     pub carbon_download: String,
     pub carbon_archive: PathAbsolute,
     pub carbon_executable: PathAbsolute,
+    pub carbon_libs: PathAbsolute,
+    pub carbon_logs: PathAbsolute,
 
     pub game_manifest: PathAbsolute,
     pub game_startup_update_cooldown: std::time::Duration,
     pub game_startup_timeout: std::time::Duration,
     pub game_executable: PathAbsolute,
+    pub game_libs: PathAbsolute,
 
     /// RCON password intended more like an internal constant rather
     /// than sensitive configuration value: The plan is to not expose
@@ -129,11 +132,20 @@ impl Config {
         let mut carbon_config: std::path::PathBuf = steamcmd_installations.clone();
         carbon_config.push("carbon/config.json");
 
+        let mut carbon_libs: std::path::PathBuf = steamcmd_installations.clone();
+        carbon_libs.push("carbon/managed");
+
+        let mut carbon_logs: std::path::PathBuf = steamcmd_installations.clone();
+        carbon_logs.push("carbon/logs");
+
         let mut game_manifest: std::path::PathBuf = steamcmd_installations.clone();
         game_manifest.push("steamapps/appmanifest_258550.acf");
 
         let mut game_executable: std::path::PathBuf = steamcmd_installations.clone();
         game_executable.push("RustDedicated");
+
+        let mut game_libs: std::path::PathBuf = steamcmd_installations.clone();
+        game_libs.push("RustDedicated_Data/Managed");
 
         return Ok(Self {
             root_dir: PathAbsolute { path: root_dir },
@@ -160,6 +172,8 @@ impl Config {
             carbon_executable: PathAbsolute {
                 path: carbon_executable,
             },
+            carbon_libs: PathAbsolute { path: carbon_libs },
+            carbon_logs: PathAbsolute { path: carbon_logs },
 
             game_manifest: PathAbsolute {
                 path: game_manifest,
@@ -169,6 +183,7 @@ impl Config {
             game_executable: PathAbsolute {
                 path: game_executable,
             },
+            game_libs: PathAbsolute { path: game_libs },
 
             rcon_password: String::from("Your_Rcon_Password"),
             rcon_port: 28016,

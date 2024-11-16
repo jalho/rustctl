@@ -231,9 +231,18 @@ pub fn handle_game_server_fs_events(
     });
 
     let log_level: crate::args::LogLevel = config.log_level.clone();
-    let cwd: String = config.root_dir.to_string();
+
+    let root_dir: String = config.root_dir.to_string();
+    let carbon_logs_dir: String = config.carbon_logs.to_string();
+    let carbon_libs_dir: String = config.carbon_libs.to_string();
+    let game_libs_dir: String = config.game_libs.to_string();
+
     let th_stderr = std::thread::spawn(move || {
-        let cwd: &str = &cwd;
+        let root_dir: &str = &root_dir;
+        let carbon_logs_dir: &str = &carbon_logs_dir;
+        let carbon_libs_dir: &str = &carbon_libs_dir;
+        let game_libs_dir: &str = &game_libs_dir;
+
         loop {
             let msg: String = match rx_stderr.recv() {
                 Ok(n) => n,
@@ -245,30 +254,12 @@ pub fn handle_game_server_fs_events(
             match log_level {
                 crate::args::LogLevel::normal => {
                     if let Some(strace_output) = parse_syscall_and_string_args(&msg) {
-                        // TODO: Make the `is_fs_edit` logic more robust: Only make
-                        //       log of really changed files, perhaps only in some
-                        //       select paths, and ignore some likely uninteresting
-                        //       spam? An example of a somewhat sensible filter
-                        //       for "normal" log level as of commit `e1b5913` and
-                        //       latest deps as of 2024-11-16 (specific to my machine):
-                        //       $ grep -vE "faccessat2|/sys/kernel/|/home/jka/\.steam/|carbon.*\.log|inotify_add_watch|/home/jka/.config|/home/rust/installations/carbon/managed/.*\.dll|/tmp/|statx|/dev/|/home/rust/installations/RustDedicated_Data/Managed/.*\.dll|/home/rust/installations/carbon/temp/"
-
-                        /*
-                          TODO: Ignore Carbon .log files at specific trusted paths. Seen e.g.:
-                            openat /home/rust/installations/carbon/logs/archive/Carbon.Core.backup.2024.11.16.log
-                            openat /home/rust/installations/carbon/logs/Carbon.Bootstrap.log
-                            openat /home/rust/installations/carbon/logs/Carbon.Core.log
-                            openat /home/rust/installations/carbon/logs/Carbon.Harmony.log
-                            openat /home/rust/installations/carbon/logs/Carbon.Preloader.log
-
-                          TODO: Ignore Rust .dll files...
-                            openat /home/rust/installations/RustDedicated_Data/Managed/
-
-                          TODO: Ignore Carbon .dlls...
-                            openat /home/rust/installations/carbon/managed/
-                            openat /home/rust/installations/carbon/managed/lib/
-                        */
-                        if is_fs_edit(&strace_output) && in_scope(cwd, &strace_output) {
+                        if is_fs_edit(&strace_output)
+                            && in_scope(root_dir, &strace_output)
+                            && !is_filetype_at(&strace_output, "log", carbon_logs_dir)
+                            && !is_filetype_at(&strace_output, "dll", carbon_libs_dir)
+                            && !is_filetype_at(&strace_output, "dll", game_libs_dir)
+                        {
                             log::info!(
                                 "{} {}",
                                 strace_output.syscall_name,
@@ -284,6 +275,20 @@ pub fn handle_game_server_fs_events(
         }
     });
     return (th_stdout, th_stderr);
+}
+
+fn is_filetype_at(operation: &StraceLine, extension: &str, path_prefix: &str) -> bool {
+    let matcher: regex::Regex =
+        match regex::Regex::new(&format!(r"{}.+\.{}", path_prefix, extension)).ok() {
+            Some(n) => n,
+            None => unreachable!(),
+        };
+    for str_arg in &operation.argv_strings {
+        if matcher.is_match(&str_arg) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /// Determine whether a given strace operation concerns something in scope of
