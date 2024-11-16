@@ -276,6 +276,7 @@ fn is_fs_edit(operation: &StraceLine) -> bool {
         || operation.syscall_name == "lstat"
         || operation.syscall_name == "readlink"
         || operation.syscall_name == "access"
+        || operation.syscall_name == "faccessat2"
     {
         return false;
     }
