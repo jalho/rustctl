@@ -318,31 +318,21 @@ pub fn install_update_game_server(
         "Installing or updating game server with SteamCMD to '{}'",
         &config.steamcmd_installations
     );
-    let paths_touched: Vec<(String, u64)> = match run_with_strace(
-        &format!("{}", steamcmd_executable_absolute),
-        vec![
-            "+force_install_dir",
-            &format!("{}", config.steamcmd_installations),
-            "+login",
-            "anonymous",
-            "+app_update",
-            "258550",
-            "validate",
-            "+quit",
-        ],
-        &config.root_dir.path,
-    ) {
-        Err(StraceFilesError::DecodeUtf8(err)) => {
-            return Err(crate::error::FatalError::new(format!("cannot install or update game server: cannot decode output of '{CMD_STRACE}' with '{steamcmd_executable_absolute}' as UTF-8"), Some(Box::new(err))))
-        },
-        Err(StraceFilesError::ExitStatus) => {
-            return Err(crate::error::FatalError::new(format!("cannot install or update game server: '{CMD_STRACE}' with '{steamcmd_executable_absolute}' exited with unsuccessful status"), None))
-        },
-        Err(StraceFilesError::IO(err)) => {
-            return Err(crate::error::FatalError::new(format!("cannot install or update game server: cannot execute '{CMD_STRACE}' with '{steamcmd_executable_absolute}'"), Some(Box::new(err))))
-        },
-        Ok(n) => n,
-    };
+    let executable = format!("{}", steamcmd_executable_absolute);
+    let install_dir = format!("{}", config.steamcmd_installations);
+    let cmdv_steamcmd: Vec<&str> = vec![
+        &executable,
+        "+force_install_dir",
+        &install_dir,
+        "+login",
+        "anonymous",
+        "+app_update",
+        "258550",
+        "validate",
+        "+quit",
+    ];
+    let mut cmd_steamcmd = crate::proc::Command::strace(&config.root_dir.path, cmdv_steamcmd);
+    let paths_touched: Vec<(String, u64)> = cmd_steamcmd.run_to_end()?;
     let paths_touched_subset = paths_touched.iter().take(10);
 
     log::info!(
@@ -368,45 +358,6 @@ pub fn install_update_game_server(
     }
 
     return Ok(());
-}
-
-/// Failures with running a command with strace, watching touched filesystem.
-enum StraceFilesError {
-    IO(std::io::Error),
-    ExitStatus,
-    DecodeUtf8(std::string::FromUtf8Error),
-}
-impl From<std::io::Error> for StraceFilesError {
-    fn from(err: std::io::Error) -> Self {
-        return Self::IO(err);
-    }
-}
-impl From<std::string::FromUtf8Error> for StraceFilesError {
-    fn from(err: std::string::FromUtf8Error) -> Self {
-        return Self::DecodeUtf8(err);
-    }
-}
-
-/// Run a given command with strace, watching touched filesystem.
-fn run_with_strace(
-    cmd: &str,
-    argv: Vec<&str>,
-    cwd: &std::path::PathBuf,
-) -> Result<Vec<(String, u64)>, StraceFilesError> {
-    let strace_argv = vec![vec!["-ff", "-e", "trace=file", cmd], argv].concat();
-    let out: std::process::Output = std::process::Command::new(CMD_STRACE)
-        .current_dir(cwd)
-        .args(strace_argv)
-        .output()?;
-    if !out.status.success() {
-        return Err(StraceFilesError::ExitStatus);
-    }
-    let stderr: String = String::from_utf8(out.stderr)?;
-
-    let paths: std::collections::HashSet<String> = extract_modified_paths(&stderr, &cwd);
-    let paths: Vec<(String, u64)> = get_sizes(paths);
-
-    return Ok(paths);
 }
 
 /// Install _SteamCMD_ (game server installer).
@@ -459,34 +410,10 @@ pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error
         log::info!("Downloaded SteamCMD from {}", &config.steamcmd_download);
     }
 
-    let cmd_tar: &str = "tar";
-    let paths_touched: Vec<(String, u64)> = match run_with_strace(
-        cmd_tar,
-        vec!["-xzf", &format!("{}", &config.steamcmd_archive)],
-        &config.steamcmd_archive.parent(),
-    ) {
-        Ok(n) => n,
-        Err(StraceFilesError::DecodeUtf8(err)) => {
-            return Err(crate::error::FatalError::new(
-                format!(
-                    "cannot install SteamCMD: cannot decode output of '{CMD_STRACE}' with '{cmd_tar}' as UTF-8",
-                ),
-                Some(Box::new(err)),
-            ))
-        }
-        Err(StraceFilesError::ExitStatus) => {
-            return Err(crate::error::FatalError::new(format!("cannot install SteamCMD: '{CMD_STRACE}' with '{cmd_tar}' exited with unsuccessful status"), None))
-        }
-        Err(StraceFilesError::IO(err)) => {
-            return Err(crate::error::FatalError::new(
-                format!(
-                    "cannot install SteamCMD: cannot execute '{CMD_STRACE}' with '{cmd_tar}'",
-                ),
-                Some(Box::new(err)),
-            ))
-        }
-    };
-
+    let extractable = &format!("{}", &config.steamcmd_archive);
+    let cmdv_tar: Vec<&str> = vec!["tar", "-xzf", extractable];
+    let mut cmd_tar = crate::proc::Command::strace(&config.steamcmd_archive.parent(), cmdv_tar);
+    let paths_touched: Vec<(String, u64)> = cmd_tar.run_to_end()?;
     let paths_touched_subset = paths_touched.iter().take(10);
 
     log::info!(
@@ -565,34 +492,10 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
         log::info!("Downloaded Carbon from {}", &config.carbon_download);
     }
 
-    let cmd_tar: &str = "tar";
-    let paths_touched: Vec<(String, u64)> = match run_with_strace(
-        cmd_tar,
-        vec!["-xzf", &format!("{}", &config.carbon_archive)],
-        &config.carbon_archive.parent(),
-    ) {
-        Ok(n) => n,
-        Err(StraceFilesError::DecodeUtf8(err)) => {
-            return Err(crate::error::FatalError::new(
-                format!(
-                    "cannot install Carbon: cannot decode output of '{CMD_STRACE}' with '{cmd_tar}' as UTF-8",
-                ),
-                Some(Box::new(err)),
-            ))
-        }
-        Err(StraceFilesError::ExitStatus) => {
-            return Err(crate::error::FatalError::new(format!("cannot install Carbon: '{CMD_STRACE}' with '{cmd_tar}' exited with unsuccessful status"), None))
-        }
-        Err(StraceFilesError::IO(err)) => {
-            return Err(crate::error::FatalError::new(
-                format!(
-                    "cannot install Carbon: cannot execute '{CMD_STRACE}' with '{cmd_tar}'",
-                ),
-                Some(Box::new(err)),
-            ))
-        }
-    };
-
+    let extractable = &format!("{}", &config.carbon_archive);
+    let cmdv_tar: Vec<&str> = vec!["tar", "-xzf", extractable];
+    let mut cmd_tar = crate::proc::Command::strace(&config.carbon_archive.parent(), cmdv_tar);
+    let paths_touched: Vec<(String, u64)> = cmd_tar.run_to_end()?;
     let paths_touched_subset = paths_touched.iter().take(10);
 
     log::info!(
@@ -734,7 +637,7 @@ fn human_readable_size(bytes: u64) -> String {
 }
 
 /// Extract filesystem paths from `strace` output that were modified (created, written to etc.)
-fn extract_modified_paths(
+pub fn extract_modified_paths(
     strace_output: &str,
     cwd: &std::path::PathBuf,
 ) -> std::collections::HashSet<String> {
@@ -768,7 +671,7 @@ fn extract_modified_paths(
     return modified_paths;
 }
 
-fn get_sizes(paths: std::collections::HashSet<String>) -> Vec<(String, u64)> {
+pub fn get_sizes(paths: std::collections::HashSet<String>) -> Vec<(String, u64)> {
     let mut paths_with_sizes: Vec<(String, u64)> = vec![];
     for modified_path in &paths {
         if let Ok(metadata) = std::fs::metadata(modified_path) {

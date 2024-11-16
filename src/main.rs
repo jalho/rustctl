@@ -1,6 +1,7 @@
 mod args;
 mod error;
 mod misc;
+mod proc;
 mod text;
 
 fn main() -> Result<(), error::FatalError> {
