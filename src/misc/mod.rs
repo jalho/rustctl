@@ -301,6 +301,8 @@ fn in_scope_networking(operation: &StraceLine) -> bool {
         || operation.syscall_name == "socketpair"
         || operation.syscall_name == "setsockopt"
         || operation.syscall_name == "getpeername"
+        || operation.syscall_name == "getsockopt"
+        || operation.syscall_name == "getsockname"
     {
         return false;
     }
