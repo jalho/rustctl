@@ -306,6 +306,8 @@ fn filter_fs_modification(operation: &StraceLine) -> bool {
         || operation.syscall_name == "readlink"
         || operation.syscall_name == "access"
         || operation.syscall_name == "faccessat2"
+        || operation.syscall_name == "sendfile"
+        || operation.syscall_name == "utimensat"
     {
         return false;
     }
@@ -361,6 +363,7 @@ fn filter_net_other(operation: &StraceLine) -> bool {
         || operation.syscall_name == "htons"
         || operation.syscall_name == "listen"
         || operation.syscall_name == "setsockopt"
+        || operation.syscall_name == "shutdown"
         || operation.syscall_name == "socket"
         || operation.syscall_name == "socketpair"
     {
