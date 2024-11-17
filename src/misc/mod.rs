@@ -5,11 +5,13 @@ const ENV_LD_LIBRARY_PATH: &str = "LD_LIBRARY_PATH";
 
 /// Initialize a global logging utility.
 pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
-    let stdout = log4rs::append::console::ConsoleAppender::builder()
-        .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
-            "[{d(%Y-%m-%dT%H:%M:%S%.3f)}] {h([{l}])} - {m}{n}",
-        )))
-        .build();
+    let stdout: log4rs::append::console::ConsoleAppender =
+        log4rs::append::console::ConsoleAppender::builder()
+            .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
+                "[{d(%Y-%m-%dT%H:%M:%S%.3f)}] {h([{l}])} - {m}{n}",
+            )))
+            .build();
+
     let logger_config: log4rs::Config = match log4rs::Config::builder()
         .appender(log4rs::config::Appender::builder().build("stdout", Box::new(stdout)))
         .build(
@@ -25,6 +27,7 @@ pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
             ));
         }
     };
+
     let logger: log4rs::Handle = match log4rs::init_config(logger_config) {
         Ok(n) => n,
         Err(err) => {
@@ -34,6 +37,7 @@ pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
             ));
         }
     };
+
     return Ok(logger);
 }
 
