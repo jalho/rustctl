@@ -17,7 +17,7 @@ pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
         .build(
             log4rs::config::Root::builder()
                 .appender("stdout")
-                .build(log::LevelFilter::Debug),
+                .build(log::LevelFilter::Trace),
         ) {
         Ok(n) => n,
         Err(err) => {
