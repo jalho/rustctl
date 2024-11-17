@@ -299,22 +299,22 @@ fn filter_fs_modification(operation: &StraceLine) -> bool {
     }
 
     // filesystem checks
-    if operation.syscall_name == "newfstatat"
+    if operation.syscall_name == "access"
+        || operation.syscall_name == "faccessat2"
+        || operation.syscall_name == "lstat"
+        || operation.syscall_name == "newfstatat"
+        || operation.syscall_name == "readlink"
+        || operation.syscall_name == "sendfile"
         || operation.syscall_name == "stat"
         || operation.syscall_name == "statx"
-        || operation.syscall_name == "lstat"
-        || operation.syscall_name == "readlink"
-        || operation.syscall_name == "access"
-        || operation.syscall_name == "faccessat2"
-        || operation.syscall_name == "sendfile"
         || operation.syscall_name == "utimensat"
     {
         return false;
     }
 
     // other
-    if operation.syscall_name == "getcwd"
-        || operation.syscall_name == "chdir"
+    if operation.syscall_name == "chdir"
+        || operation.syscall_name == "getcwd"
         || operation.syscall_name == "inotify_add_watch"
     {
         return false;
