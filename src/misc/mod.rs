@@ -345,7 +345,7 @@ fn filter_fs_filetype_at(operation: &StraceLine, file_extension: &str, dir_prefi
 }
 
 fn filter_net_inbound(operation: &StraceLine) -> bool {
-    if operation.syscall_name == "recvfrom" {
+    if operation.syscall_name == "recvfrom" || operation.syscall_name == "recvmsg" {
         return false;
     }
 
@@ -359,6 +359,7 @@ fn filter_net_other(operation: &StraceLine) -> bool {
         || operation.syscall_name == "getpeername"
         || operation.syscall_name == "getsockopt"
         || operation.syscall_name == "getsockname"
+        || operation.syscall_name == "bind"
     {
         return false;
     }
@@ -367,7 +368,7 @@ fn filter_net_other(operation: &StraceLine) -> bool {
 }
 
 fn filter_net_outbound(operation: &StraceLine) -> bool {
-    if operation.syscall_name == "sendto" {
+    if operation.syscall_name == "sendto" || operation.syscall_name == "sendmmsg" {
         return false;
     }
 
