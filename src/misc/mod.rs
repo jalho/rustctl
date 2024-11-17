@@ -3,8 +3,7 @@
 const CMD_STRACE: &str = "strace";
 const ENV_LD_LIBRARY_PATH: &str = "LD_LIBRARY_PATH";
 
-/// Initialize a global logging utility.
-pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
+fn make_logger_config() -> log4rs::Config {
     let stdout: log4rs::append::console::ConsoleAppender =
         log4rs::append::console::ConsoleAppender::builder()
             .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
@@ -20,15 +19,21 @@ pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
                 .build(log::LevelFilter::Trace),
         ) {
         Ok(n) => n,
-        Err(err) => {
-            return Err(crate::error::FatalError::new(
-                format!("bad logger config"),
-                Some(Box::new(err)),
-            ));
+        Err(_) => {
+            /* The configuration is always valid or never valid because we don't
+            use e.g. filesystem config for the logger. */
+            unreachable!();
         }
     };
 
-    let logger: log4rs::Handle = match log4rs::init_config(logger_config) {
+    return logger_config;
+}
+
+/// Initialize a global logging utility.
+pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
+    let config: log4rs::Config = make_logger_config();
+
+    let logger: log4rs::Handle = match log4rs::init_config(config) {
         Ok(n) => n,
         Err(err) => {
             return Err(crate::error::FatalError::new(
@@ -39,6 +44,12 @@ pub fn init_logger() -> Result<log4rs::Handle, crate::error::FatalError> {
     };
 
     return Ok(logger);
+}
+
+pub fn set_log_level(logger: &log4rs::Handle, level: log::LevelFilter) {
+    let mut config: log4rs::Config = make_logger_config();
+    config.root_mut().set_level(level);
+    logger.set_config(config.into());
 }
 
 pub fn start_game(
@@ -215,7 +226,7 @@ pub fn handle_game_server_fs_net_events(
     rx_stderr: std::sync::mpsc::Receiver<String>,
     tx_game_server_state: std::sync::mpsc::Sender<GameServerState>,
 ) -> (std::thread::JoinHandle<()>, std::thread::JoinHandle<()>) {
-    let log_level: crate::args::LogLevel = config.log_level.clone();
+    let log_level: log::LevelFilter = config.log_level.clone();
     let th_stdout = std::thread::spawn(move || loop {
         let msg: String = match rx_stdout.recv() {
             Ok(n) => n,
@@ -225,10 +236,19 @@ pub fn handle_game_server_fs_net_events(
             }
         };
         match log_level {
-            crate::args::LogLevel::normal => {}
-            crate::args::LogLevel::all => {
-                log::info!("{msg}");
+            log::LevelFilter::Error | log::LevelFilter::Warn | log::LevelFilter::Info => {
+                /*  STDOUT of the game server is very flooded with e.g.
+                 *  error-looking messages that don't seem to actually matter at
+                 *  all.
+                 *    We should come up with some heuristic for picking up possibly
+                 *  noteworthy issues from there, but until then let's only log them
+                 *  in debug level or lower.
+                 */
             }
+            log::LevelFilter::Trace | log::LevelFilter::Debug => {
+                log::debug!("{msg}");
+            }
+            log::LevelFilter::Off => {}
         }
         if msg == "Server startup complete" {
             match tx_game_server_state.send(GameServerState::Playable) {
@@ -241,7 +261,7 @@ pub fn handle_game_server_fs_net_events(
         }
     });
 
-    let log_level: crate::args::LogLevel = config.log_level.clone();
+    let log_level: log::LevelFilter = config.log_level.clone();
 
     let root_dir: String = config.root_dir.to_string();
     let carbon_logs_dir: String = config.carbon_logs.to_string();
@@ -263,7 +283,7 @@ pub fn handle_game_server_fs_net_events(
                 }
             };
             match log_level {
-                crate::args::LogLevel::normal => {
+                log::LevelFilter::Error | log::LevelFilter::Warn | log::LevelFilter::Info => {
                     if let Some(strace_output) = parse_syscall_and_string_args(&msg) {
                         if
                         // interesting: filesystem modifications except for some paths
@@ -286,9 +306,10 @@ pub fn handle_game_server_fs_net_events(
                         }
                     }
                 }
-                crate::args::LogLevel::all => {
-                    log::debug!("{msg}\n{:#?}", parse_syscall_and_string_args(&msg));
+                log::LevelFilter::Trace | log::LevelFilter::Debug => {
+                    log::debug!("{msg}");
                 }
+                log::LevelFilter::Off => {}
             }
         }
     });

@@ -1,26 +1,12 @@
 //! Configuration for the program.
 
-#[derive(serde::Deserialize, Clone)]
-#[allow(non_camel_case_types)]
-pub enum LogLevel {
-    /// Log only the most interesting things in the context of running the
-    /// program in normal use (as opposed to development). Such things are
-    /// changes made to the system running the game or to the game instance,
-    /// lifecycle stuff and any error or warnings that should be investigated
-    /// and fixed.
-    normal,
-    /// Log everything including all output from game server and its wrapping
-    ///  strace and all kinds of debugging information.
-    all,
-}
-
 /// Configuration source from the filesystem.
 #[derive(serde::Deserialize)]
 struct ConfigSrcFs {
     root_dir: String,
     steamcmd_download: String,
     carbon_download: String,
-    log_level: LogLevel,
+    log_level: log::LevelFilter,
 }
 
 pub struct PathAbsolute {
@@ -49,7 +35,7 @@ impl PathAbsolute {
 /// command line argument vector and a filesystem source.
 pub struct Config {
     pub root_dir: PathAbsolute,
-    pub log_level: LogLevel,
+    pub log_level: log::LevelFilter,
 
     pub steamcmd_download: String,
     pub steamcmd_archive: PathAbsolute,

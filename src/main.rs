@@ -5,7 +5,7 @@ mod proc;
 mod text;
 
 fn main() -> Result<(), error::FatalError> {
-    misc::init_logger()?;
+    let logger: log4rs::Handle = misc::init_logger()?;
 
     let argv: Vec<String> = std::env::args().collect();
     let command: args::Command = match args::Command::get(argv) {
@@ -35,6 +35,7 @@ fn main() -> Result<(), error::FatalError> {
             return Err(err);
         }
     };
+    misc::set_log_level(&logger, config.log_level);
 
     match command {
         args::Command::Config => todo!(),
