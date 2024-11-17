@@ -260,22 +260,19 @@ pub fn handle_game_server_fs_net_events(
             };
             match log_level {
                 crate::args::LogLevel::normal => {
-                    /*
-                        TODO: Clean this mess! Define some filtering mechanism
-                              that is easier to comprehend...
-                    */
                     if let Some(strace_output) = parse_syscall_and_string_args(&msg) {
                         if
-                        // filesystem modifications
-                        (is_fs_edit(&strace_output)
-                            && in_scope_filesystem(root_dir, &strace_output)
-                            && !is_filetype_at(&strace_output, "log", carbon_logs_dir)
-                            && !is_filetype_at(&strace_output, "dll", carbon_libs_dir)
-                            && !is_filetype_at(&strace_output, "dll", game_libs_dir))
-                         // outbound networking
-                            && !is_network_response(&strace_output)
-                            && in_scope_networking(&strace_output)
-                            && filter_tcp_connect_ipv4(&strace_output)
+                        // interesting: filesystem modifications except for some paths
+                        filter_fs_scope_root_dir(&strace_output, root_dir)
+                        && filter_fs_modification(&strace_output)
+                        && filter_fs_filetype_at(&strace_output, "log", carbon_logs_dir)
+                        && filter_fs_filetype_at(&strace_output, "dll", carbon_libs_dir)
+                        && filter_fs_filetype_at(&strace_output, "dll", game_libs_dir)
+
+                        // interesting: TCP connections made (cba with UDP?)
+                        && filter_net_outbound(&strace_output)
+                        && filter_net_inbound(&strace_output)
+                        && filter_net_other(&strace_output)
                         {
                             log::info!(
                                 "{} {}",
@@ -294,83 +291,7 @@ pub fn handle_game_server_fs_net_events(
     return (th_stdout, th_stderr);
 }
 
-fn filter_tcp_connect_ipv4(operation: &StraceLine) -> bool {
-    if operation.syscall_name != "connect" {
-        return true;
-    }
-    let addr: &String = match operation.argv_strings.first() {
-        Some(n) => n,
-        None => {
-            return false;
-        }
-    };
-    let matcher: regex::Regex = match regex::Regex::new(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}") {
-        Ok(n) => n,
-        Err(_) => unreachable!(),
-    };
-    return matcher.is_match(addr);
-}
-
-/// Discriminate networking syscalls that don't directly indicate outbound
-/// traffic, i.e. those that only prepare for it or deal with already made
-/// traffic or are otherwise uninteresting.
-fn in_scope_networking(operation: &StraceLine) -> bool {
-    if operation.syscall_name == "socket"
-        || operation.syscall_name == "socketpair"
-        || operation.syscall_name == "setsockopt"
-        || operation.syscall_name == "getpeername"
-        || operation.syscall_name == "getsockopt"
-        || operation.syscall_name == "getsockname"
-    {
-        return false;
-    }
-    return true;
-}
-
-fn is_network_response(operation: &StraceLine) -> bool {
-    return operation.syscall_name == "recvfrom" || operation.syscall_name == "recvmsg";
-}
-
-fn is_filetype_at(operation: &StraceLine, extension: &str, path_prefix: &str) -> bool {
-    let matcher: regex::Regex =
-        match regex::Regex::new(&format!(r"{}.+\.{}", path_prefix, extension)).ok() {
-            Some(n) => n,
-            None => unreachable!(),
-        };
-    for str_arg in &operation.argv_strings {
-        if matcher.is_match(&str_arg) {
-            return true;
-        }
-    }
-    return false;
-}
-
-/// Determine whether a given strace operation concerns something in scope of
-/// managing the game server, i.e. is at least not outside of the configured
-/// root dir where every command is expected to take place. Not exhaustive check
-/// but trims away all kinds of debug and temp paths like `/sys/kernel/`, `/tmp/`
-/// etc.
-fn in_scope_filesystem(root_dir: &str, operation: &StraceLine) -> bool {
-    // discriminate e.g. networking stuff
-    let is_fs_event: bool = operation.syscall_name == "openat";
-    if !is_fs_event {
-        return true;
-    }
-
-    // check the filesystem scope
-    for str_arg in &operation.argv_strings {
-        // cba with cross platform -- this is a very Linux specific implementation anyway
-        if str_arg.starts_with(&root_dir) || !str_arg.starts_with("/") {
-            return true;
-        }
-    }
-    return false;
-}
-
-/// Determine whether a given parsed output line of strace represents an
-/// operation that caused changes in the filesystem, such as files written or
-/// removed etc.
-fn is_fs_edit(operation: &StraceLine) -> bool {
+fn filter_fs_modification(operation: &StraceLine) -> bool {
     // read-only operations
     if operation.syscall_name == "openat" && operation.constants.contains(&String::from("O_RDONLY"))
     {
@@ -398,6 +319,73 @@ fn is_fs_edit(operation: &StraceLine) -> bool {
     }
 
     return true;
+}
+
+fn filter_fs_scope_root_dir(operation: &StraceLine, root_dir_prefix: &str) -> bool {
+    for str_arg in &operation.argv_strings {
+        if str_arg.starts_with("/") && !str_arg.starts_with(root_dir_prefix) {
+            return false;
+        }
+    }
+    return true;
+}
+
+fn filter_fs_filetype_at(operation: &StraceLine, file_extension: &str, dir_prefix: &str) -> bool {
+    let matcher: regex::Regex =
+        match regex::Regex::new(&format!(r"{}.+\.{}", dir_prefix, file_extension)).ok() {
+            Some(n) => n,
+            None => unreachable!(),
+        };
+    for str_arg in &operation.argv_strings {
+        if matcher.is_match(&str_arg) {
+            return false;
+        }
+    }
+    return true;
+}
+
+fn filter_net_inbound(operation: &StraceLine) -> bool {
+    if operation.syscall_name == "recvfrom" {
+        return false;
+    }
+
+    return true;
+}
+
+fn filter_net_other(operation: &StraceLine) -> bool {
+    if operation.syscall_name == "socket"
+        || operation.syscall_name == "socketpair"
+        || operation.syscall_name == "setsockopt"
+        || operation.syscall_name == "getpeername"
+        || operation.syscall_name == "getsockopt"
+        || operation.syscall_name == "getsockname"
+    {
+        return false;
+    }
+
+    return true;
+}
+
+fn filter_net_outbound(operation: &StraceLine) -> bool {
+    if operation.syscall_name == "sendto" {
+        return false;
+    }
+
+    if operation.syscall_name != "connect" {
+        return true;
+    }
+
+    let addr: &String = match operation.argv_strings.first() {
+        Some(n) => n,
+        None => {
+            return false;
+        }
+    };
+    let matcher: regex::Regex = match regex::Regex::new(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}") {
+        Ok(n) => n,
+        Err(_) => unreachable!(),
+    };
+    return matcher.is_match(addr);
 }
 
 /// Install or update an existing installation of the game server.
