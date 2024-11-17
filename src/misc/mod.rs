@@ -7,7 +7,7 @@ fn make_logger_config() -> log4rs::Config {
     let stdout: log4rs::append::console::ConsoleAppender =
         log4rs::append::console::ConsoleAppender::builder()
             .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
-                "[{d(%Y-%m-%dT%H:%M:%S%.3f)}] {h([{l}])} - {m}{n}",
+                "[{d(%Y-%m-%dT%H:%M:%S)}] {h([{l}])} [{t}] - {m}{n}",
             )))
             .build();
 
@@ -91,10 +91,14 @@ pub fn start_game(
         ]
         .join(" ")
     );
+    /*
+     * TODO: Direct strace output (-o) to an in-mem file to preserve the wrapped
+     *       command's STDERR!
+     */
     let argv = vec![
         "-ff",
         "-e",
-        "trace=file,network",
+        "trace=file,network", // consider limiting to specific syscalls? (connect, open, openat...)
         "bash",
         "-c",
         &startup_with_argv,
@@ -231,7 +235,7 @@ pub fn handle_game_server_fs_net_events(
         let msg: String = match rx_stdout.recv() {
             Ok(n) => n,
             Err(err) => {
-                log::error!("Cannot receive game server STDOUT: {:#?}", err);
+                log::error!("Cannot receive STDOUT: {:#?}", err);
                 return;
             }
         };
@@ -246,7 +250,7 @@ pub fn handle_game_server_fs_net_events(
                  */
             }
             log::LevelFilter::Trace | log::LevelFilter::Debug => {
-                log::debug!("{msg}");
+                log::debug!(target: "game-stdout", "{msg}");
             }
             log::LevelFilter::Off => {}
         }
@@ -278,12 +282,17 @@ pub fn handle_game_server_fs_net_events(
             let msg: String = match rx_stderr.recv() {
                 Ok(n) => n,
                 Err(err) => {
-                    log::error!("Cannot receive game server STDERR: {:#?}", err);
+                    log::error!("Cannot receive STDERR: {:#?}", err);
                     return;
                 }
             };
             match log_level {
                 log::LevelFilter::Error | log::LevelFilter::Warn | log::LevelFilter::Info => {
+                    /* Could pick something interesting from strace output
+                    here... Maybe files written in game instance dir, like
+                    saves etc. */
+                }
+                log::LevelFilter::Debug => {
                     if let Some(strace_output) = parse_syscall_and_string_args(&msg) {
                         if
                         // interesting: filesystem modifications except for some paths
@@ -298,16 +307,15 @@ pub fn handle_game_server_fs_net_events(
                         && filter_net_inbound(&strace_output)
                         && filter_net_other(&strace_output)
                         {
-                            log::info!(
-                                "{} {}",
-                                strace_output.syscall_name,
-                                strace_output.argv_strings.join(" ")
+                            log::debug!(
+                              target: "game-strace", "{} {}",
+                              strace_output.syscall_name, strace_output.argv_strings.join(" ")
                             );
                         }
                     }
                 }
-                log::LevelFilter::Trace | log::LevelFilter::Debug => {
-                    log::debug!("{msg}");
+                log::LevelFilter::Trace => {
+                    log::trace!(target: "game-strace", "{msg}");
                 }
                 log::LevelFilter::Off => {}
             }
