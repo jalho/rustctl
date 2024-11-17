@@ -361,6 +361,7 @@ fn filter_net_other(operation: &StraceLine) -> bool {
         || operation.syscall_name == "getsockname"
         || operation.syscall_name == "getsockopt"
         || operation.syscall_name == "htons"
+        || operation.syscall_name == "if_nametoindex"
         || operation.syscall_name == "listen"
         || operation.syscall_name == "setsockopt"
         || operation.syscall_name == "shutdown"
