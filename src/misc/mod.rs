@@ -353,13 +353,16 @@ fn filter_net_inbound(operation: &StraceLine) -> bool {
 }
 
 fn filter_net_other(operation: &StraceLine) -> bool {
-    if operation.syscall_name == "socket"
-        || operation.syscall_name == "socketpair"
-        || operation.syscall_name == "setsockopt"
-        || operation.syscall_name == "getpeername"
-        || operation.syscall_name == "getsockopt"
-        || operation.syscall_name == "getsockname"
+    if operation.syscall_name == "accept"
         || operation.syscall_name == "bind"
+        || operation.syscall_name == "getpeername"
+        || operation.syscall_name == "getsockname"
+        || operation.syscall_name == "getsockopt"
+        || operation.syscall_name == "htons"
+        || operation.syscall_name == "listen"
+        || operation.syscall_name == "setsockopt"
+        || operation.syscall_name == "socket"
+        || operation.syscall_name == "socketpair"
     {
         return false;
     }
@@ -367,8 +370,13 @@ fn filter_net_other(operation: &StraceLine) -> bool {
     return true;
 }
 
+/// Detect TCP connections with IPv4.
+/// TODO: Add support for IPv6?
 fn filter_net_outbound(operation: &StraceLine) -> bool {
-    if operation.syscall_name == "sendto" || operation.syscall_name == "sendmmsg" {
+    if operation.syscall_name == "sendto"
+        || operation.syscall_name == "sendmmsg"
+        || operation.syscall_name == "sendmsg"
+    {
         return false;
     }
 
