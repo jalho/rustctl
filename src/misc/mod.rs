@@ -517,17 +517,18 @@ pub fn install_update_game_server(
         ],
     );
     let paths_touched: Vec<(String, u64)> = cmd_steamcmd.run_to_end()?;
-    let paths_touched_subset = paths_touched.iter().take(10);
+    let biggest: Option<&(String, u64)> = paths_touched.first();
+    let biggest: &str = match biggest {
+        Some((path, size)) => {
+            let size = size.to_owned();
+            &format!(": Biggest ({}): '{}'", human_readable_size(size), path)
+        }
+        None => "",
+    };
     log::info!(
-        "Installed or updated {} game server files with SteamCMD: Biggest {}: {}",
+        "Installed or updated {} game server files with SteamCMD{}",
         paths_touched.len(),
-        paths_touched_subset.len(),
-        paths_touched_subset
-            .into_iter()
-            .cloned()
-            .map(|(path, size)| format!("{}: {}", human_readable_size(size), path))
-            .collect::<Vec<String>>()
-            .join(", ")
+        biggest
     );
 
     if !&config.game_executable.path.is_file() {
@@ -599,18 +600,19 @@ pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error
         vec!["tar", "-xzf", &steamcmd_extractable],
     );
     let paths_touched: Vec<(String, u64)> = cmd_tar.run_to_end()?;
-    let paths_touched_subset = paths_touched.iter().take(10);
+    let biggest: Option<&(String, u64)> = paths_touched.first();
+    let biggest: &str = match biggest {
+        Some((path, size)) => {
+            let size = size.to_owned();
+            &format!(": Biggest ({}): '{}'", human_readable_size(size), path)
+        }
+        None => "",
+    };
     log::info!(
-        "Extracted {} files from SteamCMD distribution '{}': Biggest {}: {}",
+        "Extracted {} files from SteamCMD distribution '{}'{}",
         paths_touched.len(),
         &config.steamcmd_archive,
-        paths_touched_subset.len(),
-        paths_touched_subset
-            .into_iter()
-            .cloned()
-            .map(|(path, size)| format!("{}: {}", human_readable_size(size), path))
-            .collect::<Vec<String>>()
-            .join(", ")
+        biggest
     );
 
     if !&config.steamcmd_executable.path.is_file() {
@@ -682,18 +684,19 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
         vec!["tar", "-xzf", &carbon_extractable],
     );
     let paths_touched: Vec<(String, u64)> = cmd_tar.run_to_end()?;
-    let paths_touched_subset = paths_touched.iter().take(10);
+    let biggest: Option<&(String, u64)> = paths_touched.first();
+    let biggest: &str = match biggest {
+        Some((path, size)) => {
+            let size = size.to_owned();
+            &format!(": Biggest ({}): '{}'", human_readable_size(size), path)
+        }
+        None => "",
+    };
     log::info!(
-        "Extracted {} files from Carbon distribution '{}': Biggest {}: {}",
+        "Extracted {} files from Carbon distribution '{}'{}",
         paths_touched.len(),
         &config.carbon_archive,
-        paths_touched_subset.len(),
-        paths_touched_subset
-            .into_iter()
-            .cloned()
-            .map(|(path, size)| format!("{}: {}", human_readable_size(size), path))
-            .collect::<Vec<String>>()
-            .join(", ")
+        biggest
     );
 
     if !config.carbon_executable.path.is_file() {

@@ -91,6 +91,7 @@ fn main() -> Result<(), error::FatalError> {
                     return Err(err);
                 }
             };
+            log::info!("Game server playable, RCON WebSocket connected");
 
             if let Err(err) = misc::configure_carbon(rcon_websocket) {
                 /* We want to kill a (grand)child process spawned by child
@@ -100,6 +101,7 @@ fn main() -> Result<(), error::FatalError> {
                 log::error!("{}", err);
                 return Err(err);
             }
+            log::info!("Carbon configured: Game server listed in Community category");
 
             _ = th_stdout_tx.join();
             _ = th_stderr_tx.join();
