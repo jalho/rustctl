@@ -101,6 +101,9 @@ fn main() -> Result<(), error::FatalError> {
                 log::error!("{}", err);
                 return Err(err);
             }
+            // TODO: Add a timeout and an observable error case: The RCON
+            //       command to configure Carbon might not succeed or some
+            //       uncontrolled dependency's behavior might change...
             log::info!("Carbon configured: Game server listed in Community category");
 
             _ = th_stdout_tx.join();
