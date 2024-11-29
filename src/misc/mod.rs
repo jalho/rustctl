@@ -712,19 +712,35 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
     return Ok(());
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+#[allow(non_snake_case)] // RCON command message's keys must be capitalized: Otherwise the game server crashes :D
+struct RCONMessage {
+    Message: String,
+    Identifier: u32,
+}
+
 fn ws_rcon_command(
     rcon_websocket: &mut tungstenite::WebSocket<
         tungstenite::stream::MaybeTlsStream<std::net::TcpStream>,
     >,
     rcon_command: &str,
 ) -> Result<(), crate::error::FatalError> {
-    match rcon_websocket.send(tungstenite::Message::Text(
-        format!(
-            "{{ \"Identifier\": 42, \"Message\": \"{}\" }}",
-            rcon_command
-        )
-        .into(),
-    )) {
+    let command: RCONMessage = RCONMessage {
+        Message: String::from(rcon_command),
+        Identifier: 42,
+    };
+    let command_ser: String = match serde_json::to_string(&command) {
+        Ok(n) => n,
+        Err(_) => {
+            /*
+                There's nothing dynamic about constructing the serializable
+                RCON payload atm, therefore it either always succeeds or never
+                succeeds.
+            */
+            unreachable!()
+        }
+    };
+    match rcon_websocket.send(tungstenite::Message::Text(command_ser)) {
         Err(err) => {
             return Err(crate::error::FatalError::new(
                 format!("cannot send RCON command over WebSocket"),
@@ -737,21 +753,43 @@ fn ws_rcon_command(
         "Sent RCON command over WebSocket: '{}' -- Waiting for response...",
         rcon_command
     );
+
+    // TODO: Add a timeout somehow: Case we never get response with the expected identifier
     loop {
-        let msg = match rcon_websocket.read() {
-            Ok(n) => n,
+        let msg: String = match rcon_websocket.read() {
+            Ok(n) => match n {
+                tungstenite::Message::Text(n) => n,
+                tungstenite::Message::Binary(_)
+                | tungstenite::Message::Ping(_)
+                | tungstenite::Message::Pong(_)
+                | tungstenite::Message::Close(_)
+                | tungstenite::Message::Frame(_) => {
+                    return Err(crate::error::FatalError::new(format!("could not get response to RCON command: got unexpected kind of WebSocket message: {}", n), None));
+                }
+            },
             Err(err) => {
                 return Err(crate::error::FatalError::new(
-                    format!("cannot read RCON response over WebSocket"),
+                    format!("cannot read RCON message over WebSocket"),
                     Some(Box::new(err)),
                 ));
             }
         };
-        log::debug!("Got RCON message: {:#?}", msg);
-        if let Ok(text) = msg.into_text() {
-            if text.contains("\"Identifier\": 42") {
-                break;
+        let msg: RCONMessage = match serde_json::from_str(&msg) {
+            Ok(n) => n,
+            Err(err) => {
+                return Err(crate::error::FatalError::new(
+                    format!("could not get response to RCON command: could not deserialize RCON message"),
+                    Some(Box::new(err)),
+                ));
             }
+        };
+        log::debug!(
+            "Got RCON message with ID {}: {}",
+            msg.Identifier,
+            msg.Message
+        );
+        if msg.Identifier == command.Identifier {
+            break;
         }
     }
 
