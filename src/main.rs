@@ -2,6 +2,7 @@ mod args;
 mod error;
 mod misc;
 mod proc;
+mod rcon;
 mod text;
 
 fn main() -> Result<(), error::FatalError> {
@@ -87,7 +88,7 @@ fn main() -> Result<(), error::FatalError> {
             type WebSocket =
                 tungstenite::WebSocket<tungstenite::stream::MaybeTlsStream<std::net::TcpStream>>;
             let mut rcon_websocket: WebSocket =
-                match misc::get_rcon_websocket(rx_game_server_state, &config) {
+                match rcon::get_rcon_websocket(rx_game_server_state, &config) {
                     Ok(n) => n,
                     Err(err) => {
                         log::error!("{}", err);

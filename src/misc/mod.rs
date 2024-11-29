@@ -712,127 +712,6 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
     return Ok(());
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
-#[allow(non_snake_case)] // RCON command message's keys must be capitalized: Otherwise the game server crashes :D
-struct RCONMessage {
-    Message: String,
-    Identifier: u32,
-}
-
-fn ws_rcon_command(
-    rcon_websocket: &mut tungstenite::WebSocket<
-        tungstenite::stream::MaybeTlsStream<std::net::TcpStream>,
-    >,
-    rcon_command: &str,
-) -> Result<(), crate::error::FatalError> {
-    let command: RCONMessage = RCONMessage {
-        Message: String::from(rcon_command),
-        Identifier: 42,
-    };
-    let command_ser: String = match serde_json::to_string(&command) {
-        Ok(n) => n,
-        Err(_) => {
-            /*
-                There's nothing dynamic about constructing the serializable
-                RCON payload atm, therefore it either always succeeds or never
-                succeeds.
-            */
-            unreachable!()
-        }
-    };
-    match rcon_websocket.send(tungstenite::Message::Text(command_ser)) {
-        Err(err) => {
-            return Err(crate::error::FatalError::new(
-                format!("cannot send RCON command over WebSocket"),
-                Some(Box::new(err)),
-            ));
-        }
-        _ => {}
-    }
-    log::debug!(
-        "Sent RCON command over WebSocket: '{}' -- Waiting for response...",
-        rcon_command
-    );
-
-    // TODO: Add a timeout somehow: Case we never get response with the expected identifier
-    loop {
-        let msg: String = match rcon_websocket.read() {
-            Ok(n) => match n {
-                tungstenite::Message::Text(n) => n,
-                tungstenite::Message::Binary(_)
-                | tungstenite::Message::Ping(_)
-                | tungstenite::Message::Pong(_)
-                | tungstenite::Message::Close(_)
-                | tungstenite::Message::Frame(_) => {
-                    return Err(crate::error::FatalError::new(format!("could not get response to RCON command: got unexpected kind of WebSocket message: {}", n), None));
-                }
-            },
-            Err(err) => {
-                return Err(crate::error::FatalError::new(
-                    format!("cannot read RCON message over WebSocket"),
-                    Some(Box::new(err)),
-                ));
-            }
-        };
-        let msg: RCONMessage = match serde_json::from_str(&msg) {
-            Ok(n) => n,
-            Err(err) => {
-                return Err(crate::error::FatalError::new(
-                    format!("could not get response to RCON command: could not deserialize RCON message"),
-                    Some(Box::new(err)),
-                ));
-            }
-        };
-        log::debug!(
-            "Got RCON message with ID {}: {}",
-            msg.Identifier,
-            msg.Message
-        );
-        if msg.Identifier == command.Identifier {
-            break;
-        }
-    }
-
-    return Ok(());
-}
-
-pub fn get_rcon_websocket(
-    rx_game_server_state: std::sync::mpsc::Receiver<GameServerState>,
-    config: &crate::args::Config,
-) -> Result<
-    tungstenite::WebSocket<tungstenite::stream::MaybeTlsStream<std::net::TcpStream>>,
-    crate::error::FatalError,
-> {
-    match rx_game_server_state.recv_timeout(config.game_startup_timeout) {
-        Ok(GameServerState::Playable) => {
-            // The expected case: Game server eventually becomes playable after startup.
-        }
-        Err(err) => {
-            return Err(crate::error::FatalError::new(
-                format!(
-                    "server startup completion not detected within {} minutes",
-                    config.game_startup_timeout.as_secs() / 60
-                ),
-                Some(Box::new(err)),
-            ));
-        }
-    };
-    let (websocket, _) = match tungstenite::connect(format!(
-        "ws://127.0.0.1:{}/{}",
-        &config.rcon_port.to_string(),
-        &config.rcon_password
-    )) {
-        Ok((websocket, http_response)) => (websocket, http_response),
-        Err(err) => {
-            return Err(crate::error::FatalError::new(
-                format!("cannot connect WebSocket for RCON"),
-                Some(Box::new(err)),
-            ));
-        }
-    };
-    return Ok(websocket);
-}
-
 pub fn configure_carbon(
     rcon_websocket: &mut tungstenite::WebSocket<
         tungstenite::stream::MaybeTlsStream<std::net::TcpStream>,
@@ -844,7 +723,7 @@ pub fn configure_carbon(
       docs: https://docs.carbonmod.gg/docs/core/commands#c.gocommunity
       [Accessed 2024-10-27]
     */
-    ws_rcon_command(rcon_websocket, "c.gocommunity")?;
+    crate::rcon::ws_rcon_command(rcon_websocket, "c.gocommunity")?;
 
     return Ok(());
 }
