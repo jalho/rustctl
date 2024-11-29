@@ -84,13 +84,17 @@ fn main() -> Result<(), error::FatalError> {
                 tx_game_server_state,
             );
 
-            let rcon_websocket = match misc::get_rcon_websocket(rx_game_server_state, &config) {
-                Ok(n) => n,
-                Err(err) => {
-                    log::error!("{}", err);
-                    return Err(err);
-                }
-            };
+            type WebSocket =
+                tungstenite::WebSocket<tungstenite::stream::MaybeTlsStream<std::net::TcpStream>>;
+            let mut rcon_websocket: WebSocket =
+                match misc::get_rcon_websocket(rx_game_server_state, &config) {
+                    Ok(n) => n,
+                    Err(err) => {
+                        log::error!("{}", err);
+                        return Err(err);
+                    }
+                };
+            let rcon_websocket: &mut WebSocket = &mut rcon_websocket;
             log::info!("Game server playable, RCON WebSocket connected");
 
             if let Err(err) = misc::configure_carbon(rcon_websocket) {

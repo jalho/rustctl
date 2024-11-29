@@ -713,7 +713,7 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
 }
 
 fn ws_rcon_command(
-    mut rcon_websocket: tungstenite::WebSocket<
+    rcon_websocket: &mut tungstenite::WebSocket<
         tungstenite::stream::MaybeTlsStream<std::net::TcpStream>,
     >,
     rcon_command: &str,
@@ -796,7 +796,7 @@ pub fn get_rcon_websocket(
 }
 
 pub fn configure_carbon(
-    rcon_websocket: tungstenite::WebSocket<
+    rcon_websocket: &mut tungstenite::WebSocket<
         tungstenite::stream::MaybeTlsStream<std::net::TcpStream>,
     >,
 ) -> Result<(), crate::error::FatalError> {
