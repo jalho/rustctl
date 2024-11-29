@@ -1,7 +1,7 @@
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(non_snake_case)] // RCON command message's keys must be capitalized: Otherwise the game server crashes :D
-struct RCONMessage {
-    Message: String,
+struct RCONMessage<'rcon_command> {
+    Message: &'rcon_command str,
     Identifier: u32,
 }
 
@@ -44,9 +44,12 @@ impl RCONRelay {
         return Ok(Self { websocket });
     }
 
-    pub fn ws_rcon_command(&mut self, rcon_command: &str) -> Result<(), crate::error::FatalError> {
+    pub fn ws_rcon_command<'rcon_command>(
+        &mut self,
+        rcon_command: &'rcon_command str,
+    ) -> Result<(), crate::error::FatalError> {
         let command: RCONMessage = RCONMessage {
-            Message: String::from(rcon_command),
+            Message: rcon_command,
             Identifier: 42,
         };
         let command_ser: String = match serde_json::to_string(&command) {

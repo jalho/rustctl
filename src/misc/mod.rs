@@ -721,7 +721,8 @@ pub fn configure_carbon(
       docs: https://docs.carbonmod.gg/docs/core/commands#c.gocommunity
       [Accessed 2024-10-27]
     */
-    rcon_relay.ws_rcon_command("c.gocommunity")?;
+    let rcon_go_community: &'static str = "c.gocommunity";
+    rcon_relay.ws_rcon_command(rcon_go_community)?;
     return Ok(());
 }
 
