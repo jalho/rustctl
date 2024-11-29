@@ -164,7 +164,7 @@ impl Config {
             game_manifest: PathAbsolute {
                 path: game_manifest,
             },
-            game_startup_update_cooldown: std::time::Duration::from_secs(60 * 60),
+            game_startup_update_cooldown: std::time::Duration::from_secs(60 * 60 * 2),
             game_startup_timeout: std::time::Duration::from_secs(30 * 60),
             game_executable: PathAbsolute {
                 path: game_executable,

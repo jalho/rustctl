@@ -85,20 +85,17 @@ fn main() -> Result<(), error::FatalError> {
                 tx_game_server_state,
             );
 
-            type WebSocket =
-                tungstenite::WebSocket<tungstenite::stream::MaybeTlsStream<std::net::TcpStream>>;
-            let mut rcon_websocket: WebSocket =
-                match rcon::get_rcon_websocket(rx_game_server_state, &config) {
+            let mut rcon_relay: rcon::RCONRelay =
+                match rcon::RCONRelay::connect(rx_game_server_state, &config) {
                     Ok(n) => n,
                     Err(err) => {
                         log::error!("{}", err);
                         return Err(err);
                     }
                 };
-            let rcon_websocket: &mut WebSocket = &mut rcon_websocket;
             log::info!("Game server playable, RCON WebSocket connected");
 
-            if let Err(err) = misc::configure_carbon(rcon_websocket) {
+            if let Err(err) = misc::configure_carbon(&mut rcon_relay) {
                 /* We want to kill a (grand)child process spawned by child
                 process (strace), and the only way to do that AFAIK is by using
                 process groups over an unsafe libc API. */

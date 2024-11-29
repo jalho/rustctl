@@ -713,9 +713,7 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
 }
 
 pub fn configure_carbon(
-    rcon_websocket: &mut tungstenite::WebSocket<
-        tungstenite::stream::MaybeTlsStream<std::net::TcpStream>,
-    >,
+    rcon_relay: &mut crate::rcon::RCONRelay,
 ) -> Result<(), crate::error::FatalError> {
     /*
       WebSocket RCON:
@@ -723,8 +721,7 @@ pub fn configure_carbon(
       docs: https://docs.carbonmod.gg/docs/core/commands#c.gocommunity
       [Accessed 2024-10-27]
     */
-    crate::rcon::ws_rcon_command(rcon_websocket, "c.gocommunity")?;
-
+    rcon_relay.ws_rcon_command("c.gocommunity")?;
     return Ok(());
 }
 
