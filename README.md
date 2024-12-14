@@ -35,7 +35,7 @@ will refer to the shared configuration file.
 
 ### Example configuration
 
-As of commit `TODO`.
+As of commit `74d9ea6`.
 
 ```toml
 "root_dir"          = "/home/rust/"
