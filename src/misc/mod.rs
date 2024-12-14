@@ -222,6 +222,11 @@ pub enum GameServerState {
     Playable,
 }
 
+/* TODO: Use strace for tracking filesystem changes only! Extract the networking
+monitoring stuff to some other solution: Use some Linux networking utility.
+That's probably going to be useful for other features too: Like monitoring
+bandwidth associated with some specific player or total traffic over time period
+or whatever. */
 /// Handle game server's emitted log lines (STDOUT) and the wrapping strace's
 /// filesystem and network traced events (STDERR).
 pub fn handle_game_server_fs_net_events(
