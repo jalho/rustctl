@@ -49,6 +49,7 @@ As of commit `74d9ea6`.
 
 | date       | commit  | system                                                     | asserts                                  |
 | ---------- | ------- | ---------------------------------------------------------- | ---------------------------------------- |
+| 2024-12-14 | e394a1b | Arch Linux, kernel 6.12.1-arch1-1, strace v6.12, tar v1.35 | Game is fully functional with Carbon.    |
 | 2024-11-12 | e8216f3 | Arch Linux, kernel 6.11.2-arch1-1, strace v6.11, tar v1.35 | Game is fully functional with Carbon.    |
 | 2024-10-27 | 7c4ba1d | Arch Linux, kernel 6.11.2-arch1-1, strace v6.11, tar v1.35 | Game server seems healthy based on logs. |
 | 2024-10-27 | a8b5ea1 | Debian 12, kernel 6.1.0-26-amd64, strace v6.1, tar v1.34   | Game server seems healthy based on logs. |
