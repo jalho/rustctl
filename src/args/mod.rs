@@ -3,10 +3,11 @@
 /// Configuration source from the filesystem.
 #[derive(serde::Deserialize)]
 struct ConfigSrcFs {
+    carbon_download: String,
+    game_worldsize: Option<u32>,
+    log_level: log::LevelFilter,
     root_dir: String,
     steamcmd_download: String,
-    carbon_download: String,
-    log_level: log::LevelFilter,
 }
 
 pub struct PathAbsolute {
@@ -54,6 +55,7 @@ pub struct Config {
     pub game_startup_timeout: std::time::Duration,
     pub game_executable: PathAbsolute,
     pub game_libs: PathAbsolute,
+    pub game_worldsize: u32,
 
     /// RCON password intended more like an internal constant rather
     /// than sensitive configuration value: The plan is to not expose
@@ -170,6 +172,7 @@ impl Config {
                 path: game_executable,
             },
             game_libs: PathAbsolute { path: game_libs },
+            game_worldsize: config_from_fs.game_worldsize.unwrap_or(1000),
 
             rcon_password: String::from("Your_Rcon_Password"),
             rcon_port: 28016,

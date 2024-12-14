@@ -81,7 +81,7 @@ pub fn start_game(
             "+rcon.password",
             &config.rcon_password,
             "+server.worldsize",
-            "1000",
+            &config.game_worldsize.to_string(),
             "+server.seed",
             "1234",
             "+server.maxplayers",
