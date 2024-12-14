@@ -91,10 +91,6 @@ pub fn start_game(
         ]
         .join(" ")
     );
-    /*
-     * TODO: Direct strace output (-o) to an in-mem file to preserve the wrapped
-     *       command's STDERR!
-     */
     let argv = vec![
         "-ff",
         "-e",
@@ -413,11 +409,7 @@ fn filter_net_other(operation: &StraceLine) -> bool {
 }
 
 /// Detect TCP connections with IPv4.
-/// TODO: Add support for IPv6?
 fn filter_net_outbound(operation: &StraceLine) -> bool {
-    /* TODO: Capture DNS queries (instead of IPv4 connects): Probably more
-    interesting and informative insight about where the program is trying to
-    talk to... */
     if operation.syscall_name == "sendto"
         || operation.syscall_name == "sendmmsg"
         || operation.syscall_name == "sendmsg"
