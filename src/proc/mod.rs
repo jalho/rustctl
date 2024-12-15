@@ -6,6 +6,8 @@ impl Command {
     pub fn strace(cwd: &std::path::PathBuf, cmd_vec: Vec<&str>) -> Self {
         let strace_argv: Vec<&str> = vec!["-ff", "-e", "trace=file"];
         let mut cmd = std::process::Command::new("strace");
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::piped());
         cmd.current_dir(&cwd);
         cmd.args(vec![strace_argv, cmd_vec].concat());
         return Self {
