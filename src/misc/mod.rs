@@ -516,8 +516,6 @@ pub fn install_update_game_server(
             "+quit",
         ],
     )?;
-    /* TODO: Handle case SteamCMD exits with non-OK status: Sometimes the
-    update command may fail for some reason. */
     let paths_touched: Vec<(String, u64)> = cmd_steamcmd.run_to_end()?;
     let biggest: Option<&(String, u64)> = paths_touched.first();
     let biggest: &str = match biggest {
