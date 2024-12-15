@@ -92,7 +92,7 @@ pub fn start_game(
         .join(" ")
     );
     let argv = vec![
-        "-ff",
+        "-f",
         "-e",
         "trace=file,network", // consider limiting to specific syscalls? (connect, open, openat...)
         "bash",
@@ -517,11 +517,7 @@ pub fn install_update_game_server(
         ],
     );
     /* TODO: Handle case SteamCMD exits with non-OK status: Sometimes the
-    update command may fail for some reason. When it fails, we currently don't
-    see any STDERR because we wrap the command in strace which takes over the
-    STDERR file descriptor. This should be refactored so that both the wrapped
-    command's STDERR and the wrapping strace's STDERR are accessible, and the
-    former should be logged when the SteamCMD update command fails! */
+    update command may fail for some reason. */
     let paths_touched: Vec<(String, u64)> = cmd_steamcmd.run_to_end()?;
     let biggest: Option<&(String, u64)> = paths_touched.first();
     let biggest: &str = match biggest {

@@ -5,9 +5,6 @@ pub struct Command {
 }
 impl Command {
     pub fn strace(cwd: &std::path::PathBuf, cmd_vec: Vec<&str>) -> Self {
-        /* TODO: Check that strace output parsing works with "-f" like it does
-        with "-ff", and only use one of the two everywhere! */
-
         let mut strace_argv: Vec<&str> = vec![
             /* N.B. Using "-f" instead of "-ff" to make strace write outputs
             into a single (inmem) file, instead of letting it make a new file
