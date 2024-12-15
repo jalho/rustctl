@@ -60,8 +60,15 @@ impl Command {
         }
 
         let mut strace_output_inmem: String = String::new();
-        std::io::Read::read_to_string(&mut self.strace_output_inmem, &mut strace_output_inmem)
-            .unwrap(); // TODO: Don't panic!
+        let read: Result<usize, std::io::Error> =
+            std::io::Read::read_to_string(&mut self.strace_output_inmem, &mut strace_output_inmem);
+
+        if let Err(err) = read {
+            return Err(crate::error::FatalError::new(
+                format!("could not read output of strace: {:?}", self.cmd),
+                Some(Box::new(err)),
+            ));
+        }
 
         let paths: std::collections::HashSet<String> =
             crate::misc::extract_modified_paths(&strace_output_inmem, &self.cwd);
