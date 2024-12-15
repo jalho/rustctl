@@ -515,7 +515,7 @@ pub fn install_update_game_server(
             "validate",
             "+quit",
         ],
-    );
+    )?;
     /* TODO: Handle case SteamCMD exits with non-OK status: Sometimes the
     update command may fail for some reason. */
     let paths_touched: Vec<(String, u64)> = cmd_steamcmd.run_to_end()?;
@@ -600,7 +600,7 @@ pub fn install_steamcmd(config: &crate::args::Config) -> Result<(), crate::error
     let mut cmd_tar = crate::proc::Command::strace(
         &config.steamcmd_archive.parent(),
         vec!["tar", "-xzf", &steamcmd_extractable],
-    );
+    )?;
     let paths_touched: Vec<(String, u64)> = cmd_tar.run_to_end()?;
     let biggest: Option<&(String, u64)> = paths_touched.first();
     let biggest: &str = match biggest {
@@ -684,7 +684,7 @@ pub fn install_carbon(config: &crate::args::Config) -> Result<(), crate::error::
     let mut cmd_tar = crate::proc::Command::strace(
         &config.carbon_archive.parent(),
         vec!["tar", "-xzf", &carbon_extractable],
-    );
+    )?;
     let paths_touched: Vec<(String, u64)> = cmd_tar.run_to_end()?;
     let biggest: Option<&(String, u64)> = paths_touched.first();
     let biggest: &str = match biggest {

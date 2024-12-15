@@ -4,7 +4,10 @@ pub struct Command {
     strace_output_inmem: std::fs::File,
 }
 impl Command {
-    pub fn strace(cwd: &std::path::PathBuf, cmd_vec: Vec<&str>) -> Self {
+    pub fn strace(
+        cwd: &std::path::PathBuf,
+        cmd_vec: Vec<&str>,
+    ) -> Result<Self, crate::error::FatalError> {
         let mut strace_argv: Vec<&str> = vec![
             /* N.B. Using "-f" instead of "-ff" to make strace write outputs
             into a single (inmem) file, instead of letting it make a new file
@@ -14,7 +17,7 @@ impl Command {
             "trace=file",
         ];
 
-        let (inmem_fd, inmem_path) = Command::make_inmem_file_owned();
+        let (inmem_fd, inmem_path) = Command::make_inmem_file_owned()?;
         strace_argv.push("-o");
         strace_argv.push(&inmem_path);
 
@@ -23,11 +26,11 @@ impl Command {
         cmd.stderr(std::process::Stdio::piped());
         cmd.current_dir(&cwd);
         cmd.args(vec![strace_argv, cmd_vec].concat());
-        return Self {
+        return Ok(Self {
             cmd,
             cwd: cwd.clone(),
             strace_output_inmem: inmem_fd,
-        };
+        });
     }
 
     pub fn run_to_end(&mut self) -> Result<Vec<(String, u64)>, crate::error::FatalError> {
@@ -76,7 +79,7 @@ impl Command {
         return Ok(paths);
     }
 
-    fn make_inmem_file_owned() -> (std::fs::File, String) {
+    fn make_inmem_file_owned() -> Result<(std::fs::File, String), crate::error::FatalError> {
         let inmem_file_name: std::ffi::CString = match std::ffi::CString::new("strace_out.inmem") {
             Ok(n) => n,
             Err(_) => {
@@ -86,11 +89,18 @@ impl Command {
             }
         };
 
-        let inmem_fd: std::os::fd::OwnedFd = nix::sys::memfd::memfd_create(
+        let inmem_fd: std::os::fd::OwnedFd = match nix::sys::memfd::memfd_create(
             &inmem_file_name,
             nix::sys::memfd::MemFdCreateFlag::empty(),
-        )
-        .unwrap(); // TODO: Don't panic!
+        ) {
+            Ok(n) => n,
+            Err(err) => {
+                return Err(crate::error::FatalError::new(
+                    format!("cannot create in-mem file"),
+                    Some(Box::new(err)),
+                ))
+            }
+        };
         let inmem_fd: i32 = std::os::fd::IntoRawFd::into_raw_fd(inmem_fd);
 
         let inmem_file: std::fs::File = unsafe {
@@ -99,6 +109,6 @@ impl Command {
         };
         let path: String = format!("/proc/self/fd/{}", inmem_fd.to_string());
 
-        return (inmem_file, path);
+        return Ok((inmem_file, path));
     }
 }
