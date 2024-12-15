@@ -77,10 +77,17 @@ impl Command {
     }
 
     fn make_inmem_file_owned() -> (std::fs::File, String) {
-        let inmem_file_name: &std::ffi::CStr = &std::ffi::CString::new("strace_out.inmem").unwrap(); // TODO: Don't panic!
+        let inmem_file_name: std::ffi::CString = match std::ffi::CString::new("strace_out.inmem") {
+            Ok(n) => n,
+            Err(_) => {
+                /* Constructing a "C string" from a static immutable &str should
+                either always succeed or never succeed. */
+                unreachable!();
+            }
+        };
 
         let inmem_fd: std::os::fd::OwnedFd = nix::sys::memfd::memfd_create(
-            inmem_file_name,
+            &inmem_file_name,
             nix::sys::memfd::MemFdCreateFlag::empty(),
         )
         .unwrap(); // TODO: Don't panic!
