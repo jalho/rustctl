@@ -1,27 +1,92 @@
-pub struct Dependency {
+pub struct Dependency<'env> {
     executable: &'static std::path::Path,
-    env: Option<std::collections::HashMap<&str, &str>>,
+    env: Option<std::collections::HashMap<&'env str, &'env str>>,
 }
 
-impl Dependency {
+impl<'env> Dependency<'env> {
     pub fn init(
         executable: &'static std::path::Path,
-        env: Option<std::collections::HashMap<&str, &str>>,
+        env: Option<std::collections::HashMap<&'env str, &'env str>>,
     ) -> Self {
         // TODO: Use sh -c command -v to assure that the given executable dependency exists, and panic if not exists?
         return Self { executable, env };
     }
 }
 
-impl Exec for Dependency {
+impl<'env> Exec for Dependency<'env> {
     fn exec(
+        &self,
         work_dir: Option<&std::path::Path>,
         argv: Vec<&str>,
-        stdout: Option<std::sync::mpsc::Sender<String>>,
-        stderr: Option<std::sync::mpsc::Sender<String>>,
-    ) -> Result<ExecSuccess, ExecError> {
-        // TODO: Run the command to finish if no Senders are given, otherwise just spawn and send output via Senders line by line as it appears
-        // TODO: Consider termination without status and status != 0 an error case
+        stdout_sender: std::sync::mpsc::Sender<String>,
+        stderr_sender: std::sync::mpsc::Sender<String>,
+        run_till_end: bool,
+    ) -> Result<(), ExecError> {
+        let mut command: std::process::Command = std::process::Command::new(&self.executable);
+
+        if let Some(env_vars) = &self.env {
+            command.envs(env_vars);
+        }
+
+        if let Some(dir) = work_dir {
+            command.current_dir(&dir);
+        }
+
+        command.args(&argv);
+        command.stdout(std::process::Stdio::piped());
+        command.stderr(std::process::Stdio::piped());
+
+        let mut child: std::process::Child = match command.spawn() {
+            Ok(process) => process,
+            Err(err) => {
+                return Err(ExecError {
+                    cmd_fmted: format!("{} {:?}", &self.executable.display(), &argv),
+                    status: None,
+                });
+            }
+        };
+
+        let stdout: std::process::ChildStdout =
+            child.stdout.take().expect("Failed to capture stdout"); // TODO: Don't panic!
+        let stderr: std::process::ChildStderr =
+            child.stderr.take().expect("Failed to capture stderr"); // TODO: Don't panic!
+
+        let stdout_thread: std::thread::JoinHandle<()> = std::thread::spawn(move || {
+            let reader = std::io::BufReader::new(stdout);
+            for line in std::io::BufRead::lines(reader) {
+                if let Ok(line) = line {
+                    let _ = stdout_sender.send(line);
+                }
+            }
+        });
+
+        let stderr_thread: std::thread::JoinHandle<()> = std::thread::spawn(move || {
+            let reader = std::io::BufReader::new(stderr);
+            for line in std::io::BufRead::lines(reader) {
+                if let Ok(line) = line {
+                    let _ = stderr_sender.send(line);
+                }
+            }
+        });
+
+        if run_till_end {
+            let status = match child.wait() {
+                Ok(status) => status.code(),
+                Err(_) => todo!(),
+            };
+
+            let _ = stdout_thread.join();
+            let _ = stderr_thread.join();
+
+            if status != Some(0) {
+                return Err(ExecError {
+                    cmd_fmted: format!("{} {:?}", self.executable.display(), argv),
+                    status,
+                });
+            }
+        }
+
+        return Ok(());
     }
 }
 
@@ -30,23 +95,18 @@ struct ExecError {
     cmd_fmted: String,
     /// The numeric code with which the execution terminated.
     status: Option<i32>, // TODO: i32 or whatever?
-    /// STDERR from the execution, if any.
-    stderr_utf8: Option<String>,
 }
-
-struct ExecSuccess {
-    /// STDOUT from the execution, if any.
-    stdout_utf8: Option<String>,
-}
+// TODO: impl std::error::Error for ExecError
 
 trait Exec {
     fn exec(
+        &self,
         work_dir: Option<&std::path::Path>,
         argv: Vec<&str>,
-        env: Option<std::collections::HashMap<&str, &str>>,
-        stdout: Option<std::sync::mpsc::Sender<String>>,
-        stderr: Option<std::sync::mpsc::Sender<String>>,
-    ) -> Result<ExecSuccess, ExecError>;
+        stdout_sender: std::sync::mpsc::Sender<String>,
+        stderr_sender: std::sync::mpsc::Sender<String>,
+        run_till_end: bool,
+    ) -> Result<(), ExecError>;
 }
 
 #[deprecated = "Use `impl Exec for Dependency` instead"]
