@@ -41,14 +41,6 @@ fn main() -> Result<(), error::FatalError> {
     match command {
         args::Command::Config => todo!(),
         args::Command::GameStart => {
-            match misc::install_steamcmd(&config) {
-                Err(err) => {
-                    log::error!("{}", err);
-                    return Err(err);
-                }
-                _ => {}
-            };
-
             match misc::install_update_game_server(&config) {
                 Err(err) => {
                     log::error!("{}", err);

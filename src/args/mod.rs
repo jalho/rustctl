@@ -7,7 +7,6 @@ struct ConfigSrcFs {
     game_worldsize: Option<u32>,
     log_level: log::LevelFilter,
     root_dir: String,
-    steamcmd_download: String,
 }
 
 pub struct PathAbsolute {
@@ -38,8 +37,6 @@ pub struct Config {
     pub root_dir: PathAbsolute,
     pub log_level: log::LevelFilter,
 
-    pub steamcmd_download: String,
-    pub steamcmd_archive: PathAbsolute,
     pub steamcmd_executable: PathAbsolute,
     pub steamcmd_installations: PathAbsolute,
     pub steamcmd_libs: PathAbsolute,
@@ -139,10 +136,6 @@ impl Config {
             root_dir: PathAbsolute { path: root_dir },
             log_level: config_from_fs.log_level,
 
-            steamcmd_download: config_from_fs.steamcmd_download,
-            steamcmd_archive: PathAbsolute {
-                path: steamcmd_archive,
-            },
             steamcmd_executable: PathAbsolute {
                 path: steamcmd_executable,
             },
