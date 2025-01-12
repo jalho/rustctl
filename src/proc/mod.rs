@@ -1,3 +1,55 @@
+pub struct Dependency {
+    executable: &'static std::path::Path,
+    env: Option<std::collections::HashMap<&str, &str>>,
+}
+
+impl Dependency {
+    pub fn init(
+        executable: &'static std::path::Path,
+        env: Option<std::collections::HashMap<&str, &str>>,
+    ) -> Self {
+        // TODO: Use sh -c command -v to assure that the given executable dependency exists, and panic if not exists?
+        return Self { executable, env };
+    }
+}
+
+impl Exec for Dependency {
+    fn exec(
+        work_dir: Option<&std::path::Path>,
+        argv: Vec<&str>,
+        stdout: Option<std::sync::mpsc::Sender<String>>,
+        stderr: Option<std::sync::mpsc::Sender<String>>,
+    ) -> Result<ExecSuccess, ExecError> {
+        // TODO: Run the command to finish if no Senders are given, otherwise just spawn and send output via Senders line by line as it appears
+        // TODO: Consider termination without status and status != 0 an error case
+    }
+}
+
+struct ExecError {
+    /// Executable and its argument vector.
+    cmd_fmted: String,
+    /// The numeric code with which the execution terminated.
+    status: Option<i32>, // TODO: i32 or whatever?
+    /// STDERR from the execution, if any.
+    stderr_utf8: Option<String>,
+}
+
+struct ExecSuccess {
+    /// STDOUT from the execution, if any.
+    stdout_utf8: Option<String>,
+}
+
+trait Exec {
+    fn exec(
+        work_dir: Option<&std::path::Path>,
+        argv: Vec<&str>,
+        env: Option<std::collections::HashMap<&str, &str>>,
+        stdout: Option<std::sync::mpsc::Sender<String>>,
+        stderr: Option<std::sync::mpsc::Sender<String>>,
+    ) -> Result<ExecSuccess, ExecError>;
+}
+
+#[deprecated = "Use `impl Exec for Dependency` instead"]
 pub struct Command {
     cmd: std::process::Command,
     cwd: std::path::PathBuf,
