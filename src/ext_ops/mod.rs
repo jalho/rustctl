@@ -2,6 +2,16 @@
 
 /// Check whether SteamCMD or RustDedicated processes are already running.
 pub fn is_process_running(name_seekable: &str) -> bool {
+    let name_seekable: &std::path::Path = std::path::Path::new(&name_seekable);
+    let name_seekable: &std::ffi::OsStr = match name_seekable.file_name() {
+        Some(n) => n,
+        None => return false,
+    };
+    let name_seekable: String = match name_seekable.to_str() {
+        Some(n) => n.to_owned(),
+        None => return false,
+    };
+
     let proc_dir: &str = "/proc/";
     let dir: std::fs::ReadDir = match std::fs::read_dir(proc_dir) {
         Ok(n) => n,
@@ -35,14 +45,6 @@ pub fn is_process_running(name_seekable: &str) -> bool {
                 Ok(n) => n.trim().to_owned(),
                 Err(_) => continue,
             };
-
-            /* TODO: Check if name_seekable arg must be only file name instead
-            of a longer path to the file, like /foo/bar/RustDedicated. */
-
-            println!(
-                "Checking {:?} for: {} == {}",
-                &path, &proc_name, &name_seekable
-            );
 
             if proc_name == name_seekable {
                 return true;
