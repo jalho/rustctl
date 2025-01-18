@@ -67,9 +67,6 @@ fn main() {
                  * TODO: Install own Carbon plugins
                  */
 
-                /*
-                 * TODO: Start the game server
-                 */
                 let (tx_game_stdout, rx_game_stdout) = std::sync::mpsc::channel::<String>();
                 if let Err(err) = crate::ext_ops::run_game(&rustdedicated, tx_game_stdout) {
                     log::error!("Unrecoverable error: Could not run RustDedicated: {}", err);

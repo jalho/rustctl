@@ -33,6 +33,7 @@ pub fn update_game<E: crate::proc::Exec>(
     todo!();
 }
 
+/// Run game server and pass its standard output to a given channel.
 pub fn run_game<E: crate::proc::Exec>(
     rustdedicated: &E,
     tx_stdout: std::sync::mpsc::Sender<String>,
