@@ -35,10 +35,8 @@ fn main() {
                         }
                     };
 
-                if let Err(_) = crate::ext_ops::assure_not_running() {
-                    log::error!(
-                        "Unrecoverable error: SteamCMD or RustDedicated is already running"
-                    );
+                if crate::ext_ops::is_process_running(&steamcmd.executable) {
+                    log::error!("Unrecoverable error: SteamCMD is already running");
                     std::process::exit(EXIT_ERR_PARALLEL_EXECUTION);
                 }
 
@@ -58,6 +56,10 @@ fn main() {
                         std::process::exit(EXIT_ERR_STEAMCMD);
                     }
                 };
+                if crate::ext_ops::is_process_running(&rustdedicated.executable) {
+                    log::error!("Unrecoverable error: RustDedicated is already running");
+                    std::process::exit(EXIT_ERR_PARALLEL_EXECUTION);
+                }
 
                 /*
                  * TODO: Install or update Carbon modding framework

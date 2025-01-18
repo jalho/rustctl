@@ -1,26 +1,19 @@
 //! Abstractions related to handling processes on the system.
 
-static EXECUTABLE_SH: &'static str = "sh";
-static EXECUTABLE_STEAMCMD: &'static str = "steamcmd";
-static EXECUTABLE_RUSTDEDICATED: &'static str = "RustDedicated";
-
 pub struct Dependency {
-    executable: &'static str,
+    pub executable: &'static str,
 }
 
 impl Dependency {
     pub fn init(executable: &'static str) -> Result<Self, crate::error::ErrDependencyMissing> {
-        let output: std::process::Output = match std::process::Command::new(EXECUTABLE_SH)
+        let sh: &str = "sh";
+        let output: std::process::Output = match std::process::Command::new(sh)
             .arg("-c")
             .arg(format!("command -v {}", executable))
             .output()
         {
             Ok(n) => n,
-            Err(_) => {
-                return Err(crate::error::ErrDependencyMissing {
-                    executable: EXECUTABLE_SH,
-                })
-            }
+            Err(_) => return Err(crate::error::ErrDependencyMissing { executable: sh }),
         };
 
         if !output.status.success() {

@@ -17,11 +17,7 @@ fn make_logger_config() -> log4rs::Config {
         ) {
         Ok(n) => n,
         Err(_) => {
-            /*
-             * The configuration is always valid or never valid because it's
-             * fully known at compile time and doesn't depend on any inputs.
-             */
-            unreachable!();
+            unreachable!("logger configuration does not depend on any input so it should be either always valid or never valid");
         }
     };
 
@@ -34,11 +30,7 @@ pub fn init_logger() -> log4rs::Handle {
     let logger: log4rs::Handle = match log4rs::init_config(config) {
         Ok(n) => n,
         Err(_) => {
-            /*
-             * Initialization wit valid config should always succeed unless
-             * initialized more than once, which we don't do!
-             */
-            unreachable!();
+            unreachable!("logger initialization should always succeed because we only do it once");
         }
     };
     return logger;

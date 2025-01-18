@@ -1,8 +1,34 @@
 //! Operations with external dependencies.
 
 /// Check whether SteamCMD or RustDedicated processes are already running.
-pub fn assure_not_running() -> Result<(), ()> {
-    todo!("assure_not_running");
+pub fn is_process_running(name_seekable: &str) -> bool {
+    let proc_dir: &str = "/proc/";
+    let dir: std::fs::ReadDir = match std::fs::read_dir(proc_dir) {
+        Ok(n) => n,
+        Err(_) => unreachable!("{proc_dir} should always exist"),
+    };
+
+    for entry in dir {
+        let entry: std::fs::DirEntry = entry.unwrap();
+        let path: std::path::PathBuf = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let filename: &std::ffi::OsStr = path.file_name().unwrap();
+        let filename: &str = filename.to_str().unwrap();
+        if filename.chars().all(char::is_numeric) {
+            let path: std::path::PathBuf = path.join("comm");
+            /* TODO: Check if name_seekable arg must be only file name instead
+            of a longer path to the file, like /foo/bar/RustDedicated. */
+            let proc_name: String = std::fs::read_to_string(path).unwrap();
+            if proc_name == name_seekable {
+                return true;
+            } else {
+                continue;
+            }
+        }
+    }
+    return false;
 }
 
 /// Check if RustDedicated is installed.

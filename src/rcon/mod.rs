@@ -54,13 +54,8 @@ impl RCONRelay {
         };
         let command_ser: String = match serde_json::to_string(&command) {
             Ok(n) => n,
-            Err(_) => {
-                /*
-                    There's nothing dynamic about constructing the serializable
-                    RCON payload atm, therefore it either always succeeds or never
-                    succeeds.
-                */
-                unreachable!()
+            Err(err) => {
+                unreachable!("RCON message payload should always be serializable as JSON");
             }
         };
         match self.websocket.send(tungstenite::Message::Text(command_ser)) {
