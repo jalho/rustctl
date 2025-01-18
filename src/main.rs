@@ -1,5 +1,6 @@
 mod args;
 mod error;
+mod ext_ops;
 mod misc;
 mod proc;
 
