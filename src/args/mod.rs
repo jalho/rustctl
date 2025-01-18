@@ -1,4 +1,4 @@
-//! Configuration for the program.
+//! Abstractions related to the inputs of the CLI program.
 
 #[derive(clap::Parser)]
 #[command(name = env!("CARGO_PKG_NAME"), about = "Tooling for hosting a Rust (the game) server.")]
