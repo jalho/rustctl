@@ -1,15 +1,16 @@
 //! Operations with external dependencies.
 
+type ProcessId = u32;
 /// Check whether SteamCMD or RustDedicated processes are already running.
-pub fn is_process_running(name_seekable: &str) -> bool {
+pub fn is_process_running(name_seekable: &str) -> Option<ProcessId> {
     let name_seekable: &std::path::Path = std::path::Path::new(&name_seekable);
     let name_seekable: &std::ffi::OsStr = match name_seekable.file_name() {
         Some(n) => n,
-        None => return false,
+        None => return None,
     };
     let name_seekable: String = match name_seekable.to_str() {
         Some(n) => n.to_owned(),
-        None => return false,
+        None => return None,
     };
 
     let proc_dir: &str = "/proc/";
@@ -38,20 +39,23 @@ pub fn is_process_running(name_seekable: &str) -> bool {
             None => continue,
         };
 
-        if filename.chars().all(char::is_numeric) {
-            let path: std::path::PathBuf = path.join("comm");
+        let pid: u32 = match filename.parse::<u32>() {
+            Ok(n) => n,
+            Err(_) => continue,
+        };
 
-            let proc_name: String = match std::fs::read_to_string(&path) {
-                Ok(n) => n.trim().to_owned(),
-                Err(_) => continue,
-            };
+        let path: std::path::PathBuf = path.join("comm");
 
-            if proc_name == name_seekable {
-                return true;
-            }
+        let proc_name: String = match std::fs::read_to_string(&path) {
+            Ok(n) => n.trim().to_owned(),
+            Err(_) => continue,
+        };
+
+        if proc_name == name_seekable {
+            return Some(pid);
         }
     }
-    return false;
+    return None;
 }
 
 /// Check if RustDedicated is installed.
