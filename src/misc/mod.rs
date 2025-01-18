@@ -35,3 +35,35 @@ pub fn init_logger() -> log4rs::Handle {
     };
     return logger;
 }
+
+pub fn can_write_to_directory(path: &std::path::Path) -> bool {
+    if let Ok(metadata) = std::fs::metadata(path) {
+        let owner_uid = std::os::unix::fs::MetadataExt::uid(&metadata);
+        let current_uid = unsafe { libc::getuid() };
+        let permissions = std::os::unix::fs::PermissionsExt::mode(&metadata.permissions());
+
+        // permission to traverse the directory
+        if permissions & 0o100 == 0 {
+            return false;
+        }
+
+        // permission to create files in the directory
+        if permissions & 0o200 == 0 {
+            return false;
+        }
+
+        // case owner: has write permission
+        if owner_uid == current_uid {
+            return true;
+        }
+
+        // case not owner: check if group or others have write permissions
+        if permissions & 0o020 == 0 && permissions & 0o002 == 0 {
+            return false;
+        }
+
+        return true;
+    } else {
+        return false;
+    }
+}

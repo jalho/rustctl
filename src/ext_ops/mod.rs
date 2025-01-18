@@ -56,9 +56,19 @@ pub fn is_game_installed() -> Option<SteamAppBuildId> {
 pub fn install_game<E: crate::proc::Exec>(
     steamcmd: &E,
 ) -> Result<crate::proc::Dependency, crate::error::ErrExec> {
+    let install_dir_path: &std::path::Path = std::path::Path::new(&PATH_ABS_RDS_INSTALLATION);
+    if !crate::misc::can_write_to_directory(&install_dir_path) {
+        todo!("not rw");
+    }
+
     steamcmd.exec_terminating(
-        Some(std::path::Path::new(&PATH_ABS_RDS_INSTALLATION)),
+        Some(&install_dir_path),
         vec![
+            /*
+             * Note: It seems force_install_dir doesn't really _force_ anything:
+             * If no write permissions, the stuff seems to just be dumped into
+             * current user's home dir instead...
+             */
             "+force_install_dir",
             &PATH_ABS_RDS_INSTALLATION,
             "+login",
