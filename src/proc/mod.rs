@@ -98,7 +98,13 @@ impl Exec for Dependency {
         if run_till_end {
             let status = match child.wait() {
                 Ok(status) => status.code(),
-                Err(_) => todo!(),
+                Err(_) => {
+                    return Err(crate::error::ErrExec {
+                        command: format!("{} {:?}", self.executable, argv),
+                        status: None,
+                        stderr: None,
+                    });
+                }
             };
 
             let _ = stdout_thread.join();

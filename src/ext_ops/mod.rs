@@ -2,19 +2,19 @@
 
 /// Check whether SteamCMD or RustDedicated processes are already running.
 pub fn assure_not_running() -> Result<(), ()> {
-    todo!();
+    todo!("assure_not_running");
 }
 
 /// Check if RustDedicated is installed.
 pub fn is_game_installed() -> bool {
-    todo!();
+    todo!("is_game_installed");
 }
 
 /// Do a fresh install of RustDedicated.
 pub fn install_game<E: crate::proc::Exec>(
     steamcmd: &E,
 ) -> Result<crate::proc::Dependency, crate::error::ErrExec> {
-    todo!();
+    todo!("install_game");
 }
 
 /// Update an existing installation of RustDedicated.
@@ -30,7 +30,7 @@ pub fn update_game<E: crate::proc::Exec>(
      *  against the value in the app manifest: `steamapps/
      *  appmanifest_258550.acf` under the server install tree
      */
-    todo!();
+    todo!("update_game");
 }
 
 /// Run game server and pass its standard output to a given channel.
@@ -38,5 +38,5 @@ pub fn run_game<E: crate::proc::Exec>(
     rustdedicated: &E,
     tx_stdout: std::sync::mpsc::Sender<String>,
 ) -> Result<(), crate::error::ErrExec> {
-    todo!();
+    todo!("run_game");
 }
