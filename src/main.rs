@@ -5,7 +5,13 @@ mod misc;
 mod proc;
 
 static EXIT_OK: i32 = 0;
+
+/// Some critical dependency of the program is missing.
 static EXIT_ERR_DEPENDENCY_MISSING: i32 = 42;
+
+/// SteamCMD game server installer process or the game server process itself
+/// (RustDedicated) is already running.
+static EXIT_ERR_PARALLEL_EXECUTION: i32 = 43;
 
 fn main() {
     _ = crate::misc::init_logger();
@@ -23,10 +29,12 @@ fn main() {
                         }
                     };
 
-                /*
-                 * TODO: Check if there is a SteamCMD or RustDedicated process already running:
-                 *       --> Yes: Unrecoverable error case!
-                 */
+                if let Err(_) = crate::ext_ops::assure_not_running() {
+                    log::error!(
+                        "Unrecoverable error: SteamCMD or RustDedicated is already running"
+                    );
+                    std::process::exit(EXIT_ERR_PARALLEL_EXECUTION);
+                }
 
                 /*
                  * TODO: Check whether RustDedicated is already installed
