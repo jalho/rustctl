@@ -12,7 +12,7 @@ impl std::error::Error for ErrDependencyMissing {
 }
 impl std::fmt::Display for ErrDependencyMissing {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        return write!(f, "");
+        return write!(f, "missing dependency '{}'", &self.executable);
     }
 }
 
