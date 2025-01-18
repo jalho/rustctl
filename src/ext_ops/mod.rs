@@ -37,16 +37,39 @@ pub fn is_game_installed() -> Option<SteamAppBuildId> {
         return None;
     }
 
+    let mut appmanifest_file_path: std::path::PathBuf = match executable_path.parent() {
+        Some(n) => n.into(),
+        None => return None,
+    };
     let appmanifest_file_name: String = format!("appmanifest_{STEAM_APP_ID_RUSTDEDICATED}.acf");
-    let manifest_path: &std::path::Path = std::path::Path::new(&appmanifest_file_name);
-
-    if !manifest_path.is_file() {
+    appmanifest_file_path.push("steamapps");
+    appmanifest_file_path.push(&appmanifest_file_name);
+    let appmanifest_file_path: &std::path::Path = std::path::Path::new(&appmanifest_file_path);
+    if !appmanifest_file_path.is_file() {
         return None;
     }
 
-    if let Ok(file) = std::fs::File::open(manifest_path) {
-        if let Ok(manifest) = serde_json::from_reader::<_, SteamAppManifest>(file) {
-            return Some(manifest.buildid);
+    if let Some(build_id) = parse_buildid_from_manifest(&appmanifest_file_path) {
+        return Some(build_id);
+    } else {
+    }
+    return None;
+}
+
+fn parse_buildid_from_manifest(manifest_path: &std::path::Path) -> Option<u32> {
+    if let Ok(content) = std::fs::read_to_string(manifest_path) {
+        for line in content.lines() {
+            let trimmed: &str = line.trim();
+            if trimmed.starts_with("\"buildid\"") {
+                if let Some(_) = trimmed.find('\"') {
+                    let parts: Vec<&str> = trimmed.split_whitespace().collect();
+                    if parts.len() >= 2 {
+                        if let Ok(buildid) = parts[1].trim_matches('"').parse::<u32>() {
+                            return Some(buildid);
+                        }
+                    }
+                }
+            }
         }
     }
     return None;
