@@ -8,13 +8,48 @@ static PATH_ABS_RDS_INSTALLATION: &'static str = "/home/rust/";
 /// SteamCMD).
 static EXECUTABLE_NAME_RUSTDEDICATED: &'static str = "RustDedicated";
 
+/// Steam app ID of the Rust game server (RustDedicated).
+static STEAM_APP_ID_RUSTDEDICATED: u32 = 258550;
+
+#[derive(serde::Deserialize)]
+struct SteamAppManifest {
+    buildid: SteamAppBuildId,
+}
+
 /// The closest thing to a _version_ that Steam apps have as far as I know. I
 /// assume this is an incrementing non-negative, non-zero integer.
 type SteamAppBuildId = u32;
 
 /// Check if RustDedicated is installed.
 pub fn is_game_installed() -> Option<SteamAppBuildId> {
-    todo!("is_game_installed");
+    let executable_path: &std::path::Path =
+        &std::path::Path::new(PATH_ABS_RDS_INSTALLATION).join(EXECUTABLE_NAME_RUSTDEDICATED);
+
+    if !executable_path.is_file() {
+        return None;
+    }
+
+    if let Ok(metadata) = executable_path.metadata() {
+        if std::os::unix::fs::PermissionsExt::mode(&metadata.permissions()) & 0o111 == 0 {
+            return None;
+        }
+    } else {
+        return None;
+    }
+
+    let appmanifest_file_name: String = format!("appmanifest_{STEAM_APP_ID_RUSTDEDICATED}.acf");
+    let manifest_path: &std::path::Path = std::path::Path::new(&appmanifest_file_name);
+
+    if !manifest_path.is_file() {
+        return None;
+    }
+
+    if let Ok(file) = std::fs::File::open(manifest_path) {
+        if let Ok(manifest) = serde_json::from_reader::<_, SteamAppManifest>(file) {
+            return Some(manifest.buildid);
+        }
+    }
+    return None;
 }
 
 /// Do a fresh install of RustDedicated.
