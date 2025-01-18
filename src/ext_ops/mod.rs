@@ -116,8 +116,8 @@ pub fn update_game<E: crate::proc::Exec>(
 ) -> Result<crate::proc::Dependency, crate::error::ErrExec> {
     /*
      *  ```
-     *  $ steamcmd app_info_update 1
-     *  $ steamcmd app_info_print 258550
+     *  $ steamcmd app_info_update 1 +quit
+     *  $ steamcmd +app_info_print 258550 +quit
      *  ```
      *  Then extract the build number and compare it
      *  against the value in the app manifest: `steamapps/
