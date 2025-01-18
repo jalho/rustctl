@@ -26,7 +26,7 @@ fn main() {
     match cli.command {
         crate::args::CliCommand::Game { subcommand: action } => match action {
             crate::args::CliSubCommandGame::InstallUpdateConfigureStart { skip_install } => {
-                let steamcmd_cli: crate::proc::Dependency =
+                let steamcmd: crate::proc::Dependency =
                     match crate::proc::Dependency::init("steamcmd") {
                         Ok(n) => n,
                         Err(err) => {
@@ -42,19 +42,22 @@ fn main() {
                     std::process::exit(EXIT_ERR_PARALLEL_EXECUTION);
                 }
 
-                if let Err(err) = {
+                let rustdedicated: crate::proc::Dependency = match {
                     if crate::ext_ops::is_game_installed() {
-                        crate::ext_ops::update_game(&steamcmd_cli)
+                        crate::ext_ops::update_game(&steamcmd)
                     } else {
-                        crate::ext_ops::install_game(&steamcmd_cli)
+                        crate::ext_ops::install_game(&steamcmd)
                     }
                 } {
-                    log::error!(
-                        "Unrecoverable error: Could not install or update RustDedicated: {}",
-                        err
-                    );
-                    std::process::exit(EXIT_ERR_STEAMCMD);
-                }
+                    Ok(n) => n,
+                    Err(err) => {
+                        log::error!(
+                            "Unrecoverable error: Could not install or update RustDedicated: {}",
+                            err
+                        );
+                        std::process::exit(EXIT_ERR_STEAMCMD);
+                    }
+                };
 
                 /*
                  * TODO: Install or update Carbon modding framework
@@ -67,6 +70,11 @@ fn main() {
                 /*
                  * TODO: Start the game server
                  */
+                let (tx_game_stdout, rx_game_stdout) = std::sync::mpsc::channel::<String>();
+                if let Err(err) = crate::ext_ops::run_game(&rustdedicated, tx_game_stdout) {
+                    log::error!("Unrecoverable error: Could not run RustDedicated: {}", err);
+                    std::process::exit(EXIT_ERR_RUSTDEDICATED);
+                }
 
                 /*
                  * TODO: Configure the running game server with Carbon to not be categorized as modded

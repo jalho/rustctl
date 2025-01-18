@@ -11,12 +11,16 @@ pub fn is_game_installed() -> bool {
 }
 
 /// Do a fresh install of RustDedicated.
-pub fn install_game<E: crate::proc::Exec>(steamcmd_cli: &E) -> Result<(), crate::error::ErrExec> {
+pub fn install_game<E: crate::proc::Exec>(
+    steamcmd: &E,
+) -> Result<crate::proc::Dependency, crate::error::ErrExec> {
     todo!();
 }
 
 /// Update an existing installation of RustDedicated.
-pub fn update_game<E: crate::proc::Exec>(steamcmd_cli: &E) -> Result<(), crate::error::ErrExec> {
+pub fn update_game<E: crate::proc::Exec>(
+    steamcmd: &E,
+) -> Result<crate::proc::Dependency, crate::error::ErrExec> {
     /*
      *  ```
      *  $ steamcmd app_info_update 1
@@ -26,5 +30,12 @@ pub fn update_game<E: crate::proc::Exec>(steamcmd_cli: &E) -> Result<(), crate::
      *  against the value in the app manifest: `steamapps/
      *  appmanifest_258550.acf` under the server install tree
      */
+    todo!();
+}
+
+pub fn run_game<E: crate::proc::Exec>(
+    rustdedicated: &E,
+    tx_stdout: std::sync::mpsc::Sender<String>,
+) -> Result<(), crate::error::ErrExec> {
     todo!();
 }
