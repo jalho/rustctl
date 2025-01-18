@@ -31,6 +31,23 @@ impl std::error::Error for ErrExec {
 }
 impl std::fmt::Display for ErrExec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        return write!(f, "");
+        let status: &str = match self.status {
+            Some(status) => &format!("with status {status}"),
+            None => "without status",
+        };
+        let stderr: &str = match self.stderr {
+            Some(ref stderr) => &format!("\n{stderr}"),
+            None => "",
+        };
+        return write!(
+            f,
+            "command failed {}: {}{}",
+            &status, &self.command, &stderr
+        );
     }
+}
+
+pub enum ErrInstallGame {
+    ErrSteamCmd(ErrExec),
+    ErrMissingPermissions,
 }
