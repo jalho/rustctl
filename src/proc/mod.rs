@@ -31,7 +31,7 @@ impl Dependency {
     }
 }
 
-trait Exec {
+pub trait Exec {
     fn exec(
         &self,
         work_dir: Option<&std::path::Path>,

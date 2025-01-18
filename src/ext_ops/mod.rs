@@ -1,9 +1,30 @@
 //! Operations with external dependencies.
 
-/*
- * TODO: Implement: Should check whether SteamCMD or RustDedicated processes are
- *       already running.
- */
+/// Check whether SteamCMD or RustDedicated processes are already running.
 pub fn assure_not_running() -> Result<(), ()> {
-    return Ok(());
+    todo!();
+}
+
+/// Check if RustDedicated is installed.
+pub fn is_game_installed() -> bool {
+    todo!();
+}
+
+/// Do a fresh install of RustDedicated.
+pub fn install_game<E: crate::proc::Exec>(steamcmd_cli: &E) -> Result<(), crate::error::ErrExec> {
+    todo!();
+}
+
+/// Update an existing installation of RustDedicated.
+pub fn update_game<E: crate::proc::Exec>(steamcmd_cli: &E) -> Result<(), crate::error::ErrExec> {
+    /*
+     *  ```
+     *  $ steamcmd app_info_update 1
+     *  $ steamcmd app_info_print 258550
+     *  ```
+     *  Then extract the build number and compare it
+     *  against the value in the app manifest: `steamapps/
+     *  appmanifest_258550.acf` under the server install tree
+     */
+    todo!();
 }
