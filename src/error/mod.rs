@@ -1,29 +1,36 @@
-//! Main error module.
+//! Error cases of the program.
 
-/// Non recoverable errors that the _main_ may exit with.
-#[derive(std::fmt::Debug)]
-pub struct FatalError {
-    description: String,
-    source: Option<Box<dyn std::error::Error>>,
+/// A required dependency is missing.
+#[derive(Debug)]
+pub struct ErrDependencyMissing {
+    pub executable: &'static str,
 }
-
-impl FatalError {
-    pub fn new(description: String, source: Option<Box<dyn std::error::Error>>) -> Self {
-        return Self {
-            description,
-            source,
-        };
-    }
-}
-
-impl std::error::Error for FatalError {
+impl std::error::Error for ErrDependencyMissing {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        return self.source.as_ref().map(|e| e.as_ref());
+        return None;
+    }
+}
+impl std::fmt::Display for ErrDependencyMissing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        return write!(f, "");
     }
 }
 
-impl std::fmt::Display for FatalError {
+/// Executing a dependency command failed.
+#[derive(Debug)]
+pub struct ErrExec {
+    /// Executable and its argument vector concatenated.
+    pub command: String,
+    pub stderr: Option<String>,
+    pub status: Option<i32>,
+}
+impl std::error::Error for ErrExec {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        return None;
+    }
+}
+impl std::fmt::Display for ErrExec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        return f.write_fmt(format_args!("Non recoverable error: {}", self.description));
+        return write!(f, "");
     }
 }

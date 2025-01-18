@@ -1,13 +1,33 @@
 //! Abstractions related to handling processes on the system.
 
+static EXECUTABLE_SH: &'static str = "sh";
+static EXECUTABLE_STEAMCMD: &'static str = "steamcmd";
+static EXECUTABLE_RUSTDEDICATED: &'static str = "RustDedicated";
+
 pub struct Dependency {
     executable: &'static str,
 }
 
 impl Dependency {
-    pub fn init(executable: &'static str) -> Self {
-        // TODO: Use sh -c command -v to assure that the given executable dependency exists, and panic if not exists?
-        return Self { executable };
+    pub fn init(executable: &'static str) -> Result<Self, crate::error::ErrDependencyMissing> {
+        let output: std::process::Output = match std::process::Command::new(EXECUTABLE_SH)
+            .arg("-c")
+            .arg(format!("command -v {}", executable))
+            .output()
+        {
+            Ok(n) => n,
+            Err(_) => {
+                return Err(crate::error::ErrDependencyMissing {
+                    executable: EXECUTABLE_SH,
+                })
+            }
+        };
+
+        if !output.status.success() {
+            return Err(crate::error::ErrDependencyMissing { executable });
+        }
+
+        return Ok(Self { executable });
     }
 }
 
@@ -19,7 +39,7 @@ trait Exec {
         stdout_sender: std::sync::mpsc::Sender<String>,
         stderr_sender: std::sync::mpsc::Sender<String>,
         run_till_end: bool,
-    ) -> Result<(), ExecError>;
+    ) -> Result<(), crate::error::ErrExec>;
 }
 
 impl Exec for Dependency {
@@ -30,7 +50,7 @@ impl Exec for Dependency {
         stdout_sender: std::sync::mpsc::Sender<String>,
         stderr_sender: std::sync::mpsc::Sender<String>,
         run_till_end: bool,
-    ) -> Result<(), ExecError> {
+    ) -> Result<(), crate::error::ErrExec> {
         let mut command: std::process::Command = std::process::Command::new(&self.executable);
 
         if let Some(dir) = work_dir {
@@ -44,9 +64,10 @@ impl Exec for Dependency {
         let mut child: std::process::Child = match command.spawn() {
             Ok(process) => process,
             Err(err) => {
-                return Err(ExecError {
-                    cmd_fmted: format!("{} {:?}", &self.executable, &argv),
+                return Err(crate::error::ErrExec {
+                    command: format!("{} {:?}", &self.executable, &argv),
                     status: None,
+                    stderr: None,
                 });
             }
         };
@@ -84,9 +105,10 @@ impl Exec for Dependency {
             let _ = stderr_thread.join();
 
             if status != Some(0) {
-                return Err(ExecError {
-                    cmd_fmted: format!("{} {:?}", self.executable, argv),
+                return Err(crate::error::ErrExec {
+                    command: format!("{} {:?}", self.executable, argv),
                     status,
+                    stderr: None, // TODO: Accumulate stderr optionally (optionally because might be too much)
                 });
             }
         }
@@ -94,11 +116,3 @@ impl Exec for Dependency {
         return Ok(());
     }
 }
-
-struct ExecError {
-    /// Executable and its argument vector.
-    cmd_fmted: String,
-    /// The numeric code with which the execution terminated.
-    status: Option<i32>, // TODO: i32 or whatever?
-}
-// TODO: impl std::error::Error for ExecError
