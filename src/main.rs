@@ -35,7 +35,7 @@ fn main() {
                         }
                     };
 
-                if let Some(pid) = crate::ext_ops::is_process_running(&steamcmd.executable) {
+                if let Some(pid) = crate::proc::is_process_running(&steamcmd.executable) {
                     log::error!("Unrecoverable error: SteamCMD is already running: PID {pid}");
                     std::process::exit(EXIT_ERR_PARALLEL_EXECUTION);
                 }
@@ -56,7 +56,7 @@ fn main() {
                         std::process::exit(EXIT_ERR_STEAMCMD);
                     }
                 };
-                if let Some(pid) = crate::ext_ops::is_process_running(&rustdedicated.executable) {
+                if let Some(pid) = crate::proc::is_process_running(&rustdedicated.executable) {
                     log::error!("Unrecoverable error: RustDedicated is already running: PID {pid}");
                     std::process::exit(EXIT_ERR_PARALLEL_EXECUTION);
                 }
