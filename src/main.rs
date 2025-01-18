@@ -41,8 +41,8 @@ fn main() {
                 }
 
                 let rustdedicated: crate::proc::Dependency = match {
-                    if crate::ext_ops::is_game_installed() {
-                        crate::ext_ops::update_game(&steamcmd)
+                    if let Some(current_version) = crate::ext_ops::is_game_installed() {
+                        crate::ext_ops::update_game(&steamcmd, current_version)
                     } else {
                         crate::ext_ops::install_game(&steamcmd)
                     }

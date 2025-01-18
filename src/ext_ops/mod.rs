@@ -1,7 +1,19 @@
 //! Operations with external dependencies.
 
+/// _Absolute path_ to the directory in which _RustDedicated_ executable is
+/// expected to be installed by _SteamCMD_.
+static PATH_ABS_RDS_INSTALLATION: &'static str = "/home/rust/";
+
+/// Name (not absolute path) of the Rust game server executable (installed with
+/// SteamCMD).
+static EXECUTABLE_NAME_RUSTDEDICATED: &'static str = "RustDedicated";
+
+/// The closest thing to a _version_ that Steam apps have as far as I know. I
+/// assume this is an incrementing non-negative, non-zero integer.
+type SteamAppBuildId = u32;
+
 /// Check if RustDedicated is installed.
-pub fn is_game_installed() -> bool {
+pub fn is_game_installed() -> Option<SteamAppBuildId> {
     todo!("is_game_installed");
 }
 
@@ -15,6 +27,7 @@ pub fn install_game<E: crate::proc::Exec>(
 /// Update an existing installation of RustDedicated.
 pub fn update_game<E: crate::proc::Exec>(
     steamcmd: &E,
+    current_version: SteamAppBuildId,
 ) -> Result<crate::proc::Dependency, crate::error::ErrExec> {
     /*
      *  ```
