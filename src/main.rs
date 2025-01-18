@@ -40,22 +40,31 @@ fn main() {
                     std::process::exit(EXIT_ERR_PARALLEL_EXECUTION);
                 }
 
-                let rustdedicated: crate::proc::Dependency = match {
-                    if let Some(current_version) = crate::ext_ops::is_game_installed() {
-                        crate::ext_ops::update_game(&steamcmd, current_version)
-                    } else {
-                        crate::ext_ops::install_game(&steamcmd)
-                    }
-                } {
-                    Ok(n) => n,
-                    Err(err) => {
-                        log::error!(
-                            "Unrecoverable error: Could not install or update RustDedicated: {}",
-                            err
-                        );
-                        std::process::exit(EXIT_ERR_STEAMCMD);
-                    }
-                };
+                let rustdedicated: crate::proc::Dependency;
+                if let Some(current_version) = crate::ext_ops::is_game_installed() {
+                    rustdedicated = match crate::ext_ops::update_game(&steamcmd, current_version) {
+                        Ok(n) => n,
+                        Err(err) => {
+                            log::error!(
+                                "Unrecoverable error: Could not update RustDedicated: {}",
+                                err
+                            );
+                            std::process::exit(EXIT_ERR_STEAMCMD);
+                        }
+                    };
+                } else {
+                    rustdedicated = match crate::ext_ops::install_game(&steamcmd) {
+                        Ok(n) => n,
+                        Err(err) => {
+                            log::error!(
+                                "Unrecoverable error: Could not install RustDedicated: {}",
+                                err
+                            );
+                            std::process::exit(EXIT_ERR_STEAMCMD);
+                        }
+                    };
+                }
+
                 if let Some(pid) = crate::proc::is_process_running(&rustdedicated.executable) {
                     log::error!("Unrecoverable error: RustDedicated is already running: PID {pid}");
                     std::process::exit(EXIT_ERR_PARALLEL_EXECUTION);

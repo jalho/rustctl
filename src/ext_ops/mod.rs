@@ -55,13 +55,15 @@ pub fn is_game_installed() -> Option<SteamAppBuildId> {
 /// Do a fresh install of RustDedicated.
 pub fn install_game<E: crate::proc::Exec>(
     steamcmd: &E,
-) -> Result<crate::proc::Dependency, crate::error::ErrExec> {
+) -> Result<crate::proc::Dependency, crate::error::ErrInstallGame> {
     let install_dir_path: &std::path::Path = std::path::Path::new(&PATH_ABS_RDS_INSTALLATION);
     if !crate::misc::can_write_to_directory(&install_dir_path) {
-        todo!("not rw");
+        return Err(crate::error::ErrInstallGame::ErrMissingPermissions(
+            install_dir_path.to_string_lossy().into_owned(),
+        ));
     }
 
-    steamcmd.exec_terminating(
+    if let Err(err) = steamcmd.exec_terminating(
         Some(&install_dir_path),
         vec![
             /*
@@ -78,7 +80,9 @@ pub fn install_game<E: crate::proc::Exec>(
             "validate",
             "+quit",
         ],
-    )?;
+    ) {
+        return Err(crate::error::ErrInstallGame::ErrSteamCmd(err));
+    }
     todo!("verify installation success");
 }
 

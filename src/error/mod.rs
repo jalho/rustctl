@@ -47,7 +47,35 @@ impl std::fmt::Display for ErrExec {
     }
 }
 
+/// Installing the game server with SteamCMD failed.
+#[derive(Debug)]
 pub enum ErrInstallGame {
+    /// SteamCMD failed.
     ErrSteamCmd(ErrExec),
-    ErrMissingPermissions,
+    /// Precondition not met: Missing permissions to the specified installation dir.
+    ErrMissingPermissions(String),
+}
+impl std::error::Error for ErrInstallGame {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ErrInstallGame::ErrSteamCmd(err_exec) => {
+                return Some(err_exec);
+            }
+            ErrInstallGame::ErrMissingPermissions(_) => {
+                return None;
+            }
+        }
+    }
+}
+impl std::fmt::Display for ErrInstallGame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ErrInstallGame::ErrSteamCmd(err_exec) => {
+                return err_exec.fmt(f);
+            }
+            ErrInstallGame::ErrMissingPermissions(path) => {
+                return write!(f, "missing permissions to {path}");
+            }
+        }
+    }
 }
