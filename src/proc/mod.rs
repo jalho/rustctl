@@ -25,25 +25,30 @@ impl Dependency {
 }
 
 pub trait Exec {
-    fn exec(
+    fn exec_terminating(
+        &self,
+        work_dir: Option<&std::path::Path>,
+        argv: Vec<&str>,
+    ) -> Result<(String, String), crate::error::ErrExec>;
+
+    fn exec_continuous(
         &self,
         work_dir: Option<&std::path::Path>,
         argv: Vec<&str>,
         stdout_sender: std::sync::mpsc::Sender<String>,
         stderr_sender: std::sync::mpsc::Sender<String>,
-        run_till_end: bool,
-    ) -> Result<(), crate::error::ErrExec>;
+    ) -> Result<(std::thread::JoinHandle<()>, std::thread::JoinHandle<()>), crate::error::ErrExec>;
 }
 
 impl Exec for Dependency {
-    fn exec(
+    fn exec_continuous(
         &self,
         work_dir: Option<&std::path::Path>,
         argv: Vec<&str>,
         stdout_sender: std::sync::mpsc::Sender<String>,
         stderr_sender: std::sync::mpsc::Sender<String>,
-        run_till_end: bool,
-    ) -> Result<(), crate::error::ErrExec> {
+    ) -> Result<(std::thread::JoinHandle<()>, std::thread::JoinHandle<()>), crate::error::ErrExec>
+    {
         let mut command: std::process::Command = std::process::Command::new(&self.executable);
 
         if let Some(dir) = work_dir {
@@ -88,31 +93,47 @@ impl Exec for Dependency {
             }
         });
 
-        if run_till_end {
-            let status = match child.wait() {
-                Ok(status) => status.code(),
-                Err(_) => {
-                    return Err(crate::error::ErrExec {
-                        command: format!("{} {:?}", self.executable, argv),
-                        status: None,
-                        stderr: None,
-                    });
-                }
-            };
+        return Ok((stdout_thread, stderr_thread));
+    }
 
-            let _ = stdout_thread.join();
-            let _ = stderr_thread.join();
+    fn exec_terminating(
+        &self,
+        work_dir: Option<&std::path::Path>,
+        argv: Vec<&str>,
+    ) -> Result<(String, String), crate::error::ErrExec> {
+        let mut command: std::process::Command = std::process::Command::new(&self.executable);
 
-            if status != Some(0) {
-                return Err(crate::error::ErrExec {
-                    command: format!("{} {:?}", self.executable, argv),
-                    status,
-                    stderr: None, // TODO: Accumulate stderr optionally (optionally because might be too much)
-                });
-            }
+        if let Some(dir) = work_dir {
+            command.current_dir(&dir);
         }
 
-        return Ok(());
+        command.args(&argv);
+        command.stdout(std::process::Stdio::piped());
+        command.stderr(std::process::Stdio::piped());
+
+        let output: std::process::Output = match command.output() {
+            Ok(n) => n,
+            Err(_) => {
+                return Err(crate::error::ErrExec {
+                    command: format!("{} {:?}", &self.executable, &argv),
+                    status: None,
+                    stderr: None,
+                });
+            }
+        };
+
+        let stdout: String = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr: String = String::from_utf8_lossy(&output.stderr).into_owned();
+
+        if !output.status.success() {
+            return Err(crate::error::ErrExec {
+                command: format!("{} {:?}", &self.executable, &argv),
+                stderr: Some(stderr),
+                status: output.status.code(),
+            });
+        }
+
+        return Ok((stdout, stderr));
     }
 }
 

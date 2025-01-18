@@ -56,7 +56,20 @@ pub fn is_game_installed() -> Option<SteamAppBuildId> {
 pub fn install_game<E: crate::proc::Exec>(
     steamcmd: &E,
 ) -> Result<crate::proc::Dependency, crate::error::ErrExec> {
-    todo!("install_game");
+    steamcmd.exec_terminating(
+        Some(std::path::Path::new(&PATH_ABS_RDS_INSTALLATION)),
+        vec![
+            "+force_install_dir",
+            &PATH_ABS_RDS_INSTALLATION,
+            "+login",
+            "anonymous",
+            "+app_update",
+            "258550",
+            "validate",
+            "+quit",
+        ],
+    )?;
+    todo!("verify installation success");
 }
 
 /// Update an existing installation of RustDedicated.
