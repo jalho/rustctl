@@ -114,16 +114,34 @@ pub fn update_game<E: crate::proc::Exec>(
     steamcmd: &E,
     current_version: SteamAppBuildId,
 ) -> Result<crate::proc::Dependency, crate::error::ErrExec> {
-    /*
-     *  ```
-     *  $ steamcmd app_info_update 1 +quit
-     *  $ steamcmd +app_info_print 258550 +quit
-     *  ```
-     *  Then extract the build number and compare it
-     *  against the value in the app manifest: `steamapps/
-     *  appmanifest_258550.acf` under the server install tree
-     */
-    todo!("update_game");
+    steamcmd.exec_terminating(
+        Some(std::path::Path::new(&PATH_ABS_RDS_INSTALLATION)),
+        vec!["+app_info_update", "1", "+quit"],
+    )?;
+    let (stdout, _) = steamcmd.exec_terminating(
+        Some(std::path::Path::new(&PATH_ABS_RDS_INSTALLATION)),
+        vec![
+            "+app_info_print",
+            &STEAM_APP_ID_RUSTDEDICATED.to_string(),
+            "+quit",
+        ],
+    )?;
+    if let Some((build_id_a, build_id_b)) = parse_buildids(stdout) {
+        if build_id_a != build_id_b {
+            todo!("define handled error case for: conflicting build ids from remote -- which one to pick???");
+        }
+        if build_id_a == current_version {
+            log::info!("Game server update not needed: Latest build ID in remote matches current installation: {}", current_version);
+            todo!("init dependency, return Ok()");
+        }
+        todo!("updates are known to be available -- go install!");
+    } else {
+        /*
+         tested to work as user that owns /home/rust/, but not as other user
+         --> implies the check requires rwx or something to the exec dir
+        */
+        todo!("define handled error case for: not able to get latest build ids from remote (seems to require write perms in exec dir or something??)");
+    }
 }
 
 /// Run game server and pass its standard output to a given channel.
@@ -132,4 +150,70 @@ pub fn run_game<E: crate::proc::Exec>(
     tx_stdout: std::sync::mpsc::Sender<String>,
 ) -> Result<(), crate::error::ErrExec> {
     todo!("run_game");
+}
+
+fn parse_buildids(content: String) -> Option<(u32, u32)> {
+    let mut public_buildid: Option<u32> = None;
+    let mut release_buildid: Option<u32> = None;
+
+    let mut lines = content.lines().map(|line| line.trim());
+
+    while let Some(line) = lines.next() {
+        if line.starts_with("\"public\"") {
+            while let Some(inner_line) = lines.next() {
+                if inner_line.starts_with("\"buildid\"") {
+                    public_buildid = inner_line
+                        .split_whitespace()
+                        .nth(1)
+                        .and_then(|s| s.trim_matches('"').parse::<u32>().ok());
+                    break;
+                }
+            }
+        } else if line.starts_with("\"release\"") {
+            while let Some(inner_line) = lines.next() {
+                if inner_line.starts_with("\"buildid\"") {
+                    release_buildid = inner_line
+                        .split_whitespace()
+                        .nth(1)
+                        .and_then(|s| s.trim_matches('"').parse::<u32>().ok());
+                    break;
+                }
+            }
+        }
+
+        if public_buildid.is_some() && release_buildid.is_some() {
+            break;
+        }
+    }
+
+    match (public_buildid, release_buildid) {
+        (Some(public), Some(release)) => Some((public, release)),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_buildids() {
+        let manifest_content = r#"
+        "branches"
+        {
+            "public"
+            {
+                "buildid"       "123"
+                "timeupdated"   "1737126374"
+            }
+            "release"
+            {
+                "buildid"       "456"
+                "timeupdated"   "1737123128"
+            }
+        }
+        "#;
+        let result = parse_buildids(manifest_content.to_string());
+        assert_eq!(result, Some((123, 456)));
+    }
 }
