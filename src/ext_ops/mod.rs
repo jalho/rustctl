@@ -9,22 +9,38 @@ pub fn is_process_running(name_seekable: &str) -> bool {
     };
 
     for entry in dir {
-        let entry: std::fs::DirEntry = entry.unwrap();
+        let entry: std::fs::DirEntry = match entry {
+            Ok(n) => n,
+            Err(_) => continue,
+        };
         let path: std::path::PathBuf = entry.path();
         if !path.is_dir() {
             continue;
         }
-        let filename: &std::ffi::OsStr = path.file_name().unwrap();
-        let filename: &str = filename.to_str().unwrap();
+
+        let filename: &std::ffi::OsStr = match path.file_name() {
+            Some(n) => n,
+            None => continue,
+        };
+
+        let filename: &str = match filename.to_str() {
+            Some(n) => n,
+            None => continue,
+        };
+
         if filename.chars().all(char::is_numeric) {
             let path: std::path::PathBuf = path.join("comm");
+
+            let proc_name: String = match std::fs::read_to_string(path) {
+                Ok(n) => n,
+                Err(_) => continue,
+            };
+
             /* TODO: Check if name_seekable arg must be only file name instead
             of a longer path to the file, like /foo/bar/RustDedicated. */
-            let proc_name: String = std::fs::read_to_string(path).unwrap();
+
             if proc_name == name_seekable {
                 return true;
-            } else {
-                continue;
             }
         }
     }
