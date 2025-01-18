@@ -31,13 +31,18 @@ pub fn is_process_running(name_seekable: &str) -> bool {
         if filename.chars().all(char::is_numeric) {
             let path: std::path::PathBuf = path.join("comm");
 
-            let proc_name: String = match std::fs::read_to_string(path) {
-                Ok(n) => n,
+            let proc_name: String = match std::fs::read_to_string(&path) {
+                Ok(n) => n.trim().to_owned(),
                 Err(_) => continue,
             };
 
             /* TODO: Check if name_seekable arg must be only file name instead
             of a longer path to the file, like /foo/bar/RustDedicated. */
+
+            println!(
+                "Checking {:?} for: {} == {}",
+                &path, &proc_name, &name_seekable
+            );
 
             if proc_name == name_seekable {
                 return true;
