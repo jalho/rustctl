@@ -1,6 +1,6 @@
 //! Abstractions related to handling processes on the system.
 
-use crate::misc::can_write_to_directory;
+use crate::misc::is_writeable_dir;
 
 pub struct Dependency {
     pub executable: &'static str,
@@ -33,7 +33,7 @@ impl Dependency {
         }
 
         let work_dir: std::path::PathBuf = work_dir.into();
-        if !can_write_to_directory(&work_dir) {
+        if !is_writeable_dir(&work_dir) {
             return Err(crate::error::ErrPrecondition::MissingPermission(format!(
                 "rwx to {}",
                 &work_dir.to_string_lossy()

@@ -36,7 +36,11 @@ pub fn init_logger() -> log4rs::Handle {
     return logger;
 }
 
-pub fn can_write_to_directory(path: &std::path::Path) -> bool {
+pub fn is_writeable_dir(path: &std::path::Path) -> bool {
+    if !path.is_dir() {
+        return false;
+    }
+
     if let Ok(metadata) = std::fs::metadata(path) {
         let owner_uid = std::os::unix::fs::MetadataExt::uid(&metadata);
         let current_uid = unsafe { libc::getuid() };
