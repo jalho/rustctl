@@ -1,11 +1,17 @@
 //! Abstractions related to handling processes on the system.
 
+use crate::misc::can_write_to_directory;
+
 pub struct Dependency {
     pub executable: &'static str,
+    work_dir: std::path::PathBuf,
 }
 
 impl Dependency {
-    pub fn init(executable: &'static str) -> Result<Self, crate::error::ErrDependencyMissing> {
+    pub fn init(
+        executable: &'static str,
+        work_dir: &std::path::Path,
+    ) -> Result<Self, crate::error::ErrDependencyMissing> {
         let sh: &str = "sh";
         let output: std::process::Output = match std::process::Command::new(sh)
             .arg("-c")
@@ -20,20 +26,23 @@ impl Dependency {
             return Err(crate::error::ErrDependencyMissing { executable });
         }
 
-        return Ok(Self { executable });
+        let work_dir: std::path::PathBuf = work_dir.into();
+        if !can_write_to_directory(&work_dir) {
+            todo!("define error case");
+        }
+
+        return Ok(Self {
+            executable,
+            work_dir,
+        });
     }
 }
 
 pub trait Exec {
-    fn exec_terminating(
-        &self,
-        work_dir: Option<&std::path::Path>,
-        argv: Vec<&str>,
-    ) -> Result<(String, String), crate::error::ErrExec>;
+    fn exec_terminating(&self, argv: Vec<&str>) -> Result<(String, String), crate::error::ErrExec>;
 
     fn exec_continuous(
         &self,
-        work_dir: Option<&std::path::Path>,
         argv: Vec<&str>,
         stdout_sender: std::sync::mpsc::Sender<String>,
         stderr_sender: std::sync::mpsc::Sender<String>,
@@ -43,7 +52,6 @@ pub trait Exec {
 impl Exec for Dependency {
     fn exec_continuous(
         &self,
-        work_dir: Option<&std::path::Path>,
         argv: Vec<&str>,
         stdout_sender: std::sync::mpsc::Sender<String>,
         stderr_sender: std::sync::mpsc::Sender<String>,
@@ -51,10 +59,7 @@ impl Exec for Dependency {
     {
         let mut command: std::process::Command = std::process::Command::new(&self.executable);
 
-        if let Some(dir) = work_dir {
-            command.current_dir(&dir);
-        }
-
+        command.current_dir(&self.work_dir);
         command.args(&argv);
         command.stdout(std::process::Stdio::piped());
         command.stderr(std::process::Stdio::piped());
@@ -96,17 +101,10 @@ impl Exec for Dependency {
         return Ok((stdout_thread, stderr_thread));
     }
 
-    fn exec_terminating(
-        &self,
-        work_dir: Option<&std::path::Path>,
-        argv: Vec<&str>,
-    ) -> Result<(String, String), crate::error::ErrExec> {
+    fn exec_terminating(&self, argv: Vec<&str>) -> Result<(String, String), crate::error::ErrExec> {
         let mut command: std::process::Command = std::process::Command::new(&self.executable);
 
-        if let Some(dir) = work_dir {
-            command.current_dir(&dir);
-        }
-
+        command.current_dir(&self.work_dir);
         command.args(&argv);
         command.stdout(std::process::Stdio::piped());
         command.stderr(std::process::Stdio::piped());

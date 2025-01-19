@@ -1,9 +1,5 @@
 //! Operations with external dependencies.
 
-/// _Absolute path_ to the directory in which _RustDedicated_ executable is
-/// expected to be installed by _SteamCMD_.
-static PATH_ABS_RDS_INSTALLATION: &'static str = "/home/rust/";
-
 /// Name (not absolute path) of the Rust game server executable (installed with
 /// SteamCMD).
 static EXECUTABLE_NAME_RUSTDEDICATED: &'static str = "RustDedicated";
@@ -21,9 +17,9 @@ struct SteamAppManifest {
 type SteamAppBuildId = u32;
 
 /// Check if RustDedicated is installed.
-pub fn is_game_installed() -> Option<SteamAppBuildId> {
+pub fn is_game_installed(expected_installation_dir: &std::path::Path) -> Option<SteamAppBuildId> {
     let executable_path: &std::path::Path =
-        &std::path::Path::new(PATH_ABS_RDS_INSTALLATION).join(EXECUTABLE_NAME_RUSTDEDICATED);
+        &expected_installation_dir.join(EXECUTABLE_NAME_RUSTDEDICATED);
 
     if !executable_path.is_file() {
         return None;
@@ -78,32 +74,23 @@ fn parse_buildid_from_manifest(manifest_path: &std::path::Path) -> Option<u32> {
 /// Do a fresh install of RustDedicated.
 pub fn install_game<E: crate::proc::Exec>(
     steamcmd: &E,
+    installation_dir: &std::path::Path,
 ) -> Result<crate::proc::Dependency, crate::error::ErrInstallGame> {
-    let install_dir_path: &std::path::Path = std::path::Path::new(&PATH_ABS_RDS_INSTALLATION);
-    if !crate::misc::can_write_to_directory(&install_dir_path) {
-        return Err(crate::error::ErrInstallGame::ErrMissingPermissions(
-            install_dir_path.to_string_lossy().into_owned(),
-        ));
-    }
-
-    if let Err(err) = steamcmd.exec_terminating(
-        Some(&install_dir_path),
-        vec![
-            /*
-             * Note: It seems force_install_dir doesn't really _force_ anything:
-             * If no write permissions, the stuff seems to just be dumped into
-             * current user's home dir instead...
-             */
-            "+force_install_dir",
-            &PATH_ABS_RDS_INSTALLATION,
-            "+login",
-            "anonymous",
-            "+app_update",
-            "258550",
-            "validate",
-            "+quit",
-        ],
-    ) {
+    if let Err(err) = steamcmd.exec_terminating(vec![
+        /*
+         * Note: It seems force_install_dir doesn't really _force_ anything:
+         * If no write permissions, the stuff seems to just be dumped into
+         * current user's home dir instead...
+         */
+        "+force_install_dir",
+        &installation_dir.to_string_lossy(),
+        "+login",
+        "anonymous",
+        "+app_update",
+        "258550",
+        "validate",
+        "+quit",
+    ]) {
         return Err(crate::error::ErrInstallGame::ErrSteamCmd(err));
     }
     todo!("verify installation success");
@@ -114,18 +101,12 @@ pub fn update_game<E: crate::proc::Exec>(
     steamcmd: &E,
     current_version: SteamAppBuildId,
 ) -> Result<crate::proc::Dependency, crate::error::ErrExec> {
-    steamcmd.exec_terminating(
-        Some(std::path::Path::new(&PATH_ABS_RDS_INSTALLATION)),
-        vec!["+app_info_update", "1", "+quit"],
-    )?;
-    let (stdout, _) = steamcmd.exec_terminating(
-        Some(std::path::Path::new(&PATH_ABS_RDS_INSTALLATION)),
-        vec![
-            "+app_info_print",
-            &STEAM_APP_ID_RUSTDEDICATED.to_string(),
-            "+quit",
-        ],
-    )?;
+    steamcmd.exec_terminating(vec!["+app_info_update", "1", "+quit"])?;
+    let (stdout, _) = steamcmd.exec_terminating(vec![
+        "+app_info_print",
+        &STEAM_APP_ID_RUSTDEDICATED.to_string(),
+        "+quit",
+    ])?;
     if let Some((build_id_a, build_id_b)) = parse_buildids(stdout) {
         if build_id_a != build_id_b {
             todo!("define handled error case for: conflicting build ids from remote -- which one to pick???");

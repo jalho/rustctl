@@ -26,8 +26,9 @@ fn main() {
     match cli.command {
         crate::args::CliCommand::Game { subcommand: action } => match action {
             crate::args::CliSubCommandGame::InstallUpdateConfigureStart { skip_install } => {
+                let installation_dir: &std::path::Path = std::path::Path::new("/home/rust/");
                 let steamcmd: crate::proc::Dependency =
-                    match crate::proc::Dependency::init("steamcmd") {
+                    match crate::proc::Dependency::init("steamcmd", &installation_dir) {
                         Ok(n) => n,
                         Err(err) => {
                             log::error!("Unrecoverable error: {}", err);
@@ -41,7 +42,8 @@ fn main() {
                 }
 
                 let rustdedicated: crate::proc::Dependency;
-                if let Some(current_version) = crate::ext_ops::is_game_installed() {
+                if let Some(current_version) = crate::ext_ops::is_game_installed(&installation_dir)
+                {
                     rustdedicated = match crate::ext_ops::update_game(&steamcmd, current_version) {
                         Ok(n) => n,
                         Err(err) => {
@@ -53,7 +55,8 @@ fn main() {
                         }
                     };
                 } else {
-                    rustdedicated = match crate::ext_ops::install_game(&steamcmd) {
+                    rustdedicated = match crate::ext_ops::install_game(&steamcmd, &installation_dir)
+                    {
                         Ok(n) => n,
                         Err(err) => {
                             log::error!(
