@@ -6,8 +6,9 @@ mod proc;
 
 static EXIT_OK: i32 = 0;
 
-/// Some critical dependency of the program is missing.
-static EXIT_ERR_DEPENDENCY_MISSING: i32 = 42;
+/// Some critical dependency of the program is missing, insufficient permissions
+/// to filesystem etc.
+static EXIT_ERR_SYSTEM_PRECONDITION: i32 = 42;
 
 /// SteamCMD process or RustDedicated process or something else that is not
 /// supposed to be run in parallel is already running.
@@ -32,7 +33,7 @@ fn main() {
                         Ok(n) => n,
                         Err(err) => {
                             log::error!("Unrecoverable error: {}", err);
-                            std::process::exit(EXIT_ERR_DEPENDENCY_MISSING);
+                            std::process::exit(EXIT_ERR_SYSTEM_PRECONDITION);
                         }
                     };
 
