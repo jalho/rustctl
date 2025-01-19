@@ -28,17 +28,20 @@ fn main() {
         crate::args::CliCommand::Game { subcommand: action } => match action {
             crate::args::CliSubCommandGame::InstallUpdateConfigureStart { skip_install } => {
                 let installation_dir: &std::path::Path = std::path::Path::new("/home/rust/");
-                let steamcmd: crate::proc::Dependency =
-                    match crate::proc::Dependency::init("steamcmd", &installation_dir) {
-                        Ok(n) => n,
-                        Err(err) => {
-                            log::error!("Unrecoverable error: {}", err);
-                            std::process::exit(EXIT_ERR_SYSTEM_PRECONDITION);
-                        }
-                    };
+                let steamcmd: crate::proc::Dependency = match crate::proc::Dependency::init(
+                    "steamcmd",
+                    &installation_dir,
+                    String::from("game server installer"),
+                ) {
+                    Ok(n) => n,
+                    Err(err) => {
+                        log::error!("Unrecoverable error: {}", err);
+                        std::process::exit(EXIT_ERR_SYSTEM_PRECONDITION);
+                    }
+                };
 
                 if let Some(pid) = crate::proc::is_process_running(&steamcmd.executable) {
-                    log::error!("Unrecoverable error: SteamCMD is already running: PID {pid}");
+                    log::error!("Unrecoverable error: {steamcmd} is already running: PID {pid}");
                     std::process::exit(EXIT_ERR_PARALLEL_EXECUTION);
                 }
 
@@ -55,6 +58,8 @@ fn main() {
                             std::process::exit(EXIT_ERR_STEAMCMD);
                         }
                     };
+                    // TODO: Distinguish cases updated vs. already up-to-date in logging: Also log updated version
+                    log::info!("Dependency assured up-to-date: {rustdedicated}");
                 } else {
                     rustdedicated = match crate::ext_ops::install_game(&steamcmd, &installation_dir)
                     {
@@ -67,10 +72,13 @@ fn main() {
                             std::process::exit(EXIT_ERR_STEAMCMD);
                         }
                     };
+                    log::info!("Dependency installed: {rustdedicated}");
                 }
 
                 if let Some(pid) = crate::proc::is_process_running(&rustdedicated.executable) {
-                    log::error!("Unrecoverable error: RustDedicated is already running: PID {pid}");
+                    log::error!(
+                        "Unrecoverable error: {rustdedicated} is already running: PID {pid}"
+                    );
                     std::process::exit(EXIT_ERR_PARALLEL_EXECUTION);
                 }
 

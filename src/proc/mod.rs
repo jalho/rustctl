@@ -3,14 +3,22 @@
 use crate::misc::is_dir_rwx;
 
 pub struct Dependency {
+    /// Either a path to an executable, or some name that is present in the PATH
+    /// environment of the current user.
     pub executable: String,
+
+    /// Path to the directory in which this dependency shall be executed.
     pub work_dir: std::path::PathBuf,
+
+    /// Displayed role of this dependency.
+    pub role_displayed: String,
 }
 
 impl Dependency {
     pub fn init(
         executable: &'static str,
         work_dir: &std::path::Path,
+        role_displayed: String,
     ) -> Result<Self, crate::error::ErrPrecondition> {
         let sh: &str = "sh";
         let output: std::process::Output = match std::process::Command::new(sh)
@@ -43,7 +51,14 @@ impl Dependency {
         return Ok(Self {
             executable: String::from(executable),
             work_dir,
+            role_displayed,
         });
+    }
+}
+
+impl std::fmt::Display for Dependency {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        return write!(f, "{} ({})", &self.role_displayed, &self.executable);
     }
 }
 

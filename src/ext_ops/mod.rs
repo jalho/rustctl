@@ -102,6 +102,7 @@ pub fn install_game<E: crate::proc::Exec>(
     let rustdedicated: crate::proc::Dependency = crate::proc::Dependency {
         executable,
         work_dir: installation_dir.into(),
+        role_displayed: String::from("game server"),
     };
     return Ok(rustdedicated);
 }
