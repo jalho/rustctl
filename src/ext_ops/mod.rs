@@ -4,6 +4,10 @@
 /// SteamCMD).
 static EXECUTABLE_NAME_RUSTDEDICATED: &'static str = "RustDedicated";
 
+pub struct InstallOpts {
+    pub steam_app_id: u32,
+}
+
 pub fn parse_buildid_from_manifest(manifest_path: &std::path::Path) -> Option<u32> {
     if let Ok(content) = std::fs::read_to_string(manifest_path) {
         for line in content.lines() {
@@ -27,8 +31,9 @@ pub fn parse_buildid_from_manifest(manifest_path: &std::path::Path) -> Option<u3
 pub fn install_game<E: crate::proc::Exec>(
     steamcmd: &E,
     installation_dir: &std::path::Path,
+    install_opts: &InstallOpts,
 ) -> Result<crate::proc::Dependency, crate::error::ErrExec> {
-    let steam_app_id: u32 = crate::GAME_SERVER_STEAM_APP_ID;
+    let steam_app_id: u32 = install_opts.steam_app_id;
     steamcmd.exec_terminating(vec![
         /*
          * Note: It seems force_install_dir doesn't really _force_ anything:
@@ -81,6 +86,7 @@ pub fn install_game<E: crate::proc::Exec>(
 pub fn update_game<E: crate::proc::Exec>(
     steamcmd: &E,
     current: &crate::proc::Dependency,
+    install_opts: &InstallOpts,
 ) -> Result<Option<crate::proc::Dependency>, crate::error::ErrExec> {
     let current_installed_build_id: u32 = match current.version {
         crate::proc::DependencyVersion::Unknown => {
@@ -91,7 +97,7 @@ pub fn update_game<E: crate::proc::Exec>(
     steamcmd.exec_terminating(vec!["+app_info_update", "1", "+quit"])?;
     let (stdout, _) = steamcmd.exec_terminating(vec![
         "+app_info_print",
-        &crate::GAME_SERVER_STEAM_APP_ID.to_string(),
+        &install_opts.steam_app_id.to_string(),
         "+quit",
     ])?;
     if let Some((build_id_a, build_id_b)) = parse_buildids(stdout) {

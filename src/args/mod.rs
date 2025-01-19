@@ -2,25 +2,25 @@
 
 #[derive(clap::Parser)]
 #[command(name = env!("CARGO_PKG_NAME"), about = "Tooling for hosting a Rust (the game) server.")]
-pub struct RustCtlCli {
+pub struct Cli {
     #[command(subcommand)]
-    pub command: CliCommand,
+    pub cmd: Cmd,
 }
 
 #[derive(clap::Subcommand)]
-pub enum CliCommand {
+pub enum Cmd {
     #[command(about = "Commands for managing the game server process.")]
     Game {
         #[command(subcommand)]
-        subcommand: CliSubCommandGame,
+        cmd: Game,
     },
 }
 
 #[derive(clap::Subcommand)]
-pub enum CliSubCommandGame {
+pub enum Game {
     #[command(
         name = "start",
         about = "Install and update the game server, and then configure and start it."
     )]
-    InstallUpdateConfigureStart,
+    Start,
 }
