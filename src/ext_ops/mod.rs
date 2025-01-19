@@ -91,7 +91,19 @@ pub fn install_game<E: crate::proc::Exec>(
         "validate",
         "+quit",
     ])?;
-    todo!("verify installation success");
+
+    let mut executable_path: std::path::PathBuf = installation_dir.into();
+    executable_path.push(&EXECUTABLE_NAME_RUSTDEDICATED);
+    if !executable_path.is_file() {
+        todo!("define error case: no RustDedicated was installed??");
+    }
+
+    let executable: String = executable_path.to_string_lossy().into_owned();
+    let rustdedicated: crate::proc::Dependency = crate::proc::Dependency {
+        executable,
+        work_dir: installation_dir.into(),
+    };
+    return Ok(rustdedicated);
 }
 
 /// Update an existing installation of RustDedicated.

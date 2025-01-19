@@ -3,8 +3,8 @@
 use crate::misc::is_dir_rwx;
 
 pub struct Dependency {
-    pub executable: &'static str,
-    work_dir: std::path::PathBuf,
+    pub executable: String,
+    pub work_dir: std::path::PathBuf,
 }
 
 impl Dependency {
@@ -41,7 +41,7 @@ impl Dependency {
         }
 
         return Ok(Self {
-            executable,
+            executable: String::from(executable),
             work_dir,
         });
     }
