@@ -1,6 +1,6 @@
 //! Abstractions related to handling processes on the system.
 
-use crate::misc::is_writeable_dir;
+use crate::misc::is_dir_rwx;
 
 pub struct Dependency {
     pub executable: &'static str,
@@ -33,7 +33,7 @@ impl Dependency {
         }
 
         let work_dir: std::path::PathBuf = work_dir.into();
-        if !is_writeable_dir(&work_dir) {
+        if !is_dir_rwx(&work_dir) {
             return Err(crate::error::ErrPrecondition::Filesystem(format!(
                 "rwx to {}",
                 &work_dir.to_string_lossy()

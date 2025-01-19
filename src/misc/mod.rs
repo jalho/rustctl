@@ -36,38 +36,44 @@ pub fn init_logger() -> log4rs::Handle {
     return logger;
 }
 
-pub fn is_writeable_dir(path: &std::path::Path) -> bool {
+pub fn is_dir_rwx(path: &std::path::Path) -> bool {
     if !path.is_dir() {
         return false;
     }
+    let metadata: std::fs::Metadata = match std::fs::metadata(&path) {
+        Ok(n) => n,
+        Err(_) => return false,
+    };
 
-    if let Ok(metadata) = std::fs::metadata(path) {
-        let owner_uid = std::os::unix::fs::MetadataExt::uid(&metadata);
-        let current_uid = unsafe { libc::getuid() };
-        let permissions = std::os::unix::fs::PermissionsExt::mode(&metadata.permissions());
+    let owner_uid: u32 = std::os::unix::fs::MetadataExt::uid(&metadata);
+    let current_uid: u32 = unsafe { libc::getuid() };
+    let is_owned: bool = owner_uid == current_uid;
 
-        // permission to traverse the directory
-        if permissions & 0o100 == 0 {
-            return false;
+    let file_gid: u32 = std::os::unix::fs::MetadataExt::gid(&metadata);
+    let mut groups: Vec<u32> = Vec::new();
+    unsafe {
+        let group_count: i32 = libc::getgroups(0, std::ptr::null_mut());
+        if group_count > 0 {
+            let mut group_ids: Vec<u32> = vec![0; group_count as usize];
+            libc::getgroups(group_count, group_ids.as_mut_ptr());
+            groups = group_ids;
         }
-
-        // permission to create files in the directory
-        if permissions & 0o200 == 0 {
-            return false;
-        }
-
-        // case owner: has write permission
-        if owner_uid == current_uid {
-            return true;
-        }
-
-        // case not owner: check if group or others have write permissions
-        if permissions & 0o020 == 0 && permissions & 0o002 == 0 {
-            return false;
-        }
-
-        return true;
-    } else {
-        return false;
     }
+    let is_belong_group: bool = groups.contains(&file_gid);
+
+    let permissions: u32 = std::os::unix::fs::PermissionsExt::mode(&metadata.permissions());
+
+    let has_owner_rwx: bool = permissions & 0o700 == 0o700;
+    let has_group_rwx: bool = permissions & 0o070 == 0o070;
+    let has_other_rwx: bool = permissions & 0o007 == 0o007;
+
+    if is_owned && has_owner_rwx {
+        return true;
+    }
+
+    if is_belong_group && has_group_rwx {
+        return true;
+    }
+
+    return has_other_rwx;
 }
