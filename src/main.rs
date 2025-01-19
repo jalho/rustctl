@@ -1,5 +1,3 @@
-use error::ErrPrecondition;
-
 mod args;
 mod error;
 mod ext_ops;
@@ -30,7 +28,7 @@ fn main() {
     let cli: crate::args::RustCtlCli = clap::Parser::parse();
     match cli.command {
         crate::args::CliCommand::Game { subcommand: action } => match action {
-            crate::args::CliSubCommandGame::InstallUpdateConfigureStart { skip_install } => {
+            crate::args::CliSubCommandGame::InstallUpdateConfigureStart => {
                 let installation_dir: &std::path::Path = std::path::Path::new("/home/rust/");
                 let steamcmd: crate::proc::Dependency = match crate::proc::Dependency::init(
                     "steamcmd",
@@ -85,7 +83,7 @@ fn main() {
                             }
                         }
                     }
-                    Err(ErrPrecondition::MissingExecutableDependency(_)) => {
+                    Err(crate::error::ErrPrecondition::MissingExecutableDependency(_)) => {
                         let installed =
                             match crate::ext_ops::install_game(&steamcmd, &installation_dir) {
                                 Ok(n) => n,
@@ -100,7 +98,7 @@ fn main() {
                         log::info!("Dependency installed: {installed}");
                         installed
                     }
-                    Err(ErrPrecondition::Filesystem(_)) => todo!(),
+                    Err(crate::error::ErrPrecondition::Filesystem(_)) => todo!(),
                 };
 
                 if let Some(pid) = crate::proc::is_process_running(&rustdedicated.executable) {
@@ -118,7 +116,7 @@ fn main() {
                  * TODO: Install own Carbon plugins
                  */
 
-                let (tx_game_stdout, rx_game_stdout) = std::sync::mpsc::channel::<String>();
+                let (tx_game_stdout, _rx_game_stdout) = std::sync::mpsc::channel::<String>();
                 if let Err(err) = crate::ext_ops::run_game(&rustdedicated, tx_game_stdout) {
                     log::error!("Unrecoverable error: Could not run RustDedicated: {}", err);
                     std::process::exit(EXIT_ERR_GAME_SERVER);

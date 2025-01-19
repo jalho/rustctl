@@ -118,6 +118,7 @@ impl std::fmt::Display for Dependency {
 pub trait Exec {
     fn exec_terminating(&self, argv: Vec<&str>) -> Result<(String, String), crate::error::ErrExec>;
 
+    #[allow(dead_code)]
     fn exec_continuous(
         &self,
         argv: Vec<&str>,
@@ -143,7 +144,7 @@ impl Exec for Dependency {
 
         let mut child: std::process::Child = match command.spawn() {
             Ok(process) => process,
-            Err(err) => {
+            Err(_) => {
                 return Err(crate::error::ErrExec {
                     command: format!("{} {:?}", &self.executable, &argv),
                     status: None,

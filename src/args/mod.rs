@@ -22,11 +22,5 @@ pub enum CliSubCommandGame {
         name = "start",
         about = "Install and update the game server, and then configure and start it."
     )]
-    InstallUpdateConfigureStart {
-        #[arg(
-            long,
-            help = "Skip installing (or updating) the game server: Useful for fast iteration during development."
-        )]
-        skip_install: bool,
-    },
+    InstallUpdateConfigureStart,
 }

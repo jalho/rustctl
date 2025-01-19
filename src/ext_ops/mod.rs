@@ -4,10 +4,6 @@
 /// SteamCMD).
 static EXECUTABLE_NAME_RUSTDEDICATED: &'static str = "RustDedicated";
 
-/// The closest thing to a _version_ that Steam apps have as far as I know. I
-/// assume this is an incrementing non-negative, non-zero integer.
-type SteamAppBuildId = u32;
-
 pub fn parse_buildid_from_manifest(manifest_path: &std::path::Path) -> Option<u32> {
     if let Ok(content) = std::fs::read_to_string(manifest_path) {
         for line in content.lines() {
@@ -117,8 +113,8 @@ pub fn update_game<E: crate::proc::Exec>(
 
 /// Run game server and pass its standard output to a given channel.
 pub fn run_game<E: crate::proc::Exec>(
-    rustdedicated: &E,
-    tx_stdout: std::sync::mpsc::Sender<String>,
+    _rustdedicated: &E,
+    _tx_stdout: std::sync::mpsc::Sender<String>,
 ) -> Result<(), crate::error::ErrExec> {
     todo!("run_game");
 }
