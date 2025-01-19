@@ -20,7 +20,7 @@ pub enum CliCommand {
 pub enum CliSubCommandGame {
     #[command(
         name = "start",
-        about = "Install and update the game server (RustDedicated) with SteamCMD and then configure and start the game server."
+        about = "Install and update the game server, and then configure and start it."
     )]
     InstallUpdateConfigureStart {
         #[arg(

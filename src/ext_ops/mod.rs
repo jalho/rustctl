@@ -32,7 +32,7 @@ pub fn install_game<E: crate::proc::Exec>(
     steamcmd: &E,
     installation_dir: &std::path::Path,
 ) -> Result<crate::proc::Dependency, crate::error::ErrExec> {
-    let steam_app_id: u32 = crate::RUSTDEDICATED_STEAM_APP_ID;
+    let steam_app_id: u32 = crate::GAME_SERVER_STEAM_APP_ID;
     steamcmd.exec_terminating(vec![
         /*
          * Note: It seems force_install_dir doesn't really _force_ anything:
@@ -95,7 +95,7 @@ pub fn update_game<E: crate::proc::Exec>(
     steamcmd.exec_terminating(vec!["+app_info_update", "1", "+quit"])?;
     let (stdout, _) = steamcmd.exec_terminating(vec![
         "+app_info_print",
-        &crate::RUSTDEDICATED_STEAM_APP_ID.to_string(),
+        &crate::GAME_SERVER_STEAM_APP_ID.to_string(),
         "+quit",
     ])?;
     if let Some((build_id_a, build_id_b)) = parse_buildids(stdout) {

@@ -12,17 +12,17 @@ static EXIT_OK: i32 = 0;
 /// to filesystem etc.
 static EXIT_ERR_SYSTEM_PRECONDITION: i32 = 42;
 
-/// SteamCMD process or RustDedicated process or something else that is not
-/// supposed to be run in parallel is already running.
+/// Something that is not supposed to be run in parallel is already running:
+/// E.g. the game server or its installer.
 static EXIT_ERR_PARALLEL_EXECUTION: i32 = 43;
 
-/// SteamCMD failed.
-static EXIT_ERR_STEAMCMD: i32 = 44;
+/// Game server installer failed.
+static EXIT_ERR_GAME_INSTALLER: i32 = 44;
 
-/// RustDedicated failed.
-static EXIT_ERR_RUSTDEDICATED: i32 = 45;
+/// Game server failed.
+static EXIT_ERR_GAME_SERVER: i32 = 45;
 
-static RUSTDEDICATED_STEAM_APP_ID: u32 = 258550;
+static GAME_SERVER_STEAM_APP_ID: u32 = 258550;
 
 fn main() {
     _ = crate::misc::init_logger();
@@ -56,7 +56,7 @@ fn main() {
                     installation_dir,
                     String::from("game server"),
                     // TODO: Construct the magic id from statics
-                    crate::proc::DependencyKind::SteamApp(RUSTDEDICATED_STEAM_APP_ID),
+                    crate::proc::DependencyKind::SteamApp(GAME_SERVER_STEAM_APP_ID),
                 ) {
                     Ok(preinstalled) => {
                         let maybe_updated =
@@ -67,7 +67,7 @@ fn main() {
                                         "Unrecoverable error: Could not update RustDedicated: {}",
                                         err
                                     );
-                                    std::process::exit(EXIT_ERR_STEAMCMD);
+                                    std::process::exit(EXIT_ERR_GAME_INSTALLER);
                                 }
                             };
                         match maybe_updated {
@@ -94,7 +94,7 @@ fn main() {
                                         "Unrecoverable error: Could not install RustDedicated: {}",
                                         err
                                     );
-                                    std::process::exit(EXIT_ERR_STEAMCMD);
+                                    std::process::exit(EXIT_ERR_GAME_INSTALLER);
                                 }
                             };
                         log::info!("Dependency installed: {installed}");
@@ -121,7 +121,7 @@ fn main() {
                 let (tx_game_stdout, rx_game_stdout) = std::sync::mpsc::channel::<String>();
                 if let Err(err) = crate::ext_ops::run_game(&rustdedicated, tx_game_stdout) {
                     log::error!("Unrecoverable error: Could not run RustDedicated: {}", err);
-                    std::process::exit(EXIT_ERR_RUSTDEDICATED);
+                    std::process::exit(EXIT_ERR_GAME_SERVER);
                 }
 
                 /*
