@@ -11,7 +11,7 @@ impl Dependency {
     pub fn init(
         executable: &'static str,
         work_dir: &std::path::Path,
-    ) -> Result<Self, crate::error::ErrDependencyMissing> {
+    ) -> Result<Self, crate::error::ErrPrecondition> {
         let sh: &str = "sh";
         let output: std::process::Output = match std::process::Command::new(sh)
             .arg("-c")
@@ -19,16 +19,25 @@ impl Dependency {
             .output()
         {
             Ok(n) => n,
-            Err(_) => return Err(crate::error::ErrDependencyMissing { executable: sh }),
+            Err(_) => {
+                return Err(crate::error::ErrPrecondition::MissingDependency(
+                    sh.to_owned(),
+                ));
+            }
         };
 
         if !output.status.success() {
-            return Err(crate::error::ErrDependencyMissing { executable });
+            return Err(crate::error::ErrPrecondition::MissingDependency(
+                executable.to_owned(),
+            ));
         }
 
         let work_dir: std::path::PathBuf = work_dir.into();
         if !can_write_to_directory(&work_dir) {
-            todo!("define error case");
+            return Err(crate::error::ErrPrecondition::MissingPermission(format!(
+                "rwx to {}",
+                &work_dir.to_string_lossy()
+            )));
         }
 
         return Ok(Self {

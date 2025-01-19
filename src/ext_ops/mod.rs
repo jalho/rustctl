@@ -75,8 +75,8 @@ fn parse_buildid_from_manifest(manifest_path: &std::path::Path) -> Option<u32> {
 pub fn install_game<E: crate::proc::Exec>(
     steamcmd: &E,
     installation_dir: &std::path::Path,
-) -> Result<crate::proc::Dependency, crate::error::ErrInstallGame> {
-    if let Err(err) = steamcmd.exec_terminating(vec![
+) -> Result<crate::proc::Dependency, crate::error::ErrExec> {
+    steamcmd.exec_terminating(vec![
         /*
          * Note: It seems force_install_dir doesn't really _force_ anything:
          * If no write permissions, the stuff seems to just be dumped into
@@ -90,9 +90,7 @@ pub fn install_game<E: crate::proc::Exec>(
         "258550",
         "validate",
         "+quit",
-    ]) {
-        return Err(crate::error::ErrInstallGame::ErrSteamCmd(err));
-    }
+    ])?;
     todo!("verify installation success");
 }
 

@@ -1,18 +1,29 @@
 //! Error cases of the program.
 
-/// A required dependency is missing.
+/// A precondition is not met: Critical dependency is missing or something.
 #[derive(Debug)]
-pub struct ErrDependencyMissing {
-    pub executable: &'static str,
+pub enum ErrPrecondition {
+    MissingDependency(String),
+    MissingPermission(String),
 }
-impl std::error::Error for ErrDependencyMissing {
+impl std::error::Error for ErrPrecondition {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         return None;
     }
 }
-impl std::fmt::Display for ErrDependencyMissing {
+impl std::fmt::Display for ErrPrecondition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        return write!(f, "missing dependency '{}'", &self.executable);
+        match self {
+            ErrPrecondition::MissingDependency(dependency) => {
+                return write!(f, "precondition not met: dependency missing: {dependency}");
+            }
+            ErrPrecondition::MissingPermission(permission) => {
+                return write!(
+                    f,
+                    "precondition not met: insufficient permissions: {permission}"
+                );
+            }
+        }
     }
 }
 
@@ -44,38 +55,5 @@ impl std::fmt::Display for ErrExec {
             "command failed {}: {}{}",
             &status, &self.command, &stderr
         );
-    }
-}
-
-/// Installing the game server with SteamCMD failed.
-#[derive(Debug)]
-pub enum ErrInstallGame {
-    /// SteamCMD failed.
-    ErrSteamCmd(ErrExec),
-    /// Precondition not met: Missing permissions to the specified installation dir.
-    ErrMissingPermissions(String),
-}
-impl std::error::Error for ErrInstallGame {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            ErrInstallGame::ErrSteamCmd(err_exec) => {
-                return Some(err_exec);
-            }
-            ErrInstallGame::ErrMissingPermissions(_) => {
-                return None;
-            }
-        }
-    }
-}
-impl std::fmt::Display for ErrInstallGame {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ErrInstallGame::ErrSteamCmd(err_exec) => {
-                return err_exec.fmt(f);
-            }
-            ErrInstallGame::ErrMissingPermissions(path) => {
-                return write!(f, "missing permissions to {path}");
-            }
-        }
     }
 }
