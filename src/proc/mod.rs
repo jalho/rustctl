@@ -20,21 +20,21 @@ impl Dependency {
         {
             Ok(n) => n,
             Err(_) => {
-                return Err(crate::error::ErrPrecondition::MissingDependency(
+                return Err(crate::error::ErrPrecondition::MissingExecutableDependency(
                     sh.to_owned(),
                 ));
             }
         };
 
         if !output.status.success() {
-            return Err(crate::error::ErrPrecondition::MissingDependency(
+            return Err(crate::error::ErrPrecondition::MissingExecutableDependency(
                 executable.to_owned(),
             ));
         }
 
         let work_dir: std::path::PathBuf = work_dir.into();
         if !is_writeable_dir(&work_dir) {
-            return Err(crate::error::ErrPrecondition::MissingPermission(format!(
+            return Err(crate::error::ErrPrecondition::Filesystem(format!(
                 "rwx to {}",
                 &work_dir.to_string_lossy()
             )));

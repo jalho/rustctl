@@ -3,8 +3,8 @@
 /// A precondition is not met: Critical dependency is missing or something.
 #[derive(Debug)]
 pub enum ErrPrecondition {
-    MissingDependency(String),
-    MissingPermission(String),
+    MissingExecutableDependency(String),
+    Filesystem(String),
 }
 impl std::error::Error for ErrPrecondition {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
@@ -14,14 +14,14 @@ impl std::error::Error for ErrPrecondition {
 impl std::fmt::Display for ErrPrecondition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ErrPrecondition::MissingDependency(dependency) => {
-                return write!(f, "precondition not met: dependency missing: {dependency}");
-            }
-            ErrPrecondition::MissingPermission(permission) => {
+            ErrPrecondition::MissingExecutableDependency(dependency) => {
                 return write!(
                     f,
-                    "precondition not met: insufficient permissions: {permission}"
+                    "precondition not met: executable dependency missing: {dependency}"
                 );
+            }
+            ErrPrecondition::Filesystem(explanation) => {
+                return write!(f, "precondition not met: {explanation}");
             }
         }
     }
