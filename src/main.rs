@@ -22,6 +22,8 @@ static EXIT_ERR_STEAMCMD: i32 = 44;
 /// RustDedicated failed.
 static EXIT_ERR_RUSTDEDICATED: i32 = 45;
 
+static RUSTDEDICATED_STEAM_APP_ID: u32 = 258550;
+
 fn main() {
     _ = crate::misc::init_logger();
 
@@ -54,7 +56,7 @@ fn main() {
                     installation_dir,
                     String::from("game server"),
                     // TODO: Construct the magic id from statics
-                    crate::proc::DependencyKind::SteamApp(258550),
+                    crate::proc::DependencyKind::SteamApp(RUSTDEDICATED_STEAM_APP_ID),
                 ) {
                     Ok(preinstalled) => {
                         let maybe_updated =
