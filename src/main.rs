@@ -1,3 +1,5 @@
+use error::ErrPrecondition;
+
 mod args;
 mod error;
 mod ext_ops;
@@ -32,6 +34,7 @@ fn main() {
                     "steamcmd",
                     &installation_dir,
                     String::from("game server installer"),
+                    crate::proc::DependencyKind::Other,
                 ) {
                     Ok(n) => n,
                     Err(err) => {
@@ -45,35 +48,58 @@ fn main() {
                     std::process::exit(EXIT_ERR_PARALLEL_EXECUTION);
                 }
 
-                let rustdedicated: crate::proc::Dependency;
-                if let Some(current_version) = crate::ext_ops::is_game_installed(&installation_dir)
-                {
-                    rustdedicated = match crate::ext_ops::update_game(&steamcmd, current_version) {
-                        Ok(n) => n,
-                        Err(err) => {
-                            log::error!(
-                                "Unrecoverable error: Could not update RustDedicated: {}",
-                                err
-                            );
-                            std::process::exit(EXIT_ERR_STEAMCMD);
+                let rustdedicated: crate::proc::Dependency = match crate::proc::Dependency::init(
+                    // TODO: Construct the magic path from statics
+                    "/home/rust/RustDedicated",
+                    installation_dir,
+                    String::from("game server"),
+                    // TODO: Construct the magic id from statics
+                    crate::proc::DependencyKind::SteamApp(258550),
+                ) {
+                    Ok(preinstalled) => {
+                        let maybe_updated =
+                            match crate::ext_ops::update_game(&steamcmd, &preinstalled) {
+                                Ok(n) => n,
+                                Err(err) => {
+                                    log::error!(
+                                        "Unrecoverable error: Could not update RustDedicated: {}",
+                                        err
+                                    );
+                                    std::process::exit(EXIT_ERR_STEAMCMD);
+                                }
+                            };
+                        match maybe_updated {
+                            Some(updated) => {
+                                log::info!("Updated {} to version {}", &updated, &updated.version);
+                                updated
+                            }
+                            None => {
+                                log::info!(
+                                    "Dependency {} is up to date: Version {}",
+                                    &preinstalled,
+                                    &preinstalled.version
+                                );
+                                preinstalled
+                            }
                         }
-                    };
-                    // TODO: Distinguish cases updated vs. already up-to-date in logging: Also log updated version
-                    log::info!("Dependency assured up-to-date: {rustdedicated}");
-                } else {
-                    rustdedicated = match crate::ext_ops::install_game(&steamcmd, &installation_dir)
-                    {
-                        Ok(n) => n,
-                        Err(err) => {
-                            log::error!(
-                                "Unrecoverable error: Could not install RustDedicated: {}",
-                                err
-                            );
-                            std::process::exit(EXIT_ERR_STEAMCMD);
-                        }
-                    };
-                    log::info!("Dependency installed: {rustdedicated}");
-                }
+                    }
+                    Err(ErrPrecondition::MissingExecutableDependency(_)) => {
+                        let installed =
+                            match crate::ext_ops::install_game(&steamcmd, &installation_dir) {
+                                Ok(n) => n,
+                                Err(err) => {
+                                    log::error!(
+                                        "Unrecoverable error: Could not install RustDedicated: {}",
+                                        err
+                                    );
+                                    std::process::exit(EXIT_ERR_STEAMCMD);
+                                }
+                            };
+                        log::info!("Dependency installed: {installed}");
+                        installed
+                    }
+                    Err(ErrPrecondition::Filesystem(_)) => todo!(),
+                };
 
                 if let Some(pid) = crate::proc::is_process_running(&rustdedicated.executable) {
                     log::error!(

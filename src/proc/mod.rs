@@ -2,6 +2,19 @@
 
 use crate::misc::is_dir_rwx;
 
+pub enum DependencyVersion {
+    Unknown,
+    SteamAppBuildId(u32),
+}
+impl std::fmt::Display for DependencyVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DependencyVersion::Unknown => write!(f, "unknown"),
+            DependencyVersion::SteamAppBuildId(build_id) => write!(f, "{build_id}"),
+        }
+    }
+}
+
 pub struct Dependency {
     /// Either a path to an executable, or some name that is present in the PATH
     /// environment of the current user.
@@ -12,6 +25,13 @@ pub struct Dependency {
 
     /// Displayed role of this dependency.
     pub role_displayed: String,
+
+    pub version: DependencyVersion,
+}
+
+pub enum DependencyKind {
+    Other,
+    SteamApp(u32),
 }
 
 impl Dependency {
@@ -19,6 +39,7 @@ impl Dependency {
         executable: &'static str,
         work_dir: &std::path::Path,
         role_displayed: String,
+        kind: DependencyKind,
     ) -> Result<Self, crate::error::ErrPrecondition> {
         let sh: &str = "sh";
         let output: std::process::Output = match std::process::Command::new(sh)
@@ -48,11 +69,43 @@ impl Dependency {
             )));
         }
 
-        return Ok(Self {
-            executable: String::from(executable),
-            work_dir,
-            role_displayed,
-        });
+        match kind {
+            DependencyKind::Other => {
+                return Ok(Self {
+                    executable: String::from(executable),
+                    work_dir,
+                    role_displayed,
+                    version: DependencyVersion::Unknown,
+                });
+            }
+            DependencyKind::SteamApp(steam_app_id) => {
+                let mut appmanifest_file_path: std::path::PathBuf = std::path::PathBuf::new();
+                appmanifest_file_path.push(&work_dir);
+                appmanifest_file_path.push("steamapps");
+                let appmanifest_file_name: String = format!("appmanifest_{steam_app_id}.acf");
+                appmanifest_file_path.push(&appmanifest_file_name);
+
+                let appmanifest_file_path: &std::path::Path =
+                    std::path::Path::new(&appmanifest_file_path);
+                if !appmanifest_file_path.is_file() {
+                    todo!("define error case: no appmanifest found for steam app");
+                }
+
+                match crate::ext_ops::parse_buildid_from_manifest(&appmanifest_file_path) {
+                    Some(build_id) => {
+                        return Ok(Self {
+                            executable: String::from(executable),
+                            work_dir,
+                            role_displayed,
+                            version: DependencyVersion::SteamAppBuildId(build_id),
+                        });
+                    }
+                    None => {
+                        todo!("define error case: could not parse steam build id from app manifest")
+                    }
+                }
+            }
+        }
     }
 }
 

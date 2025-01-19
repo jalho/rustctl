@@ -7,52 +7,11 @@ static EXECUTABLE_NAME_RUSTDEDICATED: &'static str = "RustDedicated";
 /// Steam app ID of the Rust game server (RustDedicated).
 static STEAM_APP_ID_RUSTDEDICATED: u32 = 258550;
 
-#[derive(serde::Deserialize)]
-struct SteamAppManifest {
-    buildid: SteamAppBuildId,
-}
-
 /// The closest thing to a _version_ that Steam apps have as far as I know. I
 /// assume this is an incrementing non-negative, non-zero integer.
 type SteamAppBuildId = u32;
 
-/// Check if RustDedicated is installed.
-pub fn is_game_installed(expected_installation_dir: &std::path::Path) -> Option<SteamAppBuildId> {
-    let executable_path: &std::path::Path =
-        &expected_installation_dir.join(EXECUTABLE_NAME_RUSTDEDICATED);
-
-    if !executable_path.is_file() {
-        return None;
-    }
-
-    if let Ok(metadata) = executable_path.metadata() {
-        if std::os::unix::fs::PermissionsExt::mode(&metadata.permissions()) & 0o111 == 0 {
-            return None;
-        }
-    } else {
-        return None;
-    }
-
-    let mut appmanifest_file_path: std::path::PathBuf = match executable_path.parent() {
-        Some(n) => n.into(),
-        None => return None,
-    };
-    let appmanifest_file_name: String = format!("appmanifest_{STEAM_APP_ID_RUSTDEDICATED}.acf");
-    appmanifest_file_path.push("steamapps");
-    appmanifest_file_path.push(&appmanifest_file_name);
-    let appmanifest_file_path: &std::path::Path = std::path::Path::new(&appmanifest_file_path);
-    if !appmanifest_file_path.is_file() {
-        return None;
-    }
-
-    if let Some(build_id) = parse_buildid_from_manifest(&appmanifest_file_path) {
-        return Some(build_id);
-    } else {
-    }
-    return None;
-}
-
-fn parse_buildid_from_manifest(manifest_path: &std::path::Path) -> Option<u32> {
+pub fn parse_buildid_from_manifest(manifest_path: &std::path::Path) -> Option<u32> {
     if let Ok(content) = std::fs::read_to_string(manifest_path) {
         for line in content.lines() {
             let trimmed: &str = line.trim();
@@ -76,6 +35,7 @@ pub fn install_game<E: crate::proc::Exec>(
     steamcmd: &E,
     installation_dir: &std::path::Path,
 ) -> Result<crate::proc::Dependency, crate::error::ErrExec> {
+    let steam_app_id: u32 = 258550;
     steamcmd.exec_terminating(vec![
         /*
          * Note: It seems force_install_dir doesn't really _force_ anything:
@@ -87,10 +47,26 @@ pub fn install_game<E: crate::proc::Exec>(
         "+login",
         "anonymous",
         "+app_update",
-        "258550",
+        &steam_app_id.to_string(),
         "validate",
         "+quit",
     ])?;
+
+    let mut appmanifest_file_path: std::path::PathBuf = std::path::PathBuf::new();
+    appmanifest_file_path.push(&installation_dir);
+    appmanifest_file_path.push("steamapps");
+    let appmanifest_file_name: String = format!("appmanifest_{steam_app_id}.acf");
+    appmanifest_file_path.push(&appmanifest_file_name);
+
+    let appmanifest_file_path: &std::path::Path = std::path::Path::new(&appmanifest_file_path);
+    if !appmanifest_file_path.is_file() {
+        todo!("define error case: no appmanifest found for steam app");
+    }
+
+    let build_id: u32 = match crate::ext_ops::parse_buildid_from_manifest(&appmanifest_file_path) {
+        Some(n) => n,
+        None => todo!("define error case: could not parse steam build id from app manifest"),
+    };
 
     let mut executable_path: std::path::PathBuf = installation_dir.into();
     executable_path.push(&EXECUTABLE_NAME_RUSTDEDICATED);
@@ -103,6 +79,7 @@ pub fn install_game<E: crate::proc::Exec>(
         executable,
         work_dir: installation_dir.into(),
         role_displayed: String::from("game server"),
+        version: crate::proc::DependencyVersion::SteamAppBuildId(build_id),
     };
     return Ok(rustdedicated);
 }
@@ -110,8 +87,14 @@ pub fn install_game<E: crate::proc::Exec>(
 /// Update an existing installation of RustDedicated.
 pub fn update_game<E: crate::proc::Exec>(
     steamcmd: &E,
-    current_version: SteamAppBuildId,
-) -> Result<crate::proc::Dependency, crate::error::ErrExec> {
+    current: &crate::proc::Dependency,
+) -> Result<Option<crate::proc::Dependency>, crate::error::ErrExec> {
+    let current_installed_build_id: u32 = match current.version {
+        crate::proc::DependencyVersion::Unknown => {
+            unreachable!("a dependency of kind Steam app should always have a determined build ID")
+        }
+        crate::proc::DependencyVersion::SteamAppBuildId(n) => n,
+    };
     steamcmd.exec_terminating(vec!["+app_info_update", "1", "+quit"])?;
     let (stdout, _) = steamcmd.exec_terminating(vec![
         "+app_info_print",
@@ -122,9 +105,8 @@ pub fn update_game<E: crate::proc::Exec>(
         if build_id_a != build_id_b {
             todo!("define handled error case for: conflicting build ids from remote -- which one to pick???");
         }
-        if build_id_a == current_version {
-            log::info!("Game server update not needed: Latest build ID in remote matches current installation: {}", current_version);
-            todo!("init dependency, return Ok()");
+        if build_id_a == current_installed_build_id {
+            return Ok(None);
         }
         todo!("updates are known to be available -- go install!");
     } else {
