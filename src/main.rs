@@ -20,6 +20,14 @@ static EXIT_ERR_GAME_INSTALLER: i32 = 44;
 /// Game server failed.
 static EXIT_ERR_GAME_SERVER: i32 = 45;
 
+/*
+ *    TODO:
+ *
+ *    Define structures representing _installation options_ and an _assured
+ *    existing dependency_. The latter should emerge from either doing some
+ *    operation on the former, or by doing some operation on itself.
+ */
+
 fn main() {
     _ = crate::misc::init_logger();
 
