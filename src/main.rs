@@ -24,12 +24,12 @@ mod game {
         fn transition(&self, transition: T) {
             match (&self.state, transition) {
                 (S::I(_, RS::NR), T::Install | T::Stop) => {} // Nothing to do!
-                (S::I(_, RS::NR), T::Start) => todo!("start"),
-                (S::I(_, RS::NR), T::Update) => todo!("update_cond(meta)"),
+                (S::I(_, RS::NR), T::Start) => todo!("update ? update && start : start"),
+                (S::I(_, RS::NR), T::Update) => todo!("update"),
 
                 (S::I(_, RS::R(_)), T::Install | T::Start) => {} // Nothing to do!
                 (S::I(_, RS::R(_)), T::Stop) => todo!("stop"),
-                (S::I(_, RS::R(_)), T::Update) => todo!("stop && update_cond(meta)"),
+                (S::I(_, RS::R(_)), T::Update) => todo!("update ? stop && start : noop"),
 
                 (S::NI, T::Install | T::Update) => todo!("install"),
                 (S::NI, T::Start) => todo!("install && start"),
@@ -45,7 +45,7 @@ mod game {
             todo!("install game server using SteamCMD");
         }
 
-        fn update() -> Option<Updation> {
+        fn update(&self) -> Option<Updation> {
             todo!("check for updates and update if necessary using SteamCMD");
         }
 
