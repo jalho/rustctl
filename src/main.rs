@@ -136,7 +136,8 @@ mod game {
                                 Updation {
                                     completed: install_instant,
                                     from: None,
-                                    to: todo!("parse build ID from {:?}", manifest),
+                                    to: crate::parsers::parse_buildid_from_manifest(&manifest)
+                                        .expect("no build ID in manifest"),
                                     root_dir: parent,
                                     executable_name,
                                     manifest_name: std::path::Path::new(
@@ -286,5 +287,26 @@ mod logger {
             }
         };
         return logger;
+    }
+}
+
+mod parsers {
+    pub fn parse_buildid_from_manifest(manifest_path: &std::path::Path) -> Option<u32> {
+        if let Ok(content) = std::fs::read_to_string(manifest_path) {
+            for line in content.lines() {
+                let trimmed: &str = line.trim();
+                if trimmed.starts_with("\"buildid\"") {
+                    if let Some(_) = trimmed.find('\"') {
+                        let parts: Vec<&str> = trimmed.split_whitespace().collect();
+                        if parts.len() >= 2 {
+                            if let Ok(buildid) = parts[1].trim_matches('"').parse::<u32>() {
+                                return Some(buildid);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return None;
     }
 }
