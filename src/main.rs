@@ -58,7 +58,18 @@ mod game {
                     return self;
                 }
 
-                (S::I(_, RS::R(_)), T::Update) => todo!("update ? stop && start : noop"),
+                (S::I(current, RS::R(pid)), T::Update) => {
+                    let latest: SteamAppBuildId = Game::get_latest_version();
+                    if current.to != latest {
+                        Game::terminate(*pid);
+                        let updated: Updation = Game::update();
+                        let pid: LinuxProcessId = Game::spawn();
+                        self.state = S::I(updated, RS::R(pid));
+                        return self;
+                    } else {
+                        return self;
+                    }
+                }
 
                 (S::NI, T::Install | T::Update) => todo!("install"),
                 (S::NI, T::Start) => todo!("install && start"),
