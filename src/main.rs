@@ -94,13 +94,8 @@ mod game {
         ) -> S {
             let installation_maybe: S = {
                 let executable: &str = "find";
-                let argv: Vec<&str> = vec![
-                    "/",
-                    "-name",
-                    &executable_name.to_string_lossy(),
-                    "-type",
-                    "f",
-                ];
+                let needle: String = executable_name.to_string_lossy().into_owned();
+                let argv: Vec<&str> = vec!["/", "-name", &needle, "-type", "f"];
                 let output: std::process::Output =
                     match std::process::Command::new(executable).args(argv).output() {
                         Ok(n) => n,
@@ -109,17 +104,23 @@ mod game {
                 if !output.status.success() {
                     S::NI
                 } else {
-                    let stdout_utf8: &str = String::from_utf8_lossy(&output.stdout).trim();
+                    let stdout_utf8: String =
+                        String::from_utf8_lossy(&output.stdout).trim().to_owned();
                     if stdout_utf8.lines().count() != 1 {
                         let display: &str = &executable_name.to_string_lossy();
                         todo!("multiple installations of {display}: {stdout_utf8}");
                     } else {
-                        let installed: &str =
-                            stdout_utf8.lines().last().expect("checked above: len == 1");
-                        let installed: &std::path::Path = std::path::Path::new(installed);
-                        let parent: &std::path::Path = installed
+                        let installed: String = stdout_utf8
+                            .lines()
+                            .last()
+                            .expect("checked above: count() == 1")
+                            .to_owned();
+                        let installed: std::path::PathBuf =
+                            std::path::Path::new(&installed).to_path_buf();
+                        let parent: std::path::PathBuf = installed
                             .parent()
-                            .expect("guaranteed by the way find was called: -type f");
+                            .expect("guaranteed by the way find was called: -type f")
+                            .to_path_buf();
                         let manifest: std::path::PathBuf = parent
                             .join("steamapps")
                             .join(format!("appmanifest_{steam_app_id}.acf"));
@@ -139,14 +140,15 @@ mod game {
                                     to: crate::parsers::parse_buildid_from_manifest(&manifest)
                                         .expect("no build ID in manifest"),
                                     root_dir: parent,
-                                    executable_name,
+                                    executable_name: executable_name.to_path_buf(),
                                     manifest_name: std::path::Path::new(
                                         &manifest
                                             .file_name()
                                             .expect("constructed above")
                                             .to_string_lossy()
                                             .into_owned(),
-                                    ),
+                                    )
+                                    .to_path_buf(),
                                 },
                                 RS::NR,
                             )
@@ -160,7 +162,8 @@ mod game {
                 S::I(installed, _) => {
                     let running: RS = {
                         let executable: &str = "pgrep";
-                        let argv: Vec<&str> = vec![&executable_name.to_string_lossy()];
+                        let arg: String = executable_name.to_string_lossy().into_owned();
+                        let argv: Vec<&str> = vec![&arg];
                         let output: std::process::Output =
                             match std::process::Command::new(executable).args(argv).output() {
                                 Ok(n) => n,
@@ -169,7 +172,8 @@ mod game {
                         if !output.status.success() {
                             RS::NR
                         } else {
-                            let stdout_utf8: &str = String::from_utf8_lossy(&output.stdout).trim();
+                            let stdout_utf8 =
+                                String::from_utf8_lossy(&output.stdout).trim().to_owned();
                             let pid: LinuxProcessId = match str::parse::<u32>(&stdout_utf8) {
                                 Ok(n) => n,
                                 Err(err) => {
@@ -236,9 +240,9 @@ mod game {
         completed: chrono::DateTime<chrono::Utc>,
         from: Option<SteamAppBuildId>,
         to: SteamAppBuildId,
-        root_dir: &'static std::path::Path,
-        executable_name: &'static std::path::Path,
-        manifest_name: &'static std::path::Path,
+        root_dir: std::path::PathBuf,
+        executable_name: std::path::PathBuf,
+        manifest_name: std::path::PathBuf,
     }
 
     /// Running state.
