@@ -41,20 +41,24 @@ mod game {
             todo!("determine initial state");
         }
 
+        fn get_latest_version() -> SteamAppBuildId {
+            todo!("");
+        }
+
         fn install() -> Updation {
             todo!("install game server using SteamCMD");
         }
 
-        fn update(&self) -> Option<Updation> {
-            todo!("check for updates and update if necessary using SteamCMD");
+        fn update() -> Updation {
+            todo!("update game server using SteamCMD");
         }
 
         fn spawn() -> LinuxProcessId {
-            todo!("launch RustDedicated");
+            todo!("spawn game server process");
         }
 
         fn terminate(pid: LinuxProcessId) {
-            todo!("terminate RustDedicated");
+            todo!("terminate game server process");
         }
     }
 
