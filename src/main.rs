@@ -15,25 +15,39 @@ mod game {
 
     impl Game {
         pub fn start() -> Self {
-            let state = Game::determine_inital_state();
-            let game = Self { state };
-            game.transition(T::Start);
-            return game;
+            let state: S = Game::determine_inital_state();
+            let game: Game = Self { state };
+            let started: Game = game.transition(T::Start);
+            return started;
         }
 
-        fn transition(&self, transition: T) {
+        fn transition(mut self, transition: T) -> Game {
             match (&self.state, transition) {
-                (S::I(_, RS::NR), T::Install | T::Stop) => {} // Nothing to do!
-                (S::I(_, RS::NR), T::Start) => todo!("update ? update && start : start"),
+                (S::I(_, RS::NR), T::Install | T::Stop) => self, // Nothing to do!
+
+                (S::I(current, RS::NR), T::Start) => {
+                    let latest: SteamAppBuildId = Game::get_latest_version();
+                    if current.to != latest {
+                        let updated: Updation = Game::update();
+                        let pid: LinuxProcessId = Game::spawn();
+                        self.state = S::I(updated, RS::R(pid));
+                        return self;
+                    } else {
+                        let pid: LinuxProcessId = Game::spawn();
+                        self.state = S::I(current.clone(), RS::R(pid));
+                        return self;
+                    }
+                }
+
                 (S::I(_, RS::NR), T::Update) => todo!("update"),
 
-                (S::I(_, RS::R(_)), T::Install | T::Start) => {} // Nothing to do!
+                (S::I(_, RS::R(_)), T::Install | T::Start) => self, // Nothing to do!
                 (S::I(_, RS::R(_)), T::Stop) => todo!("stop"),
                 (S::I(_, RS::R(_)), T::Update) => todo!("update ? stop && start : noop"),
 
                 (S::NI, T::Install | T::Update) => todo!("install"),
                 (S::NI, T::Start) => todo!("install && start"),
-                (S::NI, T::Stop) => {} // Nothing to do!
+                (S::NI, T::Stop) => self, // Nothing to do!
             }
         }
 
@@ -88,6 +102,7 @@ mod game {
 
     type LinuxProcessId = u32;
 
+    #[derive(Clone)]
     struct Updation {
         completed: chrono::DateTime<chrono::Utc>,
         from: Option<SteamAppBuildId>,
