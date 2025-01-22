@@ -22,6 +22,7 @@ mod game {
         }
 
         fn transition(mut self, transition: T) -> Self {
+            log::debug!("{:?}, {:?}", self.state, transition);
             match (&self.state, transition) {
                 (S::I(_, RS::NR), T::Install | T::Stop) => self, // Nothing to do!
 
@@ -216,6 +217,7 @@ mod game {
     }
 
     /// State of the machine.
+    #[derive(Debug)]
     enum S {
         /// Not installed.
         NI,
@@ -223,6 +225,7 @@ mod game {
         I(Updation, RS),
     }
 
+    #[derive(Debug)]
     /// Transition of the state machine.
     pub enum T {
         Install,
@@ -235,7 +238,7 @@ mod game {
 
     type LinuxProcessId = u32;
 
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     struct Updation {
         completed: chrono::DateTime<chrono::Utc>,
         from: Option<SteamAppBuildId>,
@@ -245,6 +248,7 @@ mod game {
         manifest_name: std::path::PathBuf,
     }
 
+    #[derive(Debug)]
     /// Running state.
     enum RS {
         /// Running.
