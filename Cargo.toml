@@ -15,3 +15,4 @@ serde = { version = "1.0.210", features = ["serde_derive"] }
 toml = "0.8.19"
 tungstenite = "0.24.0"
 clap = { version = "4.5.26", features = ["derive"] }
+chrono = "0.4.39"
