@@ -21,7 +21,7 @@ mod game {
             return started;
         }
 
-        fn transition(mut self, transition: T) -> Game {
+        fn transition(mut self, transition: T) -> Self {
             match (&self.state, transition) {
                 (S::I(_, RS::NR), T::Install | T::Stop) => self, // Nothing to do!
 
@@ -51,7 +51,13 @@ mod game {
                 }
 
                 (S::I(_, RS::R(_)), T::Install | T::Start) => self, // Nothing to do!
-                (S::I(_, RS::R(_)), T::Stop) => todo!("stop"),
+
+                (S::I(current, RS::R(pid)), T::Stop) => {
+                    Game::terminate(*pid);
+                    self.state = S::I(current.clone(), RS::NR);
+                    return self;
+                }
+
                 (S::I(_, RS::R(_)), T::Update) => todo!("update ? stop && start : noop"),
 
                 (S::NI, T::Install | T::Update) => todo!("install"),
