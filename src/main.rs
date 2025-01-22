@@ -1,8 +1,8 @@
 fn main() -> std::process::ExitCode {
     crate::logger::init_logger();
 
-    let game = crate::game::Game::init();
-    game.start();
+    let game = crate::game::Game::start();
+    log::info!("Game started: {game}");
 
     return std::process::ExitCode::SUCCESS;
 }
@@ -14,14 +14,11 @@ mod game {
     }
 
     impl Game {
-        pub fn init() -> Self {
-            return Self {
-                state: Game::determine_inital_state(),
-            };
-        }
-
-        pub fn start(&self) {
-            self.transition(T::Start);
+        pub fn start() -> Self {
+            let state = Game::determine_inital_state();
+            let game = Self { state };
+            game.transition(T::Start);
+            return game;
         }
 
         fn transition(&self, transition: T) {
@@ -40,6 +37,12 @@ mod game {
 
         fn determine_inital_state() -> S {
             todo!("determine initial state");
+        }
+    }
+
+    impl std::fmt::Display for Game {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            return write!(f, "");
         }
     }
 
