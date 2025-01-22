@@ -26,7 +26,7 @@ mod game {
                 (S::I(_, RS::NR), T::Install | T::Stop) => self, // Nothing to do!
 
                 (S::I(current, RS::NR), T::Start) => {
-                    let latest: SteamAppBuildId = Game::get_latest_version();
+                    let latest: SteamAppBuildId = Game::query_latest_version_info();
                     if current.to != latest {
                         let updated: Updation = Game::update();
                         let pid: LinuxProcessId = Game::spawn();
@@ -40,7 +40,7 @@ mod game {
                 }
 
                 (S::I(current, RS::NR), T::Update) => {
-                    let latest: SteamAppBuildId = Game::get_latest_version();
+                    let latest: SteamAppBuildId = Game::query_latest_version_info();
                     if current.to != latest {
                         let updated: Updation = Game::update();
                         self.state = S::I(updated, RS::NR);
@@ -59,7 +59,7 @@ mod game {
                 }
 
                 (S::I(current, RS::R(pid)), T::Update) => {
-                    let latest: SteamAppBuildId = Game::get_latest_version();
+                    let latest: SteamAppBuildId = Game::query_latest_version_info();
                     if current.to != latest {
                         Game::terminate(*pid);
                         let updated: Updation = Game::update();
@@ -71,8 +71,19 @@ mod game {
                     }
                 }
 
-                (S::NI, T::Install | T::Update) => todo!("install"),
-                (S::NI, T::Start) => todo!("install && start"),
+                (S::NI, T::Install | T::Update) => {
+                    let installed: Updation = Game::install();
+                    self.state = S::I(installed, RS::NR);
+                    return self;
+                }
+
+                (S::NI, T::Start) => {
+                    let installed: Updation = Game::install();
+                    let pid: LinuxProcessId = Game::spawn();
+                    self.state = S::I(installed, RS::R(pid));
+                    return self;
+                }
+
                 (S::NI, T::Stop) => self, // Nothing to do!
             }
         }
@@ -81,8 +92,8 @@ mod game {
             todo!("determine initial state");
         }
 
-        fn get_latest_version() -> SteamAppBuildId {
-            todo!("");
+        fn query_latest_version_info() -> SteamAppBuildId {
+            todo!("query information of latest version of game server available using SteamCMD");
         }
 
         fn install() -> Updation {
