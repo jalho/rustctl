@@ -92,7 +92,7 @@ mod game {
             executable_name: &'static std::path::Path,
             steam_app_id: u32,
         ) -> S {
-            let installed: S = {
+            let installation_maybe: S = {
                 let executable: &str = "find";
                 let argv: Vec<&str> = vec![
                     "/",
@@ -155,33 +155,33 @@ mod game {
                 }
             };
 
-            let running: RS = {
-                let executable: &str = "pgrep";
-                let argv: Vec<&str> = vec![&executable_name.to_string_lossy()];
-                let output: std::process::Output =
-                    match std::process::Command::new(executable).args(argv).output() {
-                        Ok(n) => n,
-                        Err(err) => todo!("could not {executable}: {err}"),
-                    };
-                if !output.status.success() {
-                    RS::NR
-                } else {
-                    let stdout_utf8: &str = String::from_utf8_lossy(&output.stdout).trim();
-                    let pid: LinuxProcessId = match str::parse::<u32>(&stdout_utf8) {
-                        Ok(n) => n,
-                        Err(err) => {
-                            todo!("invalid output from {executable}: {err}: {stdout_utf8}")
+            match installation_maybe {
+                S::NI => return installation_maybe,
+                S::I(installed, _) => {
+                    let running: RS = {
+                        let executable: &str = "pgrep";
+                        let argv: Vec<&str> = vec![&executable_name.to_string_lossy()];
+                        let output: std::process::Output =
+                            match std::process::Command::new(executable).args(argv).output() {
+                                Ok(n) => n,
+                                Err(err) => todo!("could not {executable}: {err}"),
+                            };
+                        if !output.status.success() {
+                            RS::NR
+                        } else {
+                            let stdout_utf8: &str = String::from_utf8_lossy(&output.stdout).trim();
+                            let pid: LinuxProcessId = match str::parse::<u32>(&stdout_utf8) {
+                                Ok(n) => n,
+                                Err(err) => {
+                                    todo!("invalid output from {executable}: {err}: {stdout_utf8}")
+                                }
+                            };
+                            RS::R(pid)
                         }
                     };
-                    RS::R(pid)
+                    return S::I(installed, running);
                 }
-            };
-
-            // todo!(
-            //     "determine initial state: check whether installed: {:?}, {:?}",
-            //     abs_executable,
-            //     abs_manifest
-            // );
+            }
         }
 
         fn query_latest_version_info() -> SteamAppBuildId {
