@@ -39,7 +39,16 @@ mod game {
                     }
                 }
 
-                (S::I(_, RS::NR), T::Update) => todo!("update"),
+                (S::I(current, RS::NR), T::Update) => {
+                    let latest: SteamAppBuildId = Game::get_latest_version();
+                    if current.to != latest {
+                        let updated: Updation = Game::update();
+                        self.state = S::I(updated, RS::NR);
+                        return self;
+                    } else {
+                        return self;
+                    }
+                }
 
                 (S::I(_, RS::R(_)), T::Install | T::Start) => self, // Nothing to do!
                 (S::I(_, RS::R(_)), T::Stop) => todo!("stop"),
