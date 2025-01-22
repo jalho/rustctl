@@ -14,11 +14,8 @@ mod game {
 
     impl Game {
         pub fn start() -> Self {
-            let state: S = Game::determine_inital_state(
-                std::path::Path::new("/home/rust/"),
-                std::path::Path::new("RustDedicated"),
-                258550,
-            );
+            let state: S =
+                Game::determine_inital_state(std::path::Path::new("RustDedicated"), 258550);
             let game: Game = Self { state };
             let started: Game = game.transition(T::Start);
             return started;
@@ -92,14 +89,70 @@ mod game {
         }
 
         fn determine_inital_state(
-            root_dir: &'static std::path::Path,
             executable_name: &'static std::path::Path,
             steam_app_id: u32,
         ) -> S {
-            let manifest_name: std::path::PathBuf =
-                std::path::Path::new(&format!("appmanifest_{steam_app_id}.acf")).to_path_buf();
-            let abs_executable: std::path::PathBuf = root_dir.join(executable_name);
-            let abs_manifest: std::path::PathBuf = root_dir.join("steamapps").join(manifest_name);
+            let installed: S = {
+                let executable: &str = "find";
+                let argv: Vec<&str> = vec![
+                    "/",
+                    "-name",
+                    &executable_name.to_string_lossy(),
+                    "-type",
+                    "f",
+                ];
+                let output: std::process::Output =
+                    match std::process::Command::new(executable).args(argv).output() {
+                        Ok(n) => n,
+                        Err(err) => todo!("could not {executable}: {err}"),
+                    };
+                if !output.status.success() {
+                    S::NI
+                } else {
+                    let stdout_utf8: &str = String::from_utf8_lossy(&output.stdout).trim();
+                    if stdout_utf8.lines().count() != 1 {
+                        let display: &str = &executable_name.to_string_lossy();
+                        todo!("multiple installations of {display}: {stdout_utf8}");
+                    } else {
+                        let installed: &str =
+                            stdout_utf8.lines().last().expect("checked above: len == 1");
+                        let installed: &std::path::Path = std::path::Path::new(installed);
+                        let parent: &std::path::Path = installed
+                            .parent()
+                            .expect("guaranteed by the way find was called: -type f");
+                        let manifest: std::path::PathBuf = parent
+                            .join("steamapps")
+                            .join(format!("appmanifest_{steam_app_id}.acf"));
+                        if !manifest.is_file() {
+                            S::NI
+                        } else {
+                            let meta: std::fs::Metadata =
+                                manifest.metadata().expect("checked to be file above");
+                            let ctime: i64 = std::os::linux::fs::MetadataExt::st_ctime(&meta);
+                            let install_instant: chrono::DateTime<chrono::Utc> =
+                                chrono::DateTime::from_timestamp(ctime, 0)
+                                    .expect("weird ctime in manifest");
+                            S::I(
+                                Updation {
+                                    completed: install_instant,
+                                    from: None,
+                                    to: todo!("parse build ID from {:?}", manifest),
+                                    root_dir: parent,
+                                    executable_name,
+                                    manifest_name: std::path::Path::new(
+                                        &manifest
+                                            .file_name()
+                                            .expect("constructed above")
+                                            .to_string_lossy()
+                                            .into_owned(),
+                                    ),
+                                },
+                                RS::NR,
+                            )
+                        }
+                    }
+                }
+            };
 
             let running: RS = {
                 let executable: &str = "pgrep";
@@ -107,7 +160,7 @@ mod game {
                 let output: std::process::Output =
                     match std::process::Command::new(executable).args(argv).output() {
                         Ok(n) => n,
-                        Err(err) => unreachable!("could not {executable}: {err}"),
+                        Err(err) => todo!("could not {executable}: {err}"),
                     };
                 if !output.status.success() {
                     RS::NR
@@ -116,7 +169,7 @@ mod game {
                     let pid: LinuxProcessId = match str::parse::<u32>(&stdout_utf8) {
                         Ok(n) => n,
                         Err(err) => {
-                            unreachable!("invalid output from {executable}: {err}: {stdout_utf8}")
+                            todo!("invalid output from {executable}: {err}: {stdout_utf8}")
                         }
                     };
                     RS::R(pid)
