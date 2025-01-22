@@ -8,14 +8,17 @@ fn main() -> std::process::ExitCode {
 }
 
 mod game {
-
     pub struct Game {
         state: S,
     }
 
     impl Game {
         pub fn start() -> Self {
-            let state: S = Game::determine_inital_state();
+            let state: S = Game::determine_inital_state(
+                std::path::Path::new("/home/rust/"),
+                std::path::Path::new("RustDedicated"),
+                258550,
+            );
             let game: Game = Self { state };
             let started: Game = game.transition(T::Start);
             return started;
@@ -88,8 +91,43 @@ mod game {
             }
         }
 
-        fn determine_inital_state() -> S {
-            todo!("determine initial state");
+        fn determine_inital_state(
+            root_dir: &'static std::path::Path,
+            executable_name: &'static std::path::Path,
+            steam_app_id: u32,
+        ) -> S {
+            let manifest_name: std::path::PathBuf =
+                std::path::Path::new(&format!("appmanifest_{steam_app_id}.acf")).to_path_buf();
+            let abs_executable: std::path::PathBuf = root_dir.join(executable_name);
+            let abs_manifest: std::path::PathBuf = root_dir.join("steamapps").join(manifest_name);
+
+            let running: RS = {
+                let executable: &str = "pgrep";
+                let argv: Vec<&str> = vec![&executable_name.to_string_lossy()];
+                let output: std::process::Output =
+                    match std::process::Command::new(executable).args(argv).output() {
+                        Ok(n) => n,
+                        Err(err) => unreachable!("could not {executable}: {err}"),
+                    };
+                if !output.status.success() {
+                    RS::NR
+                } else {
+                    let stdout_utf8: &str = String::from_utf8_lossy(&output.stdout).trim();
+                    let pid: LinuxProcessId = match str::parse::<u32>(&stdout_utf8) {
+                        Ok(n) => n,
+                        Err(err) => {
+                            unreachable!("invalid output from {executable}: {err}: {stdout_utf8}")
+                        }
+                    };
+                    RS::R(pid)
+                }
+            };
+
+            // todo!(
+            //     "determine initial state: check whether installed: {:?}, {:?}",
+            //     abs_executable,
+            //     abs_manifest
+            // );
         }
 
         fn query_latest_version_info() -> SteamAppBuildId {
@@ -144,6 +182,9 @@ mod game {
         completed: chrono::DateTime<chrono::Utc>,
         from: Option<SteamAppBuildId>,
         to: SteamAppBuildId,
+        root_dir: &'static std::path::Path,
+        executable_name: &'static std::path::Path,
+        manifest_name: &'static std::path::Path,
     }
 
     /// Running state.
