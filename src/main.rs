@@ -23,20 +23,38 @@ mod game {
 
         fn transition(&self, transition: T) {
             match (&self.state, transition) {
-                (S::NI, T::Install | T::Update) => todo!("install"),
-                (S::NI, T::Start) => todo!("install && start"),
-                (S::NI, T::Stop) => {} // Nothing to do!
-                (S::I(_, RS::R(_)), T::Install | T::Start) => {} // Nothing to do!
-                (S::I(_, RS::R(_)), T::Stop) => todo!("stop"),
-                (S::I(_, RS::R(_)), T::Update) => todo!("stop && update_cond(meta)"),
                 (S::I(_, RS::NR), T::Install | T::Stop) => {} // Nothing to do!
                 (S::I(_, RS::NR), T::Start) => todo!("start"),
                 (S::I(_, RS::NR), T::Update) => todo!("update_cond(meta)"),
+
+                (S::I(_, RS::R(_)), T::Install | T::Start) => {} // Nothing to do!
+                (S::I(_, RS::R(_)), T::Stop) => todo!("stop"),
+                (S::I(_, RS::R(_)), T::Update) => todo!("stop && update_cond(meta)"),
+
+                (S::NI, T::Install | T::Update) => todo!("install"),
+                (S::NI, T::Start) => todo!("install && start"),
+                (S::NI, T::Stop) => {} // Nothing to do!
             }
         }
 
         fn determine_inital_state() -> S {
             todo!("determine initial state");
+        }
+
+        fn install() -> Updation {
+            todo!("install game server using SteamCMD");
+        }
+
+        fn update() -> Option<Updation> {
+            todo!("check for updates and update if necessary using SteamCMD");
+        }
+
+        fn spawn() -> LinuxProcessId {
+            todo!("launch RustDedicated");
+        }
+
+        fn terminate(pid: LinuxProcessId) {
+            todo!("terminate RustDedicated");
         }
     }
 
