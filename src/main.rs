@@ -28,6 +28,7 @@ mod game {
     }
 
     #[derive(Debug)]
+    /// An unrecoverable error related to attempting to start the game server.
     pub enum GameError {
         ExternalDependencyError(ExecuteAttempt),
     }
