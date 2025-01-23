@@ -1,7 +1,13 @@
 fn main() -> std::process::ExitCode {
     crate::logger::init_logger();
 
-    let game = crate::game::Game::start();
+    let game: crate::game::Game = match crate::game::Game::start() {
+        Ok(n) => n,
+        Err(err) => {
+            log::error!("Game start failed: {}", err);
+            return std::process::ExitCode::FAILURE;
+        }
+    };
     log::info!("Game started: {game}");
 
     return std::process::ExitCode::SUCCESS;
@@ -12,13 +18,34 @@ mod game {
         state: S,
     }
 
+    #[derive(Debug)]
+    pub enum GameError {
+        TODO,
+    }
+
+    impl std::error::Error for GameError {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            match self {
+                GameError::TODO => None,
+            }
+        }
+    }
+
+    impl std::fmt::Display for GameError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                GameError::TODO => write!(f, ""),
+            }
+        }
+    }
+
     impl Game {
-        pub fn start() -> Self {
+        pub fn start() -> Result<Self, GameError> {
             let state: S =
                 Game::determine_inital_state(std::path::Path::new("RustDedicated"), 258550);
             let game: Game = Self { state };
             let started: Game = game.transition(T::Start);
-            return started;
+            return Ok(started);
         }
 
         fn transition(mut self, transition: T) -> Self {
