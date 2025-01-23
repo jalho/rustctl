@@ -147,81 +147,69 @@ mod game {
             executable_name: &'static str,
             steam_app_id: u32,
         ) -> Result<S, GameError> {
-            let installation_maybe: S = {
-                let installed = match crate::fs::find_single_file(executable_name)? {
-                    Some(n) => n,
-                    None => return Ok(S::NI),
-                };
-
-                let parent: std::path::PathBuf = installed
-                    .parent()
-                    .expect("guaranteed by the way find was called: -type f")
-                    .to_path_buf();
-                let manifest: std::path::PathBuf = parent
-                    .join("steamapps")
-                    .join(format!("appmanifest_{steam_app_id}.acf"));
-
-                if !manifest.is_file() {
-                    return Ok(S::NI);
-                }
-
-                let meta: std::fs::Metadata =
-                    manifest.metadata().expect("checked to be file above");
-                let ctime: i64 = std::os::linux::fs::MetadataExt::st_ctime(&meta);
-                let install_instant: chrono::DateTime<chrono::Utc> =
-                    chrono::DateTime::from_timestamp(ctime, 0).expect("weird ctime in manifest");
-
-                S::I(
-                    Updation {
-                        completed: install_instant,
-                        from: None,
-                        to: crate::parsers::parse_buildid_from_manifest(&manifest)
-                            .expect("no build ID in manifest"),
-                        root_dir: parent,
-                        executable_name: std::path::PathBuf::from(executable_name),
-                        manifest_name: std::path::Path::new(
-                            &manifest
-                                .file_name()
-                                .expect("constructed above")
-                                .to_string_lossy()
-                                .into_owned(),
-                        )
-                        .to_path_buf(),
-                    },
-                    RS::NR,
-                )
+            let installed = match crate::fs::find_single_file(executable_name)? {
+                Some(n) => n,
+                None => return Ok(S::NI),
             };
 
-            match installation_maybe {
-                S::NI => return Ok(installation_maybe),
-                S::I(installed, _) => {
-                    let running: RS = {
-                        let executable: &str = "pgrep";
-                        let output: std::process::Output =
-                            match std::process::Command::new(executable)
-                                .arg(executable_name)
-                                .output()
-                            {
-                                Ok(n) => n,
-                                Err(err) => todo!("could not {executable}: {err}"),
-                            };
-                        if !output.status.success() {
-                            RS::NR
-                        } else {
-                            let stdout_utf8 =
-                                String::from_utf8_lossy(&output.stdout).trim().to_owned();
-                            let pid: LinuxProcessId = match str::parse::<u32>(&stdout_utf8) {
-                                Ok(n) => n,
-                                Err(err) => {
-                                    todo!("invalid output from {executable}: {err}: {stdout_utf8}")
-                                }
-                            };
-                            RS::R(pid)
+            let parent: std::path::PathBuf = installed
+                .parent()
+                .expect("guaranteed by the way find was called: -type f")
+                .to_path_buf();
+            let manifest: std::path::PathBuf = parent
+                .join("steamapps")
+                .join(format!("appmanifest_{steam_app_id}.acf"));
+
+            if !manifest.is_file() {
+                return Ok(S::NI);
+            }
+
+            let meta: std::fs::Metadata = manifest.metadata().expect("checked to be file above");
+            let ctime: i64 = std::os::linux::fs::MetadataExt::st_ctime(&meta);
+            let install_instant: chrono::DateTime<chrono::Utc> =
+                chrono::DateTime::from_timestamp(ctime, 0).expect("weird ctime in manifest");
+
+            let updation: Updation = Updation {
+                completed: install_instant,
+                from: None,
+                to: crate::parsers::parse_buildid_from_manifest(&manifest)
+                    .expect("no build ID in manifest"),
+                root_dir: parent,
+                executable_name: std::path::PathBuf::from(executable_name),
+                manifest_name: std::path::Path::new(
+                    &manifest
+                        .file_name()
+                        .expect("constructed above")
+                        .to_string_lossy()
+                        .into_owned(),
+                )
+                .to_path_buf(),
+            };
+
+            let running: RS = {
+                let executable: &str = "pgrep";
+                let output: std::process::Output = match std::process::Command::new(executable)
+                    .arg(executable_name)
+                    .output()
+                {
+                    Ok(n) => n,
+                    Err(err) => todo!("could not {executable}: {err}"),
+                };
+                if !output.status.success() {
+                    RS::NR
+                } else {
+                    let stdout_utf8 = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+                    let pid: LinuxProcessId = match str::parse::<u32>(&stdout_utf8) {
+                        Ok(n) => n,
+                        Err(err) => {
+                            todo!("invalid output from {executable}: {err}: {stdout_utf8}")
                         }
                     };
-                    return Ok(S::I(installed, running));
+                    RS::R(pid)
                 }
-            }
+            };
+
+            return Ok(S::I(updation, running));
         }
 
         fn query_latest_version_info() -> SteamAppBuildId {
