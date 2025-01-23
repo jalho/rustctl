@@ -31,12 +31,14 @@ mod game {
     /// An unrecoverable error related to attempting to start the game server.
     pub enum GameError {
         ExternalDependencyError(ExecuteAttempt),
+        MultipleInstallations(Vec<String>),
     }
 
     impl std::error::Error for GameError {
         fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
             match self {
                 GameError::ExternalDependencyError(n) => Some(&n.source),
+                GameError::MultipleInstallations(_) => None,
             }
         }
     }
@@ -48,10 +50,18 @@ mod game {
                     let predicate: &str = &n.predicate_display;
                     let executable: &str = &n.executable;
                     let argv_joined: &str = &n.argv.join(" ");
-                    write!(
+                    return write!(
                         f,
                         "error while trying to {predicate}: failed command: {executable} {argv_joined}"
-                    )
+                    );
+                }
+                GameError::MultipleInstallations(installations) => {
+                    let installations: String = installations.join(", ");
+                    return write!(
+                        f,
+                        "unexpected multiple installations of game server: {}",
+                        installations
+                    );
                 }
             }
         }
@@ -170,7 +180,10 @@ mod game {
                     let stdout_utf8: &str = stdout_utf8.trim();
 
                     if stdout_utf8.lines().count() != 1 {
-                        todo!("multiple installations of {executable_name}: {stdout_utf8}");
+                        let li = stdout_utf8.lines();
+                        let li = li.map(|n| n.to_owned());
+                        let li: Vec<String> = li.collect::<Vec<String>>();
+                        return Err(GameError::MultipleInstallations(li));
                     } else {
                         let installed: String = stdout_utf8
                             .lines()
