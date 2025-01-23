@@ -58,8 +58,7 @@ mod game {
 
     impl Game {
         pub fn start() -> Result<Self, GameError> {
-            let state: S =
-                Game::determine_inital_state(std::path::Path::new("RustDedicated"), 258550)?;
+            let state: S = Game::determine_inital_state("RustDedicated", 258550)?;
             let game: Game = Self { state };
             let started: Game = game.transition(T::Start);
             return Ok(started);
@@ -134,16 +133,15 @@ mod game {
         }
 
         fn determine_inital_state(
-            executable_name: &'static std::path::Path,
+            executable_name: &'static str,
             steam_app_id: u32,
         ) -> Result<S, GameError> {
             let installation_maybe: S = {
                 let executable: &'static str = "find";
-                let needle: String = executable_name.to_string_lossy().into_owned();
                 let argv: Vec<std::borrow::Cow<'static, str>> = vec![
                     "/".into(),
                     "-name".into(),
-                    needle.into(),
+                    executable_name.into(),
                     "-type".into(),
                     "f".into(),
                 ];
@@ -169,8 +167,7 @@ mod game {
                     let stdout_utf8: String =
                         String::from_utf8_lossy(&output.stdout).trim().to_owned();
                     if stdout_utf8.lines().count() != 1 {
-                        let display: &str = &executable_name.to_string_lossy();
-                        todo!("multiple installations of {display}: {stdout_utf8}");
+                        todo!("multiple installations of {executable_name}: {stdout_utf8}");
                     } else {
                         let installed: String = stdout_utf8
                             .lines()
@@ -202,7 +199,7 @@ mod game {
                                     to: crate::parsers::parse_buildid_from_manifest(&manifest)
                                         .expect("no build ID in manifest"),
                                     root_dir: parent,
-                                    executable_name: executable_name.to_path_buf(),
+                                    executable_name: std::path::PathBuf::from(executable_name),
                                     manifest_name: std::path::Path::new(
                                         &manifest
                                             .file_name()
@@ -224,10 +221,11 @@ mod game {
                 S::I(installed, _) => {
                     let running: RS = {
                         let executable: &str = "pgrep";
-                        let arg: String = executable_name.to_string_lossy().into_owned();
-                        let argv: Vec<&str> = vec![&arg];
                         let output: std::process::Output =
-                            match std::process::Command::new(executable).args(argv).output() {
+                            match std::process::Command::new(executable)
+                                .arg(executable_name)
+                                .output()
+                            {
                                 Ok(n) => n,
                                 Err(err) => todo!("could not {executable}: {err}"),
                             };
