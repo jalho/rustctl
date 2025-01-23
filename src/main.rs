@@ -147,7 +147,8 @@ mod game {
             executable_name: &'static str,
             steam_app_id: u32,
         ) -> Result<S, GameError> {
-            let installed = match crate::fs::find_single_file(executable_name)? {
+            let installed: std::path::PathBuf = match crate::fs::find_single_file(executable_name)?
+            {
                 Some(n) => n,
                 None => return Ok(S::NI),
             };
