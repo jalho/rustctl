@@ -19,14 +19,23 @@ mod game {
     }
 
     #[derive(Debug)]
+    pub struct ExecuteAttempt {
+        executable: String,
+        argv: Vec<String>,
+        /// Describes what was being attempted, formatted for inclusion in an error message.
+        predicate_display: String,
+        source: std::io::Error,
+    }
+
+    #[derive(Debug)]
     pub enum GameError {
-        TODO,
+        ExternalDependencyError(ExecuteAttempt),
     }
 
     impl std::error::Error for GameError {
         fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
             match self {
-                GameError::TODO => None,
+                GameError::ExternalDependencyError(n) => Some(&n.source),
             }
         }
     }
@@ -34,7 +43,15 @@ mod game {
     impl std::fmt::Display for GameError {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
-                GameError::TODO => write!(f, ""),
+                GameError::ExternalDependencyError(n) => {
+                    let predicate: &str = &n.predicate_display;
+                    let executable: &str = &n.executable;
+                    let argv_joined: &str = &n.argv.join(" ");
+                    write!(
+                        f,
+                        "error while trying to {predicate}: failed command: {executable} {argv_joined}"
+                    )
+                }
             }
         }
     }
@@ -42,7 +59,7 @@ mod game {
     impl Game {
         pub fn start() -> Result<Self, GameError> {
             let state: S =
-                Game::determine_inital_state(std::path::Path::new("RustDedicated"), 258550);
+                Game::determine_inital_state(std::path::Path::new("RustDedicated"), 258550)?;
             let game: Game = Self { state };
             let started: Game = game.transition(T::Start);
             return Ok(started);
@@ -119,16 +136,31 @@ mod game {
         fn determine_inital_state(
             executable_name: &'static std::path::Path,
             steam_app_id: u32,
-        ) -> S {
+        ) -> Result<S, GameError> {
             let installation_maybe: S = {
-                let executable: &str = "find";
+                let executable: String = "find".into();
                 let needle: String = executable_name.to_string_lossy().into_owned();
-                let argv: Vec<&str> = vec!["/", "-name", &needle, "-type", "f"];
+                let argv: Vec<String> = vec![
+                    "/".into(),
+                    "-name".into(),
+                    needle,
+                    "-type".into(),
+                    "f".into(),
+                ];
                 let output: std::process::Output =
-                    match std::process::Command::new(executable).args(argv).output() {
+                    match std::process::Command::new(&executable).args(&argv).output() {
                         Ok(n) => n,
-                        Err(err) => todo!("could not {executable}: {err}"),
+                        Err(err) => {
+                            return Err(GameError::ExternalDependencyError(ExecuteAttempt {
+                                executable,
+                                argv,
+                                predicate_display:
+                                    "spawn child process to find game server executable".into(),
+                                source: err,
+                            }))
+                        }
                     };
+
                 if !output.status.success() {
                     S::NI
                 } else {
@@ -186,7 +218,7 @@ mod game {
             };
 
             match installation_maybe {
-                S::NI => return installation_maybe,
+                S::NI => return Ok(installation_maybe),
                 S::I(installed, _) => {
                     let running: RS = {
                         let executable: &str = "pgrep";
@@ -211,7 +243,7 @@ mod game {
                             RS::R(pid)
                         }
                     };
-                    return S::I(installed, running);
+                    return Ok(S::I(installed, running));
                 }
             }
         }
