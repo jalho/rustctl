@@ -20,10 +20,10 @@ mod game {
 
     #[derive(Debug)]
     pub struct ExecuteAttempt {
-        executable: String,
-        argv: Vec<String>,
+        executable: &'static str,
+        argv: Vec<std::borrow::Cow<'static, str>>,
         /// Describes what was being attempted, formatted for inclusion in an error message.
-        predicate_display: String,
+        predicate_display: std::borrow::Cow<'static, str>,
         source: std::io::Error,
     }
 
@@ -138,17 +138,19 @@ mod game {
             steam_app_id: u32,
         ) -> Result<S, GameError> {
             let installation_maybe: S = {
-                let executable: String = "find".into();
+                let executable: &'static str = "find";
                 let needle: String = executable_name.to_string_lossy().into_owned();
-                let argv: Vec<String> = vec![
+                let argv: Vec<std::borrow::Cow<'static, str>> = vec![
                     "/".into(),
                     "-name".into(),
-                    needle,
+                    needle.into(),
                     "-type".into(),
                     "f".into(),
                 ];
+                let argvi = argv.iter().map(std::borrow::Cow::as_ref);
+
                 let output: std::process::Output =
-                    match std::process::Command::new(&executable).args(&argv).output() {
+                    match std::process::Command::new(&executable).args(argvi).output() {
                         Ok(n) => n,
                         Err(err) => {
                             return Err(GameError::ExternalDependencyError(ExecuteAttempt {
