@@ -165,8 +165,10 @@ mod game {
                 if !output.status.success() {
                     S::NI
                 } else {
-                    let stdout_utf8: String =
-                        String::from_utf8_lossy(&output.stdout).trim().to_owned();
+                    let stdout_utf8: std::borrow::Cow<str> =
+                        String::from_utf8_lossy(&output.stdout);
+                    let stdout_utf8: &str = stdout_utf8.trim();
+
                     if stdout_utf8.lines().count() != 1 {
                         todo!("multiple installations of {executable_name}: {stdout_utf8}");
                     } else {
