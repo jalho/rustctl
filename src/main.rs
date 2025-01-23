@@ -20,11 +20,11 @@ mod game {
 
     #[derive(Debug)]
     pub struct ExecuteAttempt {
-        executable: &'static str,
-        argv: Vec<std::borrow::Cow<'static, str>>,
+        pub executable: &'static str,
+        pub argv: Vec<std::borrow::Cow<'static, str>>,
         /// Describes what was being attempted, formatted for inclusion in an error message.
-        predicate_display: std::borrow::Cow<'static, str>,
-        source: std::io::Error,
+        pub predicate_display: std::borrow::Cow<'static, str>,
+        pub source: std::io::Error,
     }
 
     #[derive(Debug)]
@@ -148,88 +148,48 @@ mod game {
             steam_app_id: u32,
         ) -> Result<S, GameError> {
             let installation_maybe: S = {
-                let executable: &'static str = "find";
-                let argv: Vec<std::borrow::Cow<'static, str>> = vec![
-                    "/".into(),
-                    "-name".into(),
-                    executable_name.into(),
-                    "-type".into(),
-                    "f".into(),
-                ];
-                let argvi = argv.iter().map(std::borrow::Cow::as_ref);
+                let installed = match crate::fs::find_single_file(executable_name)? {
+                    Some(n) => n,
+                    None => return Ok(S::NI),
+                };
 
-                let output: std::process::Output =
-                    match std::process::Command::new(&executable).args(argvi).output() {
-                        Ok(n) => n,
-                        Err(err) => {
-                            return Err(GameError::ExternalDependencyError(ExecuteAttempt {
-                                executable,
-                                argv,
-                                predicate_display:
-                                    "spawn child process to find game server executable".into(),
-                                source: err,
-                            }))
-                        }
-                    };
+                let parent: std::path::PathBuf = installed
+                    .parent()
+                    .expect("guaranteed by the way find was called: -type f")
+                    .to_path_buf();
+                let manifest: std::path::PathBuf = parent
+                    .join("steamapps")
+                    .join(format!("appmanifest_{steam_app_id}.acf"));
 
-                if !output.status.success() {
-                    S::NI
-                } else {
-                    let stdout_utf8: std::borrow::Cow<str> =
-                        String::from_utf8_lossy(&output.stdout);
-                    let stdout_utf8: &str = stdout_utf8.trim();
-
-                    if stdout_utf8.lines().count() != 1 {
-                        let li = stdout_utf8.lines();
-                        let li = li.map(|n| n.to_owned());
-                        let li: Vec<String> = li.collect::<Vec<String>>();
-                        return Err(GameError::MultipleInstallations(li));
-                    } else {
-                        let installed: String = stdout_utf8
-                            .lines()
-                            .last()
-                            .expect("checked above: count() == 1")
-                            .to_owned();
-                        let installed: std::path::PathBuf =
-                            std::path::Path::new(&installed).to_path_buf();
-                        let parent: std::path::PathBuf = installed
-                            .parent()
-                            .expect("guaranteed by the way find was called: -type f")
-                            .to_path_buf();
-                        let manifest: std::path::PathBuf = parent
-                            .join("steamapps")
-                            .join(format!("appmanifest_{steam_app_id}.acf"));
-                        if !manifest.is_file() {
-                            S::NI
-                        } else {
-                            let meta: std::fs::Metadata =
-                                manifest.metadata().expect("checked to be file above");
-                            let ctime: i64 = std::os::linux::fs::MetadataExt::st_ctime(&meta);
-                            let install_instant: chrono::DateTime<chrono::Utc> =
-                                chrono::DateTime::from_timestamp(ctime, 0)
-                                    .expect("weird ctime in manifest");
-                            S::I(
-                                Updation {
-                                    completed: install_instant,
-                                    from: None,
-                                    to: crate::parsers::parse_buildid_from_manifest(&manifest)
-                                        .expect("no build ID in manifest"),
-                                    root_dir: parent,
-                                    executable_name: std::path::PathBuf::from(executable_name),
-                                    manifest_name: std::path::Path::new(
-                                        &manifest
-                                            .file_name()
-                                            .expect("constructed above")
-                                            .to_string_lossy()
-                                            .into_owned(),
-                                    )
-                                    .to_path_buf(),
-                                },
-                                RS::NR,
-                            )
-                        }
-                    }
+                if !manifest.is_file() {
+                    return Ok(S::NI);
                 }
+
+                let meta: std::fs::Metadata =
+                    manifest.metadata().expect("checked to be file above");
+                let ctime: i64 = std::os::linux::fs::MetadataExt::st_ctime(&meta);
+                let install_instant: chrono::DateTime<chrono::Utc> =
+                    chrono::DateTime::from_timestamp(ctime, 0).expect("weird ctime in manifest");
+
+                S::I(
+                    Updation {
+                        completed: install_instant,
+                        from: None,
+                        to: crate::parsers::parse_buildid_from_manifest(&manifest)
+                            .expect("no build ID in manifest"),
+                        root_dir: parent,
+                        executable_name: std::path::PathBuf::from(executable_name),
+                        manifest_name: std::path::Path::new(
+                            &manifest
+                                .file_name()
+                                .expect("constructed above")
+                                .to_string_lossy()
+                                .into_owned(),
+                        )
+                        .to_path_buf(),
+                    },
+                    RS::NR,
+                )
             };
 
             match installation_maybe {
@@ -330,6 +290,56 @@ mod game {
         R(LinuxProcessId),
         /// Not running.
         NR,
+    }
+}
+
+mod fs {
+    pub fn find_single_file(
+        executable_name: &'static str,
+    ) -> Result<Option<std::path::PathBuf>, crate::game::GameError> {
+        let executable: &'static str = "find";
+        let argv: Vec<std::borrow::Cow<'static, str>> = vec![
+            "/".into(),
+            "-name".into(),
+            executable_name.into(),
+            "-type".into(),
+            "f".into(),
+        ];
+        let argvi = argv.iter().map(std::borrow::Cow::as_ref);
+
+        let output: std::process::Output =
+            match std::process::Command::new(&executable).args(argvi).output() {
+                Ok(n) => n,
+                Err(err) => {
+                    return Err(crate::game::GameError::ExternalDependencyError(
+                        crate::game::ExecuteAttempt {
+                            executable,
+                            argv,
+                            predicate_display: "spawn child process to find game server executable"
+                                .into(),
+                            source: err,
+                        },
+                    ))
+                }
+            };
+
+        if !output.status.success() {
+            return Ok(None);
+        } else {
+            let stdout_utf8: std::borrow::Cow<str> = String::from_utf8_lossy(&output.stdout);
+            let stdout_utf8: &str = stdout_utf8.trim();
+            if stdout_utf8.lines().count() != 1 {
+                let li = stdout_utf8.lines();
+                let li = li.map(|n| n.to_owned());
+                let li: Vec<String> = li.collect::<Vec<String>>();
+                return Err(crate::game::GameError::MultipleInstallations(li));
+            } else {
+                let installation: &str = stdout_utf8.lines().last().expect(
+                    "len == 1 checked above -- TODO: refactor so that this expect is obsoleted",
+                );
+                return Ok(Some(std::path::PathBuf::from(installation)));
+            }
+        }
     }
 }
 
