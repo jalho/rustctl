@@ -1,4 +1,6 @@
-static EXIT_ERR_LOGGER: u8 = 42;
+static EXIT_OK: u8 = 0;
+static EXIT_ERR_OTHER: u8 = 42;
+static EXIT_ERR_LOGGER: u8 = 43;
 
 fn main() -> std::process::ExitCode {
     let _handle: log4rs::Handle = match crate::logger::init_logger() {
@@ -13,12 +15,12 @@ fn main() -> std::process::ExitCode {
         Ok(n) => n,
         Err(err) => {
             log::error!("Game start failed: {}", err);
-            return std::process::ExitCode::FAILURE;
+            return std::process::ExitCode::from(EXIT_ERR_OTHER);
         }
     };
     log::info!("Game started: {game}");
 
-    return std::process::ExitCode::SUCCESS;
+    return std::process::ExitCode::from(EXIT_OK);
 }
 
 mod misc {
