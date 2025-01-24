@@ -1,5 +1,13 @@
+static EXIT_ERR_LOGGER: u8 = 42;
+
 fn main() -> std::process::ExitCode {
-    crate::logger::init_logger();
+    let _handle: log4rs::Handle = match crate::logger::init_logger() {
+        Ok(n) => n,
+        Err(err) => {
+            eprintln!("{}", crate::misc::aggregate_error_tree(&err, 2));
+            return std::process::ExitCode::from(EXIT_ERR_LOGGER);
+        }
+    };
 
     let game: crate::game::Game = match crate::game::Game::start() {
         Ok(n) => n,
@@ -11,6 +19,30 @@ fn main() -> std::process::ExitCode {
     log::info!("Game started: {game}");
 
     return std::process::ExitCode::SUCCESS;
+}
+
+mod misc {
+    pub fn aggregate_error_tree<Error: std::error::Error + 'static>(
+        error: &Error,
+        indent_step: usize,
+    ) -> String {
+        let mut next: Option<&(dyn std::error::Error)> = Some(error);
+        let mut gen: usize = 0;
+        let mut aggregated: String = String::new();
+        while let Some(node) = next {
+            let prefix_len: usize = gen * indent_step;
+            let mut indent: String = String::with_capacity(prefix_len);
+            for _ in 0..prefix_len {
+                indent.push(' ');
+            }
+            aggregated.push_str(&indent);
+            aggregated.push_str(&format!("{}", node));
+            aggregated.push('\n');
+            next = node.source();
+            gen = gen + 1;
+        }
+        return aggregated;
+    }
 }
 
 mod game {
@@ -333,7 +365,36 @@ mod fs {
 }
 
 mod logger {
-    fn make_logger_config() -> log4rs::Config {
+    #[derive(Debug)]
+    pub enum Error {
+        Cfg(log4rs::config::runtime::ConfigErrors),
+        Set(log::SetLoggerError),
+    }
+    impl std::error::Error for Error {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            match self {
+                Error::Cfg(err) => Some(err),
+                Error::Set(err) => Some(err),
+            }
+        }
+    }
+    impl std::fmt::Display for Error {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "logger initialization failed")
+        }
+    }
+    impl From<log4rs::config::runtime::ConfigErrors> for Error {
+        fn from(value: log4rs::config::runtime::ConfigErrors) -> Self {
+            Self::Cfg(value)
+        }
+    }
+    impl From<log::SetLoggerError> for Error {
+        fn from(value: log::SetLoggerError) -> Self {
+            Self::Set(value)
+        }
+    }
+
+    fn make_logger_config() -> Result<log4rs::Config, log4rs::config::runtime::ConfigErrors> {
         let stdout: log4rs::append::console::ConsoleAppender =
             log4rs::append::console::ConsoleAppender::builder()
                 .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
@@ -341,34 +402,22 @@ mod logger {
                 )))
                 .build();
 
-        let logger_config: log4rs::Config = match log4rs::Config::builder()
+        let logger_config: log4rs::Config = log4rs::Config::builder()
             .appender(log4rs::config::Appender::builder().build("stdout", Box::new(stdout)))
             .build(
                 log4rs::config::Root::builder()
                     .appender("stdout")
                     .build(log::LevelFilter::Trace),
-            ) {
-            Ok(n) => n,
-            Err(_) => {
-                unreachable!("logger configuration does not depend on any input so it should be either always valid or never valid");
-            }
-        };
+            )?;
 
-        return logger_config;
+        return Ok(logger_config);
     }
 
     /// Initialize a global logging utility.
-    pub fn init_logger() -> log4rs::Handle {
-        let config: log4rs::Config = make_logger_config();
-        let logger: log4rs::Handle = match log4rs::init_config(config) {
-            Ok(n) => n,
-            Err(_) => {
-                unreachable!(
-                    "logger initialization should always succeed because we only do it once"
-                );
-            }
-        };
-        return logger;
+    pub fn init_logger() -> Result<log4rs::Handle, Error> {
+        let config: log4rs::Config = make_logger_config()?;
+        let handle: log4rs::Handle = log4rs::init_config(config)?;
+        return Ok(handle);
     }
 }
 
