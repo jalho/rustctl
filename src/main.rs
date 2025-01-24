@@ -190,33 +190,29 @@ mod game {
                     None => return Ok(S::NI),
                 };
 
-            let manifest: std::path::PathBuf = installed
+            let manifest_path: std::path::PathBuf = installed
                 .parent
                 .join("steamapps")
                 .join(format!("appmanifest_{steam_app_id}.acf"));
+            let manifest: crate::fs::ExistingFile =
+                match crate::fs::ExistingFile::check(&manifest_path) {
+                    Ok(n) => n,
+                    Err(_) => return Ok(S::NI),
+                };
 
-            if !manifest.is_file() {
-                return Ok(S::NI);
-            }
-
-            let meta: std::fs::Metadata = manifest.metadata().expect("checked to be file above");
-            let ctime: i64 = std::os::linux::fs::MetadataExt::st_ctime(&meta);
+            let ctime: i64 = std::os::linux::fs::MetadataExt::st_ctime(&manifest.metadata);
             let install_instant: chrono::DateTime<chrono::Utc> =
                 chrono::DateTime::from_timestamp(ctime, 0).expect("weird ctime in manifest");
 
             let updation: Updation = Updation {
                 _completed: install_instant,
                 _from: None,
-                to: crate::parsers::parse_buildid_from_manifest(&manifest)
+                to: crate::parsers::parse_buildid_from_manifest(&manifest.absolute_path)
                     .expect("no build ID in manifest"),
                 _root_dir: installed.parent,
                 _executable_name: std::path::PathBuf::from(executable_name),
                 _manifest_name: std::path::Path::new(
-                    &manifest
-                        .file_name()
-                        .expect("constructed above")
-                        .to_string_lossy()
-                        .into_owned(),
+                    &manifest.file_name.to_string_lossy().into_owned(),
                 )
                 .to_path_buf(),
             };
@@ -318,14 +314,37 @@ mod game {
 
 mod fs {
     pub struct ExistingFile {
-        pub _absolute_path: std::path::PathBuf,
+        pub file_name: std::path::PathBuf,
+        pub absolute_path: std::path::PathBuf,
         pub parent: std::path::PathBuf,
+        pub metadata: std::fs::Metadata,
+    }
+    impl ExistingFile {
+        pub fn check(path: &std::path::Path) -> Result<Self, std::io::Error> {
+            let metadata: std::fs::Metadata = path.metadata()?;
+            let absolute_path: std::path::PathBuf = path.canonicalize()?;
+            let parent: std::path::PathBuf = match path.parent() {
+                Some(n) => n.into(),
+                None => unreachable!("absolute path to a file is guaranteed to have a parent"),
+            };
+            let file_name: std::path::PathBuf = match absolute_path.file_name() {
+                Some(n) => std::path::PathBuf::from(n),
+                None => unreachable!("absolute path to a file is guaranteed to have a file name"),
+            };
+
+            return Ok(Self {
+                absolute_path,
+                parent,
+                metadata,
+                file_name,
+            });
+        }
     }
 
     pub fn find_single_file(
         executable_name: &'static str,
     ) -> Result<Option<ExistingFile>, crate::game::GameError> {
-        let executable: &'static str = "find";
+        let exec_find: &'static str = "find";
         let argv: Vec<std::borrow::Cow<'static, str>> = vec![
             "/".into(),
             "-name".into(),
@@ -336,12 +355,12 @@ mod fs {
         let argvi = argv.iter().map(std::borrow::Cow::as_ref);
 
         let output: std::process::Output =
-            match std::process::Command::new(&executable).args(argvi).output() {
+            match std::process::Command::new(&exec_find).args(argvi).output() {
                 Ok(n) => n,
                 Err(err) => {
                     return Err(crate::game::GameError::ExternalDependencyError(
                         crate::game::ExecuteAttempt {
-                            executable,
+                            executable: exec_find,
                             argv,
                             predicate_display: "find game server executable".into(),
                             source: err,
@@ -369,14 +388,11 @@ mod fs {
                     }
                 };
                 let absolute_path = std::path::PathBuf::from(installation);
-                let parent: std::path::PathBuf = match absolute_path.parent() {
-                    Some(n) => n.into(),
-                    None => unreachable!("absolute path to a file is guaranteed to have a parent"),
+                let file: ExistingFile = match ExistingFile::check(&absolute_path) {
+                    Ok(n) => n,
+                    Err(_) => unreachable!("file found earlier with {exec_find}"),
                 };
-                return Ok(Some(ExistingFile {
-                    _absolute_path: absolute_path,
-                    parent,
-                }));
+                return Ok(Some(file));
             }
         }
     }
