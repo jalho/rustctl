@@ -142,7 +142,7 @@ mod game {
                 };
 
             let manifest_path: std::path::PathBuf = installed
-                .parent
+                .absolute_path_parent
                 .join("steamapps")
                 .join(format!("appmanifest_{steam_app_id}.acf"));
             let manifest: crate::fs::ExistingFile =
@@ -151,16 +151,12 @@ mod game {
                     Err(_) => return Ok(S::NI),
                 };
 
-            let ctime: i64 = std::os::linux::fs::MetadataExt::st_ctime(&manifest.metadata);
-            let install_instant: chrono::DateTime<chrono::Utc> =
-                chrono::DateTime::from_timestamp(ctime, 0).expect("weird ctime in manifest");
-
             let updation: Updation = Updation {
-                _completed: install_instant,
+                _completed: manifest.last_change,
                 _from: None,
-                to: crate::parsers::parse_buildid_from_manifest(&manifest.absolute_path)
+                to: crate::parsers::parse_buildid_from_manifest(&manifest.absolute_path_file)
                     .expect("no build ID in manifest"),
-                _root_dir: installed.parent,
+                _root_dir: installed.absolute_path_parent,
                 _executable_name: std::path::PathBuf::from(executable_name),
                 _manifest_name: std::path::Path::new(
                     &manifest.file_name.to_string_lossy().into_owned(),
@@ -324,28 +320,36 @@ mod fs {
 
     pub struct ExistingFile {
         pub file_name: std::path::PathBuf,
-        pub absolute_path: std::path::PathBuf,
-        pub parent: std::path::PathBuf,
-        pub metadata: std::fs::Metadata,
+        pub absolute_path_file: std::path::PathBuf,
+        pub absolute_path_parent: std::path::PathBuf,
+        pub last_change: chrono::DateTime<chrono::Utc>,
     }
     impl ExistingFile {
         pub fn check(path: &std::path::Path) -> Result<Self, Error> {
             let metadata: std::fs::Metadata = path.metadata()?;
-            let absolute_path: std::path::PathBuf = path.canonicalize()?;
-            let parent: std::path::PathBuf = match path.parent() {
+            let absolute_path_file: std::path::PathBuf = path.canonicalize()?;
+            let absolute_path_parent: std::path::PathBuf = match path.parent() {
                 Some(n) => n.into(),
-                None => unreachable!("absolute path to a file is guaranteed to have a parent"),
+                None => unreachable!("absolute path to a file should have a parent"),
             };
-            let file_name: std::path::PathBuf = match absolute_path.file_name() {
+            let file_name: std::path::PathBuf = match absolute_path_file.file_name() {
                 Some(n) => std::path::PathBuf::from(n),
-                None => unreachable!("absolute path to a file is guaranteed to have a file name"),
+                None => unreachable!("absolute path to a file should have a file name"),
             };
+            let ctime: i64 = std::os::unix::fs::MetadataExt::ctime(&metadata);
+            let last_change: chrono::DateTime<chrono::Utc> =
+                match chrono::DateTime::from_timestamp(ctime, 0) {
+                    Some(n) => n,
+                    None => {
+                        unreachable!("ctime of an existing file should be a valid timestamp")
+                    }
+                };
 
             return Ok(Self {
-                absolute_path,
-                parent,
-                metadata,
+                absolute_path_file,
+                absolute_path_parent,
                 file_name,
+                last_change,
             });
         }
     }
@@ -391,7 +395,7 @@ mod fs {
                 let installation: &str = match stdout_utf8.lines().last() {
                     Some(n) => n,
                     None => {
-                        unreachable!("set with exactly 1 member is guaranteed to have a last item")
+                        unreachable!("set with exactly 1 member should have a last item")
                     }
                 };
                 let absolute_path = std::path::PathBuf::from(installation);
