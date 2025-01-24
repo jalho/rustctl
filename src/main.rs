@@ -262,14 +262,15 @@ mod game {
 mod fs {
     #[derive(Debug)]
     pub enum Error {
-        FileNotFound(std::io::Error),
+        FileNotFound(Option<std::io::Error>),
         MultipleFilesFound(Vec<std::path::PathBuf>),
         ExecutableSpawnFailed(ExecuteAttempt),
     }
     impl std::error::Error for Error {
         fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
             match self {
-                Error::FileNotFound(err) => Some(err),
+                Error::FileNotFound(Some(err)) => Some(err),
+                Error::FileNotFound(None) => None,
                 Error::MultipleFilesFound(_) => None,
                 Error::ExecutableSpawnFailed(err) => Some(&err.source),
             }
@@ -305,7 +306,7 @@ mod fs {
     }
     impl From<std::io::Error> for Error {
         fn from(value: std::io::Error) -> Self {
-            Self::FileNotFound(value)
+            Self::FileNotFound(Some(value))
         }
     }
 
@@ -383,24 +384,30 @@ mod fs {
         let stdout_utf8: std::borrow::Cow<str> = String::from_utf8_lossy(&output.stdout);
         let stdout_utf8: &str = stdout_utf8.trim();
 
-        if stdout_utf8.lines().count() != 1 {
-            let li = stdout_utf8.lines();
-            let li = li.map(|n| std::path::PathBuf::from(n));
-            let li: Vec<std::path::PathBuf> = li.collect::<Vec<std::path::PathBuf>>();
-            return Err(crate::fs::Error::MultipleFilesFound(li));
-        } else {
-            let installation: &str = match stdout_utf8.lines().last() {
-                Some(n) => n,
-                None => {
-                    unreachable!("set with exactly 1 member should have a last item")
-                }
-            };
-            let absolute_path = std::path::PathBuf::from(installation);
-            let file: ExistingFile = match ExistingFile::check(&absolute_path) {
-                Ok(n) => n,
-                Err(_) => unreachable!("file found earlier with {exec_find}"),
-            };
-            return Ok(Some(file));
+        match stdout_utf8.lines().count() {
+            0 => {
+                return Err(crate::fs::Error::FileNotFound(None));
+            }
+            1 => {
+                let installation: &str = match stdout_utf8.lines().last() {
+                    Some(n) => n,
+                    None => {
+                        unreachable!("set with exactly 1 member should have a last item")
+                    }
+                };
+                let absolute_path = std::path::PathBuf::from(installation);
+                let file: ExistingFile = match ExistingFile::check(&absolute_path) {
+                    Ok(n) => n,
+                    Err(_) => unreachable!("file found earlier with {exec_find}"),
+                };
+                return Ok(Some(file));
+            }
+            _ => {
+                let li = stdout_utf8.lines();
+                let li = li.map(|n| std::path::PathBuf::from(n));
+                let li: Vec<std::path::PathBuf> = li.collect::<Vec<std::path::PathBuf>>();
+                return Err(crate::fs::Error::MultipleFilesFound(li));
+            }
         }
     }
 }
