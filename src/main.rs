@@ -355,15 +355,19 @@ mod fs {
         } else {
             let stdout_utf8: std::borrow::Cow<str> = String::from_utf8_lossy(&output.stdout);
             let stdout_utf8: &str = stdout_utf8.trim();
+
             if stdout_utf8.lines().count() != 1 {
                 let li = stdout_utf8.lines();
                 let li = li.map(|n| n.to_owned());
                 let li: Vec<String> = li.collect::<Vec<String>>();
                 return Err(crate::game::GameError::MultipleInstallations(li));
             } else {
-                let installation: &str = stdout_utf8.lines().last().expect(
-                    "len == 1 checked above -- TODO: refactor so that this expect is obsoleted",
-                );
+                let installation: &str = match stdout_utf8.lines().last() {
+                    Some(n) => n,
+                    None => {
+                        unreachable!("set with exactly 1 member is guaranteed to have a last item")
+                    }
+                };
                 let absolute_path = std::path::PathBuf::from(installation);
                 let parent: std::path::PathBuf = match absolute_path.parent() {
                     Some(n) => n.into(),
