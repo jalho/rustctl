@@ -55,57 +55,8 @@ mod game {
         state: S,
     }
 
-    #[derive(Debug)]
-    pub struct ExecuteAttempt {
-        pub executable: &'static str,
-        pub argv: Vec<std::borrow::Cow<'static, str>>,
-        /// Describes what was being attempted, formatted for inclusion in an error message.
-        pub predicate_display: std::borrow::Cow<'static, str>,
-        pub source: std::io::Error,
-    }
-
-    #[derive(Debug)]
-    /// An unrecoverable error related to attempting to start the game server.
-    pub enum GameError {
-        ExternalDependencyError(ExecuteAttempt),
-        MultipleInstallations(Vec<String>),
-    }
-
-    impl std::error::Error for GameError {
-        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-            match self {
-                GameError::ExternalDependencyError(n) => Some(&n.source),
-                GameError::MultipleInstallations(_) => None,
-            }
-        }
-    }
-
-    impl std::fmt::Display for GameError {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            match self {
-                GameError::ExternalDependencyError(n) => {
-                    let predicate: &str = &n.predicate_display;
-                    let executable: &str = &n.executable;
-                    let argv_joined: &str = &n.argv.join(" ");
-                    return write!(
-                        f,
-                        "cannot {predicate}: command failed: {executable} {argv_joined}"
-                    );
-                }
-                GameError::MultipleInstallations(installations) => {
-                    let installations: String = installations.join(", ");
-                    return write!(
-                        f,
-                        "unexpected multiple installations of game server: {}",
-                        installations
-                    );
-                }
-            }
-        }
-    }
-
     impl Game {
-        pub fn start() -> Result<Self, GameError> {
+        pub fn start() -> Result<Self, crate::fs::Error> {
             let state: S = Game::determine_inital_state("RustDedicated", 258550)?;
             let game: Game = Self { state };
             let started: Game = game.transition(T::Start);
@@ -183,7 +134,7 @@ mod game {
         fn determine_inital_state(
             executable_name: &'static str,
             steam_app_id: u32,
-        ) -> Result<S, GameError> {
+        ) -> Result<S, crate::fs::Error> {
             let installed: crate::fs::ExistingFile =
                 match crate::fs::find_single_file(executable_name)? {
                     Some(n) => n,
@@ -316,15 +267,15 @@ mod fs {
     #[derive(Debug)]
     pub enum Error {
         FileNotFound(std::io::Error),
-        _MultipleFilesFound(Vec<std::path::PathBuf>),
-        _ExecutableSpawnFailed(std::io::Error),
+        MultipleFilesFound(Vec<std::path::PathBuf>),
+        ExecutableSpawnFailed(ExecuteAttempt),
     }
     impl std::error::Error for Error {
         fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
             match self {
                 Error::FileNotFound(err) => Some(err),
-                Error::_MultipleFilesFound(_) => None,
-                Error::_ExecutableSpawnFailed(err) => Some(err),
+                Error::MultipleFilesFound(_) => None,
+                Error::ExecutableSpawnFailed(err) => Some(&err.source),
             }
         }
     }
@@ -332,9 +283,26 @@ mod fs {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
                 Error::FileNotFound(_) => write!(f, "file not found"),
-                Error::_MultipleFilesFound(_) => write!(f, "TODO list of files here"),
-                Error::_ExecutableSpawnFailed(_) => {
-                    write!(f, "failed to execute: TODO cmd + argv here")
+                Error::MultipleFilesFound(found) => {
+                    let found: Vec<String> = found
+                        .iter()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .collect::<Vec<String>>();
+                    return write!(
+                        f,
+                        "unexpected {} files found: {}",
+                        found.len(),
+                        found.join(", ")
+                    );
+                }
+                Error::ExecutableSpawnFailed(attempt) => {
+                    write!(
+                        f,
+                        "failed to {}: command failed: {} {}",
+                        attempt.predicate_display,
+                        attempt.executable,
+                        attempt.argv.join(" ")
+                    )
                 }
             }
         }
@@ -343,6 +311,15 @@ mod fs {
         fn from(value: std::io::Error) -> Self {
             Self::FileNotFound(value)
         }
+    }
+
+    #[derive(Debug)]
+    pub struct ExecuteAttempt {
+        pub executable: &'static str,
+        pub argv: Vec<std::borrow::Cow<'static, str>>,
+        /// Describes what was being attempted, formatted for inclusion in an error message.
+        pub predicate_display: std::borrow::Cow<'static, str>,
+        pub source: std::io::Error,
     }
 
     pub struct ExistingFile {
@@ -373,9 +350,7 @@ mod fs {
         }
     }
 
-    pub fn find_single_file(
-        executable_name: &'static str,
-    ) -> Result<Option<ExistingFile>, crate::game::GameError> {
+    pub fn find_single_file(executable_name: &'static str) -> Result<Option<ExistingFile>, Error> {
         let exec_find: &'static str = "find";
         let argv: Vec<std::borrow::Cow<'static, str>> = vec![
             "/".into(),
@@ -390,14 +365,14 @@ mod fs {
             match std::process::Command::new(&exec_find).args(argvi).output() {
                 Ok(n) => n,
                 Err(err) => {
-                    return Err(crate::game::GameError::ExternalDependencyError(
-                        crate::game::ExecuteAttempt {
+                    return Err(crate::fs::Error::ExecutableSpawnFailed(
+                        crate::fs::ExecuteAttempt {
                             executable: exec_find,
                             argv,
                             predicate_display: "find game server executable".into(),
                             source: err,
                         },
-                    ))
+                    ));
                 }
             };
 
@@ -409,9 +384,9 @@ mod fs {
 
             if stdout_utf8.lines().count() != 1 {
                 let li = stdout_utf8.lines();
-                let li = li.map(|n| n.to_owned());
-                let li: Vec<String> = li.collect::<Vec<String>>();
-                return Err(crate::game::GameError::MultipleInstallations(li));
+                let li = li.map(|n| std::path::PathBuf::from(n));
+                let li: Vec<std::path::PathBuf> = li.collect::<Vec<std::path::PathBuf>>();
+                return Err(crate::fs::Error::MultipleFilesFound(li));
             } else {
                 let installation: &str = match stdout_utf8.lines().last() {
                     Some(n) => n,
