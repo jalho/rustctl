@@ -380,31 +380,27 @@ mod fs {
                 }
             };
 
-        if !output.status.success() {
-            return Ok(None);
-        } else {
-            let stdout_utf8: std::borrow::Cow<str> = String::from_utf8_lossy(&output.stdout);
-            let stdout_utf8: &str = stdout_utf8.trim();
+        let stdout_utf8: std::borrow::Cow<str> = String::from_utf8_lossy(&output.stdout);
+        let stdout_utf8: &str = stdout_utf8.trim();
 
-            if stdout_utf8.lines().count() != 1 {
-                let li = stdout_utf8.lines();
-                let li = li.map(|n| std::path::PathBuf::from(n));
-                let li: Vec<std::path::PathBuf> = li.collect::<Vec<std::path::PathBuf>>();
-                return Err(crate::fs::Error::MultipleFilesFound(li));
-            } else {
-                let installation: &str = match stdout_utf8.lines().last() {
-                    Some(n) => n,
-                    None => {
-                        unreachable!("set with exactly 1 member should have a last item")
-                    }
-                };
-                let absolute_path = std::path::PathBuf::from(installation);
-                let file: ExistingFile = match ExistingFile::check(&absolute_path) {
-                    Ok(n) => n,
-                    Err(_) => unreachable!("file found earlier with {exec_find}"),
-                };
-                return Ok(Some(file));
-            }
+        if stdout_utf8.lines().count() != 1 {
+            let li = stdout_utf8.lines();
+            let li = li.map(|n| std::path::PathBuf::from(n));
+            let li: Vec<std::path::PathBuf> = li.collect::<Vec<std::path::PathBuf>>();
+            return Err(crate::fs::Error::MultipleFilesFound(li));
+        } else {
+            let installation: &str = match stdout_utf8.lines().last() {
+                Some(n) => n,
+                None => {
+                    unreachable!("set with exactly 1 member should have a last item")
+                }
+            };
+            let absolute_path = std::path::PathBuf::from(installation);
+            let file: ExistingFile = match ExistingFile::check(&absolute_path) {
+                Ok(n) => n,
+                Err(_) => unreachable!("file found earlier with {exec_find}"),
+            };
+            return Ok(Some(file));
         }
     }
 }
