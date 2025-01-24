@@ -184,17 +184,14 @@ mod game {
             executable_name: &'static str,
             steam_app_id: u32,
         ) -> Result<S, GameError> {
-            let installed: std::path::PathBuf = match crate::fs::find_single_file(executable_name)?
-            {
-                Some(n) => n,
-                None => return Ok(S::NI),
-            };
+            let installed: crate::fs::ExistingFile =
+                match crate::fs::find_single_file(executable_name)? {
+                    Some(n) => n,
+                    None => return Ok(S::NI),
+                };
 
-            let parent: std::path::PathBuf = installed
-                .parent()
-                .expect("guaranteed by the way find was called: -type f")
-                .to_path_buf();
-            let manifest: std::path::PathBuf = parent
+            let manifest: std::path::PathBuf = installed
+                .parent
                 .join("steamapps")
                 .join(format!("appmanifest_{steam_app_id}.acf"));
 
@@ -212,7 +209,7 @@ mod game {
                 from: None,
                 to: crate::parsers::parse_buildid_from_manifest(&manifest)
                     .expect("no build ID in manifest"),
-                root_dir: parent,
+                root_dir: installed.parent,
                 executable_name: std::path::PathBuf::from(executable_name),
                 manifest_name: std::path::Path::new(
                     &manifest
@@ -320,9 +317,14 @@ mod game {
 }
 
 mod fs {
+    pub struct ExistingFile {
+        pub absolute_path: std::path::PathBuf,
+        pub parent: std::path::PathBuf,
+    }
+
     pub fn find_single_file(
         executable_name: &'static str,
-    ) -> Result<Option<std::path::PathBuf>, crate::game::GameError> {
+    ) -> Result<Option<ExistingFile>, crate::game::GameError> {
         let executable: &'static str = "find";
         let argv: Vec<std::borrow::Cow<'static, str>> = vec![
             "/".into(),
@@ -362,7 +364,15 @@ mod fs {
                 let installation: &str = stdout_utf8.lines().last().expect(
                     "len == 1 checked above -- TODO: refactor so that this expect is obsoleted",
                 );
-                return Ok(Some(std::path::PathBuf::from(installation)));
+                let absolute_path = std::path::PathBuf::from(installation);
+                let parent: std::path::PathBuf = match absolute_path.parent() {
+                    Some(n) => n.into(),
+                    None => unreachable!("absolute path to a file is guaranteed to have a parent"),
+                };
+                return Ok(Some(ExistingFile {
+                    absolute_path,
+                    parent,
+                }));
             }
         }
     }
