@@ -1,6 +1,6 @@
 static EXIT_OK: u8 = 0;
-static EXIT_ERR_OTHER: u8 = 42;
-static EXIT_ERR_LOGGER: u8 = 43;
+static EXIT_ERR_LOGGER: u8 = 42;
+static EXIT_ERR_OTHER: u8 = 43;
 
 fn main() -> std::process::ExitCode {
     let _handle: log4rs::Handle = match crate::logger::init_logger() {
