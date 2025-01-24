@@ -14,7 +14,10 @@ fn main() -> std::process::ExitCode {
     let game: crate::game::Game = match crate::game::Game::start() {
         Ok(n) => n,
         Err(err) => {
-            log::error!("Game start failed: {}", err);
+            log::error!(
+                "Cannot start game: {}",
+                crate::misc::aggregate_error_tree(&err, 2)
+            );
             return std::process::ExitCode::from(EXIT_ERR_OTHER);
         }
     };
@@ -86,7 +89,7 @@ mod game {
                     let argv_joined: &str = &n.argv.join(" ");
                     return write!(
                         f,
-                        "error while trying to {predicate}: failed command: {executable} {argv_joined}"
+                        "cannot {predicate}: command failed: {executable} {argv_joined}"
                     );
                 }
                 GameError::MultipleInstallations(installations) => {
@@ -338,8 +341,7 @@ mod fs {
                         crate::game::ExecuteAttempt {
                             executable,
                             argv,
-                            predicate_display: "spawn child process to find game server executable"
-                                .into(),
+                            predicate_display: "find game server executable".into(),
                             source: err,
                         },
                     ))
