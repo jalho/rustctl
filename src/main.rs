@@ -115,7 +115,7 @@ mod game {
         fn transition(mut self, transition: T) -> Self {
             log::debug!("{:?}, {:?}", self.state, transition);
             match (&self.state, transition) {
-                (S::I(_, RS::NR), T::Install | T::Stop) => self, // Nothing to do!
+                (S::I(_, RS::NR), T::_Install | T::_Stop) => self, // Nothing to do!
 
                 (S::I(current, RS::NR), T::Start) => {
                     let latest: SteamAppBuildId = Game::query_latest_version_info();
@@ -131,7 +131,7 @@ mod game {
                     }
                 }
 
-                (S::I(current, RS::NR), T::Update) => {
+                (S::I(current, RS::NR), T::_Update) => {
                     let latest: SteamAppBuildId = Game::query_latest_version_info();
                     if current.to != latest {
                         let updated: Updation = Game::update();
@@ -142,15 +142,15 @@ mod game {
                     }
                 }
 
-                (S::I(_, RS::R(_)), T::Install | T::Start) => self, // Nothing to do!
+                (S::I(_, RS::R(_)), T::_Install | T::Start) => self, // Nothing to do!
 
-                (S::I(current, RS::R(pid)), T::Stop) => {
+                (S::I(current, RS::R(pid)), T::_Stop) => {
                     Game::terminate(*pid);
                     self.state = S::I(current.clone(), RS::NR);
                     return self;
                 }
 
-                (S::I(current, RS::R(pid)), T::Update) => {
+                (S::I(current, RS::R(pid)), T::_Update) => {
                     let latest: SteamAppBuildId = Game::query_latest_version_info();
                     if current.to != latest {
                         Game::terminate(*pid);
@@ -163,7 +163,7 @@ mod game {
                     }
                 }
 
-                (S::NI, T::Install | T::Update) => {
+                (S::NI, T::_Install | T::_Update) => {
                     let installed: Updation = Game::install();
                     self.state = S::I(installed, RS::NR);
                     return self;
@@ -176,7 +176,7 @@ mod game {
                     return self;
                 }
 
-                (S::NI, T::Stop) => self, // Nothing to do!
+                (S::NI, T::_Stop) => self, // Nothing to do!
             }
         }
 
@@ -205,13 +205,13 @@ mod game {
                 chrono::DateTime::from_timestamp(ctime, 0).expect("weird ctime in manifest");
 
             let updation: Updation = Updation {
-                completed: install_instant,
-                from: None,
+                _completed: install_instant,
+                _from: None,
                 to: crate::parsers::parse_buildid_from_manifest(&manifest)
                     .expect("no build ID in manifest"),
-                root_dir: installed.parent,
-                executable_name: std::path::PathBuf::from(executable_name),
-                manifest_name: std::path::Path::new(
+                _root_dir: installed.parent,
+                _executable_name: std::path::PathBuf::from(executable_name),
+                _manifest_name: std::path::Path::new(
                     &manifest
                         .file_name()
                         .expect("constructed above")
@@ -263,7 +263,7 @@ mod game {
             todo!("spawn game server process");
         }
 
-        fn terminate(pid: LinuxProcessId) {
+        fn terminate(_pid: LinuxProcessId) {
             todo!("terminate game server process");
         }
     }
@@ -286,10 +286,10 @@ mod game {
     #[derive(Debug)]
     /// Transition of the state machine.
     pub enum T {
-        Install,
+        _Install,
         Start,
-        Stop,
-        Update,
+        _Stop,
+        _Update,
     }
 
     type SteamAppBuildId = u32;
@@ -298,12 +298,12 @@ mod game {
 
     #[derive(Debug, Clone)]
     struct Updation {
-        completed: chrono::DateTime<chrono::Utc>,
-        from: Option<SteamAppBuildId>,
+        _completed: chrono::DateTime<chrono::Utc>,
+        _from: Option<SteamAppBuildId>,
         to: SteamAppBuildId,
-        root_dir: std::path::PathBuf,
-        executable_name: std::path::PathBuf,
-        manifest_name: std::path::PathBuf,
+        _root_dir: std::path::PathBuf,
+        _executable_name: std::path::PathBuf,
+        _manifest_name: std::path::PathBuf,
     }
 
     #[derive(Debug)]
@@ -318,7 +318,7 @@ mod game {
 
 mod fs {
     pub struct ExistingFile {
-        pub absolute_path: std::path::PathBuf,
+        pub _absolute_path: std::path::PathBuf,
         pub parent: std::path::PathBuf,
     }
 
@@ -374,7 +374,7 @@ mod fs {
                     None => unreachable!("absolute path to a file is guaranteed to have a parent"),
                 };
                 return Ok(Some(ExistingFile {
-                    absolute_path,
+                    _absolute_path: absolute_path,
                     parent,
                 }));
             }
