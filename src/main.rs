@@ -158,7 +158,7 @@ mod game {
                 _from: None,
                 to: crate::parsers::parse_buildid_from_manifest(&manifest.absolute_path_file)
                     .expect("no build ID in manifest"),
-                _root_dir: installed.absolute_path_parent,
+                _root_dir_absolute: installed.absolute_path_parent,
                 _executable_name: std::path::PathBuf::from(executable_name),
                 _manifest_name: std::path::Path::new(
                     &manifest.file_name.to_string_lossy().into_owned(),
@@ -258,13 +258,23 @@ mod game {
 
     type LinuxProcessId = u32;
 
+    /// Represents a fresh installation or _updation_ (:D) of an existing
+    /// installation.
     #[derive(Debug, Clone)]
     struct Updation {
+        /// Timestamp of when the app's current version was installed.
         _completed: chrono::DateTime<chrono::Utc>,
+        /// Previous Steam build ID of the app. Can be `None` in the case of a
+        /// fresh install.
         _from: Option<SteamAppBuildId>,
+        /// Current Steam build ID of the app, i.e. the version to which the app
+        /// was updated.
         to: SteamAppBuildId,
-        _root_dir: std::path::PathBuf,
+        /// Absolute path to the directory in which the app is installed.
+        _root_dir_absolute: std::path::PathBuf,
+        /// Name, _not the absolute path_, of the executable file.
         _executable_name: std::path::PathBuf,
+        /// Name, _not the absolute path_, of the Steam app's manifest file.
         _manifest_name: std::path::PathBuf,
     }
 
