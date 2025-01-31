@@ -57,7 +57,9 @@ mod game {
 
     impl Game {
         pub fn start() -> Result<Self, crate::fs::Error> {
+            log::debug!("Determining initial state...");
             let state: S = Game::determine_inital_state("RustDedicated", 258550)?;
+            log::debug!("Initial state determinied: {state}");
             let game: Game = Self { state };
             let started: Game = game.transition(T::Start);
             return Ok(started);
@@ -224,6 +226,23 @@ mod game {
         NI,
         /// Installed.
         I(Updation, RS),
+    }
+    impl std::fmt::Display for S {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                S::NI => write!(f, "not installed"),
+                S::I(updation, RS::NR) => {
+                    write!(f, "installed: Steam build ID {}, not running", updation.to)
+                }
+                S::I(updation, RS::R(pid)) => {
+                    write!(
+                        f,
+                        "installed: Steam build ID {}, running as PID {pid}",
+                        updation.to
+                    )
+                }
+            }
+        }
     }
 
     #[derive(Debug)]
