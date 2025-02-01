@@ -1,5 +1,3 @@
-# CHANGELOG.md
-
 ## 0.2.0-wip
 
 **Work in progress!**
