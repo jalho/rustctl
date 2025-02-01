@@ -291,15 +291,17 @@ mod game {
 mod fs {
     #[derive(Debug)]
     pub enum Error {
-        FileNotFound(Option<std::io::Error>),
+        /// Contains name or path (relative or absolute) of the file that was
+        /// not found, and possible associated underlying system IO error.
+        FileNotFound((std::path::PathBuf, Option<std::io::Error>)),
         MultipleFilesFound(Vec<std::path::PathBuf>),
         ExecutableSpawnFailed(ExecuteAttempt),
     }
     impl std::error::Error for Error {
         fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
             match self {
-                Error::FileNotFound(Some(err)) => Some(err),
-                Error::FileNotFound(None) => None,
+                Error::FileNotFound((_, Some(err))) => Some(err),
+                Error::FileNotFound((_, None)) => None,
                 Error::MultipleFilesFound(_) => None,
                 Error::ExecutableSpawnFailed(err) => Some(&err.source),
             }
@@ -308,7 +310,12 @@ mod fs {
     impl std::fmt::Display for Error {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
-                Error::FileNotFound(_) => write!(f, "file not found"),
+                Error::FileNotFound((file, Some(err))) => {
+                    write!(f, "file not found: {}: {err}", file.to_string_lossy())
+                }
+                Error::FileNotFound((file, None)) => {
+                    write!(f, "file not found: {}", file.to_string_lossy())
+                }
                 Error::MultipleFilesFound(found) => {
                     let found: Vec<String> = found
                         .iter()
@@ -333,11 +340,6 @@ mod fs {
             }
         }
     }
-    impl From<std::io::Error> for Error {
-        fn from(value: std::io::Error) -> Self {
-            Self::FileNotFound(Some(value))
-        }
-    }
 
     #[derive(Debug)]
     pub struct ExecuteAttempt {
@@ -356,8 +358,14 @@ mod fs {
     }
     impl ExistingFile {
         pub fn check(path: &std::path::Path) -> Result<Self, Error> {
-            let metadata: std::fs::Metadata = path.metadata()?;
-            let absolute_path_file: std::path::PathBuf = path.canonicalize()?;
+            let metadata: std::fs::Metadata = match path.metadata() {
+                Ok(n) => n,
+                Err(err) => return Err(Error::FileNotFound((path.into(), Some(err)))),
+            };
+            let absolute_path_file: std::path::PathBuf = match path.canonicalize() {
+                Ok(n) => n,
+                Err(err) => return Err(Error::FileNotFound((path.into(), Some(err)))),
+            };
             let absolute_path_parent: std::path::PathBuf = match path.parent() {
                 Some(n) => n.into(),
                 None => unreachable!("absolute path to a file should have a parent"),
@@ -415,7 +423,10 @@ mod fs {
 
         match stdout_utf8.lines().count() {
             0 => {
-                return Err(crate::fs::Error::FileNotFound(None));
+                return Err(crate::fs::Error::FileNotFound((
+                    executable_name.into(),
+                    None,
+                )));
             }
             1 => {
                 let installation: &str = match stdout_utf8.lines().last() {
