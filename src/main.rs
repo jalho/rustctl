@@ -59,7 +59,7 @@ mod game {
         pub fn start() -> Result<Self, crate::fs::Error> {
             log::debug!("Determining initial state...");
             let state: S = Game::determine_inital_state("RustDedicated", 258550)?;
-            log::debug!("Initial state determinied: {state}");
+            log::debug!("Initial state determined: {state}");
             let game: Game = Self { state };
             let started: Game = game.transition(T::Start);
             return Ok(started);
