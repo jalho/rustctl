@@ -66,7 +66,6 @@ mod game {
         }
 
         fn transition(mut self, transition: T) -> Self {
-            log::debug!("{:?}, {:?}", self.state, transition);
             match (&self.state, transition) {
                 (S::I(_, RS::NR), T::_Install | T::_Stop) => self, // Nothing to do!
 
@@ -138,9 +137,11 @@ mod game {
             steam_app_id: u32,
         ) -> Result<S, crate::fs::Error> {
             let installed: crate::fs::ExistingFile =
-                match crate::fs::find_single_file(executable_name)? {
-                    Some(n) => n,
-                    None => return Ok(S::NI),
+                match crate::fs::find_single_file(executable_name) {
+                    Ok(Some(n)) => n,
+                    Ok(None) => return Ok(S::NI),
+                    Err(crate::fs::Error::FileNotFound(_)) => return Ok(S::NI),
+                    Err(err) => return Err(err),
                 };
 
             let manifest_path: std::path::PathBuf = installed
