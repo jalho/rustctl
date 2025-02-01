@@ -3,6 +3,8 @@ static EXIT_ERR_LOGGER: u8 = 42;
 static EXIT_ERR_OTHER: u8 = 43;
 
 fn main() -> std::process::ExitCode {
+    let cli: crate::parsers::Cli = <crate::parsers::Cli as clap::Parser>::parse();
+
     let _handle: log4rs::Handle = match crate::logger::init_logger() {
         Ok(n) => n,
         Err(err) => {
@@ -11,17 +13,21 @@ fn main() -> std::process::ExitCode {
         }
     };
 
-    let game: crate::game::Game = match crate::game::Game::start() {
-        Ok(n) => n,
-        Err(err) => {
-            log::error!(
-                "Cannot start game: {}",
-                crate::misc::aggregate_error_tree(&err, 2)
-            );
-            return std::process::ExitCode::from(EXIT_ERR_OTHER);
+    match cli.subcommand {
+        crate::parsers::Subcommand::GameStart { exclude } => {
+            let game: crate::game::Game = match crate::game::Game::start(exclude) {
+                Ok(n) => n,
+                Err(err) => {
+                    log::error!(
+                        "Cannot start game: {}",
+                        crate::misc::aggregate_error_tree(&err, 2)
+                    );
+                    return std::process::ExitCode::from(EXIT_ERR_OTHER);
+                }
+            };
+            log::info!("Game started: {game}");
         }
-    };
-    log::info!("Game started: {game}");
+    }
 
     return std::process::ExitCode::from(EXIT_OK);
 }
@@ -56,9 +62,12 @@ mod game {
     }
 
     impl Game {
-        pub fn start() -> Result<Self, crate::fs::Error> {
+        pub fn start(
+            exclude_from_search: Option<std::path::PathBuf>,
+        ) -> Result<Self, crate::fs::Error> {
             log::debug!("Determining initial state...");
-            let state: S = Game::determine_inital_state("RustDedicated", 258550)?;
+            let state: S =
+                Game::determine_inital_state("RustDedicated", 258550, exclude_from_search)?;
             log::debug!("Initial state determined: {state}");
             let game: Game = Self { state };
             let started: Game = game.transition(T::Start);
@@ -135,9 +144,10 @@ mod game {
         fn determine_inital_state(
             executable_name: &'static str,
             steam_app_id: u32,
+            exclude_from_search: Option<std::path::PathBuf>,
         ) -> Result<S, crate::fs::Error> {
             let installed: crate::fs::ExistingFile =
-                match crate::fs::find_single_file(executable_name) {
+                match crate::fs::find_single_file(executable_name, exclude_from_search) {
                     Ok(Some(n)) => n,
                     Ok(None) => return Ok(S::NI),
                     Err(crate::fs::Error::FileNotFound(_)) => return Ok(S::NI),
@@ -334,8 +344,7 @@ mod fs {
                         .collect::<Vec<String>>();
                     return write!(
                         f,
-                        "unexpected {} files found: {}",
-                        found.len(),
+                        "unexpected more than 1 files found: {}",
                         found.join(", ")
                     );
                 }
@@ -403,62 +412,49 @@ mod fs {
         }
     }
 
-    pub fn find_single_file(executable_name: &'static str) -> Result<Option<ExistingFile>, Error> {
-        let exec_find: &'static str = "find";
-        let argv: Vec<std::borrow::Cow<'static, str>> = vec![
-            "/".into(),
-            "-name".into(),
-            executable_name.into(),
-            "-type".into(),
-            "f".into(),
-        ];
-        let argvi = argv.iter().map(std::borrow::Cow::as_ref);
+    pub fn find_single_file(
+        executable_name: &'static str,
+        exclude_from_search: Option<std::path::PathBuf>,
+    ) -> Result<Option<ExistingFile>, Error> {
+        let mut matches: Vec<std::path::PathBuf> = Vec::new();
 
-        let output: std::process::Output =
-            match std::process::Command::new(&exec_find).args(argvi).output() {
-                Ok(n) => n,
-                Err(err) => {
-                    return Err(crate::fs::Error::ExecutableSpawnFailed(
-                        crate::fs::ExecuteAttempt {
-                            executable: exec_find,
-                            argv,
-                            predicate_display: "find game server executable".into(),
-                            source: err,
-                        },
-                    ));
-                }
-            };
-
-        let stdout_utf8: std::borrow::Cow<str> = String::from_utf8_lossy(&output.stdout);
-        let stdout_utf8: &str = stdout_utf8.trim();
-
-        match stdout_utf8.lines().count() {
-            0 => {
-                return Err(crate::fs::Error::FileNotFound((
-                    executable_name.into(),
-                    None,
-                )));
-            }
-            1 => {
-                let installation: &str = match stdout_utf8.lines().last() {
-                    Some(n) => n,
-                    None => {
-                        unreachable!("set with exactly 1 member should have a last item")
+        if let None = exclude_from_search {
+            log::debug!("Doing a full system wide search for a file named {executable_name}... This might take a while");
+        }
+        for entry in walkdir::WalkDir::new("/")
+            .into_iter()
+            .filter_entry(|e| {
+                if let Some(ref exclude_path) = exclude_from_search {
+                    if e.path().starts_with(exclude_path) {
+                        return false;
                     }
-                };
-                let absolute_path = std::path::PathBuf::from(installation);
-                let file: ExistingFile = match ExistingFile::check(&absolute_path) {
-                    Ok(n) => n,
-                    Err(_) => unreachable!("file found earlier with {exec_find}"),
-                };
+                }
+                true
+            })
+            .filter_map(|e| e.ok())
+        {
+            let entry: walkdir::DirEntry = entry;
+
+            if entry.file_name() == executable_name && entry.file_type().is_file() {
+                matches.push(entry.path().to_path_buf());
+            }
+
+            if matches.len() > 1 {
+                return Err(Error::MultipleFilesFound(matches));
+            }
+        }
+
+        match matches.len() {
+            0 => Err(Error::FileNotFound((executable_name.into(), None))),
+            1 => {
+                let path: std::path::PathBuf = matches
+                    .into_iter()
+                    .next()
+                    .expect("iterator of length 1 should have a first next");
+                let file: ExistingFile = ExistingFile::check(&path)?;
                 return Ok(Some(file));
             }
-            _ => {
-                let li = stdout_utf8.lines();
-                let li = li.map(|n| std::path::PathBuf::from(n));
-                let li: Vec<std::path::PathBuf> = li.collect::<Vec<std::path::PathBuf>>();
-                return Err(crate::fs::Error::MultipleFilesFound(li));
-            }
+            _ => unreachable!("iterator should have length 0 or 1 at this point"),
         }
     }
 }
@@ -538,5 +534,28 @@ mod parsers {
             }
         }
         return None;
+    }
+
+    #[derive(clap::Parser)]
+    pub struct Cli {
+        #[command(subcommand)]
+        pub subcommand: Subcommand,
+    }
+
+    #[derive(clap::Subcommand)]
+    pub enum Subcommand {
+        GameStart {
+            #[arg(
+            long,
+            help = "Exclude a directory from the game start process's search for the game executable.",
+            long_help = r#"Exclude a directory from the game start process's search for the game
+executable. This is useful, for example, when developing on WSL (Windows
+Subsystem for Linux), where performing a whole system wide search tends to be
+particularly slow. In such cases, you may want to exclude `/mnt/c/`"#,
+            value_name = "DIRECTORY",
+            default_value = None
+        )]
+            exclude: Option<std::path::PathBuf>,
+        },
     }
 }
