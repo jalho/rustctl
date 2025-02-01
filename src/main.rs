@@ -168,12 +168,22 @@ mod game {
 
             let running: RS = {
                 let executable: &str = "pgrep";
+                let argv: Vec<std::borrow::Cow<'static, str>> = vec![executable_name.into()];
                 let output: std::process::Output = match std::process::Command::new(executable)
-                    .arg(executable_name)
+                    .args(argv.iter().map(std::borrow::Cow::as_ref))
                     .output()
                 {
                     Ok(n) => n,
-                    Err(err) => todo!("could not {executable}: {err}"),
+                    Err(err) => {
+                        return Err(crate::fs::Error::ExecutableSpawnFailed(
+                            crate::fs::ExecuteAttempt {
+                                executable,
+                                argv,
+                                predicate_display: "spawn command".into(),
+                                source: err,
+                            },
+                        ))
+                    }
                 };
                 if !output.status.success() {
                     RS::NR
