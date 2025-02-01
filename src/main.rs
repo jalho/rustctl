@@ -18,6 +18,10 @@ fn main() -> std::process::ExitCode {
             let game: crate::game::Game = match crate::game::Game::start(exclude) {
                 Ok(n) => n,
                 Err(err) => {
+                    /* TODO:
+                     * Check if error case works: "Running parallel" (Multiple
+                     * processes called "RustDedicated" already running)
+                     */
                     log::error!(
                         "Cannot start game: {}",
                         crate::misc::aggregate_error_tree(&err, 2)
@@ -177,38 +181,7 @@ mod game {
                 .to_path_buf(),
             };
 
-            let running: RS = {
-                let executable: &str = "pgrep";
-                let argv: Vec<std::borrow::Cow<'static, str>> = vec![executable_name.into()];
-                let output: std::process::Output = match std::process::Command::new(executable)
-                    .args(argv.iter().map(std::borrow::Cow::as_ref))
-                    .output()
-                {
-                    Ok(n) => n,
-                    Err(err) => {
-                        return Err(crate::fs::Error::ExecutableSpawnFailed(
-                            crate::fs::ExecuteAttempt {
-                                executable,
-                                argv,
-                                predicate_display: "spawn command".into(),
-                                source: err,
-                            },
-                        ))
-                    }
-                };
-                if !output.status.success() {
-                    RS::NR
-                } else {
-                    let stdout_utf8 = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-                    let pid: LinuxProcessId = match str::parse::<u32>(&stdout_utf8) {
-                        Ok(n) => n,
-                        Err(err) => {
-                            todo!("invalid output from {executable}: {err}: {stdout_utf8}")
-                        }
-                    };
-                    RS::R(pid)
-                }
-            };
+            let running: RS = crate::fs::check_process_running(executable_name)?;
 
             return Ok(S::I(updation, running));
         }
@@ -301,7 +274,7 @@ mod game {
 
     #[derive(Debug)]
     /// Running state.
-    enum RS {
+    pub enum RS {
         /// Running.
         R(LinuxProcessId),
         /// Not running.
@@ -310,13 +283,35 @@ mod game {
 }
 
 mod fs {
+    pub fn check_process_running(name: &str) -> Result<crate::game::RS, Error> {
+        let processes: procfs::process::ProcessesIter =
+            procfs::process::all_processes().map_err(Error::ProcFsError)?;
+
+        let mut matching_pids: Vec<u32> = Vec::new();
+        for proc in processes {
+            let proc: procfs::process::Process = proc.map_err(Error::ProcFsError)?;
+            if let Ok(stat) = proc.stat() {
+                if stat.comm == name {
+                    matching_pids.push(stat.pid.try_into().expect("process ID should be a u32"));
+                }
+            }
+        }
+
+        match matching_pids.len() {
+            0 => Ok(crate::game::RS::NR),
+            1 => Ok(crate::game::RS::R(matching_pids[0])),
+            _ => Err(Error::RunningParallel(matching_pids)),
+        }
+    }
+
     #[derive(Debug)]
     pub enum Error {
         /// Contains name or path (relative or absolute) of the file that was
         /// not found, and possible associated underlying system IO error.
         FileNotFound((std::path::PathBuf, Option<std::io::Error>)),
         MultipleFilesFound(Vec<std::path::PathBuf>),
-        ExecutableSpawnFailed(ExecuteAttempt),
+        ProcFsError(procfs::ProcError),
+        RunningParallel(Vec<u32>),
     }
     impl std::error::Error for Error {
         fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
@@ -324,17 +319,15 @@ mod fs {
                 Error::FileNotFound((_, Some(err))) => Some(err),
                 Error::FileNotFound((_, None)) => None,
                 Error::MultipleFilesFound(_) => None,
-                Error::ExecutableSpawnFailed(err) => Some(&err.source),
+                Error::ProcFsError(err) => Some(err),
+                Error::RunningParallel(_) => None,
             }
         }
     }
     impl std::fmt::Display for Error {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
-                Error::FileNotFound((file, Some(err))) => {
-                    write!(f, "file not found: {}: {err}", file.to_string_lossy())
-                }
-                Error::FileNotFound((file, None)) => {
+                Error::FileNotFound((file, _)) => {
                     write!(f, "file not found: {}", file.to_string_lossy())
                 }
                 Error::MultipleFilesFound(found) => {
@@ -348,26 +341,19 @@ mod fs {
                         found.join(", ")
                     );
                 }
-                Error::ExecutableSpawnFailed(attempt) => {
+                Error::ProcFsError(_) => write!(f, "dependency 'procfs' failed"),
+                Error::RunningParallel(vec) => {
                     write!(
                         f,
-                        "failed to {}: command failed: {} {}",
-                        attempt.predicate_display,
-                        attempt.executable,
-                        attempt.argv.join(" ")
+                        "parallel processes running: PIDs {}",
+                        vec.iter()
+                            .map(|n| n.to_string())
+                            .collect::<Vec<String>>()
+                            .join(", ")
                     )
                 }
             }
         }
-    }
-
-    #[derive(Debug)]
-    pub struct ExecuteAttempt {
-        pub executable: &'static str,
-        pub argv: Vec<std::borrow::Cow<'static, str>>,
-        /// Describes what was being attempted, formatted for inclusion in an error message.
-        pub predicate_display: std::borrow::Cow<'static, str>,
-        pub source: std::io::Error,
     }
 
     pub struct ExistingFile {

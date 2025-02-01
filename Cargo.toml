@@ -17,3 +17,4 @@ tungstenite = "0.24.0"
 clap = { version = "4.5.26", features = ["derive"] }
 chrono = "0.4.39"
 walkdir = "2.5.0"
+procfs = "0.17.0"
