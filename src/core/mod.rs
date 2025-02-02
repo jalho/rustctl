@@ -109,7 +109,7 @@ impl Game {
         let updation: Updation = Updation {
             _completed: manifest.last_change,
             _from: None,
-            to: crate::parsers::parse_buildid_from_manifest(&manifest.absolute_path_file)
+            to: crate::parsing::parse_buildid_from_manifest(&manifest.absolute_path_file)
                 .expect("no build ID in manifest"),
             _root_dir_absolute: installed.absolute_path_parent,
             _executable_name: std::path::PathBuf::from(executable_name),
