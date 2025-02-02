@@ -1,5 +1,6 @@
 mod core;
 mod system;
+mod util;
 
 static EXIT_OK: u8 = 0;
 static EXIT_ERR_LOGGER: u8 = 42;
@@ -11,7 +12,7 @@ fn main() -> std::process::ExitCode {
     let _handle: log4rs::Handle = match crate::logger::init_logger() {
         Ok(n) => n,
         Err(err) => {
-            eprintln!("{}", crate::misc::aggregate_error_tree(&err, 2));
+            eprintln!("{}", crate::util::aggregate_error_tree(&err, 2));
             return std::process::ExitCode::from(EXIT_ERR_LOGGER);
         }
     };
@@ -27,7 +28,7 @@ fn main() -> std::process::ExitCode {
                      */
                     log::error!(
                         "Cannot start game: {}",
-                        crate::misc::aggregate_error_tree(&err, 2)
+                        crate::util::aggregate_error_tree(&err, 2)
                     );
                     return std::process::ExitCode::from(EXIT_ERR_OTHER);
                 }
@@ -37,30 +38,6 @@ fn main() -> std::process::ExitCode {
     }
 
     return std::process::ExitCode::from(EXIT_OK);
-}
-
-mod misc {
-    pub fn aggregate_error_tree<Error: std::error::Error + 'static>(
-        error: &Error,
-        indent_step: usize,
-    ) -> String {
-        let mut next: Option<&(dyn std::error::Error)> = Some(error);
-        let mut gen: usize = 0;
-        let mut aggregated: String = String::new();
-        while let Some(node) = next {
-            let prefix_len: usize = gen * indent_step;
-            let mut indent: String = String::with_capacity(prefix_len);
-            for _ in 0..prefix_len {
-                indent.push(' ');
-            }
-            aggregated.push_str(&indent);
-            aggregated.push_str(&format!("{}", node));
-            aggregated.push('\n');
-            next = node.source();
-            gen = gen + 1;
-        }
-        return aggregated;
-    }
 }
 
 mod logger {
