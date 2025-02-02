@@ -1,7 +1,8 @@
 //! System resources abstractions, such as operations with the filesystem and
 //! processes.
 
-pub fn check_process_running(name: &str) -> Result<crate::game::RS, Error> {
+// TODO: Refactor to not use other modules' stuff
+pub fn check_process_running(name: &str) -> Result<crate::core::RS, Error> {
     let processes: procfs::process::ProcessesIter =
         procfs::process::all_processes().map_err(Error::ProcFsError)?;
 
@@ -16,8 +17,8 @@ pub fn check_process_running(name: &str) -> Result<crate::game::RS, Error> {
     }
 
     match matching_pids.len() {
-        0 => Ok(crate::game::RS::NR),
-        1 => Ok(crate::game::RS::R(matching_pids[0])),
+        0 => Ok(crate::core::RS::NR),
+        1 => Ok(crate::core::RS::R(matching_pids[0])),
         _ => Err(Error::RunningParallel(matching_pids)),
     }
 }
