@@ -119,7 +119,10 @@ impl Game {
             .to_path_buf(),
         };
 
-        let running: RS = crate::system::check_process_running(executable_name)?;
+        let running: RS = match crate::system::check_process_running(executable_name)? {
+            Some(pid) => RS::R(pid),
+            None => RS::NR,
+        };
 
         return Ok(S::I(updation, running));
     }
@@ -186,9 +189,9 @@ pub enum T {
     _Update,
 }
 
-type SteamAppBuildId = u32;
+pub type SteamAppBuildId = u32;
 
-type LinuxProcessId = u32;
+pub type LinuxProcessId = u32;
 
 /// Represents a fresh installation or _updation_ (:D) of an existing
 /// installation.
