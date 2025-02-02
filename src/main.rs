@@ -4,10 +4,6 @@ mod parsing;
 mod system;
 mod util;
 
-static EXIT_OK: u8 = 0;
-static EXIT_ERR_LOGGER: u8 = 42;
-static EXIT_ERR_OTHER: u8 = 43;
-
 fn main() -> std::process::ExitCode {
     let cli: crate::parsing::Cli = <crate::parsing::Cli as clap::Parser>::parse();
 
@@ -15,7 +11,7 @@ fn main() -> std::process::ExitCode {
         Ok(n) => n,
         Err(err) => {
             eprintln!("{}", crate::util::aggregate_error_tree(&err, 2));
-            return std::process::ExitCode::from(EXIT_ERR_LOGGER);
+            return std::process::ExitCode::FAILURE;
         }
     };
 
@@ -32,12 +28,12 @@ fn main() -> std::process::ExitCode {
                         "Cannot start game: {}",
                         crate::util::aggregate_error_tree(&err, 2)
                     );
-                    return std::process::ExitCode::from(EXIT_ERR_OTHER);
+                    return std::process::ExitCode::FAILURE;
                 }
             };
             log::info!("Game started: {game}");
         }
     }
 
-    return std::process::ExitCode::from(EXIT_OK);
+    return std::process::ExitCode::SUCCESS;
 }
