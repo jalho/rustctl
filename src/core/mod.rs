@@ -247,14 +247,10 @@ impl std::fmt::Display for S {
         match self {
             S::NI => write!(f, "not installed"),
             S::I(updation, RS::NR) => {
-                write!(f, "installed: Steam build ID {}, not running", updation.to)
+                write!(f, "installed: {updation}, not running")
             }
             S::I(updation, RS::R(pid)) => {
-                write!(
-                    f,
-                    "installed: Steam build ID {}, running as PID {pid}",
-                    updation.to
-                )
+                write!(f, "installed: {updation}, running as PID {pid}")
             }
         }
     }
