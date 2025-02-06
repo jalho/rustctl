@@ -1,24 +1,46 @@
 //! Core functionality of the program.
 
+#[derive(Debug)]
+pub enum Error {
+    SystemError(crate::system::Error),
+}
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::SystemError(err) => Some(err),
+        }
+    }
+}
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::SystemError(_) => write!(f, "system failure"),
+        }
+    }
+}
+impl From<crate::system::Error> for Error {
+    fn from(value: crate::system::Error) -> Self {
+        Self::SystemError(value)
+    }
+}
+
 pub struct Game {
     state: S,
 }
 
 impl Game {
-    pub fn start(
-        exclude_from_search: Option<std::path::PathBuf>,
-    ) -> Result<Self, crate::system::Error> {
+    pub fn start(exclude_from_search: Option<std::path::PathBuf>) -> Result<Self, Error> {
         log::debug!("Determining initial state...");
         let state: S = Game::determine_inital_state("RustDedicated", 258550, exclude_from_search)?;
         log::debug!("Initial state determined: {state}");
         let game: Game = Self { state };
-        let started: Game = game.transition(T::Start);
+        let started: Game = game.transition(T::Start)?;
         return Ok(started);
     }
 
-    fn transition(mut self, transition: T) -> Self {
+    fn transition(mut self, transition: T) -> Result<Self, Error> {
         match (&self.state, transition) {
-            (S::I(_, RS::NR), T::_Install | T::_Stop) => self, // Nothing to do!
+            (S::I(_, RS::NR), T::_Install | T::_Stop) => Ok(self), // Nothing to do!
 
             (S::I(current, RS::NR), T::Start) => {
                 let latest: SteamAppBuildId = Game::query_latest_version_info();
@@ -26,11 +48,11 @@ impl Game {
                     let updated: Updation = Game::update();
                     let pid: LinuxProcessId = Game::spawn();
                     self.state = S::I(updated, RS::R(pid));
-                    return self;
+                    return Ok(self);
                 } else {
                     let pid: LinuxProcessId = Game::spawn();
                     self.state = S::I(current.clone(), RS::R(pid));
-                    return self;
+                    return Ok(self);
                 }
             }
 
@@ -39,18 +61,18 @@ impl Game {
                 if current.to != latest {
                     let updated: Updation = Game::update();
                     self.state = S::I(updated, RS::NR);
-                    return self;
+                    return Ok(self);
                 } else {
-                    return self;
+                    return Ok(self);
                 }
             }
 
-            (S::I(_, RS::R(_)), T::_Install | T::Start) => self, // Nothing to do!
+            (S::I(_, RS::R(_)), T::_Install | T::Start) => Ok(self), // Nothing to do!
 
             (S::I(current, RS::R(pid)), T::_Stop) => {
                 Game::terminate(*pid);
                 self.state = S::I(current.clone(), RS::NR);
-                return self;
+                return Ok(self);
             }
 
             (S::I(current, RS::R(pid)), T::_Update) => {
@@ -60,26 +82,26 @@ impl Game {
                     let updated: Updation = Game::update();
                     let pid: LinuxProcessId = Game::spawn();
                     self.state = S::I(updated, RS::R(pid));
-                    return self;
+                    return Ok(self);
                 } else {
-                    return self;
+                    return Ok(self);
                 }
             }
 
             (S::NI, T::_Install | T::_Update) => {
-                let installed: Updation = Game::install();
+                let installed: Updation = Game::install()?;
                 self.state = S::I(installed, RS::NR);
-                return self;
+                return Ok(self);
             }
 
             (S::NI, T::Start) => {
-                let installed: Updation = Game::install();
+                let installed: Updation = Game::install()?;
                 let pid: LinuxProcessId = Game::spawn();
                 self.state = S::I(installed, RS::R(pid));
-                return self;
+                return Ok(self);
             }
 
-            (S::NI, T::_Stop) => self, // Nothing to do!
+            (S::NI, T::_Stop) => Ok(self), // Nothing to do!
         }
     }
 
@@ -131,7 +153,7 @@ impl Game {
         todo!("query information of latest version of game server available using SteamCMD");
     }
 
-    fn install() -> Updation {
+    fn install() -> Result<Updation, Error> {
         todo!("install game server using SteamCMD");
     }
 
