@@ -47,42 +47,38 @@ impl From<crate::system::Error> for Error {
 }
 
 pub struct Game {
-    /// Absolute path to the directory in which the game executable shall be
-    /// installed.
-    game_root_dir_absolute: &'static std::path::Path,
-    /// Steam app ID of the game server.
-    game_steam_app_id: u32,
-    /// Filename (not the absolute path) of the game server executable.
-    game_executable_filename: &'static std::path::Path,
-    /// Filename (not the absolute path) of the game server manifest.
-    game_manifest_filename: &'static std::path::Path,
     state: S,
 }
 
 impl Game {
-    pub fn start(exclude_from_search: Option<std::path::PathBuf>) -> Result<Self, Error> {
-        let game_root_dir_absolute: &'static std::path::Path = std::path::Path::new("/home/rust/");
-        let game_steam_app_id: u32 = 258550;
-        let game_executable_filename: &'static std::path::Path =
-            std::path::Path::new("RustDedicated");
-        let game_manifest_filename: &'static std::path::Path =
-            std::path::Path::new("appmanifest_258550.acf");
+    /// Absolute path to the directory in which the game executable shall be
+    /// installed.
+    fn get_game_root_dir_absolute() -> &'static std::path::Path {
+        std::path::Path::new("/home/rust/")
+    }
 
+    /// Steam app ID of the game server.
+    fn get_game_steam_app_id() -> u32 {
+        258550
+    }
+
+    /// Filename (not the absolute path) of the game server executable.
+    fn get_game_executable_filename() -> &'static std::path::Path {
+        std::path::Path::new("RustDedicated")
+    }
+
+    /// Filename (not the absolute path) of the game server manifest.
+    fn get_game_manifest_filename() -> &'static std::path::Path {
+        std::path::Path::new("appmanifest_258550.acf")
+    }
+
+    pub fn start(exclude_from_search: Option<std::path::PathBuf>) -> Result<Self, Error> {
         log::debug!("Determining initial state...");
-        let state: S = determine_inital_state(
-            game_executable_filename,
-            game_steam_app_id,
-            exclude_from_search,
-        )?;
+        let state: S =
+            determine_inital_state(Game::get_game_executable_filename(), exclude_from_search)?;
         log::debug!("Initial state determined: {state}");
 
-        let game: Game = Self {
-            state,
-            game_root_dir_absolute,
-            game_steam_app_id,
-            game_executable_filename,
-            game_manifest_filename,
-        };
+        let game: Game = Self { state };
         let started: Game = game.transition(T::Start)?;
         return Ok(started);
     }
@@ -165,22 +161,24 @@ impl Game {
     fn install(&self) -> Result<Updation, Error> {
         let argv: Vec<std::borrow::Cow<'_, str>> = vec![
             "+force_install_dir".into(),
-            self.game_root_dir_absolute.to_string_lossy(),
+            Game::get_game_root_dir_absolute().to_string_lossy(),
             "+login".into(),
             "anonymous".into(),
             "+app_update".into(),
-            self.game_steam_app_id.to_string().into(),
+            Game::get_game_steam_app_id().to_string().into(),
             "validate".into(),
             "+quit".into(),
         ];
         self.steamcmd_exec(argv)?;
 
-        let mut path_executable: std::path::PathBuf = self.game_root_dir_absolute.to_path_buf();
-        path_executable.push(self.game_executable_filename);
+        let mut path_executable: std::path::PathBuf =
+            Game::get_game_root_dir_absolute().to_path_buf();
+        path_executable.push(Game::get_game_executable_filename());
 
-        let mut path_manifest: std::path::PathBuf = self.game_root_dir_absolute.to_path_buf();
+        let mut path_manifest: std::path::PathBuf =
+            Game::get_game_root_dir_absolute().to_path_buf();
         path_manifest.push("steamapps");
-        path_manifest.push(self.game_manifest_filename);
+        path_manifest.push(Game::get_game_manifest_filename());
 
         let installation: Updation = Updation::read(&path_executable, &path_manifest)?;
         return Ok(installation);
@@ -202,17 +200,17 @@ impl Game {
         let mut steamcmd: std::process::Command = std::process::Command::new("steamcmd");
         steamcmd.args(argv.iter().map(std::borrow::Cow::as_ref));
 
-        if !self.game_root_dir_absolute.is_dir() {
+        if !Game::get_game_root_dir_absolute().is_dir() {
             return Err(Error::SteamCMDError(
                 format!(
                     "find working directory '{}'",
-                    self.game_root_dir_absolute.to_string_lossy()
+                    Game::get_game_root_dir_absolute().to_string_lossy()
                 ),
                 None,
                 None,
             ));
         }
-        steamcmd.current_dir(self.game_root_dir_absolute);
+        steamcmd.current_dir(Game::get_game_root_dir_absolute());
 
         steamcmd.stdout(std::process::Stdio::piped());
         steamcmd.stderr(std::process::Stdio::piped());
@@ -389,7 +387,6 @@ pub enum RS {
 
 fn determine_inital_state(
     executable_name: &'static std::path::Path,
-    steam_app_id: u32,
     exclude_from_search: Option<std::path::PathBuf>,
 ) -> Result<S, crate::system::Error> {
     let installed: crate::system::ExistingFile =
@@ -403,7 +400,7 @@ fn determine_inital_state(
     let manifest_path: std::path::PathBuf = installed
         .absolute_path_parent
         .join("steamapps")
-        .join(format!("appmanifest_{steam_app_id}.acf")); // TODO: Remove duplicate definition of manifest file name
+        .join(Game::get_game_manifest_filename());
     let manifest: crate::system::ExistingFile =
         match crate::system::ExistingFile::check(&manifest_path) {
             Ok(n) => n,
