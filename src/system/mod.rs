@@ -1,7 +1,9 @@
 //! System resources abstractions, such as operations with the filesystem and
 //! processes.
 
-pub fn check_process_running(name: &str) -> Result<Option<crate::core::LinuxProcessId>, Error> {
+pub fn check_process_running(
+    name: &'static std::path::Path,
+) -> Result<Option<crate::core::LinuxProcessId>, Error> {
     let processes: procfs::process::ProcessesIter =
         procfs::process::all_processes().map_err(Error::ProcFsError)?;
 
@@ -9,7 +11,8 @@ pub fn check_process_running(name: &str) -> Result<Option<crate::core::LinuxProc
     for proc in processes {
         let proc: procfs::process::Process = proc.map_err(Error::ProcFsError)?;
         if let Ok(stat) = proc.stat() {
-            if stat.comm == name {
+            let proc_exec_filename: &std::path::Path = std::path::Path::new(&stat.comm);
+            if proc_exec_filename == name {
                 matching_pids.push(stat.pid.try_into().expect("process ID should be a u32"));
             }
         }
@@ -117,13 +120,16 @@ impl ExistingFile {
 }
 
 pub fn find_single_file(
-    executable_name: &'static str,
+    executable_name: &'static std::path::Path,
     exclude_from_search: Option<std::path::PathBuf>,
 ) -> Result<Option<ExistingFile>, Error> {
     let mut matches: Vec<std::path::PathBuf> = Vec::new();
 
     if let None = exclude_from_search {
-        log::debug!("Doing a full system wide search for a file named {executable_name}... This might take a while");
+        log::debug!(
+            "Doing a full system wide search for a file named {}... This might take a while",
+            executable_name.to_string_lossy()
+        );
     }
     for entry in walkdir::WalkDir::new("/")
         .into_iter()

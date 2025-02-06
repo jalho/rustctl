@@ -25,15 +25,37 @@ impl From<crate::system::Error> for Error {
 }
 
 pub struct Game {
+    /// Absolute path to the directory in which the game executable shall be
+    /// installed.
+    game_root_dir_absolute: &'static std::path::Path,
+    /// Steam app ID of the game server.
+    game_steam_app_id: u32,
+    /// Filename (not the absolute path) of the game server executable.
+    game_executable_filename: &'static std::path::Path,
     state: S,
 }
 
 impl Game {
     pub fn start(exclude_from_search: Option<std::path::PathBuf>) -> Result<Self, Error> {
+        let game_root_dir_absolute: &'static std::path::Path = std::path::Path::new("/home/rust/");
+        let game_steam_app_id: u32 = 258550;
+        let game_executable_filename: &'static std::path::Path =
+            std::path::Path::new("RustDedicated");
+
         log::debug!("Determining initial state...");
-        let state: S = determine_inital_state("RustDedicated", 258550, exclude_from_search)?;
+        let state: S = determine_inital_state(
+            game_executable_filename,
+            game_steam_app_id,
+            exclude_from_search,
+        )?;
         log::debug!("Initial state determined: {state}");
-        let game: Game = Self { state };
+
+        let game: Game = Self {
+            state,
+            game_root_dir_absolute,
+            game_steam_app_id,
+            game_executable_filename,
+        };
         let started: Game = game.transition(T::Start)?;
         return Ok(started);
     }
@@ -124,6 +146,18 @@ impl Game {
     fn terminate(_pid: LinuxProcessId) {
         todo!("terminate game server process");
     }
+
+    fn steamcmd_exec(&self, argv: Vec<&'static str>) {
+        let mut steamcmd: std::process::Command = std::process::Command::new("steamcmd");
+        steamcmd.args(&argv);
+        let output = match steamcmd.output() {
+            Ok(n) => n,
+            Err(err) => todo!("define error case"),
+        };
+        if !output.status.success() {
+            todo!("define error case");
+        }
+    }
 }
 impl std::fmt::Display for Game {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -200,7 +234,7 @@ pub enum RS {
 }
 
 fn determine_inital_state(
-    executable_name: &'static str,
+    executable_name: &'static std::path::Path,
     steam_app_id: u32,
     exclude_from_search: Option<std::path::PathBuf>,
 ) -> Result<S, crate::system::Error> {
