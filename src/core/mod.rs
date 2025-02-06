@@ -31,7 +31,7 @@ pub struct Game {
 impl Game {
     pub fn start(exclude_from_search: Option<std::path::PathBuf>) -> Result<Self, Error> {
         log::debug!("Determining initial state...");
-        let state: S = Game::determine_inital_state("RustDedicated", 258550, exclude_from_search)?;
+        let state: S = determine_inital_state("RustDedicated", 258550, exclude_from_search)?;
         log::debug!("Initial state determined: {state}");
         let game: Game = Self { state };
         let started: Game = game.transition(T::Start)?;
@@ -105,50 +105,6 @@ impl Game {
         }
     }
 
-    fn determine_inital_state(
-        executable_name: &'static str,
-        steam_app_id: u32,
-        exclude_from_search: Option<std::path::PathBuf>,
-    ) -> Result<S, crate::system::Error> {
-        let installed: crate::system::ExistingFile =
-            match crate::system::find_single_file(executable_name, exclude_from_search) {
-                Ok(Some(n)) => n,
-                Ok(None) => return Ok(S::NI),
-                Err(crate::system::Error::FileNotFound(_)) => return Ok(S::NI),
-                Err(err) => return Err(err),
-            };
-
-        let manifest_path: std::path::PathBuf = installed
-            .absolute_path_parent
-            .join("steamapps")
-            .join(format!("appmanifest_{steam_app_id}.acf"));
-        let manifest: crate::system::ExistingFile =
-            match crate::system::ExistingFile::check(&manifest_path) {
-                Ok(n) => n,
-                Err(_) => return Ok(S::NI),
-            };
-
-        let updation: Updation = Updation {
-            _completed: manifest.last_change,
-            _from: None,
-            to: crate::parsing::parse_buildid_from_manifest(&manifest.absolute_path_file)
-                .expect("no build ID in manifest"),
-            _root_dir_absolute: installed.absolute_path_parent,
-            _executable_name: std::path::PathBuf::from(executable_name),
-            _manifest_name: std::path::Path::new(
-                &manifest.file_name.to_string_lossy().into_owned(),
-            )
-            .to_path_buf(),
-        };
-
-        let running: RS = match crate::system::check_process_running(executable_name)? {
-            Some(pid) => RS::R(pid),
-            None => RS::NR,
-        };
-
-        return Ok(S::I(updation, running));
-    }
-
     fn query_latest_version_info() -> SteamAppBuildId {
         todo!("query information of latest version of game server available using SteamCMD");
     }
@@ -169,7 +125,6 @@ impl Game {
         todo!("terminate game server process");
     }
 }
-
 impl std::fmt::Display for Game {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         return write!(f, "");
@@ -242,4 +197,46 @@ pub enum RS {
     R(LinuxProcessId),
     /// Not running.
     NR,
+}
+
+fn determine_inital_state(
+    executable_name: &'static str,
+    steam_app_id: u32,
+    exclude_from_search: Option<std::path::PathBuf>,
+) -> Result<S, crate::system::Error> {
+    let installed: crate::system::ExistingFile =
+        match crate::system::find_single_file(executable_name, exclude_from_search) {
+            Ok(Some(n)) => n,
+            Ok(None) => return Ok(S::NI),
+            Err(crate::system::Error::FileNotFound(_)) => return Ok(S::NI),
+            Err(err) => return Err(err),
+        };
+
+    let manifest_path: std::path::PathBuf = installed
+        .absolute_path_parent
+        .join("steamapps")
+        .join(format!("appmanifest_{steam_app_id}.acf"));
+    let manifest: crate::system::ExistingFile =
+        match crate::system::ExistingFile::check(&manifest_path) {
+            Ok(n) => n,
+            Err(_) => return Ok(S::NI),
+        };
+
+    let updation: Updation = Updation {
+        _completed: manifest.last_change,
+        _from: None,
+        to: crate::parsing::parse_buildid_from_manifest(&manifest.absolute_path_file)
+            .expect("no build ID in manifest"),
+        _root_dir_absolute: installed.absolute_path_parent,
+        _executable_name: std::path::PathBuf::from(executable_name),
+        _manifest_name: std::path::Path::new(&manifest.file_name.to_string_lossy().into_owned())
+            .to_path_buf(),
+    };
+
+    let running: RS = match crate::system::check_process_running(executable_name)? {
+        Some(pid) => RS::R(pid),
+        None => RS::NR,
+    };
+
+    return Ok(S::I(updation, running));
 }
