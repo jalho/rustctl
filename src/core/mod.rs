@@ -138,13 +138,17 @@ impl Game {
             }
 
             (S::NI, T::_Install | T::_Update) => {
+                log::debug!("Installing game...");
                 let installed: Updation = self.install()?;
+                log::info!("Installed game: {installed}");
                 self.state = S::I(installed, RS::NR);
                 return Ok(self);
             }
 
             (S::NI, T::Start) => {
+                log::debug!("Installing game...");
                 let installed: Updation = self.install()?;
+                log::info!("Installed game: {installed}");
                 let pid: LinuxProcessId = Game::spawn();
                 self.state = S::I(installed, RS::R(pid));
                 return Ok(self);
@@ -273,7 +277,7 @@ pub type LinuxProcessId = u32;
 #[derive(Debug, Clone)]
 struct Updation {
     /// Timestamp of when the app's current version was installed.
-    _completed: chrono::DateTime<chrono::Utc>,
+    completed: chrono::DateTime<chrono::Utc>,
     /// Previous Steam build ID of the app. Can be `None` in the case of a
     /// fresh install.
     _from: Option<SteamAppBuildId>,
@@ -356,7 +360,7 @@ impl Updation {
         };
 
         let read: Updation = Self {
-            _completed: last_modified,
+            completed: last_modified,
             _from: None,
             to: build_id,
             _root_dir_absolute: root_dir_absolute,
@@ -365,6 +369,15 @@ impl Updation {
         };
 
         return Ok(read);
+    }
+}
+impl std::fmt::Display for Updation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Steam build ID {}, installation completed at {}",
+            self.to, self.completed
+        )
     }
 }
 
@@ -401,7 +414,7 @@ fn determine_inital_state(
         };
 
     let updation: Updation = Updation {
-        _completed: manifest.last_change,
+        completed: manifest.last_change,
         _from: None,
         to: crate::parsing::parse_buildid_from_manifest(&manifest.absolute_path_file)
             .expect("no build ID in manifest"),
