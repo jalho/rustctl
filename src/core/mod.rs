@@ -155,6 +155,12 @@ impl Game {
     }
 
     fn query_latest_version_info() -> SteamAppBuildId {
+        /* Hint from a stranger on the internet:
+         *  > I run steamcmd with `app_info_update 1` and `app_info_print
+         *  > 258550` then extract the build number and compare it against the
+         *  > value in the app manifest (`steamapps/appmanifest_258550.acf`
+         *  > under the server install tree)
+         */
         todo!("query information of latest version of game server available using SteamCMD");
     }
 
