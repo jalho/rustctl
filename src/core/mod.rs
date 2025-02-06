@@ -179,6 +179,7 @@ impl Game {
         path_executable.push(self.game_executable_filename);
 
         let mut path_manifest: std::path::PathBuf = self.game_root_dir_absolute.to_path_buf();
+        path_manifest.push("steamapps");
         path_manifest.push(self.game_manifest_filename);
 
         let installation: Updation = Updation::read(&path_executable, &path_manifest)?;
