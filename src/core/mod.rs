@@ -1,11 +1,17 @@
 //! Core functionality of the program.
 
 type Predicate = String;
+type Object = String;
 type UnexpectedStatus = i32;
 #[derive(Debug)]
 pub enum Error {
     SystemError(crate::system::Error),
+    /// Failure while executing SteamCMD: Failed to spawn process, unexpected
+    /// termination status, unusable working directory etc.
     SteamCMDExecError(Predicate, Option<UnexpectedStatus>, Option<std::io::Error>),
+    /// The output of an executed SteamCMD command has some unexpected
+    /// characteristic.
+    SteamCMDUnexpectedOutput(Predicate, Object),
     InstallationInvalidFile(std::path::PathBuf, Option<std::io::Error>),
 }
 impl std::error::Error for Error {
@@ -16,6 +22,7 @@ impl std::error::Error for Error {
             Error::SteamCMDExecError(_, _, None) => None,
             Error::InstallationInvalidFile(_, Some(err)) => Some(err),
             Error::InstallationInvalidFile(_, None) => None,
+            Error::SteamCMDUnexpectedOutput(_, _) => None,
         }
     }
 }
@@ -37,6 +44,12 @@ impl std::fmt::Display for Error {
                 "invalid installation file: {}",
                 path_buf.to_string_lossy()
             ),
+            Error::SteamCMDUnexpectedOutput(predicate, object) => {
+                write!(
+                    f,
+                    "unexpected output from SteamCMD to {predicate}: {object}"
+                )
+            }
         }
     }
 }
@@ -170,7 +183,12 @@ impl Game {
         let stdout_utf8: String = self.steamcmd_exec(argv)?;
         let build_id: u32 = match crate::parsing::parse_buildid_from_buffer(&stdout_utf8) {
             Some(n) => n,
-            None => todo!("define error case"),
+            None => {
+                return Err(Error::SteamCMDUnexpectedOutput(
+                    String::from("parse build ID"),
+                    stdout_utf8,
+                ));
+            }
         };
         return Ok(build_id);
     }
