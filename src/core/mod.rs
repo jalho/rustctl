@@ -5,17 +5,20 @@ type UnexpectedStatus = i32;
 #[derive(Debug)]
 pub enum Error {
     SystemError(crate::system::Error),
-    SteamCMDError(Predicate, Option<UnexpectedStatus>, Option<std::io::Error>),
+    SteamCMDExecError(Predicate, Option<UnexpectedStatus>, Option<std::io::Error>),
+    SteamCMDUnexpectedOutput(Predicate, Vec<u8>, Option<std::str::Utf8Error>),
     InstallationInvalidFile(std::path::PathBuf, Option<std::io::Error>),
 }
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Error::SystemError(err) => Some(err),
-            Error::SteamCMDError(_, _, Some(err)) => Some(err),
-            Error::SteamCMDError(_, _, None) => None,
+            Error::SteamCMDExecError(_, _, Some(err)) => Some(err),
+            Error::SteamCMDExecError(_, _, None) => None,
             Error::InstallationInvalidFile(_, Some(err)) => Some(err),
             Error::InstallationInvalidFile(_, None) => None,
+            Error::SteamCMDUnexpectedOutput(_, _, Some(err)) => Some(err),
+            Error::SteamCMDUnexpectedOutput(_, _, None) => todo!(),
         }
     }
 }
@@ -23,13 +26,13 @@ impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Error::SystemError(_) => write!(f, "system failure"),
-            Error::SteamCMDError(predicate, Some(unexpected_status), _) => {
+            Error::SteamCMDExecError(predicate, Some(unexpected_status), _) => {
                 write!(
                     f,
                     "SteamCMD failed with unexpected status {unexpected_status} to {predicate}"
                 )
             }
-            Error::SteamCMDError(predicate, None, _) => {
+            Error::SteamCMDExecError(predicate, None, _) => {
                 write!(f, "SteamCMD failed without status to {predicate}")
             }
             Error::InstallationInvalidFile(path_buf, _) => write!(
@@ -37,6 +40,13 @@ impl std::fmt::Display for Error {
                 "invalid installation file: {}",
                 path_buf.to_string_lossy()
             ),
+            Error::SteamCMDUnexpectedOutput(predicate, object, _) => {
+                let hex_string: String = object.iter().map(|b| format!("{:02x}", b)).collect();
+                write!(
+                    f,
+                    "unexpected output from SteamCMD to {predicate}: as hex: {hex_string}"
+                )
+            }
         }
     }
 }
@@ -88,7 +98,7 @@ impl Game {
             (S::I(_, RS::NR), T::_Install | T::_Stop) => Ok(self), // Nothing to do!
 
             (S::I(current, RS::NR), T::Start) => {
-                let latest: SteamAppBuildId = Game::query_latest_version_info();
+                let latest: SteamAppBuildId = self.query_latest_version_info()?;
                 if current.to != latest {
                     let updated: Updation = Game::update();
                     let pid: LinuxProcessId = Game::spawn();
@@ -102,7 +112,7 @@ impl Game {
             }
 
             (S::I(current, RS::NR), T::_Update) => {
-                let latest: SteamAppBuildId = Game::query_latest_version_info();
+                let latest: SteamAppBuildId = self.query_latest_version_info()?;
                 if current.to != latest {
                     let updated: Updation = Game::update();
                     self.state = S::I(updated, RS::NR);
@@ -121,7 +131,7 @@ impl Game {
             }
 
             (S::I(current, RS::R(pid)), T::_Update) => {
-                let latest: SteamAppBuildId = Game::query_latest_version_info();
+                let latest: SteamAppBuildId = self.query_latest_version_info()?;
                 if current.to != latest {
                     Game::terminate(*pid);
                     let updated: Updation = Game::update();
@@ -154,14 +164,25 @@ impl Game {
         }
     }
 
-    fn query_latest_version_info() -> SteamAppBuildId {
-        /* Hint from a stranger on the internet:
-         *  > I run steamcmd with `app_info_update 1` and `app_info_print
-         *  > 258550` then extract the build number and compare it against the
-         *  > value in the app manifest (`steamapps/appmanifest_258550.acf`
-         *  > under the server install tree)
-         */
-        todo!("query information of latest version of game server available using SteamCMD");
+    fn query_latest_version_info(&self) -> Result<SteamAppBuildId, Error> {
+        /* Unsure if the "app_info_update" step is necessary or whether the
+        following "app_info_print" alone is sufficient to get latest information
+        from the remote... */
+        let argv: Vec<std::borrow::Cow<'_, str>> =
+            vec!["+app_info_update".into(), "1".into(), "+quit".into()];
+        self.steamcmd_exec(argv)?;
+
+        let argv: Vec<std::borrow::Cow<'_, str>> = vec![
+            "+app_info_print".into(),
+            Game::get_game_steam_app_id().to_string().into(),
+            "+quit".into(),
+        ];
+        let stdout_utf8: String = self.steamcmd_exec(argv)?;
+        let build_id: u32 = match crate::parsing::parse_buildid_from_buffer(&stdout_utf8) {
+            Some(n) => n,
+            None => todo!("define error case"),
+        };
+        return Ok(build_id);
     }
 
     fn install(&self) -> Result<Updation, Error> {
@@ -202,12 +223,13 @@ impl Game {
         todo!("terminate game server process");
     }
 
-    fn steamcmd_exec(&self, argv: Vec<std::borrow::Cow<'_, str>>) -> Result<(), Error> {
-        let mut steamcmd: std::process::Command = std::process::Command::new("steamcmd");
+    fn steamcmd_exec(&self, argv: Vec<std::borrow::Cow<'_, str>>) -> Result<String, Error> {
+        let steamcmd_executable: &'static str = "steamcmd";
+        let mut steamcmd: std::process::Command = std::process::Command::new(steamcmd_executable);
         steamcmd.args(argv.iter().map(std::borrow::Cow::as_ref));
 
         if !Game::get_game_root_dir_absolute().is_dir() {
-            return Err(Error::SteamCMDError(
+            return Err(Error::SteamCMDExecError(
                 format!(
                     "find working directory '{}'",
                     Game::get_game_root_dir_absolute().to_string_lossy()
@@ -221,15 +243,40 @@ impl Game {
         steamcmd.stdout(std::process::Stdio::piped());
         steamcmd.stderr(std::process::Stdio::piped());
 
-        let output = match steamcmd.output() {
+        log::trace!("{steamcmd_executable} {}", argv.join(" "));
+        let child: std::process::Child = match steamcmd.spawn() {
             Ok(n) => n,
-            Err(err) => return Err(Error::SteamCMDError(String::from("spawn"), None, Some(err))),
+            Err(err) => {
+                return Err(Error::SteamCMDExecError(
+                    String::from("spawn"),
+                    None,
+                    Some(err),
+                ))
+            }
         };
-        if !output.status.success() {
+
+        let (stdout, _stderr, exit_status) =
+            match crate::system::trace_log_child_output_and_wait_to_terminate(child) {
+                Ok(n) => n,
+                Err(err) => {
+                    return Err(Error::SteamCMDExecError(
+                        String::from("terminate"),
+                        None,
+                        Some(err),
+                    ))
+                }
+            };
+
+        if !exit_status.success() {
             let predicate: String = argv.join(" ");
-            return Err(Error::SteamCMDError(predicate, output.status.code(), None));
+            return Err(Error::SteamCMDExecError(
+                predicate,
+                exit_status.code(),
+                None,
+            ));
         }
-        return Ok(());
+
+        return Ok(stdout);
     }
 }
 impl std::fmt::Display for Game {
