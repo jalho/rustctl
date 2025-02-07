@@ -6,7 +6,6 @@ type UnexpectedStatus = i32;
 pub enum Error {
     SystemError(crate::system::Error),
     SteamCMDExecError(Predicate, Option<UnexpectedStatus>, Option<std::io::Error>),
-    SteamCMDUnexpectedOutput(Predicate, Vec<u8>, Option<std::str::Utf8Error>),
     InstallationInvalidFile(std::path::PathBuf, Option<std::io::Error>),
 }
 impl std::error::Error for Error {
@@ -17,8 +16,6 @@ impl std::error::Error for Error {
             Error::SteamCMDExecError(_, _, None) => None,
             Error::InstallationInvalidFile(_, Some(err)) => Some(err),
             Error::InstallationInvalidFile(_, None) => None,
-            Error::SteamCMDUnexpectedOutput(_, _, Some(err)) => Some(err),
-            Error::SteamCMDUnexpectedOutput(_, _, None) => todo!(),
         }
     }
 }
@@ -40,13 +37,6 @@ impl std::fmt::Display for Error {
                 "invalid installation file: {}",
                 path_buf.to_string_lossy()
             ),
-            Error::SteamCMDUnexpectedOutput(predicate, object, _) => {
-                let hex_string: String = object.iter().map(|b| format!("{:02x}", b)).collect();
-                write!(
-                    f,
-                    "unexpected output from SteamCMD to {predicate}: as hex: {hex_string}"
-                )
-            }
         }
     }
 }
