@@ -111,7 +111,7 @@ impl Game {
                     );
                     log::info!("Updating the game installation...");
                     let updated: Updation = Game::update();
-                    log::info!("Updated the game from {} to {}", current.to, updated.to);
+                    log::info!("Updated the game from {} to {}", updated.from, updated.to);
 
                     log::info!("Spawning game process...");
                     let pid: LinuxProcessId = Game::spawn();
@@ -349,10 +349,12 @@ pub type LinuxProcessId = u32;
 #[derive(Debug, Clone)]
 struct Updation {
     /// Timestamp of when the app's current version was installed.
-    completed: chrono::DateTime<chrono::Utc>,
-    /// Previous Steam build ID of the app. Can be `None` in the case of a
-    /// fresh install.
-    from: Option<SteamAppBuildId>,
+    installed_at: chrono::DateTime<chrono::Utc>,
+    /// Previous Steam build ID of the app. The value can be the same as the
+    /// _current_ (alias _to_) if there is no _previous_ value in the context
+    /// of evaluation, like in the case of a fresh installation as opposed to
+    /// updating an existing installation.
+    from: SteamAppBuildId,
     /// Current Steam build ID of the app, i.e. the version to which the app
     /// was updated.
     to: SteamAppBuildId,
@@ -432,8 +434,8 @@ impl Updation {
         };
 
         let read: Updation = Self {
-            completed: last_modified,
-            from: None,
+            installed_at: last_modified,
+            from: build_id,
             to: build_id,
             _root_dir_absolute: root_dir_absolute,
             _manifest_name: manifest_name,
@@ -447,8 +449,8 @@ impl std::fmt::Display for Updation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Steam build ID {}, installation completed at {}",
-            self.to, self.completed
+            "Steam build ID {}, installed at {}",
+            self.to, self.installed_at
         )
     }
 }
@@ -484,11 +486,16 @@ fn determine_inital_state(
             Err(_) => return Ok(S::NI),
         };
 
+    let build_id: u32 =
+        match crate::parsing::parse_buildid_from_manifest(&manifest.absolute_path_file) {
+            Some(n) => n,
+            None => todo!("define error case"),
+        };
+
     let updation: Updation = Updation {
-        completed: manifest.last_change,
-        from: None,
-        to: crate::parsing::parse_buildid_from_manifest(&manifest.absolute_path_file)
-            .expect("no build ID in manifest"),
+        installed_at: manifest.last_change,
+        from: build_id,
+        to: build_id,
         _root_dir_absolute: installed.absolute_path_parent,
         _executable_name: std::path::PathBuf::from(executable_name),
         _manifest_name: std::path::Path::new(&manifest.file_name.to_string_lossy().into_owned())
