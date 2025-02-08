@@ -208,3 +208,30 @@ pub fn trace_log_child_output_and_wait_to_terminate(
 
     return Ok((stdout_content, stderr_content, exit_status));
 }
+
+pub fn trace_log_child_output(
+    child: &mut std::process::Child,
+) -> Result<(std::thread::JoinHandle<()>, std::thread::JoinHandle<()>), std::io::Error> {
+    let stdout: Option<std::process::ChildStdout> = child.stdout.take();
+    let stderr: Option<std::process::ChildStderr> = child.stderr.take();
+
+    let stdout_thread: std::thread::JoinHandle<()> = std::thread::spawn(move || {
+        if let Some(n) = stdout {
+            let reader: std::io::BufReader<std::process::ChildStdout> = std::io::BufReader::new(n);
+            for line in std::io::BufRead::lines(reader).flatten() {
+                log::trace!("{line}");
+            }
+        }
+    });
+
+    let stderr_thread: std::thread::JoinHandle<()> = std::thread::spawn(move || {
+        if let Some(n) = stderr {
+            let reader: std::io::BufReader<std::process::ChildStderr> = std::io::BufReader::new(n);
+            for line in std::io::BufRead::lines(reader).flatten() {
+                log::trace!("{line}");
+            }
+        }
+    });
+
+    return Ok((stdout_thread, stderr_thread));
+}

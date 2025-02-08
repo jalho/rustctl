@@ -114,7 +114,10 @@ impl Game {
                     log::info!("Updated the game from {} to {}", updated.from, updated.to);
 
                     log::info!("Spawning game process...");
-                    let pid: LinuxProcessId = Game::spawn();
+                    let pid: LinuxProcessId = self.spawn(
+                        &updated.root_dir_absolute,
+                        &updated.root_dir_absolute.join(&updated.executable_name),
+                    );
                     self.state = S::I(updated, RS::R(pid));
                     return Ok(self);
                 } else {
@@ -124,7 +127,10 @@ impl Game {
                     );
 
                     log::info!("Spawning game process...");
-                    let pid: LinuxProcessId = Game::spawn();
+                    let pid: LinuxProcessId = self.spawn(
+                        &current.root_dir_absolute,
+                        &current.root_dir_absolute.join(&current.executable_name),
+                    );
                     self.state = S::I(current.clone(), RS::R(pid));
                     return Ok(self);
                 }
@@ -154,7 +160,10 @@ impl Game {
                 if current.to != latest {
                     Game::terminate(*pid);
                     let updated: Updation = Game::update();
-                    let pid: LinuxProcessId = Game::spawn();
+                    let pid: LinuxProcessId = self.spawn(
+                        &updated.root_dir_absolute,
+                        &updated.root_dir_absolute.join(&updated.executable_name),
+                    );
                     self.state = S::I(updated, RS::R(pid));
                     return Ok(self);
                 } else {
@@ -174,7 +183,10 @@ impl Game {
                 log::debug!("Installing game...");
                 let installed: Updation = self.install()?;
                 log::info!("Installed game: {installed}");
-                let pid: LinuxProcessId = Game::spawn();
+                let pid: LinuxProcessId = self.spawn(
+                    &installed.root_dir_absolute,
+                    &installed.root_dir_absolute.join(&installed.executable_name),
+                );
                 self.state = S::I(installed, RS::R(pid));
                 return Ok(self);
             }
@@ -239,8 +251,29 @@ impl Game {
         todo!("update game server using SteamCMD");
     }
 
-    fn spawn() -> LinuxProcessId {
-        todo!("spawn game server process");
+    fn spawn(&self, work_dir: &std::path::Path, executable: &std::path::Path) -> LinuxProcessId {
+        let mut cmd_rds = std::process::Command::new(executable);
+        // TODO: Define LD_LIBRARY_PATH env var (or something like that, if necessary?)
+        // TODO: Get world seed and size as args and further from some database?
+        cmd_rds.current_dir(work_dir);
+        let argv: Vec<&str> = vec!["TODO".into()];
+        cmd_rds.args(&argv);
+        cmd_rds.stdout(std::process::Stdio::piped());
+        cmd_rds.stderr(std::process::Stdio::piped());
+
+        let mut child = match cmd_rds.spawn() {
+            Ok(n) => n,
+            Err(_) => todo!("define error case"),
+        };
+        let (th_stdout, th_stderr) = match crate::system::trace_log_child_output(&mut child) {
+            Ok(n) => n,
+            Err(_) => todo!("define error case"),
+        };
+
+        // TODO: Return the STDOUT, STDERR thread join handles, and don't wait for them to terminate here
+        _ = th_stdout.join();
+        _ = th_stderr.join();
+        return child.id();
     }
 
     fn terminate(_pid: LinuxProcessId) {
@@ -359,9 +392,9 @@ struct Updation {
     /// was updated.
     to: SteamAppBuildId,
     /// Absolute path to the directory in which the app is installed.
-    _root_dir_absolute: std::path::PathBuf,
+    root_dir_absolute: std::path::PathBuf,
     /// Name, _not the absolute path_, of the executable file.
-    _executable_name: std::path::PathBuf,
+    executable_name: std::path::PathBuf,
     /// Name, _not the absolute path_, of the Steam app's manifest file.
     _manifest_name: std::path::PathBuf,
 }
@@ -437,9 +470,9 @@ impl Updation {
             installed_at: last_modified,
             from: build_id,
             to: build_id,
-            _root_dir_absolute: root_dir_absolute,
+            root_dir_absolute,
             _manifest_name: manifest_name,
-            _executable_name: executable_name,
+            executable_name,
         };
 
         return Ok(read);
@@ -496,8 +529,8 @@ fn determine_inital_state(
         installed_at: manifest.last_change,
         from: build_id,
         to: build_id,
-        _root_dir_absolute: installed.absolute_path_parent,
-        _executable_name: std::path::PathBuf::from(executable_name),
+        root_dir_absolute: installed.absolute_path_parent,
+        executable_name: std::path::PathBuf::from(executable_name),
         _manifest_name: std::path::Path::new(&manifest.file_name.to_string_lossy().into_owned())
             .to_path_buf(),
     };
