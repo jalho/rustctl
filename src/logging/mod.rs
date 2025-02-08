@@ -29,7 +29,9 @@ impl From<log::SetLoggerError> for Error {
     }
 }
 
-fn make_logger_config() -> Result<log4rs::Config, log4rs::config::runtime::ConfigErrors> {
+fn make_logger_config(
+    level: log::LevelFilter,
+) -> Result<log4rs::Config, log4rs::config::runtime::ConfigErrors> {
     let stdout: log4rs::append::console::ConsoleAppender =
         log4rs::append::console::ConsoleAppender::builder()
             .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
@@ -42,15 +44,15 @@ fn make_logger_config() -> Result<log4rs::Config, log4rs::config::runtime::Confi
         .build(
             log4rs::config::Root::builder()
                 .appender("stdout")
-                .build(log::LevelFilter::Trace),
+                .build(level),
         )?;
 
     return Ok(logger_config);
 }
 
 /// Initialize a global logging utility.
-pub fn init_logger() -> Result<log4rs::Handle, Error> {
-    let config: log4rs::Config = make_logger_config()?;
+pub fn init_logger(level: log::LevelFilter) -> Result<log4rs::Handle, Error> {
+    let config: log4rs::Config = make_logger_config(level)?;
     let handle: log4rs::Handle = log4rs::init_config(config)?;
     return Ok(handle);
 }

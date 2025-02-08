@@ -261,8 +261,37 @@ pub fn parse_buildid_from_buffer(buffer: &str) -> Option<u32> {
 
 #[derive(clap::Parser)]
 pub struct Cli {
+    #[arg(short, long, default_value = "info", value_parser = parse_log_level)]
+    pub log_level: log::LevelFilter,
     #[command(subcommand)]
     pub subcommand: Subcommand,
+}
+
+fn parse_log_level(input: &str) -> std::result::Result<log::LevelFilter, std::string::String> {
+    const SUPPORTED_LEVELS: [(&str, log::LevelFilter); 6] = [
+        ("off", log::LevelFilter::Off),
+        ("error", log::LevelFilter::Error),
+        ("warn", log::LevelFilter::Warn),
+        ("info", log::LevelFilter::Info),
+        ("debug", log::LevelFilter::Debug),
+        ("trace", log::LevelFilter::Trace),
+    ];
+
+    SUPPORTED_LEVELS
+        .iter()
+        .find(|(name, _)| {
+            let name: &str = *name;
+            name == input
+        })
+        .map(|&(_, level)| level)
+        .ok_or_else(|| {
+            let supported = SUPPORTED_LEVELS
+                .iter()
+                .map(|(name, _)| *name)
+                .collect::<std::vec::Vec<&str>>()
+                .join(", ");
+            format!("supported values: {supported}")
+        })
 }
 
 #[derive(clap::Subcommand)]

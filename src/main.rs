@@ -7,7 +7,7 @@ mod util;
 fn main() -> std::process::ExitCode {
     let cli: crate::parsing::Cli = <crate::parsing::Cli as clap::Parser>::parse();
 
-    let _handle: log4rs::Handle = match crate::logging::init_logger() {
+    let _handle: log4rs::Handle = match crate::logging::init_logger(cli.log_level) {
         Ok(n) => n,
         Err(err) => {
             eprintln!("{}", crate::util::aggregate_error_tree(&err, 2));
