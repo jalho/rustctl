@@ -254,9 +254,10 @@ impl Game {
     fn spawn(&self, work_dir: &std::path::Path, executable: &std::path::Path) -> LinuxProcessId {
         let mut cmd_rds = std::process::Command::new(executable);
         // TODO: Define LD_LIBRARY_PATH env var (or something like that, if necessary?)
-        // TODO: Get world seed and size as args and further from some database?
         cmd_rds.current_dir(work_dir);
-        let argv: Vec<&str> = vec!["TODO".into()];
+        let argv: Vec<&str> = vec![
+            // TODO: Get world seed and size as args and further from some database?
+        ];
         cmd_rds.args(&argv);
         cmd_rds.stdout(std::process::Stdio::piped());
         cmd_rds.stderr(std::process::Stdio::piped());
@@ -265,6 +266,8 @@ impl Game {
             Ok(n) => n,
             Err(_) => todo!("define error case"),
         };
+        let pid: LinuxProcessId = child.id();
+        log::info!("Game server process spawned as PID {pid}");
         let (th_stdout, th_stderr) = match crate::system::trace_log_child_output(&mut child) {
             Ok(n) => n,
             Err(_) => todo!("define error case"),
@@ -273,7 +276,7 @@ impl Game {
         // TODO: Return the STDOUT, STDERR thread join handles, and don't wait for them to terminate here
         _ = th_stdout.join();
         _ = th_stderr.join();
-        return child.id();
+        return pid;
     }
 
     fn terminate(_pid: LinuxProcessId) {
