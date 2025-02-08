@@ -89,7 +89,7 @@ impl Game {
         log::debug!("Determining initial state...");
         let state: S =
             determine_inital_state(Game::get_game_executable_filename(), exclude_from_search)?;
-        log::debug!("Initial state determined: {state}");
+        log::info!("Initial state determined: {state}");
 
         let game: Game = Self { state };
         let started: Game = game.transition(T::Start)?;
@@ -101,13 +101,29 @@ impl Game {
             (S::I(_, RS::NR), T::_Install | T::_Stop) => Ok(self), // Nothing to do!
 
             (S::I(current, RS::NR), T::Start) => {
+                log::debug!("Querying latest available version from remote...");
                 let latest: SteamAppBuildId = self.query_latest_version_info()?;
                 if current.to != latest {
+                    log::info!(
+                        "There is an update available: Steam app build ID from {} to {}",
+                        current.to,
+                        latest
+                    );
+                    log::info!("Updating the game installation...");
                     let updated: Updation = Game::update();
+                    log::info!("Updated the game from {} to {}", current.to, updated.to);
+
+                    log::info!("Spawning game process...");
                     let pid: LinuxProcessId = Game::spawn();
                     self.state = S::I(updated, RS::R(pid));
                     return Ok(self);
                 } else {
+                    log::info!(
+                        "Current installation is up to date: Steam app build ID {}",
+                        current.to
+                    );
+
+                    log::info!("Spawning game process...");
                     let pid: LinuxProcessId = Game::spawn();
                     self.state = S::I(current.clone(), RS::R(pid));
                     return Ok(self);
@@ -336,7 +352,7 @@ struct Updation {
     completed: chrono::DateTime<chrono::Utc>,
     /// Previous Steam build ID of the app. Can be `None` in the case of a
     /// fresh install.
-    _from: Option<SteamAppBuildId>,
+    from: Option<SteamAppBuildId>,
     /// Current Steam build ID of the app, i.e. the version to which the app
     /// was updated.
     to: SteamAppBuildId,
@@ -417,7 +433,7 @@ impl Updation {
 
         let read: Updation = Self {
             completed: last_modified,
-            _from: None,
+            from: None,
             to: build_id,
             _root_dir_absolute: root_dir_absolute,
             _manifest_name: manifest_name,
@@ -470,7 +486,7 @@ fn determine_inital_state(
 
     let updation: Updation = Updation {
         completed: manifest.last_change,
-        _from: None,
+        from: None,
         to: crate::parsing::parse_buildid_from_manifest(&manifest.absolute_path_file)
             .expect("no build ID in manifest"),
         _root_dir_absolute: installed.absolute_path_parent,
