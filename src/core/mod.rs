@@ -114,11 +114,11 @@ impl Game {
                     log::info!("Updated the game from {} to {}", updated.from, updated.to);
 
                     log::info!("Spawning game process...");
-                    let pid: LinuxProcessId = self.spawn(
+                    let running: RunningGameServerProcess = self.spawn(
                         &updated.root_dir_absolute,
                         &updated.root_dir_absolute.join(&updated.executable_name),
                     );
-                    self.state = S::I(updated, RS::R(pid));
+                    self.state = S::I(updated, RS::R(running));
                     return Ok(self);
                 } else {
                     log::info!(
@@ -127,11 +127,11 @@ impl Game {
                     );
 
                     log::info!("Spawning game process...");
-                    let pid: LinuxProcessId = self.spawn(
+                    let running: RunningGameServerProcess = self.spawn(
                         &current.root_dir_absolute,
                         &current.root_dir_absolute.join(&current.executable_name),
                     );
-                    self.state = S::I(current.clone(), RS::R(pid));
+                    self.state = S::I(current.clone(), RS::R(running));
                     return Ok(self);
                 }
             }
@@ -149,22 +149,22 @@ impl Game {
 
             (S::I(_, RS::R(_)), T::_Install | T::Start) => Ok(self), // Nothing to do!
 
-            (S::I(current, RS::R(pid)), T::_Stop) => {
-                Game::terminate(*pid);
+            (S::I(current, RS::R(running)), T::_Stop) => {
+                Game::terminate(running.pid);
                 self.state = S::I(current.clone(), RS::NR);
                 return Ok(self);
             }
 
-            (S::I(current, RS::R(pid)), T::_Update) => {
+            (S::I(current, RS::R(running)), T::_Update) => {
                 let latest: SteamAppBuildId = self.query_latest_version_info()?;
                 if current.to != latest {
-                    Game::terminate(*pid);
+                    Game::terminate(running.pid);
                     let updated: Updation = Game::update();
-                    let pid: LinuxProcessId = self.spawn(
+                    let running: RunningGameServerProcess = self.spawn(
                         &updated.root_dir_absolute,
                         &updated.root_dir_absolute.join(&updated.executable_name),
                     );
-                    self.state = S::I(updated, RS::R(pid));
+                    self.state = S::I(updated, RS::R(running));
                     return Ok(self);
                 } else {
                     return Ok(self);
@@ -183,11 +183,11 @@ impl Game {
                 log::debug!("Installing game...");
                 let installed: Updation = self.install()?;
                 log::info!("Installed game: {installed}");
-                let pid: LinuxProcessId = self.spawn(
+                let running: RunningGameServerProcess = self.spawn(
                     &installed.root_dir_absolute,
                     &installed.root_dir_absolute.join(&installed.executable_name),
                 );
-                self.state = S::I(installed, RS::R(pid));
+                self.state = S::I(installed, RS::R(running));
                 return Ok(self);
             }
 
@@ -255,7 +255,11 @@ impl Game {
     //       data of the program be removed before spawning the process? (Namely
     //       previous game world maps, player blueprints and any other game
     //       data...)
-    fn spawn(&self, work_dir: &std::path::Path, executable: &std::path::Path) -> LinuxProcessId {
+    fn spawn(
+        &self,
+        work_dir: &std::path::Path,
+        executable: &std::path::Path,
+    ) -> RunningGameServerProcess {
         let mut cmd_rds = std::process::Command::new(executable);
         // TODO: Define LD_LIBRARY_PATH env var (or something like that, if necessary?)
         cmd_rds.current_dir(work_dir);
@@ -280,7 +284,7 @@ impl Game {
         // TODO: Return the STDOUT, STDERR thread join handles, and don't wait for them to terminate here
         _ = th_stdout.join();
         _ = th_stderr.join();
-        return pid;
+        todo!("resolve the return values");
     }
 
     fn terminate(_pid: LinuxProcessId) {
@@ -359,8 +363,8 @@ impl std::fmt::Display for S {
             S::I(updation, RS::NR) => {
                 write!(f, "installed: {updation}, not running")
             }
-            S::I(updation, RS::R(pid)) => {
-                write!(f, "installed: {updation}, running as PID {pid}")
+            S::I(updation, RS::R(running)) => {
+                write!(f, "installed: {updation}, running as PID {}", running.pid)
             }
         }
     }
@@ -491,10 +495,39 @@ impl std::fmt::Display for Updation {
 }
 
 #[derive(Debug)]
+pub struct RunningGameServerProcess {
+    /// Linux process ID of the running game server process.
+    pid: LinuxProcessId,
+
+    /// RCON password configured at startup of the running game server.
+    _rcon_password: String,
+
+    /// Absolute path to the running game server instance's data directory.
+    ///
+    /// An example of the data directory's contents (root is relative to the
+    /// game server executable):
+    /// ```
+    /// ./server/my_server_identity/
+    /// ├── cfg
+    /// │   ├── bans.cfg
+    /// │   ├── serverauto.cfg
+    /// │   └── users.cfg
+    /// ├── player.blueprints.5.db
+    /// ├── player.deaths.5.db
+    /// ├── player.identities.5.db
+    /// ├── player.states.263.db
+    /// ├── player.tokens.db
+    /// ├── proceduralmap.4500.1337.263.map
+    /// └── sv.files.263.db
+    /// ```
+    _rds_instance_data_dir_path_absolute: std::path::PathBuf,
+}
+
+#[derive(Debug)]
 /// Running state.
 pub enum RS {
     /// Running.
-    R(LinuxProcessId),
+    R(RunningGameServerProcess),
     /// Not running.
     NR,
 }
@@ -538,7 +571,9 @@ fn determine_inital_state(
     };
 
     let running: RS = match crate::system::check_process_running(executable_name)? {
-        Some(pid) => RS::R(pid),
+        Some(pid) => {
+            todo!("refactor so that already-running is not a valid initial state but rather a non-recoverable error case (already running as {pid})");
+        }
         None => RS::NR,
     };
 
