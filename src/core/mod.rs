@@ -251,6 +251,10 @@ impl Game {
         todo!("update game server using SteamCMD");
     }
 
+    // TODO: Define parameter driving data state: Should some or all of the
+    //       data of the program be removed before spawning the process? (Namely
+    //       previous game world maps, player blueprints and any other game
+    //       data...)
     fn spawn(&self, work_dir: &std::path::Path, executable: &std::path::Path) -> LinuxProcessId {
         let mut cmd_rds = std::process::Command::new(executable);
         // TODO: Define LD_LIBRARY_PATH env var (or something like that, if necessary?)
