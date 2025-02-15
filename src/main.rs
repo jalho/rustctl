@@ -17,7 +17,7 @@ fn main() -> std::process::ExitCode {
 
     match cli.subcommand {
         crate::parsing::Subcommand::GameStart { exclude } => {
-            let game: crate::core::Game = match crate::core::Game::start(exclude) {
+            match crate::core::Game::start(exclude) {
                 Ok(n) => n,
                 Err(err) => {
                     /* TODO:
@@ -31,7 +31,7 @@ fn main() -> std::process::ExitCode {
                     return std::process::ExitCode::FAILURE;
                 }
             };
-            log::info!("Game started: {game}");
+            log::info!("Game started");
         }
     }
 

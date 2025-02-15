@@ -343,11 +343,6 @@ impl Game {
         return Ok(stdout);
     }
 }
-impl std::fmt::Display for Game {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        return write!(f, "");
-    }
-}
 
 /// State of the machine.
 #[derive(Debug)]
