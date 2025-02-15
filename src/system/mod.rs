@@ -77,6 +77,7 @@ impl std::fmt::Display for Error {
     }
 }
 
+#[derive(Debug)]
 pub struct ExistingFile {
     pub file_name: std::path::PathBuf,
     pub absolute_path_file: std::path::PathBuf,
@@ -120,7 +121,7 @@ impl ExistingFile {
 }
 
 pub fn find_single_file(
-    executable_name: &'static std::path::Path,
+    seekable_file_name: &std::path::Path,
     exclude_from_search: Option<std::path::PathBuf>,
 ) -> Result<Option<ExistingFile>, Error> {
     let mut matches: Vec<std::path::PathBuf> = Vec::new();
@@ -128,7 +129,7 @@ pub fn find_single_file(
     if let None = exclude_from_search {
         log::debug!(
             "Doing a full system wide search for a file named {}... This might take a while",
-            executable_name.to_string_lossy()
+            seekable_file_name.to_string_lossy()
         );
     }
     for entry in walkdir::WalkDir::new("/")
@@ -145,7 +146,7 @@ pub fn find_single_file(
     {
         let entry: walkdir::DirEntry = entry;
 
-        if entry.file_name() == executable_name && entry.file_type().is_file() {
+        if entry.file_name() == seekable_file_name && entry.file_type().is_file() {
             matches.push(entry.path().to_path_buf());
         }
 
@@ -155,7 +156,7 @@ pub fn find_single_file(
     }
 
     match matches.len() {
-        0 => Err(Error::FileNotFound((executable_name.into(), None))),
+        0 => Err(Error::FileNotFound((seekable_file_name.into(), None))),
         1 => {
             let path: std::path::PathBuf = matches
                 .into_iter()

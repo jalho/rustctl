@@ -213,26 +213,34 @@ impl Game {
        I guess!
     */
     fn query_latest_version_info(&self) -> Result<SteamAppBuildId, Error> {
-        let argv: Vec<std::borrow::Cow<'_, str>> =
-            vec!["+app_info_update".into(), "1".into(), "+quit".into()];
-        self.steamcmd_exec(argv)?;
+        let interfering_local_cache_file_name = std::path::PathBuf::from("appinfo.vdf");
+        let foo: crate::system::ExistingFile =
+            crate::system::find_single_file(&interfering_local_cache_file_name, None)
+                .unwrap()
+                .unwrap();
+        log::debug!("Found {:?}", foo);
+        todo!("remove {:?}", foo);
 
-        let argv: Vec<std::borrow::Cow<'_, str>> = vec![
-            "+app_info_print".into(),
-            Game::get_game_steam_app_id().to_string().into(),
-            "+quit".into(),
-        ];
-        let stdout_utf8: String = self.steamcmd_exec(argv)?;
-        let build_id: u32 = match crate::parsing::parse_buildid_from_buffer(&stdout_utf8) {
-            Some(n) => n,
-            None => {
-                return Err(Error::SteamCMDUnexpectedOutput(
-                    String::from("parse build ID"),
-                    stdout_utf8,
-                ));
-            }
-        };
-        return Ok(build_id);
+        // let argv: Vec<std::borrow::Cow<'_, str>> =
+        //     vec!["+app_info_update".into(), "1".into(), "+quit".into()];
+        // self.steamcmd_exec(argv)?;
+
+        // let argv: Vec<std::borrow::Cow<'_, str>> = vec![
+        //     "+app_info_print".into(),
+        //     Game::get_game_steam_app_id().to_string().into(),
+        //     "+quit".into(),
+        // ];
+        // let stdout_utf8: String = self.steamcmd_exec(argv)?;
+        // let build_id: u32 = match crate::parsing::parse_buildid_from_buffer(&stdout_utf8) {
+        //     Some(n) => n,
+        //     None => {
+        //         return Err(Error::SteamCMDUnexpectedOutput(
+        //             String::from("parse build ID"),
+        //             stdout_utf8,
+        //         ));
+        //     }
+        // };
+        // return Ok(build_id);
     }
 
     fn install(&self) -> Result<Updation, Error> {
