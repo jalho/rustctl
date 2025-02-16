@@ -13,6 +13,7 @@
 */
 
 enum Error {
+    CheckInstallationStatusError(crate::system::FindSingleFileError),
     CheckUpdateError(CheckUpdateError),
     InstallUpdateError(InstallUpdateError),
     GameStartError(GameStartError),
@@ -92,7 +93,11 @@ impl Game {
     pub fn start(exclude_from_search: Option<std::path::PathBuf>) -> Result<Self, Error> {
         log::debug!("Determining initial state...");
         let state: S =
-            determine_inital_state(Game::get_game_executable_filename(), exclude_from_search)?;
+            match determine_inital_state(Game::get_game_executable_filename(), exclude_from_search)
+            {
+                Ok(n) => n,
+                Err(err) => return Err(Error::CheckInstallationStatusError(err)),
+            };
         log::info!("Initial state determined: {state}");
 
         let game: Game = Self { state };
@@ -217,11 +222,27 @@ impl Game {
        I guess!
     */
     fn query_latest_version_info(&self) -> Result<SteamAppBuildId, Error> {
-        let interfering_local_cache_file_name = std::path::PathBuf::from("appinfo.vdf");
-        let foo: crate::system::ExistingFile =
-            crate::system::find_single_file(&interfering_local_cache_file_name, None).unwrap();
-        log::debug!("Found {:?}", foo);
-        todo!("remove {:?}", foo);
+        let cache_filename = std::path::PathBuf::from("appinfo.vdf");
+        match crate::system::find_single_file(&cache_filename, &None) {
+            Ok(n) => {
+                log::debug!("Found {n}");
+                todo!("remove {n}");
+            }
+            Err(crate::system::FindSingleFileError::FileNotFound { .. }) => {
+                // nothing to wipe: no local cache exists
+            }
+            Err(crate::system::FindSingleFileError::ManyFilesFound {
+                paths_absolute_found,
+            }) => {
+                return Err(Error::CheckUpdateError(
+                    CheckUpdateError::AmbiguousLocalCache {
+                        cache_filename_seeked: cache_filename,
+                        cache_paths_absolute_found: paths_absolute_found,
+                    },
+                ))
+            }
+        };
+        todo!();
 
         // let argv: Vec<std::borrow::Cow<'_, str>> =
         //     vec!["+app_info_update".into(), "1".into(), "+quit".into()];
@@ -547,6 +568,7 @@ pub struct RunningGameServerProcess {
     _rds_instance_data_dir_path_absolute: std::path::PathBuf,
 }
 
+// TODO: Refactor so that "already running" is not a valid initial state (remove "Running state" altogether)
 #[derive(Debug)]
 /// Running state.
 pub enum RS {
@@ -560,40 +582,45 @@ fn determine_inital_state(
     executable_name: &'static std::path::Path,
     exclude_from_search: Option<std::path::PathBuf>,
 ) -> Result<S, crate::system::FindSingleFileError> {
-    let installed: crate::system::ExistingFile =
-        crate::system::find_single_file(executable_name, exclude_from_search)?;
+    let game_executable_found: crate::system::FoundFile =
+        crate::system::find_single_file(executable_name, &exclude_from_search)?;
 
-    let manifest_path: std::path::PathBuf = installed
-        .absolute_path_parent
+    let manifest_seekable: std::path::PathBuf = game_executable_found
+        .dir_path_absolute
         .join("steamapps")
         .join(Game::get_game_manifest_filename());
-    let manifest: crate::system::ExistingFile =
-        match crate::system::ExistingFile::check(&manifest_path) {
+    let manifest_found: crate::system::FoundFile =
+        match crate::system::find_single_file(&manifest_seekable, &exclude_from_search) {
             Ok(n) => n,
             Err(_) => return Ok(S::NI),
         };
 
     let build_id: u32 =
-        match crate::parsing::parse_buildid_from_manifest(&manifest.absolute_path_file) {
+        match crate::parsing::parse_buildid_from_manifest(&manifest_found.get_absolute_path()) {
             Some(n) => n,
             None => todo!("define error case"),
         };
 
-    let updation: Updation = Updation {
-        installed_at: manifest.last_change,
-        from: build_id,
-        to: build_id,
-        root_dir_absolute: installed.absolute_path_parent,
-        executable_name: std::path::PathBuf::from(executable_name),
-        _manifest_name: std::path::Path::new(&manifest.file_name.to_string_lossy().into_owned())
-            .to_path_buf(),
+    let running: RS = match crate::system::check_process_running(&game_executable_found.filename) {
+        Ok(None) => RS::NR,
+        Ok(Some(_pid)) => {
+            todo!("define error case");
+        }
+        Err(crate::system::IdentifySingleProcessError::LibProcfsFailure { .. }) => {
+            todo!("define error case");
+        }
+        Err(crate::system::IdentifySingleProcessError::RunningParallel { .. }) => {
+            todo!("define error case");
+        }
     };
 
-    let running: RS = match crate::system::check_process_running(executable_name)? {
-        Some(pid) => {
-            todo!("refactor so that already-running is not a valid initial state but rather a non-recoverable error case (already running as {pid})");
-        }
-        None => RS::NR,
+    let updation: Updation = Updation {
+        installed_at: manifest_found.last_modified,
+        from: build_id,
+        to: build_id,
+        root_dir_absolute: game_executable_found.dir_path_absolute,
+        executable_name: game_executable_found.filename,
+        _manifest_name: manifest_found.filename,
     };
 
     return Ok(S::I(updation, running));

@@ -1,12 +1,12 @@
 //! System resources abstractions, such as operations with the filesystem and
 //! processes.
 
-enum IdentifySingleProcessError {
+pub enum IdentifySingleProcessError {
     LibProcfsFailure { lib_error: procfs::ProcError },
     RunningParallel { pids_found: Vec<u32> },
 }
 pub fn check_process_running(
-    name: &'static std::path::Path,
+    name: &std::path::Path,
 ) -> Result<Option<crate::core::LinuxProcessId>, IdentifySingleProcessError> {
     let processes: procfs::process::ProcessesIter = match procfs::process::all_processes() {
         Ok(n) => n,
@@ -40,62 +40,39 @@ pub fn check_process_running(
     }
 }
 
-#[derive(Debug)]
-pub struct ExistingFile {
-    pub file_name: std::path::PathBuf,
-    pub absolute_path_file: std::path::PathBuf,
-    pub absolute_path_parent: std::path::PathBuf,
-    pub last_change: chrono::DateTime<chrono::Utc>,
-}
-impl ExistingFile {
-    pub fn check(path: &std::path::Path) -> Result<Self, Error> {
-        let metadata: std::fs::Metadata = match path.metadata() {
-            Ok(n) => n,
-            Err(err) => return Err(Error::FileNotFound((path.into(), Some(err)))),
-        };
-        let absolute_path_file: std::path::PathBuf = match path.canonicalize() {
-            Ok(n) => n,
-            Err(err) => return Err(Error::FileNotFound((path.into(), Some(err)))),
-        };
-        let absolute_path_parent: std::path::PathBuf = match path.parent() {
-            Some(n) => n.into(),
-            None => unreachable!("absolute path to a file should have a parent"),
-        };
-        let file_name: std::path::PathBuf = match absolute_path_file.file_name() {
-            Some(n) => std::path::PathBuf::from(n),
-            None => unreachable!("absolute path to a file should have a file name"),
-        };
-        let ctime: i64 = std::os::unix::fs::MetadataExt::ctime(&metadata);
-        let last_change: chrono::DateTime<chrono::Utc> =
-            match chrono::DateTime::from_timestamp(ctime, 0) {
-                Some(n) => n,
-                None => {
-                    unreachable!("ctime of an existing file should be a valid timestamp")
-                }
-            };
-
-        return Ok(Self {
-            absolute_path_file,
-            absolute_path_parent,
-            file_name,
-            last_change,
-        });
-    }
-}
-
 pub enum FindSingleFileError {
     FileNotFound {
         filename_seeked: std::path::PathBuf,
+        system_error: Option<std::io::Error>,
     },
     ManyFilesFound {
         paths_absolute_found: Vec<std::path::PathBuf>,
     },
 }
 
+pub struct FoundFile {
+    pub dir_path_absolute: std::path::PathBuf,
+    pub filename: std::path::PathBuf,
+    pub last_modified: chrono::DateTime<chrono::Utc>,
+    pub metadata: std::fs::Metadata,
+}
+impl FoundFile {
+    pub fn get_absolute_path(&self) -> std::path::PathBuf {
+        let mut absolute_path: std::path::PathBuf = self.dir_path_absolute.clone();
+        absolute_path.push(&self.filename);
+        return absolute_path;
+    }
+}
+impl std::fmt::Display for FoundFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.get_absolute_path().to_string_lossy())
+    }
+}
+
 pub fn find_single_file(
     seekable_file_name: &std::path::Path,
-    exclude_from_search: Option<std::path::PathBuf>,
-) -> Result<ExistingFile, FindSingleFileError> {
+    exclude_from_search: &Option<std::path::PathBuf>,
+) -> Result<FoundFile, FindSingleFileError> {
     let mut matches: Vec<std::path::PathBuf> = Vec::new();
 
     if let None = exclude_from_search {
@@ -132,13 +109,22 @@ pub fn find_single_file(
     match matches.len() {
         0 => Err(FindSingleFileError::FileNotFound {
             filename_seeked: seekable_file_name.to_path_buf(),
+            system_error: None,
         }),
         1 => {
             let path: std::path::PathBuf = matches
                 .into_iter()
                 .next()
                 .expect("iterator of length 1 should have a first next");
-            let file: ExistingFile = ExistingFile::check(&path)?;
+            let file: std::path::PathBuf = match path.canonicalize() {
+                Ok(n) => n,
+                Err(err) => {
+                    return Err(FindSingleFileError::FileNotFound {
+                        filename_seeked: seekable_file_name.to_path_buf(),
+                        system_error: Some(err),
+                    })
+                }
+            };
             return Ok(file);
         }
         _ => unreachable!("iterator should have length 0 or 1 at this point"),
