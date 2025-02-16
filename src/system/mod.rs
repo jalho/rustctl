@@ -1,19 +1,32 @@
 //! System resources abstractions, such as operations with the filesystem and
 //! processes.
 
+enum IdentifySingleProcessError {
+    LibProcfsFailure { lib_error: procfs::ProcError },
+    RunningParallel { pids_found: Vec<u32> },
+}
 pub fn check_process_running(
     name: &'static std::path::Path,
-) -> Result<Option<crate::core::LinuxProcessId>, Error> {
-    let processes: procfs::process::ProcessesIter =
-        procfs::process::all_processes().map_err(Error::ProcFsError)?;
+) -> Result<Option<crate::core::LinuxProcessId>, IdentifySingleProcessError> {
+    let processes: procfs::process::ProcessesIter = match procfs::process::all_processes() {
+        Ok(n) => n,
+        Err(err) => return Err(IdentifySingleProcessError::LibProcfsFailure { lib_error: err }),
+    };
 
     let mut matching_pids: Vec<u32> = Vec::new();
     for proc in processes {
-        let proc: procfs::process::Process = proc.map_err(Error::ProcFsError)?;
-        if let Ok(stat) = proc.stat() {
-            let proc_exec_filename: &std::path::Path = std::path::Path::new(&stat.comm);
-            if proc_exec_filename == name {
-                matching_pids.push(stat.pid.try_into().expect("process ID should be a u32"));
+        match proc {
+            Ok(proc) => {
+                if let Ok(stat) = proc.stat() {
+                    let proc_exec_filename: &std::path::Path = std::path::Path::new(&stat.comm);
+                    if proc_exec_filename == name {
+                        matching_pids
+                            .push(stat.pid.try_into().expect("process ID should be a u32"));
+                    }
+                }
+            }
+            Err(err) => {
+                return Err(IdentifySingleProcessError::LibProcfsFailure { lib_error: err })
             }
         }
     }
@@ -21,7 +34,9 @@ pub fn check_process_running(
     match matching_pids.len() {
         0 => Ok(None),
         1 => Ok(Some(matching_pids[0])),
-        _ => Err(Error::RunningParallel(matching_pids)),
+        _ => Err(IdentifySingleProcessError::RunningParallel {
+            pids_found: matching_pids,
+        }),
     }
 }
 
@@ -68,10 +83,19 @@ impl ExistingFile {
     }
 }
 
+pub enum FindSingleFileError {
+    FileNotFound {
+        filename_seeked: std::path::PathBuf,
+    },
+    ManyFilesFound {
+        paths_absolute_found: Vec<std::path::PathBuf>,
+    },
+}
+
 pub fn find_single_file(
     seekable_file_name: &std::path::Path,
     exclude_from_search: Option<std::path::PathBuf>,
-) -> Result<ExistingFile, Error> {
+) -> Result<ExistingFile, FindSingleFileError> {
     let mut matches: Vec<std::path::PathBuf> = Vec::new();
 
     if let None = exclude_from_search {
@@ -99,12 +123,16 @@ pub fn find_single_file(
         }
 
         if matches.len() > 1 {
-            return Err(Error::MultipleFilesFound(matches));
+            return Err(FindSingleFileError::ManyFilesFound {
+                paths_absolute_found: matches,
+            });
         }
     }
 
     match matches.len() {
-        0 => Err(Error::FileNotFound((seekable_file_name.into(), None))),
+        0 => Err(FindSingleFileError::FileNotFound {
+            filename_seeked: seekable_file_name.to_path_buf(),
+        }),
         1 => {
             let path: std::path::PathBuf = matches
                 .into_iter()

@@ -559,13 +559,9 @@ pub enum RS {
 fn determine_inital_state(
     executable_name: &'static std::path::Path,
     exclude_from_search: Option<std::path::PathBuf>,
-) -> Result<S, crate::system::Error> {
+) -> Result<S, crate::system::FindSingleFileError> {
     let installed: crate::system::ExistingFile =
-        match crate::system::find_single_file(executable_name, exclude_from_search) {
-            Ok(n) => n,
-            Err(crate::system::Error::FileNotFound(_)) => return Ok(S::NI),
-            Err(err) => return Err(err),
-        };
+        crate::system::find_single_file(executable_name, exclude_from_search)?;
 
     let manifest_path: std::path::PathBuf = installed
         .absolute_path_parent
