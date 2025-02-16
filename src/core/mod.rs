@@ -12,52 +12,55 @@
 
 */
 
-type Predicate = String;
-type UnexpectedStatus = i32;
-#[derive(Debug)]
-pub enum Error {
-    SystemError(crate::system::Error),
-    /// Failure while executing SteamCMD: Failed to spawn process, unexpected
-    /// termination status, unusable working directory etc.
-    SteamCMDExecError(Predicate, Option<UnexpectedStatus>, Option<std::io::Error>),
-    InstallationInvalidFile(std::path::PathBuf, Option<std::io::Error>),
+enum Error {
+    CheckUpdateError(CheckUpdateError),
+    InstallUpdateError(InstallUpdateError),
+    GameStartError(GameStartError),
 }
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Error::SystemError(err) => Some(err),
-            Error::SteamCMDExecError(_, _, Some(err)) => Some(err),
-            Error::SteamCMDExecError(_, _, None) => None,
-            Error::InstallationInvalidFile(_, Some(err)) => Some(err),
-            Error::InstallationInvalidFile(_, None) => None,
-        }
-    }
+
+enum CheckUpdateError {
+    AmbiguousLocalCache {
+        cache_filename_seeked: std::path::PathBuf,
+        cache_paths_absolute_found: Vec<std::path::PathBuf>,
+    },
+    CannotWipeLocalCache {
+        cache_path_absolute_found: std::path::PathBuf,
+        system_error: std::io::Error,
+    },
+    CannotFetchRemoteInfo(SteamCMDErrorMeta),
+    MalformedSteamAppInfo(MalformedSteamAppInfo),
 }
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::SystemError(_) => write!(f, "system failure"),
-            Error::SteamCMDExecError(predicate, Some(unexpected_status), _) => {
-                write!(
-                    f,
-                    "SteamCMD failed with unexpected status {unexpected_status} to {predicate}"
-                )
-            }
-            Error::SteamCMDExecError(predicate, None, _) => {
-                write!(f, "SteamCMD failed without status to {predicate}")
-            }
-            Error::InstallationInvalidFile(path_buf, _) => write!(
-                f,
-                "invalid installation file: {}",
-                path_buf.to_string_lossy()
-            ),
-        }
-    }
+enum InstallUpdateError {
+    CannotInstall(SteamCMDErrorMeta),
+    InvalidInstallation(InvalidInstallation),
 }
-impl From<crate::system::Error> for Error {
-    fn from(value: crate::system::Error) -> Self {
-        Self::SystemError(value)
-    }
+enum GameStartError {
+    CannotSpawnProcess {
+        system_error: std::io::Error,
+        executable_path_absolute: std::path::PathBuf,
+        exec_dir_path_absolute: std::path::PathBuf,
+    },
+}
+
+enum InvalidInstallation {
+    MissingRequiredFile {
+        filename_seeked: std::path::PathBuf,
+    },
+    AmbiguousRequiredFile {
+        paths_absolute_found: Vec<std::path::PathBuf>,
+    },
+}
+enum MalformedSteamAppInfo {
+    UnexpectedFormat { data: Vec<u8> },
+    MissingPublicBranch { data: Vec<u8> },
+    AmbiguousPublicBranch { data: Vec<u8> },
+    InvalidPublicBranchValue { data: Vec<u8> },
+}
+struct SteamCMDErrorMeta {
+    steamcmd_command_argv: Vec<std::borrow::Cow<'static, str>>,
+    steamcmd_exit_status: std::process::ExitStatus,
+    steamcmd_stdout: Vec<u8>,
+    steamcmd_stderr: Vec<u8>,
 }
 
 pub struct Game {

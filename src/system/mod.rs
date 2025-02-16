@@ -26,58 +26,6 @@ pub fn check_process_running(
 }
 
 #[derive(Debug)]
-pub enum Error {
-    /// Contains name or path (relative or absolute) of the file that was
-    /// not found, and possible associated underlying system IO error.
-    FileNotFound((std::path::PathBuf, Option<std::io::Error>)),
-    MultipleFilesFound(Vec<std::path::PathBuf>),
-    ProcFsError(procfs::ProcError),
-    RunningParallel(Vec<u32>),
-}
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Error::FileNotFound((_, Some(err))) => Some(err),
-            Error::FileNotFound((_, None)) => None,
-            Error::MultipleFilesFound(_) => None,
-            Error::ProcFsError(err) => Some(err),
-            Error::RunningParallel(_) => None,
-        }
-    }
-}
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::FileNotFound((file, _)) => {
-                write!(f, "file not found: {}", file.to_string_lossy())
-            }
-            Error::MultipleFilesFound(found) => {
-                let found: Vec<String> = found
-                    .iter()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .collect::<Vec<String>>();
-                return write!(
-                    f,
-                    "unexpected more than 1 files found: {}",
-                    found.join(", ")
-                );
-            }
-            Error::ProcFsError(_) => write!(f, "dependency 'procfs' failed"),
-            Error::RunningParallel(vec) => {
-                write!(
-                    f,
-                    "parallel processes running: PIDs {}",
-                    vec.iter()
-                        .map(|n| n.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                )
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct ExistingFile {
     pub file_name: std::path::PathBuf,
     pub absolute_path_file: std::path::PathBuf,
