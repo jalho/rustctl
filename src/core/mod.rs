@@ -1,7 +1,6 @@
 //! Core functionality of the program.
 
 type Predicate = String;
-type Object = String;
 type UnexpectedStatus = i32;
 #[derive(Debug)]
 pub enum Error {
@@ -9,9 +8,6 @@ pub enum Error {
     /// Failure while executing SteamCMD: Failed to spawn process, unexpected
     /// termination status, unusable working directory etc.
     SteamCMDExecError(Predicate, Option<UnexpectedStatus>, Option<std::io::Error>),
-    /// The output of an executed SteamCMD command has some unexpected
-    /// characteristic.
-    SteamCMDUnexpectedOutput(Predicate, Object),
     InstallationInvalidFile(std::path::PathBuf, Option<std::io::Error>),
 }
 impl std::error::Error for Error {
@@ -22,7 +18,6 @@ impl std::error::Error for Error {
             Error::SteamCMDExecError(_, _, None) => None,
             Error::InstallationInvalidFile(_, Some(err)) => Some(err),
             Error::InstallationInvalidFile(_, None) => None,
-            Error::SteamCMDUnexpectedOutput(_, _) => None,
         }
     }
 }
@@ -44,12 +39,6 @@ impl std::fmt::Display for Error {
                 "invalid installation file: {}",
                 path_buf.to_string_lossy()
             ),
-            Error::SteamCMDUnexpectedOutput(predicate, object) => {
-                write!(
-                    f,
-                    "unexpected output from SteamCMD to {predicate}: {object}"
-                )
-            }
         }
     }
 }
@@ -215,9 +204,7 @@ impl Game {
     fn query_latest_version_info(&self) -> Result<SteamAppBuildId, Error> {
         let interfering_local_cache_file_name = std::path::PathBuf::from("appinfo.vdf");
         let foo: crate::system::ExistingFile =
-            crate::system::find_single_file(&interfering_local_cache_file_name, None)
-                .unwrap()
-                .unwrap();
+            crate::system::find_single_file(&interfering_local_cache_file_name, None).unwrap();
         log::debug!("Found {:?}", foo);
         todo!("remove {:?}", foo);
 
@@ -560,8 +547,7 @@ fn determine_inital_state(
 ) -> Result<S, crate::system::Error> {
     let installed: crate::system::ExistingFile =
         match crate::system::find_single_file(executable_name, exclude_from_search) {
-            Ok(Some(n)) => n,
-            Ok(None) => return Ok(S::NI),
+            Ok(n) => n,
             Err(crate::system::Error::FileNotFound(_)) => return Ok(S::NI),
             Err(err) => return Err(err),
         };

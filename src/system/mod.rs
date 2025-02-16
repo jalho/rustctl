@@ -123,7 +123,7 @@ impl ExistingFile {
 pub fn find_single_file(
     seekable_file_name: &std::path::Path,
     exclude_from_search: Option<std::path::PathBuf>,
-) -> Result<Option<ExistingFile>, Error> {
+) -> Result<ExistingFile, Error> {
     let mut matches: Vec<std::path::PathBuf> = Vec::new();
 
     if let None = exclude_from_search {
@@ -163,7 +163,7 @@ pub fn find_single_file(
                 .next()
                 .expect("iterator of length 1 should have a first next");
             let file: ExistingFile = ExistingFile::check(&path)?;
-            return Ok(Some(file));
+            return Ok(file);
         }
         _ => unreachable!("iterator should have length 0 or 1 at this point"),
     }
