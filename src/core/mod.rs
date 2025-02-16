@@ -279,16 +279,38 @@ impl Game {
         ];
         self.steamcmd_exec(argv)?;
 
-        let mut path_executable: std::path::PathBuf =
-            Game::get_game_root_dir_absolute().to_path_buf();
-        path_executable.push(Game::get_game_executable_filename());
+        let game_executable_found: crate::system::FoundFile =
+            match crate::system::find_single_file(&Game::get_game_executable_filename(), &None) {
+                Ok(n) => n,
+                Err(_) => todo!(),
+            };
 
-        let mut path_manifest: std::path::PathBuf =
-            Game::get_game_root_dir_absolute().to_path_buf();
-        path_manifest.push("steamapps");
-        path_manifest.push(Game::get_game_manifest_filename());
+        let manifest_seekable: std::path::PathBuf = game_executable_found
+            .dir_path_absolute
+            .join("steamapps")
+            .join(Game::get_game_manifest_filename());
+        let manifest_found: crate::system::FoundFile =
+            match crate::system::find_single_file(&manifest_seekable, &None) {
+                Ok(n) => n,
+                Err(_) => todo!(),
+            };
 
-        let installation: Updation = Updation::read(&path_executable, &path_manifest)?;
+        let build_id: u32 = match crate::parsing::parse_buildid_from_manifest(
+            &manifest_found.get_absolute_path(),
+        ) {
+            Some(n) => n,
+            None => todo!(),
+        };
+
+        let installation: Updation = Updation {
+            installed_at: manifest_found.last_modified,
+            from: build_id,
+            to: build_id,
+            root_dir_absolute: game_executable_found.dir_path_absolute,
+            executable_name: game_executable_found.filename,
+            _manifest_name: manifest_found.filename,
+        };
+
         return Ok(installation);
     }
 
@@ -449,86 +471,7 @@ struct Updation {
     /// Name, _not the absolute path_, of the Steam app's manifest file.
     _manifest_name: std::path::PathBuf,
 }
-impl Updation {
-    /// Try to read given files to determine some metadata of a now existing
-    /// installation.
-    pub fn read(
-        game_executable_path: &std::path::Path,
-        manifest_path: &std::path::Path,
-    ) -> Result<Self, Error> {
-        let metadata: std::fs::Metadata = match manifest_path.metadata() {
-            Ok(n) => n,
-            Err(err) => {
-                return Err(Error::InstallationInvalidFile(
-                    manifest_path.to_path_buf(),
-                    Some(err),
-                ))
-            }
-        };
-        let last_modified: chrono::DateTime<chrono::Utc> = match chrono::DateTime::from_timestamp(
-            std::os::unix::fs::MetadataExt::mtime(&metadata),
-            0,
-        ) {
-            Some(n) => n,
-            None => {
-                return Err(Error::InstallationInvalidFile(
-                    manifest_path.to_path_buf(),
-                    None,
-                ))
-            }
-        };
-        let build_id: u32 = match crate::parsing::parse_buildid_from_manifest(manifest_path) {
-            Some(n) => n,
-            None => {
-                return Err(Error::InstallationInvalidFile(
-                    manifest_path.to_path_buf(),
-                    None,
-                ))
-            }
-        };
 
-        let root_dir_absolute: std::path::PathBuf = match game_executable_path.canonicalize() {
-            Ok(n) => n,
-            Err(err) => {
-                return Err(Error::InstallationInvalidFile(
-                    game_executable_path.to_path_buf(),
-                    Some(err),
-                ))
-            }
-        };
-
-        let executable_name: std::path::PathBuf = match game_executable_path.file_name() {
-            Some(n) => std::path::PathBuf::from(n),
-            None => {
-                return Err(Error::InstallationInvalidFile(
-                    game_executable_path.to_path_buf(),
-                    None,
-                ))
-            }
-        };
-
-        let manifest_name: std::path::PathBuf = match manifest_path.file_name() {
-            Some(n) => std::path::PathBuf::from(n),
-            None => {
-                return Err(Error::InstallationInvalidFile(
-                    manifest_path.to_path_buf(),
-                    None,
-                ))
-            }
-        };
-
-        let read: Updation = Self {
-            installed_at: last_modified,
-            from: build_id,
-            to: build_id,
-            root_dir_absolute,
-            _manifest_name: manifest_name,
-            executable_name,
-        };
-
-        return Ok(read);
-    }
-}
 impl std::fmt::Display for Updation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
