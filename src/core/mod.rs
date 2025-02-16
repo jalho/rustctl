@@ -1,5 +1,17 @@
 //! Core functionality of the program.
 
+/*
+
+    TODO: Plan for a new error hierarchy
+
+    Error: cannot start game, source::
+        cannot update existing installation, source:
+        cannot check for available updates, source:
+        cannot wipe local app info cache, source:
+        <OS: Permission denied to remove "appinfo.vdf" file>
+
+*/
+
 type Predicate = String;
 type UnexpectedStatus = i32;
 #[derive(Debug)]
