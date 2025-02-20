@@ -1,6 +1,7 @@
 //! Core functionality of the program.
 
 enum Error {
+    FailedPrecondition(FP),
     UndecideableInstallationStatus(crate::system::FindSingleFileError),
     CannotCheckUpdates(CCU),
     FailedInstallAttempt(FIA),
@@ -9,6 +10,11 @@ enum Error {
         executable_path_absolute: std::path::PathBuf,
         exec_dir_path_absolute: std::path::PathBuf,
     },
+}
+
+/// FailedPrecondition
+enum FP {
+    MissingExpectedWorkingDirectory(std::path::PathBuf),
 }
 
 /// CannotCheckUpdates
@@ -352,17 +358,13 @@ impl Game {
         let mut steamcmd: std::process::Command = std::process::Command::new(steamcmd_executable);
         steamcmd.args(argv.iter().map(std::borrow::Cow::as_ref));
 
-        if !Game::get_game_root_dir_absolute().is_dir() {
-            return Err(Error::SteamCMDExecError(
-                format!(
-                    "find working directory '{}'",
-                    Game::get_game_root_dir_absolute().to_string_lossy()
-                ),
-                None,
-                None,
+        let root_abs: std::path::PathBuf = Game::get_game_root_dir_absolute().to_path_buf();
+        if !root_abs.is_dir() {
+            return Err(Error::FailedPrecondition(
+                FP::MissingExpectedWorkingDirectory(root_abs),
             ));
         }
-        steamcmd.current_dir(Game::get_game_root_dir_absolute());
+        steamcmd.current_dir(root_abs);
 
         steamcmd.stdout(std::process::Stdio::piped());
         steamcmd.stderr(std::process::Stdio::piped());
