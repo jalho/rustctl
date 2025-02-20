@@ -20,7 +20,7 @@ impl std::error::Error for Error {
 }
 
 impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
@@ -395,7 +395,7 @@ impl Game {
         log::trace!("{steamcmd_executable} {}", argv.join(" "));
         let child: std::process::Child = match steamcmd.spawn() {
             Ok(n) => n,
-            Err(err) => {
+            Err(_err) => {
                 return Err(match argv {
                     SteamCMDArgv::InstallGame(argv) => {
                         Error::FailedInstallAttempt(FIA::CannotInstall(SteamCMDErrorMeta {
@@ -420,7 +420,7 @@ impl Game {
         let (stdout, _stderr, exit_status) =
             match crate::system::trace_log_child_output_and_wait_to_terminate(child) {
                 Ok(n) => n,
-                Err(err) => {
+                Err(_err) => {
                     return Err(match argv {
                         SteamCMDArgv::InstallGame(argv) => {
                             Error::FailedInstallAttempt(FIA::CannotInstall(SteamCMDErrorMeta {
