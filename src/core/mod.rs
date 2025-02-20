@@ -1,25 +1,18 @@
 //! Core functionality of the program.
 
-/*
-
-    TODO: Plan for a new error hierarchy
-
-    Error: cannot start game, source::
-        cannot update existing installation, source:
-        cannot check for available updates, source:
-        cannot wipe local app info cache, source:
-        <OS: Permission denied to remove "appinfo.vdf" file>
-
-*/
-
 enum Error {
-    CheckInstallationStatusError(crate::system::FindSingleFileError),
-    CheckUpdateError(CheckUpdateError),
-    InstallUpdateError(InstallUpdateError),
-    GameStartError(GameStartError),
+    UndecideableInstallationStatus(crate::system::FindSingleFileError),
+    CannotCheckUpdates(CCU),
+    FailedInstallAttempt(FIA),
+    GameStartError {
+        system_error: std::io::Error,
+        executable_path_absolute: std::path::PathBuf,
+        exec_dir_path_absolute: std::path::PathBuf,
+    },
 }
 
-enum CheckUpdateError {
+/// CannotCheckUpdates
+enum CCU {
     AmbiguousLocalCache {
         cache_filename_seeked: std::path::PathBuf,
         cache_paths_absolute_found: Vec<std::path::PathBuf>,
@@ -31,19 +24,15 @@ enum CheckUpdateError {
     CannotFetchRemoteInfo(SteamCMDErrorMeta),
     MalformedSteamAppInfo(MalformedSteamAppInfo),
 }
-enum InstallUpdateError {
+
+/// FailedInstallAttempt
+enum FIA {
     CannotInstall(SteamCMDErrorMeta),
-    InvalidInstallation(InvalidInstallation),
-}
-enum GameStartError {
-    CannotSpawnProcess {
-        system_error: std::io::Error,
-        executable_path_absolute: std::path::PathBuf,
-        exec_dir_path_absolute: std::path::PathBuf,
-    },
+    InvalidInstallation(II),
 }
 
-enum InvalidInstallation {
+/// InvalidInstallation
+enum II {
     MissingRequiredFile {
         filename_seeked: std::path::PathBuf,
     },
@@ -51,12 +40,14 @@ enum InvalidInstallation {
         paths_absolute_found: Vec<std::path::PathBuf>,
     },
 }
+
 enum MalformedSteamAppInfo {
     UnexpectedFormat { data: Vec<u8> },
     MissingPublicBranch { data: Vec<u8> },
     AmbiguousPublicBranch { data: Vec<u8> },
     InvalidPublicBranchValue { data: Vec<u8> },
 }
+
 struct SteamCMDErrorMeta {
     steamcmd_command_argv: Vec<std::borrow::Cow<'static, str>>,
     steamcmd_exit_status: std::process::ExitStatus,
@@ -96,7 +87,7 @@ impl Game {
             match determine_inital_state(Game::get_game_executable_filename(), exclude_from_search)
             {
                 Ok(n) => n,
-                Err(err) => return Err(Error::CheckInstallationStatusError(err)),
+                Err(err) => return Err(Error::UndecideableInstallationStatus(err)),
             };
         log::info!("Initial state determined: {state}");
 
@@ -234,12 +225,10 @@ impl Game {
             Err(crate::system::FindSingleFileError::ManyFilesFound {
                 paths_absolute_found,
             }) => {
-                return Err(Error::CheckUpdateError(
-                    CheckUpdateError::AmbiguousLocalCache {
-                        cache_filename_seeked: cache_filename,
-                        cache_paths_absolute_found: paths_absolute_found,
-                    },
-                ))
+                return Err(Error::CannotCheckUpdates(CCU::AmbiguousLocalCache {
+                    cache_filename_seeked: cache_filename,
+                    cache_paths_absolute_found: paths_absolute_found,
+                }))
             }
         };
         todo!();
