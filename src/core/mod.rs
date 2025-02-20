@@ -55,8 +55,8 @@ enum MalformedSteamAppInfo {
 }
 
 struct SteamCMDErrorMeta {
-    steamcmd_command_argv: Vec<std::borrow::Cow<'static, str>>,
-    steamcmd_exit_status: std::process::ExitStatus,
+    steamcmd_command_argv: Argv<'static>,
+    steamcmd_exit_status: Option<std::process::ExitStatus>,
     steamcmd_stdout: Vec<u8>,
     steamcmd_stderr: Vec<u8>,
 }
@@ -376,18 +376,72 @@ impl Game {
         log::trace!("{steamcmd_executable} {}", argv.join(" "));
         let child: std::process::Child = match steamcmd.spawn() {
             Ok(n) => n,
-            Err(err) => return Err(Error::TODO),
+            Err(err) => {
+                return Err(match argv {
+                    SteamCMDArgv::InstallGame(argv) => {
+                        Error::FailedInstallAttempt(FIA::CannotInstall(SteamCMDErrorMeta {
+                            steamcmd_command_argv: argv,
+                            steamcmd_exit_status: None,
+                            steamcmd_stdout: Vec::new(),
+                            steamcmd_stderr: Vec::new(),
+                        }))
+                    }
+                    SteamCMDArgv::FetchGameInfo(argv) => {
+                        Error::CannotCheckUpdates(CCU::CannotFetchRemoteInfo(SteamCMDErrorMeta {
+                            steamcmd_command_argv: argv,
+                            steamcmd_exit_status: None,
+                            steamcmd_stdout: Vec::new(),
+                            steamcmd_stderr: Vec::new(),
+                        }))
+                    }
+                })
+            }
         };
 
         let (stdout, _stderr, exit_status) =
             match crate::system::trace_log_child_output_and_wait_to_terminate(child) {
                 Ok(n) => n,
-                Err(err) => return Err(Error::TODO),
+                Err(err) => {
+                    return Err(match argv {
+                        SteamCMDArgv::InstallGame(argv) => {
+                            Error::FailedInstallAttempt(FIA::CannotInstall(SteamCMDErrorMeta {
+                                steamcmd_command_argv: argv,
+                                steamcmd_exit_status: None,
+                                steamcmd_stdout: Vec::new(),
+                                steamcmd_stderr: Vec::new(),
+                            }))
+                        }
+                        SteamCMDArgv::FetchGameInfo(argv) => Error::CannotCheckUpdates(
+                            CCU::CannotFetchRemoteInfo(SteamCMDErrorMeta {
+                                steamcmd_command_argv: argv,
+                                steamcmd_exit_status: None,
+                                steamcmd_stdout: Vec::new(),
+                                steamcmd_stderr: Vec::new(),
+                            }),
+                        ),
+                    })
+                }
             };
 
         if !exit_status.success() {
-            let predicate: String = argv.join(" ");
-            return Err(Error::TODO);
+            return Err(match argv {
+                SteamCMDArgv::InstallGame(argv) => {
+                    Error::FailedInstallAttempt(FIA::CannotInstall(SteamCMDErrorMeta {
+                        steamcmd_command_argv: argv,
+                        steamcmd_exit_status: Some(exit_status),
+                        steamcmd_stdout: Vec::new(),
+                        steamcmd_stderr: Vec::new(),
+                    }))
+                }
+                SteamCMDArgv::FetchGameInfo(argv) => {
+                    Error::CannotCheckUpdates(CCU::CannotFetchRemoteInfo(SteamCMDErrorMeta {
+                        steamcmd_command_argv: argv,
+                        steamcmd_exit_status: Some(exit_status),
+                        steamcmd_stdout: Vec::new(),
+                        steamcmd_stderr: Vec::new(),
+                    }))
+                }
+            });
         }
 
         return Ok(stdout);
