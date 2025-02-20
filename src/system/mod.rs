@@ -1,6 +1,8 @@
 //! System resources abstractions, such as operations with the filesystem and
 //! processes.
 
+use std::os::unix::fs::MetadataExt;
+
 pub enum IdentifySingleProcessError {
     LibProcfsFailure { lib_error: procfs::ProcError },
     RunningParallel { pids_found: Vec<u32> },
@@ -125,7 +127,21 @@ pub fn find_single_file(
                     })
                 }
             };
-            return Ok(file);
+            let metadata = file.metadata().expect("existing file should have metadata");
+
+            return Ok(FoundFile {
+                dir_path_absolute: file
+                    .parent()
+                    .expect("absolute path of an existing file should have parent")
+                    .to_path_buf(),
+                filename: file
+                    .file_name()
+                    .expect("existing file should have name")
+                    .into(),
+                last_modified: chrono::DateTime::<chrono::Utc>::from_timestamp(metadata.mtime(), 0)
+                    .expect("existing file should have mtime"),
+                metadata,
+            });
         }
         _ => unreachable!("iterator should have length 0 or 1 at this point"),
     }
