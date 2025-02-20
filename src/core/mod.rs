@@ -272,7 +272,7 @@ impl Game {
             "validate".into(),
             "+quit".into(),
         ];
-        self.steamcmd_exec(argv)?;
+        self.steamcmd_exec(SteamCMDArgv::InstallGame(argv))?;
 
         let game_executable_found: crate::system::FoundFile =
             match crate::system::find_single_file(&Game::get_game_executable_filename(), &None) {
@@ -353,10 +353,14 @@ impl Game {
         todo!("terminate game server process");
     }
 
-    fn steamcmd_exec(&self, argv: Vec<std::borrow::Cow<'_, str>>) -> Result<String, Error> {
+    fn steamcmd_exec(&self, argv: SteamCMDArgv) -> Result<String, Error> {
         let steamcmd_executable: &'static str = "steamcmd";
         let mut steamcmd: std::process::Command = std::process::Command::new(steamcmd_executable);
-        steamcmd.args(argv.iter().map(std::borrow::Cow::as_ref));
+        steamcmd.args(
+            Into::<Argv>::into(argv)
+                .iter()
+                .map(std::borrow::Cow::as_ref),
+        );
 
         let root_abs: std::path::PathBuf = Game::get_game_root_dir_absolute().to_path_buf();
         if !root_abs.is_dir() {
@@ -372,37 +376,46 @@ impl Game {
         log::trace!("{steamcmd_executable} {}", argv.join(" "));
         let child: std::process::Child = match steamcmd.spawn() {
             Ok(n) => n,
-            Err(err) => {
-                return Err(Error::SteamCMDExecError(
-                    String::from("spawn"),
-                    None,
-                    Some(err),
-                ))
-            }
+            Err(err) => return Err(Error::TODO),
         };
 
         let (stdout, _stderr, exit_status) =
             match crate::system::trace_log_child_output_and_wait_to_terminate(child) {
                 Ok(n) => n,
-                Err(err) => {
-                    return Err(Error::SteamCMDExecError(
-                        String::from("terminate"),
-                        None,
-                        Some(err),
-                    ))
-                }
+                Err(err) => return Err(Error::TODO),
             };
 
         if !exit_status.success() {
             let predicate: String = argv.join(" ");
-            return Err(Error::SteamCMDExecError(
-                predicate,
-                exit_status.code(),
-                None,
-            ));
+            return Err(Error::TODO);
         }
 
         return Ok(stdout);
+    }
+}
+
+type Argv<'arg> = Vec<std::borrow::Cow<'arg, str>>;
+
+enum SteamCMDArgv<'arg> {
+    InstallGame(Argv<'arg>),
+    FetchGameInfo(Argv<'arg>),
+}
+
+impl<'arg> SteamCMDArgv<'arg> {
+    pub fn join(&self, joiner: &'static str) -> String {
+        match self {
+            SteamCMDArgv::InstallGame(argv) => argv.join(joiner),
+            SteamCMDArgv::FetchGameInfo(argv) => argv.join(joiner),
+        }
+    }
+}
+
+impl<'arg> Into<Vec<std::borrow::Cow<'arg, str>>> for SteamCMDArgv<'arg> {
+    fn into(self) -> Vec<std::borrow::Cow<'arg, str>> {
+        match self {
+            SteamCMDArgv::InstallGame(n) => n,
+            SteamCMDArgv::FetchGameInfo(n) => n,
+        }
     }
 }
 
