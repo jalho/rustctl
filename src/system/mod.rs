@@ -42,6 +42,7 @@ pub fn check_process_running(
     }
 }
 
+#[derive(Debug)]
 pub enum FindSingleFileError {
     FileNotFound {
         filename_seeked: std::path::PathBuf,

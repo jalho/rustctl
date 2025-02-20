@@ -1,5 +1,6 @@
 //! Core functionality of the program.
 
+#[derive(Debug)]
 enum Error {
     FailedPrecondition(FP),
     UndecideableInstallationStatus(crate::system::FindSingleFileError),
@@ -12,12 +13,26 @@ enum Error {
     },
 }
 
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        todo!()
+    }
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
 /// FailedPrecondition
+#[derive(Debug)]
 enum FP {
     MissingExpectedWorkingDirectory(std::path::PathBuf),
 }
 
 /// CannotCheckUpdates
+#[derive(Debug)]
 enum CCU {
     AmbiguousLocalCache {
         cache_filename_seeked: std::path::PathBuf,
@@ -32,12 +47,14 @@ enum CCU {
 }
 
 /// FailedInstallAttempt
+#[derive(Debug)]
 enum FIA {
     CannotInstall(SteamCMDErrorMeta),
     InvalidInstallation(II),
 }
 
 /// InvalidInstallation
+#[derive(Debug)]
 enum II {
     MissingRequiredFile {
         filename_seeked: std::path::PathBuf,
@@ -47,6 +64,7 @@ enum II {
     },
 }
 
+#[derive(Debug)]
 enum MalformedSteamAppInfo {
     UnexpectedFormat { data: Vec<u8> },
     MissingPublicBranch { data: Vec<u8> },
@@ -54,6 +72,7 @@ enum MalformedSteamAppInfo {
     InvalidPublicBranchValue { data: Vec<u8> },
 }
 
+#[derive(Debug)]
 struct SteamCMDErrorMeta {
     steamcmd_command_argv: Argv<'static>,
     steamcmd_exit_status: Option<std::process::ExitStatus>,
