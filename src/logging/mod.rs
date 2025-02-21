@@ -35,7 +35,7 @@ fn make_logger_config(
     let stdout: log4rs::append::console::ConsoleAppender =
         log4rs::append::console::ConsoleAppender::builder()
             .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
-                "[{d(%Y-%m-%dT%H:%M:%S)}] {h([{l}])} [{t}] - {m}{n}",
+                "[{date(%Y-%m-%dT%H:%M:%S)(utc)}Z] {highlight([{l}])} - {message} [{file}:{line}]{n}",
             )))
             .build();
 
