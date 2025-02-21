@@ -243,7 +243,7 @@ pub fn parse_buildid_from_manifest(manifest_path: &std::path::Path) -> Option<u3
 /// }
 /// ```
 pub fn parse_buildid_from_buffer(buffer: &str) -> Option<u32> {
-    todo!("only pick the buildid that follows 'public' branch");
+    todo!("only pick the buildid that follows 'public' branch, and use the malformed steam app info error variant from crate::error::fatal for error");
     for line in buffer.lines() {
         let trimmed: &str = line.trim();
         if trimmed.starts_with("\"buildid\"") {
