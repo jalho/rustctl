@@ -301,12 +301,8 @@ impl Game {
                 Err(_) => todo!(),
             };
 
-        let manifest_seekable: std::path::PathBuf = game_executable_found
-            .dir_path_absolute
-            .join("steamapps")
-            .join(Game::get_game_manifest_filename());
         let manifest_found: crate::system::FoundFile =
-            match crate::system::find_single_file(&manifest_seekable, &None) {
+            match crate::system::find_single_file(&Game::get_game_manifest_filename(), &None) {
                 Ok(n) => n,
                 Err(_) => todo!(),
             };
@@ -618,15 +614,13 @@ fn determine_inital_state(
     let game_executable_found: crate::system::FoundFile =
         crate::system::find_single_file(executable_name, &exclude_from_search)?;
 
-    let manifest_seekable: std::path::PathBuf = game_executable_found
-        .dir_path_absolute
-        .join("steamapps")
-        .join(Game::get_game_manifest_filename());
-    let manifest_found: crate::system::FoundFile =
-        match crate::system::find_single_file(&manifest_seekable, &exclude_from_search) {
-            Ok(n) => n,
-            Err(_) => return Ok(S::NI),
-        };
+    let manifest_found: crate::system::FoundFile = match crate::system::find_single_file(
+        &Game::get_game_manifest_filename(),
+        &exclude_from_search,
+    ) {
+        Ok(n) => n,
+        Err(_) => return Ok(S::NI),
+    };
 
     let build_id: u32 =
         match crate::parsing::parse_buildid_from_manifest(&manifest_found.get_absolute_path()) {
