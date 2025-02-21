@@ -79,10 +79,7 @@ pub fn find_single_file(
     let mut matches: Vec<std::path::PathBuf> = Vec::new();
 
     if let None = exclude_from_search {
-        log::debug!(
-            "Doing a full system wide search for a file named {}... This might take a while",
-            seekable_file_name.to_string_lossy()
-        );
+        log::debug!("Searching for {}...", seekable_file_name.to_string_lossy());
     }
     for entry in walkdir::WalkDir::new("/")
         .into_iter()
