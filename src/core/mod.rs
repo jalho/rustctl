@@ -251,8 +251,27 @@ impl Game {
                     }))
                 }
             };
+
         if let Some(cache_file) = cache_file {
-            log::debug!("TODO: Remove {cache_file}");
+            /* Before removing just any cache file, let's do a little sanity check
+            as a best effort "confirm" that it is the Steam's cache file. In an
+            ideal world we could trust to find stuff at specific places... */
+            let sanity_check = "Steam/appcache";
+
+            let is_steam_file: bool = cache_file
+                .get_absolute_path()
+                .to_string_lossy()
+                .contains(sanity_check);
+
+            if is_steam_file {
+                log::debug!("TODO: Remove {cache_file}");
+            } else {
+                log::warn!("Sanity check on Steam local cache file failed: Expected its path to contain {sanity_check}, instead got: {cache_file}");
+                return Err(Error::CannotCheckUpdates(CCU::AmbiguousLocalCache {
+                    cache_filename_seeked: cache_filename,
+                    cache_paths_absolute_found: vec![cache_file.get_absolute_path()],
+                }));
+            }
         }
         todo!();
 
