@@ -74,7 +74,7 @@ enum MalformedSteamAppInfo {
 
 #[derive(Debug)]
 struct SteamCMDErrorMeta {
-    steamcmd_command_argv: Argv<'static>,
+    steamcmd_command_argv: SteamCMDArgv,
     steamcmd_exit_status: Option<std::process::ExitStatus>,
     steamcmd_stdout: Vec<u8>,
     steamcmd_stderr: Vec<u8>,
@@ -281,17 +281,19 @@ impl Game {
     }
 
     fn install(&self) -> Result<Updation, Error> {
-        let argv: Vec<std::borrow::Cow<'_, str>> = vec![
+        let argv: SteamCMDArgv = SteamCMDArgv::InstallGame(vec![
             "+force_install_dir".into(),
-            Game::get_game_root_dir_absolute().to_string_lossy(),
+            Game::get_game_root_dir_absolute()
+                .to_string_lossy()
+                .into_owned(),
             "+login".into(),
             "anonymous".into(),
             "+app_update".into(),
-            Game::get_game_steam_app_id().to_string().into(),
+            Game::get_game_steam_app_id().to_string(),
             "validate".into(),
             "+quit".into(),
-        ];
-        self.steamcmd_exec(SteamCMDArgv::InstallGame(argv))?;
+        ]);
+        self.steamcmd_exec(argv)?;
 
         let game_executable_found: crate::system::FoundFile =
             match crate::system::find_single_file(&Game::get_game_executable_filename(), &None) {
@@ -375,11 +377,7 @@ impl Game {
     fn steamcmd_exec(&self, argv: SteamCMDArgv) -> Result<String, Error> {
         let steamcmd_executable: &'static str = "steamcmd";
         let mut steamcmd: std::process::Command = std::process::Command::new(steamcmd_executable);
-        steamcmd.args(
-            Into::<Argv>::into(argv)
-                .iter()
-                .map(std::borrow::Cow::as_ref),
-        );
+        steamcmd.args(argv.into_iter());
 
         let root_abs: std::path::PathBuf = Game::get_game_root_dir_absolute().to_path_buf();
         if !root_abs.is_dir() {
@@ -397,7 +395,7 @@ impl Game {
             Ok(n) => n,
             Err(_err) => {
                 return Err(match argv {
-                    SteamCMDArgv::InstallGame(argv) => {
+                    SteamCMDArgv::InstallGame(_) => {
                         Error::FailedInstallAttempt(FIA::CannotInstall(SteamCMDErrorMeta {
                             steamcmd_command_argv: argv,
                             steamcmd_exit_status: None,
@@ -405,7 +403,7 @@ impl Game {
                             steamcmd_stderr: Vec::new(),
                         }))
                     }
-                    SteamCMDArgv::FetchGameInfo(argv) => {
+                    SteamCMDArgv::FetchGameInfo(_) => {
                         Error::CannotCheckUpdates(CCU::CannotFetchRemoteInfo(SteamCMDErrorMeta {
                             steamcmd_command_argv: argv,
                             steamcmd_exit_status: None,
@@ -422,7 +420,7 @@ impl Game {
                 Ok(n) => n,
                 Err(_err) => {
                     return Err(match argv {
-                        SteamCMDArgv::InstallGame(argv) => {
+                        SteamCMDArgv::InstallGame(_) => {
                             Error::FailedInstallAttempt(FIA::CannotInstall(SteamCMDErrorMeta {
                                 steamcmd_command_argv: argv,
                                 steamcmd_exit_status: None,
@@ -430,7 +428,7 @@ impl Game {
                                 steamcmd_stderr: Vec::new(),
                             }))
                         }
-                        SteamCMDArgv::FetchGameInfo(argv) => Error::CannotCheckUpdates(
+                        SteamCMDArgv::FetchGameInfo(_) => Error::CannotCheckUpdates(
                             CCU::CannotFetchRemoteInfo(SteamCMDErrorMeta {
                                 steamcmd_command_argv: argv,
                                 steamcmd_exit_status: None,
@@ -444,7 +442,7 @@ impl Game {
 
         if !exit_status.success() {
             return Err(match argv {
-                SteamCMDArgv::InstallGame(argv) => {
+                SteamCMDArgv::InstallGame(_) => {
                     Error::FailedInstallAttempt(FIA::CannotInstall(SteamCMDErrorMeta {
                         steamcmd_command_argv: argv,
                         steamcmd_exit_status: Some(exit_status),
@@ -452,7 +450,7 @@ impl Game {
                         steamcmd_stderr: Vec::new(),
                     }))
                 }
-                SteamCMDArgv::FetchGameInfo(argv) => {
+                SteamCMDArgv::FetchGameInfo(_) => {
                     Error::CannotCheckUpdates(CCU::CannotFetchRemoteInfo(SteamCMDErrorMeta {
                         steamcmd_command_argv: argv,
                         steamcmd_exit_status: Some(exit_status),
@@ -467,27 +465,42 @@ impl Game {
     }
 }
 
-type Argv<'arg> = Vec<std::borrow::Cow<'arg, str>>;
-
-enum SteamCMDArgv<'arg> {
-    InstallGame(Argv<'arg>),
-    FetchGameInfo(Argv<'arg>),
+#[derive(Debug)]
+enum SteamCMDArgv {
+    InstallGame(Vec<String>),
+    FetchGameInfo(Vec<String>),
 }
 
-impl<'arg> SteamCMDArgv<'arg> {
-    pub fn join(&self, joiner: &'static str) -> String {
+impl<'arg> IntoIterator for &'arg SteamCMDArgv {
+    type Item = &'arg str;
+
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
         match self {
-            SteamCMDArgv::InstallGame(argv) => argv.join(joiner),
-            SteamCMDArgv::FetchGameInfo(argv) => argv.join(joiner),
+            SteamCMDArgv::InstallGame(vec) => {
+                let iter: std::slice::Iter<'_, String> = vec.iter();
+                let iter_map = iter.map(std::string::String::as_str);
+                let vec_slices: Vec<&str> = iter_map.collect::<Vec<&str>>();
+                let iter_slices: std::vec::IntoIter<&str> = vec_slices.into_iter();
+                iter_slices
+            }
+            SteamCMDArgv::FetchGameInfo(vec) => {
+                let iter: std::slice::Iter<'_, String> = vec.iter();
+                let iter_map = iter.map(std::string::String::as_str);
+                let vec_slices: Vec<&str> = iter_map.collect::<Vec<&str>>();
+                let iter_slices: std::vec::IntoIter<&str> = vec_slices.into_iter();
+                iter_slices
+            }
         }
     }
 }
 
-impl<'arg> Into<Vec<std::borrow::Cow<'arg, str>>> for SteamCMDArgv<'arg> {
-    fn into(self) -> Vec<std::borrow::Cow<'arg, str>> {
+impl SteamCMDArgv {
+    pub fn join(&self, joiner: &'static str) -> String {
         match self {
-            SteamCMDArgv::InstallGame(n) => n,
-            SteamCMDArgv::FetchGameInfo(n) => n,
+            SteamCMDArgv::InstallGame(argv) => argv.join(joiner),
+            SteamCMDArgv::FetchGameInfo(argv) => argv.join(joiner),
         }
     }
 }
