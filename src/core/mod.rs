@@ -239,24 +239,13 @@ impl Game {
         ]);
         let stdout_utf8: String = self.steamcmd_exec(argv)?;
 
-        todo!("parse latest available build id of public branch:\n{stdout_utf8}");
+        let latest_available_build_id: u32 =
+            match crate::parsing::parse_buildid_from_buffer(&stdout_utf8) {
+                Some(n) => n,
+                None => todo!("use crate::error::fatal::Error"),
+            };
 
-        // let argv: Vec<std::borrow::Cow<'_, str>> = vec![
-        //     "+app_info_print".into(),
-        //     Game::get_game_steam_app_id().to_string().into(),
-        //     "+quit".into(),
-        // ];
-        // let stdout_utf8: String = self.steamcmd_exec(argv)?;
-        // let build_id: u32 = match crate::parsing::parse_buildid_from_buffer(&stdout_utf8) {
-        //     Some(n) => n,
-        //     None => {
-        //         return Err(Error::SteamCMDUnexpectedOutput(
-        //             String::from("parse build ID"),
-        //             stdout_utf8,
-        //         ));
-        //     }
-        // };
-        // return Ok(build_id);
+        return Ok(latest_available_build_id);
     }
 
     fn install(&self) -> Result<Updation, Error> {

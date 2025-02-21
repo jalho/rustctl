@@ -243,6 +243,7 @@ pub fn parse_buildid_from_manifest(manifest_path: &std::path::Path) -> Option<u3
 /// }
 /// ```
 pub fn parse_buildid_from_buffer(buffer: &str) -> Option<u32> {
+    todo!("only pick the buildid that follows 'public' branch");
     for line in buffer.lines() {
         let trimmed: &str = line.trim();
         if trimmed.starts_with("\"buildid\"") {
