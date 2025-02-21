@@ -1,5 +1,7 @@
 //! Core functionality of the program.
 
+use std::io::Read;
+
 #[derive(Debug)]
 pub enum Error {
     MissingExpectedWorkingDirectory(std::path::PathBuf),
@@ -30,30 +32,99 @@ impl std::fmt::Display for Error {
             Error::CannotCheckUpdates(CCU::AmbiguousLocalCache {
                 cache_filename_seeked,
                 cache_paths_absolute_found,
-            }) => todo!(),
+            }) => write!(
+                f,
+                "cannot check updates: ambigous local cache: found in {} places: {}",
+                cache_paths_absolute_found.len(),
+                cache_paths_absolute_found.join_with(", ")
+            ),
             Error::CannotCheckUpdates(CCU::CannotWipeLocalCache {
                 cache_path_absolute_found,
                 system_error,
-            }) => todo!(),
-            Error::CannotCheckUpdates(CCU::CannotFetchRemoteInfo(steamcmd_error_meta)) => todo!(),
-            Error::CannotCheckUpdates(CCU::MalformedSteamAppInfo()) => todo!(),
-            Error::FailedInstallAttempt(fia) => todo!(),
+            }) => write!(
+                f,
+                "cannot check updates: cannot wipe local cache {}: {}",
+                cache_path_absolute_found.to_string_lossy(),
+                system_error
+            ),
+            Error::CannotCheckUpdates(CCU::CannotFetchRemoteInfo(steamcmd_error_meta)) => {
+                write!(
+                    f,
+                    "cannot check updates: SteamCMD failed: {steamcmd_error_meta} "
+                )
+            }
+            Error::CannotCheckUpdates(CCU::MalformedSteamAppInfo(MSAI::UnexpectedFormat {
+                data,
+            })) => write!(
+                f, "cannot check updates: app info is malformed in unexpected format (expected a special JSON-like Steam format): instead got (in hex encoding): {}",
+                data.to_hex_string(),
+            ),
+            Error::CannotCheckUpdates(CCU::MalformedSteamAppInfo(MSAI::MissingPublicBranch {
+                data_utf8,
+            })) => write!(
+                f, "cannot check updates: app info is missing public branch: got: {data_utf8}",
+            ),
+            Error::CannotCheckUpdates(CCU::MalformedSteamAppInfo(
+                MSAI::AmbiguousPublicBranch { data_utf8},
+            )) => write!(
+                f, "cannot check updates: app info has an ambiguous public branch: got: {data_utf8}",
+            ),
+            Error::CannotCheckUpdates(CCU::MalformedSteamAppInfo(
+                MSAI::InvalidPublicBranchValue { data_utf8 },
+            )) => write!(
+                f, "cannot check updates: app info has invalid value for public branch: got: {data_utf8}",
+            ),
+            Error::FailedInstallAttempt(FIA::CannotInstall(steamcmd_error_meta)) => {
+                return write!(f, "cannot install game: SteamCMD failed: {steamcmd_error_meta}");
+            },
+            Error::FailedInstallAttempt(FIA::InvalidInstallation(II::MissingRequiredFile { filename_seeked })) => {
+                return write!(f, "installation failed: missing required file: {}", filename_seeked.to_string_lossy());
+            },
+            Error::FailedInstallAttempt(FIA::InvalidInstallation(II::AmbiguousRequiredFile { paths_absolute_found })) => {
+                return write!(f, "installation failed: ambiguous required file: found in {} places: {}", paths_absolute_found.len(), paths_absolute_found.join_with(", "));
+            },
             Error::GameStartError {
                 system_error,
                 executable_path_absolute,
                 exec_dir_path_absolute,
-            } => todo!(),
+            } => {
+                return write!(f, "cannot start game: attempted executable {} in {}: {}",
+                    executable_path_absolute.to_string_lossy(),
+                    exec_dir_path_absolute.to_string_lossy(),
+                    system_error);
+            },
             Error::AmbiguousExistingInstallation(existing_installations) => write!(
                 f,
                 "ambiguous existing installation: found in {} places: {}",
                 existing_installations.len(),
-                existing_installations
-                    .iter()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .collect::<Vec<String>>()
-                    .join(", ")
+                existing_installations.join_with(", ")
             ),
         }
+    }
+}
+
+trait ToHexString {
+    fn to_hex_string(&self) -> String;
+}
+
+impl ToHexString for &Vec<u8> {
+    fn to_hex_string(&self) -> String {
+        self.iter()
+            .map(|byte: &u8| std::format!("{:02x}", byte))
+            .collect()
+    }
+}
+
+trait JoinWith {
+    fn join_with(&self, joiner: &str) -> String;
+}
+
+impl JoinWith for Vec<std::path::PathBuf> {
+    fn join_with(&self, delim: &str) -> String {
+        self.iter()
+            .map(|n| n.to_string_lossy().into_owned())
+            .collect::<Vec<String>>()
+            .join(delim)
     }
 }
 
@@ -94,9 +165,9 @@ pub enum II {
 #[derive(Debug)]
 pub enum MSAI {
     UnexpectedFormat { data: Vec<u8> },
-    MissingPublicBranch { data: Vec<u8> },
-    AmbiguousPublicBranch { data: Vec<u8> },
-    InvalidPublicBranchValue { data: Vec<u8> },
+    MissingPublicBranch { data_utf8: String },
+    AmbiguousPublicBranch { data_utf8: String },
+    InvalidPublicBranchValue { data_utf8: String },
 }
 
 #[derive(Debug)]
@@ -105,6 +176,31 @@ pub struct SteamCMDErrorMeta {
     steamcmd_exit_status: Option<std::process::ExitStatus>,
     steamcmd_stdout: Vec<u8>,
     steamcmd_stderr: Vec<u8>,
+}
+
+impl std::fmt::Display for SteamCMDErrorMeta {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let status: &str = match self.steamcmd_exit_status {
+            Some(n) => &format!("with {n}"),
+            None => "without status",
+        };
+
+        let operation: &str = match self.steamcmd_command_argv {
+            SteamCMDArgv::InstallGame(ref vec) => {
+                &format!("install game: argv: [{}]", vec.join(" "))
+            }
+            SteamCMDArgv::FetchGameInfo(ref vec) => {
+                &format!("fetch game info: argv: [{}]", vec.join(" "))
+            }
+        };
+
+        return write!(
+            f,
+            "{status}: {operation}: {} bytes in STDOUT, {} in STDERR",
+            self.steamcmd_stdout.len(),
+            self.steamcmd_stderr.len(),
+        );
+    }
 }
 
 pub struct Game {
