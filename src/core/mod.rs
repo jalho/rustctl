@@ -214,13 +214,24 @@ impl Game {
             ideal world we could trust to find stuff at specific places... */
             let sanity_check = "Steam/appcache";
 
-            let is_steam_file: bool = cache_file
-                .get_absolute_path()
+            let cache_file_absolute_path: std::path::PathBuf = cache_file.get_absolute_path();
+
+            let is_steam_file: bool = cache_file_absolute_path
                 .to_string_lossy()
                 .contains(sanity_check);
 
             if is_steam_file {
-                log::debug!("TODO: Remove {cache_file}");
+                match std::fs::remove_file(&cache_file_absolute_path) {
+                    Ok(_) => log::info!("Removed local cache file {cache_file}"),
+                    Err(err) => {
+                        return Err(crate::error::fatal::Error::CannotCheckUpdates(
+                            crate::error::fatal::CCU::CannotWipeLocalCache {
+                                cache_path_absolute_found: cache_file_absolute_path,
+                                system_error: err,
+                            },
+                        ))
+                    }
+                }
             } else {
                 log::warn!("Sanity check on Steam local cache file failed: Expected its path to contain {sanity_check}, instead got: {cache_file}");
                 return Err(Error::CannotCheckUpdates(
@@ -231,7 +242,7 @@ impl Game {
                 ));
             }
         }
-        todo!();
+        todo!("query info from remote and parse latest available build id of public branch");
 
         // let argv: Vec<std::borrow::Cow<'_, str>> =
         //     vec!["+app_info_update".into(), "1".into(), "+quit".into()];
