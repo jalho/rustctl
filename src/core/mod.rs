@@ -27,7 +27,16 @@ impl std::fmt::Display for Error {
                 "missing expected working directory: {}",
                 path_buf.to_string_lossy()
             ),
-            Error::CannotCheckUpdates(ccu) => todo!(),
+            Error::CannotCheckUpdates(CCU::AmbiguousLocalCache {
+                cache_filename_seeked,
+                cache_paths_absolute_found,
+            }) => todo!(),
+            Error::CannotCheckUpdates(CCU::CannotWipeLocalCache {
+                cache_path_absolute_found,
+                system_error,
+            }) => todo!(),
+            Error::CannotCheckUpdates(CCU::CannotFetchRemoteInfo(steamcmd_error_meta)) => todo!(),
+            Error::CannotCheckUpdates(CCU::MalformedSteamAppInfo()) => todo!(),
             Error::FailedInstallAttempt(fia) => todo!(),
             Error::GameStartError {
                 system_error,
@@ -60,7 +69,7 @@ pub enum CCU {
         system_error: std::io::Error,
     },
     CannotFetchRemoteInfo(SteamCMDErrorMeta),
-    MalformedSteamAppInfo(MalformedSteamAppInfo),
+    MalformedSteamAppInfo(MSAI),
 }
 
 /// FailedInstallAttempt
@@ -81,8 +90,9 @@ pub enum II {
     },
 }
 
+/// MalformedSteamAppInfo
 #[derive(Debug)]
-pub enum MalformedSteamAppInfo {
+pub enum MSAI {
     UnexpectedFormat { data: Vec<u8> },
     MissingPublicBranch { data: Vec<u8> },
     AmbiguousPublicBranch { data: Vec<u8> },
