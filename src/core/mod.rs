@@ -3,7 +3,7 @@
 #[derive(Debug)]
 pub enum Error {
     MissingExpectedWorkingDirectory(std::path::PathBuf),
-    UndecideableInstallationStatus(crate::system::FindSingleFileError),
+    AmbiguousExistingInstallation(Vec<std::path::PathBuf>),
     CannotCheckUpdates(CCU),
     FailedInstallAttempt(FIA),
     GameStartError {
@@ -34,7 +34,16 @@ impl std::fmt::Display for Error {
                 executable_path_absolute,
                 exec_dir_path_absolute,
             } => todo!(),
-            Error::UndecideableInstallationStatus(find_single_file_error) => todo!(),
+            Error::AmbiguousExistingInstallation(existing_installations) => write!(
+                f,
+                "ambiguous existing installation: found in {} places: {}",
+                existing_installations.len(),
+                existing_installations
+                    .iter()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
         }
     }
 }
@@ -120,7 +129,14 @@ impl Game {
             match determine_inital_state(Game::get_game_executable_filename(), exclude_from_search)
             {
                 Ok(n) => n,
-                Err(err) => return Err(Error::UndecideableInstallationStatus(err)),
+                Err(crate::system::FindSingleFileError::ManyFilesFound {
+                    paths_absolute_found,
+                }) => return Err(Error::AmbiguousExistingInstallation(paths_absolute_found)),
+                Err(crate::system::FindSingleFileError::FileNotFound { .. }) => {
+                    /* TODO: Refactor this case away... It's not an error that there
+                    isn't any existing installation! */
+                    todo!();
+                }
             };
         log::info!("Initial state determined: {state}");
 
