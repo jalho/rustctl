@@ -17,7 +17,37 @@ pub enum Error {
 
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        todo!()
+        match self {
+            Error::MissingExpectedWorkingDirectory(_path_buf) => None,
+            Error::AmbiguousExistingInstallation(_vec) => None,
+            Error::CannotCheckUpdates(CCU::AmbiguousLocalCache { .. }) => None,
+            Error::CannotCheckUpdates(CCU::CannotWipeLocalCache { .. }) => None,
+            Error::CannotCheckUpdates(CCU::CannotFetchRemoteInfo(_meta)) => None,
+            Error::CannotCheckUpdates(CCU::MalformedSteamAppInfo(MSAI::UnexpectedFormat {
+                ..
+            })) => None,
+            Error::CannotCheckUpdates(CCU::MalformedSteamAppInfo(MSAI::MissingPublicBranch {
+                ..
+            })) => None,
+            Error::CannotCheckUpdates(CCU::MalformedSteamAppInfo(
+                MSAI::AmbiguousPublicBranch { .. },
+            )) => None,
+            Error::CannotCheckUpdates(CCU::MalformedSteamAppInfo(
+                MSAI::InvalidPublicBranchValue { .. },
+            )) => None,
+            Error::FailedInstallAttempt(FIA::CannotInstall(_meta)) => None,
+            Error::FailedInstallAttempt(FIA::InvalidInstallation(II::MissingRequiredFile {
+                ..
+            })) => None,
+            Error::FailedInstallAttempt(FIA::InvalidInstallation(II::AmbiguousRequiredFile {
+                ..
+            })) => None,
+            Error::GameStartError {
+                system_error,
+                executable_path_absolute: _,
+                exec_dir_path_absolute: _,
+            } => Some(system_error),
+        }
     }
 }
 
@@ -40,12 +70,11 @@ impl std::fmt::Display for Error {
             ),
             Error::CannotCheckUpdates(CCU::CannotWipeLocalCache {
                 cache_path_absolute_found,
-                system_error,
+                system_error: _,
             }) => write!(
                 f,
-                "cannot check updates: cannot wipe local cache {}: {}",
+                "cannot check updates: cannot wipe local cache {}",
                 cache_path_absolute_found.to_string_lossy(),
-                system_error
             ),
             Error::CannotCheckUpdates(CCU::CannotFetchRemoteInfo(steamcmd_error_meta)) => {
                 write!(
@@ -84,14 +113,13 @@ impl std::fmt::Display for Error {
                 return write!(f, "installation failed: ambiguous required file: found in {} places: {}", paths_absolute_found.len(), paths_absolute_found.join_with(", "));
             },
             Error::GameStartError {
-                system_error,
+                system_error: _,
                 executable_path_absolute,
                 exec_dir_path_absolute,
             } => {
-                return write!(f, "cannot start game: attempted executable {} in {}: {}",
+                return write!(f, "cannot start game: attempted executable {} in {}",
                     executable_path_absolute.to_string_lossy(),
-                    exec_dir_path_absolute.to_string_lossy(),
-                    system_error);
+                    exec_dir_path_absolute.to_string_lossy());
             },
             Error::AmbiguousExistingInstallation(existing_installations) => write!(
                 f,
