@@ -173,23 +173,10 @@ impl Game {
         }
     }
 
-    /* TODO: Fix querying latest version info from remote! Current
-             implementation does not work!
-
-       Observations from 2025-02-15:
-
-       - Running "steamcmd +app_info_print 258550 +quit" returned information
-         from some local cache instead of fetching from remote: buildid of
-         public branch matched what was latest on 2025-01-19 when I had last
-         installed the game server.
-
-       - Removing "/home/jka/.local/share/Steam/appcache/appinfo.vdf" and then
-         running "steamcmd +login anonymous +app_info_print 258550 +quit" returned
-         actual latest information from remote
-
-       So, should remove local cache first and then query with anonymous login,
-       I guess!
-    */
+    /// Remove local cache file and then query latest available version from
+    /// remote. It is unclear whether SteamCMD can be otherwise forced to query
+    /// from remote instead of using local cache, but removing it seems to work
+    /// at least!
     fn query_latest_version_info(&self) -> Result<SteamAppBuildId, Error> {
         let cache_filename = std::path::PathBuf::from("appinfo.vdf");
         let cache_file: Option<crate::system::FoundFile> =
@@ -242,11 +229,17 @@ impl Game {
                 ));
             }
         }
-        todo!("query info from remote and parse latest available build id of public branch");
 
-        // let argv: Vec<std::borrow::Cow<'_, str>> =
-        //     vec!["+app_info_update".into(), "1".into(), "+quit".into()];
-        // self.steamcmd_exec(argv)?;
+        let argv: SteamCMDArgv = SteamCMDArgv::FetchGameInfo(vec![
+            "+login".into(),
+            "anonymous".into(),
+            "+app_info_print".into(),
+            Game::get_game_steam_app_id().to_string(),
+            "+quit".into(),
+        ]);
+        let stdout_utf8: String = self.steamcmd_exec(argv)?;
+
+        todo!("parse latest available build id of public branch:\n{stdout_utf8}");
 
         // let argv: Vec<std::borrow::Cow<'_, str>> = vec![
         //     "+app_info_print".into(),
