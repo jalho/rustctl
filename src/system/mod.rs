@@ -148,43 +148,45 @@ pub fn find_single_file(
     }
 }
 
+/// In a new, named Linux thread, read lines to a new buffer.
+fn read_lines_to_buf_in_named_thread<R: std::io::Read + Send + 'static>(
+    readable: R,
+    thread_name: &'static str,
+) -> String {
+    let th = std::thread::Builder::new().name(thread_name.into());
+    let th_attempt = th.spawn(move || {
+        let mut content: String = String::new();
+        let reader: std::io::BufReader<R> = std::io::BufReader::new(readable);
+        for line in std::io::BufRead::lines(reader).flatten() {
+            log::trace!("{line}");
+            content.push_str(&line);
+            content.push('\n');
+        }
+        return content;
+    });
+
+    match th_attempt {
+        Ok(th_handle) => match th_handle.join() {
+            Ok(content) => return content,
+            Err(_) => return String::new(),
+        },
+        Err(_) => return String::new(),
+    };
+}
+
 pub fn trace_log_child_output_and_wait_to_terminate(
     mut child: std::process::Child,
 ) -> Result<(String, String, std::process::ExitStatus), std::io::Error> {
-    let stdout: Option<std::process::ChildStdout> = child.stdout.take();
-    let stderr: Option<std::process::ChildStderr> = child.stderr.take();
-
-    let stdout_thread: std::thread::JoinHandle<String> = std::thread::spawn(move || {
-        let mut output: String = String::new();
-        if let Some(out) = stdout {
-            let reader: std::io::BufReader<std::process::ChildStdout> =
-                std::io::BufReader::new(out);
-            for line in std::io::BufRead::lines(reader).flatten() {
-                log::trace!("{line}");
-                output.push_str(&line);
-                output.push('\n');
-            }
-        }
-        return output;
-    });
-
-    let stderr_thread: std::thread::JoinHandle<String> = std::thread::spawn(move || {
-        let mut output: String = String::new();
-        if let Some(err) = stderr {
-            let reader: std::io::BufReader<std::process::ChildStderr> =
-                std::io::BufReader::new(err);
-            for line in std::io::BufRead::lines(reader).flatten() {
-                log::trace!("{line}");
-                output.push_str(&line);
-                output.push('\n');
-            }
-        }
-        return output;
-    });
+    let stdout_content: String = match child.stdout.take() {
+        Some(stdout) => read_lines_to_buf_in_named_thread(stdout, "stdout"),
+        None => String::new(),
+    };
+    let stderr_content: String = match child.stderr.take() {
+        Some(stderr) => read_lines_to_buf_in_named_thread(stderr, "stderr"),
+        None => String::new(),
+    };
 
     let exit_status: std::process::ExitStatus = child.wait()?;
-    let stdout_content: String = stdout_thread.join().unwrap_or_default();
-    let stderr_content: String = stderr_thread.join().unwrap_or_default();
 
     return Ok((stdout_content, stderr_content, exit_status));
 }
