@@ -126,7 +126,6 @@ impl Game {
             (S::I(_, RS::NR), T::_Install | T::_Stop) => Ok(self), // Nothing to do!
 
             (S::I(current, RS::NR), T::Start) => {
-                log::debug!("Querying latest available version from remote...");
                 let latest: SteamAppBuildId = self.query_latest_version_info()?;
                 if current.to != latest {
                     log::info!(
