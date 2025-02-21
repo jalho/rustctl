@@ -238,23 +238,22 @@ impl Game {
     */
     fn query_latest_version_info(&self) -> Result<SteamAppBuildId, Error> {
         let cache_filename = std::path::PathBuf::from("appinfo.vdf");
-        match crate::system::find_single_file(&cache_filename, &None) {
-            Ok(n) => {
-                log::debug!("Found {n}");
-                todo!("remove {n}");
-            }
-            Err(crate::system::FindSingleFileError::FileNotFound { .. }) => {
-                // nothing to wipe: no local cache exists
-            }
-            Err(crate::system::FindSingleFileError::ManyFilesFound {
-                paths_absolute_found,
-            }) => {
-                return Err(Error::CannotCheckUpdates(CCU::AmbiguousLocalCache {
-                    cache_filename_seeked: cache_filename,
-                    cache_paths_absolute_found: paths_absolute_found,
-                }))
-            }
-        };
+        let cache_file: Option<crate::system::FoundFile> =
+            match crate::system::find_single_file(&cache_filename, &None) {
+                Ok(n) => Some(n),
+                Err(crate::system::FindSingleFileError::FileNotFound { .. }) => None,
+                Err(crate::system::FindSingleFileError::ManyFilesFound {
+                    paths_absolute_found,
+                }) => {
+                    return Err(Error::CannotCheckUpdates(CCU::AmbiguousLocalCache {
+                        cache_filename_seeked: cache_filename,
+                        cache_paths_absolute_found: paths_absolute_found,
+                    }))
+                }
+            };
+        if let Some(cache_file) = cache_file {
+            log::debug!("TODO: Remove {cache_file}");
+        }
         todo!();
 
         // let argv: Vec<std::borrow::Cow<'_, str>> =

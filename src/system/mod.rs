@@ -68,7 +68,13 @@ impl FoundFile {
 }
 impl std::fmt::Display for FoundFile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.get_absolute_path().to_string_lossy())
+        write!(
+            f,
+            "{} in {} (last modified {})",
+            self.filename.to_string_lossy(),
+            self.dir_path_absolute.to_string_lossy(),
+            self.last_modified,
+        )
     }
 }
 
