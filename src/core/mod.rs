@@ -2,7 +2,7 @@
 
 #[derive(Debug)]
 pub enum Error {
-    FailedPrecondition(FP),
+    MissingExpectedWorkingDirectory(std::path::PathBuf),
     UndecideableInstallationStatus(crate::system::FindSingleFileError),
     CannotCheckUpdates(CCU),
     FailedInstallAttempt(FIA),
@@ -23,12 +23,6 @@ impl std::fmt::Display for Error {
     fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
-}
-
-/// FailedPrecondition
-#[derive(Debug)]
-pub enum FP {
-    MissingExpectedWorkingDirectory(std::path::PathBuf),
 }
 
 /// CannotCheckUpdates
@@ -394,9 +388,7 @@ impl Game {
 
         let root_abs: std::path::PathBuf = Game::get_game_root_dir_absolute().to_path_buf();
         if !root_abs.is_dir() {
-            return Err(Error::FailedPrecondition(
-                FP::MissingExpectedWorkingDirectory(root_abs),
-            ));
+            return Err(Error::MissingExpectedWorkingDirectory(root_abs));
         }
         steamcmd.current_dir(root_abs);
 
