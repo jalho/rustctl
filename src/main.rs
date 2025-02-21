@@ -1,4 +1,5 @@
 mod core;
+mod error;
 mod logging;
 mod parsing;
 mod system;
