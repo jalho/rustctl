@@ -20,8 +20,22 @@ impl std::error::Error for Error {
 }
 
 impl std::fmt::Display for Error {
-    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::MissingExpectedWorkingDirectory(path_buf) => write!(
+                f,
+                "missing expected working directory: {}",
+                path_buf.to_string_lossy()
+            ),
+            Error::CannotCheckUpdates(ccu) => todo!(),
+            Error::FailedInstallAttempt(fia) => todo!(),
+            Error::GameStartError {
+                system_error,
+                executable_path_absolute,
+                exec_dir_path_absolute,
+            } => todo!(),
+            Error::UndecideableInstallationStatus(find_single_file_error) => todo!(),
+        }
     }
 }
 
