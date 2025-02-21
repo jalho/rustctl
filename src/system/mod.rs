@@ -174,6 +174,8 @@ fn read_lines_to_buf_in_named_thread<R: std::io::Read + Send + 'static>(
     };
 }
 
+/// Log and collect given childs process's outputs (STDOUT and STDERR), and wait
+/// for it to terminate.
 pub fn trace_log_child_output_and_wait_to_terminate(
     mut child: std::process::Child,
 ) -> Result<(String, String, std::process::ExitStatus), std::io::Error> {
