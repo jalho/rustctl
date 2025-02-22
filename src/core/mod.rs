@@ -127,7 +127,7 @@ impl Game {
             }
 
             (S::NI, T::_Install | T::_Update) => {
-                log::debug!("Installing game...");
+                log::info!("Installing game...");
                 let installed: Updation = self.install()?;
                 log::info!("Installed game: {installed}");
                 self.state = S::I(installed, RS::NR);
@@ -135,7 +135,7 @@ impl Game {
             }
 
             (S::NI, T::Start) => {
-                log::debug!("Installing game...");
+                log::info!("Installing game...");
                 let installed: Updation = self.install()?;
                 log::info!("Installed game: {installed}");
                 let running: RunningGameServerProcess = self.spawn(
