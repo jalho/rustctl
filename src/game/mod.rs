@@ -52,7 +52,13 @@ impl Game {
             }
         };
 
-        todo!("check game health using pid {pid} somehow");
+        /* Let's say _already running_ is an illegal initial state. We want this
+        program to spawn the game server so we can do all kinds of tricks as its
+        parent. */
+        log::error!(
+            "Cannot start game: There is already a game server process running: process ID {pid}"
+        );
+        return Err(std::process::ExitCode::FAILURE);
     }
 
     pub fn start(self) -> Result<crate::game::state::RunningHealthy, std::process::ExitCode> {
