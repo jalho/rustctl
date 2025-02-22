@@ -538,8 +538,10 @@ impl std::fmt::Display for Updation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Steam build ID {}, installed at {}",
-            self.to, self.installed_at
+            "Steam build ID {}, installed at {} to {}",
+            self.to,
+            self.installed_at,
+            self.root_dir_absolute.to_string_lossy()
         )
     }
 }
