@@ -59,6 +59,7 @@ pub struct FoundFile {
     pub last_modified: chrono::DateTime<chrono::Utc>,
     pub metadata: std::fs::Metadata,
 }
+
 impl FoundFile {
     pub fn get_absolute_path(&self) -> std::path::PathBuf {
         let mut absolute_path: std::path::PathBuf = self.dir_path_absolute.clone();
@@ -66,15 +67,10 @@ impl FoundFile {
         return absolute_path;
     }
 }
+
 impl std::fmt::Display for FoundFile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} in {} (last modified {})",
-            self.filename.to_string_lossy(),
-            self.dir_path_absolute.to_string_lossy(),
-            self.last_modified,
-        )
+        write!(f, "{}", self.get_absolute_path().to_string_lossy())
     }
 }
 
