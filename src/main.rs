@@ -8,7 +8,8 @@ fn main() -> std::process::ExitCode {
         return exit;
     }
 
-    let initial_state = match crate::game::Game::check() {
+    let expected = game::Resources::new();
+    let initial_state = match crate::game::Game::check(&expected) {
         Ok(n) => n,
         Err(exit) => return exit,
     };
