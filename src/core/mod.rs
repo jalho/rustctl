@@ -240,7 +240,7 @@ impl Game {
         let stdout_utf8: String = self.steamcmd_exec(argv)?;
 
         let latest_available_build_id: u32 =
-            match crate::parsing::parse_buildid_from_buffer(&stdout_utf8) {
+            match rustctl::steam::parse_buildid_from_buffer(&stdout_utf8) {
                 Some(n) => n,
                 None => todo!("use crate::error::fatal::Error"),
             };
@@ -275,11 +275,12 @@ impl Game {
                 Err(_) => todo!(),
             };
 
-        let build_id: u32 = match crate::parsing::parse_buildid_from_manifest(
-            &manifest_found.get_absolute_path(),
-        ) {
-            Some(n) => n,
-            None => todo!(),
+        let build_id: u32 = match std::fs::read_to_string(&manifest_found.get_absolute_path()) {
+            Ok(content) => match rustctl::steam::parse_buildid_from_buffer(&content) {
+                Some(n) => n,
+                None => todo!(),
+            },
+            Err(_) => todo!(),
         };
 
         let installation: Updation = Updation {
@@ -600,11 +601,13 @@ fn determine_inital_state(
         Err(_) => return Ok(S::NI),
     };
 
-    let build_id: u32 =
-        match crate::parsing::parse_buildid_from_manifest(&manifest_found.get_absolute_path()) {
+    let build_id: u32 = match std::fs::read_to_string(&manifest_found.get_absolute_path()) {
+        Ok(content) => match rustctl::steam::parse_buildid_from_buffer(&content) {
             Some(n) => n,
-            None => todo!("define error case"),
-        };
+            None => todo!(),
+        },
+        Err(_) => todo!(),
+    };
 
     let running: RS = match crate::system::check_process_running(&game_executable_found.filename) {
         Ok(None) => RS::NR,

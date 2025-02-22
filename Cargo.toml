@@ -3,6 +3,10 @@ name = "rustctl"
 version = "0.2.0-wip"
 edition = "2021"
 
+[lib]
+name = "rustctl"
+path = "src/lib.rs"
+
 [dependencies]
 libc = "0.2.162"
 log = "0.4.22"
