@@ -3,10 +3,41 @@
 
 use std::os::unix::fs::MetadataExt;
 
+#[derive(Debug)]
 pub enum IdentifySingleProcessError {
     LibProcfsFailure { lib_error: procfs::ProcError },
     RunningParallel { pids_found: Vec<u32> },
 }
+
+impl std::error::Error for IdentifySingleProcessError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            IdentifySingleProcessError::LibProcfsFailure { lib_error } => Some(lib_error),
+            IdentifySingleProcessError::RunningParallel { pids_found: _ } => None,
+        }
+    }
+}
+
+impl std::fmt::Display for IdentifySingleProcessError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IdentifySingleProcessError::LibProcfsFailure { lib_error: _ } => {
+                write!(f, "dependency failed")
+            }
+            IdentifySingleProcessError::RunningParallel { pids_found } => write!(
+                f,
+                "running parallel: {} processes found: {}",
+                pids_found.len(),
+                pids_found
+                    .iter()
+                    .map(|n| n.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
+        }
+    }
+}
+
 pub fn check_process_running(
     name: &std::path::Path,
 ) -> Result<Option<crate::core::LinuxProcessId>, IdentifySingleProcessError> {

@@ -1,40 +1,23 @@
 mod core;
 mod error;
-mod logging;
-mod parsing;
+mod game;
+mod init;
 mod system;
-mod util;
 
 fn main() -> std::process::ExitCode {
-    let cli: crate::parsing::Cli = <crate::parsing::Cli as clap::Parser>::parse();
-
-    let _handle: log4rs::Handle = match crate::logging::init_logger(cli.log_level) {
-        Ok(n) => n,
-        Err(err) => {
-            eprintln!("{}", crate::util::aggregate_error_tree(&err, 2));
-            return std::process::ExitCode::FAILURE;
-        }
-    };
-
-    match cli.subcommand {
-        crate::parsing::Subcommand::GameStart { exclude } => {
-            match crate::core::Game::start(exclude) {
-                Ok(n) => n,
-                Err(err) => {
-                    /* TODO:
-                     * Check if error case works: "Running parallel" (Multiple
-                     * processes called "RustDedicated" already running)
-                     */
-                    log::error!(
-                        "Cannot start game: {}",
-                        crate::util::aggregate_error_tree(&err, 2)
-                    );
-                    return std::process::ExitCode::FAILURE;
-                }
-            };
-            log::info!("Game started");
-        }
+    if let Err(exit) = init::logger() {
+        return exit;
     }
 
-    return std::process::ExitCode::SUCCESS;
+    let initial_state = match crate::game::Game::check() {
+        Ok(n) => n,
+        Err(exit) => return exit,
+    };
+
+    let game = match initial_state.start() {
+        Ok(n) => n,
+        Err(exit) => return exit,
+    };
+
+    return game.wait();
 }
