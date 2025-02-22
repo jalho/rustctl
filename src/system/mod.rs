@@ -41,6 +41,10 @@ impl std::fmt::Display for IdentifySingleProcessError {
 pub fn check_process_running(
     name: &std::path::Path,
 ) -> Result<Option<u32>, IdentifySingleProcessError> {
+    log::debug!(
+        "Searching for processes named {}...",
+        name.to_string_lossy()
+    );
     let processes: procfs::process::ProcessesIter = match procfs::process::all_processes() {
         Ok(n) => n,
         Err(err) => return Err(IdentifySingleProcessError::LibProcfsFailure { lib_error: err }),

@@ -30,9 +30,16 @@ impl Game {
             game_executable,
             Some(std::path::Path::new("/mnt/c")), // on WSL, skip C:\ because it's so damn slow to traverse
         ) {
-            Ok(found_file) => found_file,
+            Ok(found_file) => {
+                log::info!("Found {found_file}");
+                found_file
+            }
             Err(FindSingleFileError::FileNotFound { .. }) => {
-                return Ok(Self::Ni(state::NotInstalled {}))
+                log::info!(
+                    "Game server is not yet installed: Searched for {}",
+                    game_executable.to_string_lossy()
+                );
+                return Ok(Self::Ni(state::NotInstalled {}));
             }
             Err(FindSingleFileError::ManyFilesFound {
                 paths_absolute_found,
@@ -46,22 +53,23 @@ impl Game {
             }
         };
 
-        let pid: u32 = match check_process_running(&game_executable.filename) {
-            Ok(Some(pid)) => pid,
-            Ok(None) => return Ok(Self::INrNu(state::InstalledNotRunningNotUpdated {})),
+        match check_process_running(&game_executable.filename) {
+            Ok(Some(pid)) => {
+                /* Let's say _already running_ is an illegal initial state.
+                We want this program to spawn the game server so we can do all
+                kinds of tricks as its parent. */
+                log::error!("Cannot start game: There is already a game server process running: process ID {pid}");
+                return Err(std::process::ExitCode::FAILURE);
+            }
+            Ok(None) => {
+                log::info!("No game server process is running yet");
+                return Ok(Self::INrNu(state::InstalledNotRunningNotUpdated {}));
+            }
             Err(err) => {
                 log::error!("Cannot start game: Cannot check whether there is a game server process already running: {err}");
                 return Err(std::process::ExitCode::FAILURE);
             }
-        };
-
-        /* Let's say _already running_ is an illegal initial state. We want this
-        program to spawn the game server so we can do all kinds of tricks as its
-        parent. */
-        log::error!(
-            "Cannot start game: There is already a game server process running: process ID {pid}"
-        );
-        return Err(std::process::ExitCode::FAILURE);
+        }
     }
 
     pub fn start(self) -> Result<crate::game::state::RunningHealthy, std::process::ExitCode> {
