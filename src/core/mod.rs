@@ -2,18 +2,6 @@
 
 use crate::error::fatal::Error;
 
-pub trait ToHexString {
-    fn to_hex_string(&self) -> String;
-}
-
-impl ToHexString for &Vec<u8> {
-    fn to_hex_string(&self) -> String {
-        self.iter()
-            .map(|byte: &u8| std::format!("{:02x}", byte))
-            .collect()
-    }
-}
-
 pub trait JoinWith {
     fn join_with(&self, joiner: &str) -> String;
 }
@@ -242,7 +230,12 @@ impl Game {
         let latest_available_build_id: u32 =
             match rustctl::steam::parse_buildid_from_buffer(&stdout_utf8) {
                 Some(n) => n,
-                None => todo!("use crate::error::fatal::Error"),
+                None => {
+                    return Err(crate::error::fatal::Error::MalformedSteamAppInfo {
+                        source_display: "SteamCMD".into(),
+                        content_utf8: stdout_utf8,
+                    })
+                }
             };
 
         return Ok(latest_available_build_id);
@@ -275,12 +268,27 @@ impl Game {
                 Err(_) => todo!(),
             };
 
-        let build_id: u32 = match std::fs::read_to_string(&manifest_found.get_absolute_path()) {
+        let manifest_path_absolute: std::path::PathBuf = manifest_found.get_absolute_path();
+
+        let build_id: u32 = match std::fs::read_to_string(&manifest_path_absolute) {
             Ok(content) => match rustctl::steam::parse_buildid_from_buffer(&content) {
                 Some(n) => n,
-                None => todo!(),
+                None => {
+                    return Err(crate::error::fatal::Error::MalformedSteamAppInfo {
+                        source_display: "SteamCMD".into(),
+                        content_utf8: content,
+                    })
+                }
             },
-            Err(_) => todo!(),
+            Err(_) => {
+                return Err(crate::error::fatal::Error::FailedInstallAttempt(
+                    crate::error::fatal::FIA::InvalidInstallation(
+                        crate::error::fatal::II::MissingRequiredFile {
+                            filename_seeked: manifest_path_absolute,
+                        },
+                    ),
+                ))
+            }
         };
 
         let installation: Updation = Updation {
