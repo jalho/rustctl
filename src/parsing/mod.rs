@@ -243,21 +243,200 @@ pub fn parse_buildid_from_manifest(manifest_path: &std::path::Path) -> Option<u3
 /// }
 /// ```
 pub fn parse_buildid_from_buffer(buffer: &str) -> Option<u32> {
-    todo!("only pick the buildid that follows 'public' branch, and use the malformed steam app info error variant from crate::error::fatal for error");
+    let mut seen_keyword_branches: bool = false;
+    let mut seen_keyword_public: bool = false;
+
+    let mut buildid_line: Option<&str> = None;
+
+    // todo!("only pick the buildid that follows 'public' branch, and use the malformed steam app info error variant from crate::error::fatal for error");
     for line in buffer.lines() {
         let trimmed: &str = line.trim();
-        if trimmed.starts_with("\"buildid\"") {
-            if let Some(_) = trimmed.find('\"') {
-                let parts: Vec<&str> = trimmed.split_whitespace().collect();
-                if parts.len() >= 2 {
-                    if let Ok(buildid) = parts[1].trim_matches('"').parse::<u32>() {
-                        return Some(buildid);
-                    }
-                }
+
+        if trimmed.contains("branches") {
+            seen_keyword_branches = true;
+            continue;
+        } else if trimmed.contains("public") {
+            seen_keyword_public = true;
+            continue;
+        } else if trimmed.contains("buildid") {
+            if seen_keyword_branches && seen_keyword_public {
+                buildid_line = Some(trimmed);
+                break;
+            } else if !seen_keyword_branches && !seen_keyword_public {
+                buildid_line = Some(trimmed);
+                break;
             }
         }
     }
     return None;
+}
+
+/// From a given trimmed line from a _SteamCMD response_ buffer, parse a numeric
+/// _buildid_ value. `None` is returned in case none is found.
+// fn buildid_from_trimmed_line(line: &str) -> Option<u32> {
+//     let foo = line.find();
+//     return None;
+// }
+
+/// From a given _SteamCMD response_ buffer, get a trimmed _buildid_ line. In
+/// case no seeked line is found, an empty slice is returned.
+fn pick_buildid_line_trimmed(buffer: &str) -> &str {
+    let mut seen_keyword_branches: bool = false;
+    let mut seen_keyword_public: bool = false;
+
+    let mut buildid_line: Option<&str> = None;
+
+    for line in buffer.lines() {
+        let trimmed: &str = line.trim();
+
+        if trimmed.contains("branches") {
+            seen_keyword_branches = true;
+            continue;
+        } else if trimmed.contains("public") {
+            seen_keyword_public = true;
+            continue;
+        } else if trimmed.contains("buildid") {
+            if seen_keyword_branches && seen_keyword_public {
+                buildid_line = Some(trimmed);
+                break;
+            } else if !seen_keyword_branches && !seen_keyword_public {
+                buildid_line = Some(trimmed);
+                break;
+            }
+        }
+    }
+
+    return match buildid_line {
+        Some(n) => n,
+        None => "",
+    };
+}
+
+#[cfg(test)]
+mod test {
+    /// Unit test for parsing the response, i.e. STDOUT of command, for:
+    /// ```
+    /// steamcmd +login anonymous +app_info_print 258550 +quit
+    /// ```
+    #[test]
+    fn steamcmd_app_info_print() {
+        /* Not representative of an actual response, but effectively describes the
+        parser logic in a generalized way. */
+        assert_eq!(
+            super::pick_buildid_line_trimmed(
+                r#"
+"branches"
+"public"
+"buildid" "123"
+"#
+            ),
+            r#""buildid" "123""#,
+            "generalized example"
+        );
+
+        assert_eq!(
+            super::pick_buildid_line_trimmed(
+                "
+no matching line here
+"
+            ),
+            "",
+            "empty slice returned in case no match"
+        );
+
+        assert_eq!(
+            super::pick_buildid_line_trimmed(
+                "
+     buildid whatever      
+"
+            ),
+            "buildid whatever",
+            "line is trimmed"
+        );
+
+        /* A more comprehensive example with content that is close to an actual
+        response's content. */
+        assert_eq!(
+            super::pick_buildid_line_trimmed(
+                r#"
+AppID : 258550, change number : 27353348/0, last change : Thu Feb  6 23:43:53 2025
+"258550"
+{
+    "common"
+    {
+        "name"		"Rust Dedicated Server"
+        "gameid"		"258550"
+    }
+    "config"
+    {
+        "installdir"		"rust_dedicated"
+    }
+    "depots"
+    {
+        "258551"
+        {
+            "manifests"
+            {
+                "public"
+                {
+                    "gid"		"3887947441418003849"
+                    "size"		"629457924"
+                    "download"		"408963248"
+                }
+        "258552"
+        {
+            "config"
+            {
+                "oslist"		"linux"
+            }
+            "manifests"
+            {
+                "public"
+                {
+                    "gid"		"8349664598014094040"
+                    "size"		"647585258"
+                    "download"		"382506992"
+                }
+                "aux01"
+                {
+                    "gid"		"949630714142880006"
+                    "size"		"633254403"
+                    "download"		"379782080"
+                }
+            }
+        }
+        "branches"
+        {
+            "public"
+            {
+                "buildid"		"17264843"
+                "timeupdated"		"1738866735"
+            }
+            "aux01"
+            {
+                "buildid"		"16999813"
+                "description"		"Pre-Staging"
+                "timeupdated"		"1736859300"
+            }
+            "release"
+            {
+                "buildid"		"17272528"
+                "timeupdated"		"1738877764"
+            }
+            "staging"
+            {
+                "buildid"		"17271927"
+                "timeupdated"		"1738874343"
+            }
+        }
+    }
+}
+"#
+            ),
+            r#""buildid"		"17264843""#,
+            "more comprehensive sample"
+        );
+    }
 }
 
 #[derive(clap::Parser)]
