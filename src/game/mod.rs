@@ -1,14 +1,12 @@
-use std::path::Path;
-
-use state::{
-    InstalledNotRunningNotUpdated, InstalledNotRunningUpdated, NotInstalled, RunningHealthy,
-    RunningNotHealthy,
-};
-
 use crate::{
     core::JoinWith,
     system::{check_process_running, find_single_file, FindSingleFileError, FoundFile},
 };
+use state::{
+    InstalledNotRunningNotUpdated, InstalledNotRunningUpdated, NotInstalled, RunningHealthy,
+    RunningNotHealthy,
+};
+use std::path::{Path, PathBuf};
 
 mod state;
 
@@ -34,7 +32,7 @@ impl<'res> Game<'res> {
     pub fn check(expected: &'res Resources) -> Result<Self, std::process::ExitCode> {
         let game_executable: FoundFile = match find_single_file(
             &expected.game_executable,
-            Some(std::path::Path::new("/mnt/c")), // on WSL, skip C:\ because it's so damn slow to traverse
+            Some(Path::new("/mnt/c")), // on WSL, skip C:\ because it's so damn slow to traverse
         ) {
             Ok(found_file) => {
                 log::info!("Found {found_file}");
@@ -105,14 +103,14 @@ impl<'res> Game<'res> {
 pub struct Resources {
     /// Absolute path to the root directory where the game server executable is
     /// installed at.
-    root_abs: std::path::PathBuf,
+    root_abs: PathBuf,
 
     /// Filename, _not the absolute path_, of the game server executable.
-    pub game_executable: std::path::PathBuf,
+    pub game_executable: PathBuf,
 
     /// Path to the Steam app manifest file, _relative to the game server
     /// executable_.
-    manifest_path: std::path::PathBuf,
+    manifest_path: PathBuf,
 
     /// Steam app ID of the game server.
     app_id: u32,
@@ -124,7 +122,7 @@ pub struct Resources {
     /// behavior seen at least on Debian 12, Ubuntu 24 and Arch. Common
     /// nominator seems to be that it's called `appinfo.vdf` (_Valve Data File_,
     /// maybe?), and it's located _somewhere_ under the current user's home.
-    cache_filename: std::path::PathBuf,
+    cache_filename: PathBuf,
 }
 
 impl Resources {
