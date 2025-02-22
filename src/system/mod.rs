@@ -40,7 +40,7 @@ impl std::fmt::Display for IdentifySingleProcessError {
 
 pub fn check_process_running(
     name: &std::path::Path,
-) -> Result<Option<crate::core::LinuxProcessId>, IdentifySingleProcessError> {
+) -> Result<Option<u32>, IdentifySingleProcessError> {
     let processes: procfs::process::ProcessesIter = match procfs::process::all_processes() {
         Ok(n) => n,
         Err(err) => return Err(IdentifySingleProcessError::LibProcfsFailure { lib_error: err }),
@@ -107,13 +107,10 @@ impl std::fmt::Display for FoundFile {
 
 pub fn find_single_file(
     seekable_file_name: &std::path::Path,
-    exclude_from_search: &Option<std::path::PathBuf>,
+    exclude_from_search: Option<&std::path::Path>,
 ) -> Result<FoundFile, FindSingleFileError> {
     let mut matches: Vec<std::path::PathBuf> = Vec::new();
-
-    if let None = exclude_from_search {
-        log::debug!("Searching for {}...", seekable_file_name.to_string_lossy());
-    }
+    log::debug!("Searching for {}...", seekable_file_name.to_string_lossy());
     for entry in walkdir::WalkDir::new("/")
         .into_iter()
         .filter_entry(|e| {

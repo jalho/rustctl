@@ -26,7 +26,10 @@ impl Game {
     /// Determine initial state.
     pub fn check() -> Result<Self, std::process::ExitCode> {
         let game_executable = std::path::Path::new("RustDedicated");
-        let game_executable: FoundFile = match find_single_file(game_executable, &None) {
+        let game_executable: FoundFile = match find_single_file(
+            game_executable,
+            Some(std::path::Path::new("/mnt/c")), // on WSL, skip C:\ because it's so damn slow to traverse
+        ) {
             Ok(found_file) => found_file,
             Err(FindSingleFileError::FileNotFound { .. }) => {
                 return Ok(Self::Ni(state::NotInstalled {}))
