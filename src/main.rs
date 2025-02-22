@@ -1,5 +1,4 @@
 mod core;
-mod error;
 mod game;
 mod init;
 mod system;
