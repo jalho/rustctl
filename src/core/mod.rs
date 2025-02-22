@@ -44,18 +44,7 @@ impl Game {
     pub fn start(exclude_from_search: Option<std::path::PathBuf>) -> Result<Self, Error> {
         log::debug!("Determining initial state...");
         let state: S =
-            match determine_inital_state(Game::get_game_executable_filename(), exclude_from_search)
-            {
-                Ok(n) => n,
-                Err(crate::system::FindSingleFileError::ManyFilesFound {
-                    paths_absolute_found,
-                }) => return Err(Error::AmbiguousExistingInstallation(paths_absolute_found)),
-                Err(crate::system::FindSingleFileError::FileNotFound { .. }) => {
-                    /* TODO: Refactor this case away... It's not an error that there
-                    isn't any existing installation! */
-                    todo!();
-                }
-            };
+            determine_inital_state(Game::get_game_executable_filename(), exclude_from_search)?;
         log::info!("Initial state determined: {state}");
 
         let game: Game = Self { state };
@@ -597,9 +586,19 @@ pub enum RS {
 fn determine_inital_state(
     executable_name: &'static std::path::Path,
     exclude_from_search: Option<std::path::PathBuf>,
-) -> Result<S, crate::system::FindSingleFileError> {
+) -> Result<S, crate::error::fatal::Error> {
     let game_executable_found: crate::system::FoundFile =
-        crate::system::find_single_file(executable_name, &exclude_from_search)?;
+        match crate::system::find_single_file(executable_name, &exclude_from_search) {
+            Ok(n) => n,
+            Err(crate::system::FindSingleFileError::FileNotFound { .. }) => return Ok(S::NI),
+            Err(crate::system::FindSingleFileError::ManyFilesFound {
+                paths_absolute_found,
+            }) => {
+                return Err(crate::error::fatal::Error::AmbiguousExistingInstallation(
+                    paths_absolute_found,
+                ))
+            }
+        };
 
     let manifest_found: crate::system::FoundFile = match crate::system::find_single_file(
         &Game::get_game_manifest_filename(),
