@@ -30,8 +30,10 @@ pub enum Game<'res> {
 impl<'res> Game<'res> {
     /// Determine initial state.
     pub fn check(expected: &'res Resources) -> Result<Self, std::process::ExitCode> {
+        let seekable = &expected.game_exec_name;
+
         let game_executable: FoundFile = match find_single_file(
-            &expected.game_executable,
+            seekable,
             Some(Path::new("/mnt/c")), // on WSL, skip C:\ because it's so damn slow to traverse
         ) {
             Ok(found_file) => {
@@ -42,7 +44,7 @@ impl<'res> Game<'res> {
             Err(FindSingleFileError::FileNotFound { .. }) => {
                 log::info!(
                     "Game server is not yet installed: Searched for {}",
-                    &expected.game_executable.to_string_lossy()
+                    seekable.to_string_lossy()
                 );
                 return Ok(Self::Ni(NotInstalled::new(&expected)));
             }
@@ -103,17 +105,19 @@ impl<'res> Game<'res> {
 pub struct Resources {
     /// Absolute path to the root directory where the game server executable is
     /// installed at.
-    root_abs: PathBuf,
+    pub root_abs: PathBuf,
 
-    /// Filename, _not the absolute path_, of the game server executable.
-    pub game_executable: PathBuf,
+    /// Absolute path to the game server executable.
+    pub game_exec_abs: PathBuf,
 
-    /// Path to the Steam app manifest file, _relative to the game server
-    /// executable_.
-    manifest_path: PathBuf,
+    /// File name, _not the absolute path_, of the game server executable.
+    pub game_exec_name: PathBuf,
+
+    /// Absolute path to the Steam app manifest file.
+    pub manifest_abs: PathBuf,
 
     /// Steam app ID of the game server.
-    app_id: u32,
+    pub app_id: u32,
 
     /// Name, _not full path_, of the Steam cache file that seems to interfere
     /// with querying app info from remote. It is unclear whether SteamCMD can
@@ -122,23 +126,25 @@ pub struct Resources {
     /// behavior seen at least on Debian 12, Ubuntu 24 and Arch. Common
     /// nominator seems to be that it's called `appinfo.vdf` (_Valve Data File_,
     /// maybe?), and it's located _somewhere_ under the current user's home.
-    cache_filename: PathBuf,
+    pub cache_name: PathBuf,
 }
 
 impl Resources {
     pub fn new() -> Self {
-        let app_id: u32 = 258550;
-        let cache_filename = Path::new("appinfo.vdf").to_path_buf();
-        let game_executable = Path::new("RustDedicated").to_path_buf();
-        let manifest_path = Path::new(&format!("steamapps/appmanifest_{app_id}.acf")).to_path_buf();
         let root_abs = Path::new("/home/rust").to_path_buf();
+        let app_id: u32 = 258550;
+        let cache_name = Path::new("appinfo.vdf").to_path_buf();
+        let game_exec_name = Path::new("RustDedicated").to_path_buf();
+        let game_exec_abs = root_abs.join(&game_exec_name);
+        let manifest_abs = root_abs.join(Path::new(&format!("steamapps/appmanifest_{app_id}.acf")));
 
         return Self {
             app_id,
-            cache_filename,
-            game_executable,
-            manifest_path,
+            cache_name,
+            game_exec_abs,
+            manifest_abs,
             root_abs,
+            game_exec_name,
         };
     }
 }
