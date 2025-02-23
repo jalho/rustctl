@@ -30,6 +30,9 @@ pub enum Game<'res> {
 impl<'res> Game<'res> {
     /// Determine initial state.
     pub fn check(expected: &'res Resources) -> Result<Self, std::process::ExitCode> {
+        /* TODO: Remove the _find file_ logic... Instead just check the specific
+        paths now defined in Resources! */
+
         let seekable = &expected.game_exec_name;
 
         let game_executable: FoundFile = match find_single_file(
