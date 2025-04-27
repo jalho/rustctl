@@ -1,120 +1,137 @@
-mod args;
-mod error;
-mod misc;
-mod proc;
-mod rcon;
-mod text;
-
-fn main() -> Result<(), error::FatalError> {
-    let logger: log4rs::Handle = misc::init_logger()?;
-
-    let argv: Vec<String> = std::env::args().collect();
-    let command: args::Command = match args::Command::get(argv) {
-        Ok(n) => n,
-        Err(err) => {
-            log::error!("{}", err);
-            return Err(err);
-        }
+mod core {
+    use std::{
+        sync::{Arc, Mutex},
+        thread::JoinHandle,
     };
 
-    match command {
-        args::Command::Help => {
-            println!("{}", text::HELPTEXT);
-            return Ok(());
-        }
-        args::Command::Version => {
-            println!("{}", text::INFOTEXT);
-            return Ok(());
-        }
-        _ => {}
+    pub struct Controller {
+        game_state: Arc<Mutex<GameState>>,
+        clients: Arc<Mutex<Vec<Client>>>,
     }
 
-    let config: args::Config = match args::Config::new() {
-        Ok(n) => n,
-        Err(err) => {
-            log::error!("{}", err);
-            return Err(err);
-        }
-    };
-    misc::set_log_level(&logger, config.log_level);
+    /// Game server contoller as a state machine.
+    enum GameState {
+        /// Determining initial state is in progress.
+        Initializing,
+        /*
+         * TODO: Define states & implement transitions using libraries: Some ideas for states:
+         * - NotRunning: There is no game server process.
+         * - Updating: Game server is being updated.
+         * - Starting: Game server process has been spawned. Game is starting but not yet playable.
+         * - RunningHealthy: Game server is up. Game is playable.
+         */
+    }
 
-    match command {
-        args::Command::Config => todo!(),
-        args::Command::GameStart => {
-            match misc::install_steamcmd(&config) {
-                Err(err) => {
-                    log::error!("{}", err);
-                    return Err(err);
-                }
-                _ => {}
+    impl GameState {
+        /// Transition from one state to another.
+        fn transition(&mut self, _plan: &Plan) -> Report {
+            return Report;
+        }
+    }
+
+    /// What is going to be attempted.
+    struct Plan;
+
+    /// What happened (while trying to execute a plan).
+    struct Report;
+
+    enum Notification<'plan, 'report> {
+        Plan(&'plan Plan),
+        Report(&'report Report),
+    }
+
+    struct Client;
+
+    impl Client {
+        /// Wait for a command (to transition state).
+        fn recv_command(&self) -> Option<Plan> {
+            return Some(Plan);
+        }
+
+        fn notify(&self, _notification: Notification) {
+            match _notification {
+                Notification::Plan(_plan) => todo!(),
+                Notification::Report(_report) => todo!(),
+            }
+        }
+    }
+
+    impl Controller {
+        pub fn new() -> Self {
+            return Self {
+                game_state: Arc::new(Mutex::new(GameState::Initializing)),
+                clients: Arc::new(Mutex::new(Vec::new())),
             };
-
-            match misc::install_update_game_server(&config) {
-                Err(err) => {
-                    log::error!("{}", err);
-                    return Err(err);
-                }
-                _ => {}
-            }
-
-            match misc::install_carbon(&config) {
-                Err(err) => {
-                    log::error!("{}", err);
-                    return Err(err);
-                }
-                _ => {}
-            }
-
-            let (tx_stdout, rx_stdout) = std::sync::mpsc::channel::<String>();
-            let (tx_stderr, rx_stderr) = std::sync::mpsc::channel::<String>();
-            let (game_pgid, th_stdout_tx, th_stderr_tx) =
-                match misc::start_game(tx_stdout, tx_stderr, &config) {
-                    Ok(n) => n,
-                    Err(err) => {
-                        log::error!("{}", err);
-                        return Err(err);
-                    }
-                };
-
-            let (tx_game_server_state, rx_game_server_state) =
-                std::sync::mpsc::channel::<misc::GameServerState>();
-            let (th_stdout_rx, th_stderr_rx) = misc::handle_game_server_fs_net_events(
-                &config,
-                rx_stdout,
-                rx_stderr,
-                tx_game_server_state,
-            );
-
-            let mut rcon_relay: rcon::RCONRelay =
-                match rcon::RCONRelay::connect(rx_game_server_state, &config) {
-                    Ok(n) => n,
-                    Err(err) => {
-                        log::error!("{}", err);
-                        return Err(err);
-                    }
-                };
-            log::info!("Game server playable, RCON WebSocket connected");
-
-            if let Err(err) = misc::configure_carbon(&mut rcon_relay) {
-                /* We want to kill a (grand)child process spawned by child
-                process (strace), and the only way to do that AFAIK is by using
-                process groups over an unsafe libc API. */
-                unsafe { libc::killpg(game_pgid, libc::SIGKILL) };
-                log::error!("{}", err);
-                return Err(err);
-            }
-            log::info!("Carbon configured: Game server listed in Community category");
-
-            _ = th_stdout_tx.join();
-            _ = th_stderr_tx.join();
-            _ = th_stdout_rx.join();
-            _ = th_stderr_rx.join();
         }
-        args::Command::HealthStart => todo!(),
-        args::Command::Help => todo!(),
-        args::Command::Version => todo!(),
-        args::Command::WebStart => todo!(),
-    }
 
-    return Ok(());
+        pub fn accept_clients(&self) -> JoinHandle<()> {
+            let clients = self.clients.clone();
+
+            return std::thread::spawn(move || {
+                loop {
+                    let _clients = clients.lock().unwrap();
+                }
+            });
+        }
+
+        /// Serve current state and available options to (commanding) clients.
+        pub fn sync_state(&self) -> JoinHandle<()> {
+            let game_state = self.game_state.clone();
+
+            return std::thread::spawn(move || {
+                loop {
+                    let _game_state = game_state.lock().unwrap();
+                }
+            });
+        }
+
+        pub fn relay_commands(&self) -> JoinHandle<()> {
+            let clients = self.clients.clone();
+            let game_state = self.game_state.clone();
+
+            return std::thread::spawn(move || {
+                'relaying: loop {
+                    let clients = clients.lock().unwrap();
+                    let mut game_state = game_state.lock().unwrap();
+
+                    let mut plan: Option<Plan> = None;
+                    'receiving: for client in clients.iter() {
+                        if let Some(n) = client.recv_command() {
+                            plan = Some(n);
+                            break 'receiving;
+                        }
+                    }
+
+                    let plan: Plan = match plan {
+                        Some(n) => n,
+                        None => continue 'relaying,
+                    };
+
+                    for client in clients.iter() {
+                        client.notify(Notification::Plan(&plan));
+                    }
+
+                    let report: Report = game_state.transition(&plan);
+
+                    for client in clients.iter() {
+                        client.notify(Notification::Report(&report));
+                    }
+                }
+            });
+        }
+    }
+}
+
+fn main() {
+    let controller = core::Controller::new();
+
+    let th_syncer = controller.sync_state();
+
+    let th_relayer = controller.relay_commands();
+
+    let th_server = controller.accept_clients();
+
+    _ = th_syncer.join();
+    _ = th_relayer.join();
+    _ = th_server.join();
 }
