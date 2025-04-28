@@ -4,8 +4,8 @@ mod core {
         collections::HashMap,
         net::SocketAddr,
         sync::{Arc, Mutex},
-        thread::{Builder, JoinHandle, yield_now},
-        time::{SystemTime, UNIX_EPOCH},
+        thread::{Builder, JoinHandle, sleep},
+        time::{Duration, SystemTime, UNIX_EPOCH},
     };
 
     pub struct Controller {
@@ -96,7 +96,7 @@ mod core {
                 .name(thread_name.into())
                 .spawn(move || {
                     loop {
-                        yield_now();
+                        sleep(Duration::from_millis(1));
 
                         let serialized: String;
                         {
@@ -137,7 +137,7 @@ mod core {
                 .name(thread_name.into())
                 .spawn(move || {
                     'relaying: loop {
-                        yield_now();
+                        sleep(Duration::from_millis(1));
 
                         let mut plan: Option<Plan> = None;
                         {
@@ -188,7 +188,6 @@ mod net {
         io::{Error, Read, Write},
         net::{SocketAddr, TcpListener, TcpStream},
         sync::{Arc, Mutex},
-        thread::yield_now,
         time::Duration,
     };
 
@@ -199,7 +198,7 @@ mod net {
     impl Client {
         pub fn new(stream: TcpStream) -> Self {
             stream
-                .set_read_timeout(Some(Duration::from_millis(10)))
+                .set_read_timeout(Some(Duration::from_millis(1)))
                 .unwrap();
             return Self { stream };
         }
@@ -233,8 +232,6 @@ mod net {
         let listener: TcpListener = TcpListener::bind("127.0.0.1:8080").unwrap();
 
         loop {
-            yield_now();
-
             let (stream, addr): (TcpStream, SocketAddr) = listener.accept().unwrap();
             let client = Client::new(stream);
 
