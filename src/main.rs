@@ -1,15 +1,20 @@
 mod core {
+    use crate::net::{Client, serve};
     use std::{
+        collections::HashMap,
+        net::SocketAddr,
         sync::{Arc, Mutex},
         thread::JoinHandle,
+        time::{SystemTime, UNIX_EPOCH},
     };
 
     pub struct Controller {
         game_state: Arc<Mutex<GameState>>,
-        clients: Arc<Mutex<Vec<Client>>>,
+        clients: Arc<Mutex<HashMap<SocketAddr, Client>>>,
     }
 
     /// Game server contoller as a state machine.
+    #[derive(Debug)]
     enum GameState {
         /// Determining initial state is in progress.
         Initializing,
@@ -30,57 +35,55 @@ mod core {
     }
 
     /// What is going to be attempted.
-    struct Plan;
+    pub struct Plan;
 
     /// What happened (while trying to execute a plan).
-    struct Report;
+    pub struct Report;
 
-    enum Notification<'plan, 'report> {
+    pub enum Notification<'plan, 'report> {
         Plan(&'plan Plan),
         Report(&'report Report),
-    }
-
-    struct Client;
-
-    impl Client {
-        /// Wait for a command (to transition state).
-        fn recv_command(&self) -> Option<Plan> {
-            return Some(Plan);
-        }
-
-        fn notify(&self, _notification: Notification) {
-            match _notification {
-                Notification::Plan(_plan) => todo!(),
-                Notification::Report(_report) => todo!(),
-            }
-        }
     }
 
     impl Controller {
         pub fn new() -> Self {
             return Self {
                 game_state: Arc::new(Mutex::new(GameState::Initializing)),
-                clients: Arc::new(Mutex::new(Vec::new())),
+                clients: Arc::new(Mutex::new(HashMap::new())),
             };
         }
 
-        pub fn accept_clients(&self) -> JoinHandle<()> {
-            let clients = self.clients.clone();
+        pub fn start_server(&self) -> JoinHandle<()> {
+            let clients: Arc<Mutex<HashMap<SocketAddr, Client>>> = self.clients.clone();
 
             return std::thread::spawn(move || {
-                loop {
-                    let _clients = clients.lock().unwrap();
-                }
+                serve(clients);
             });
         }
 
         /// Serve current state and available options to (commanding) clients.
         pub fn sync_state(&self) -> JoinHandle<()> {
             let game_state = self.game_state.clone();
+            let clients = self.clients.clone();
 
             return std::thread::spawn(move || {
                 loop {
-                    let _game_state = game_state.lock().unwrap();
+                    let serialized: String;
+                    {
+                        let lock_game_state = game_state.lock().unwrap();
+                        let timestamp_secs = SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs();
+                        serialized = format!("{timestamp_secs}: {lock_game_state:?}\n");
+                    }
+
+                    {
+                        let mut lock_clients = clients.lock().unwrap();
+                        for (_addr, client) in lock_clients.iter_mut() {
+                            client.send(serialized.as_bytes());
+                        }
+                    }
                 }
             });
         }
@@ -95,7 +98,7 @@ mod core {
                     let mut game_state = game_state.lock().unwrap();
 
                     let mut plan: Option<Plan> = None;
-                    'receiving: for client in clients.iter() {
+                    'receiving: for (_addr, client) in clients.iter() {
                         if let Some(n) = client.recv_command() {
                             plan = Some(n);
                             break 'receiving;
@@ -107,17 +110,67 @@ mod core {
                         None => continue 'relaying,
                     };
 
-                    for client in clients.iter() {
+                    for (_addr, client) in clients.iter() {
                         client.notify(Notification::Plan(&plan));
                     }
 
                     let report: Report = game_state.transition(&plan);
 
-                    for client in clients.iter() {
+                    for (_addr, client) in clients.iter() {
                         client.notify(Notification::Report(&report));
                     }
                 }
             });
+        }
+    }
+}
+
+mod net {
+    use crate::core::{Notification, Plan};
+    use std::{
+        collections::HashMap,
+        io::Write,
+        net::{SocketAddr, TcpListener, TcpStream},
+        sync::{Arc, Mutex},
+    };
+
+    pub struct Client {
+        stream: TcpStream,
+    }
+
+    impl Client {
+        pub fn new(stream: TcpStream) -> Self {
+            return Self { stream };
+        }
+
+        /// Wait for a command (to transition state).
+        pub fn recv_command(&self) -> Option<Plan> {
+            return None;
+        }
+
+        pub fn notify(&self, _notification: Notification) {
+            match _notification {
+                Notification::Plan(_plan) => todo!(),
+                Notification::Report(_report) => todo!(),
+            }
+        }
+
+        pub fn send(&mut self, serialized: &[u8]) {
+            self.stream.write(serialized).unwrap();
+        }
+    }
+
+    pub fn serve(clients: Arc<Mutex<HashMap<SocketAddr, Client>>>) {
+        let listener: TcpListener = TcpListener::bind("127.0.0.1:8080").unwrap();
+
+        loop {
+            let (stream, addr): (TcpStream, SocketAddr) = listener.accept().unwrap();
+            let client = Client::new(stream);
+
+            {
+                let mut clients = clients.lock().unwrap();
+                clients.insert(addr, client);
+            }
         }
     }
 }
@@ -129,7 +182,7 @@ fn main() {
 
     let th_relayer = controller.relay_commands();
 
-    let th_server = controller.accept_clients();
+    let th_server = controller.start_server();
 
     _ = th_syncer.join();
     _ = th_relayer.join();
