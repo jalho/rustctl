@@ -78,10 +78,20 @@ mod core {
                         serialized = format!("{timestamp_secs}: {lock_game_state:?}\n");
                     }
 
+                    let mut dead_clients: Vec<SocketAddr> = Vec::new();
                     {
                         let mut lock_clients = clients.lock().unwrap();
-                        for (_addr, client) in lock_clients.iter_mut() {
-                            client.send(serialized.as_bytes());
+                        for (addr, client) in lock_clients.iter_mut() {
+                            if let Err(_) = client.send(serialized.as_bytes()) {
+                                dead_clients.push(addr.to_owned());
+                            }
+                        }
+                    }
+
+                    {
+                        let mut lock_clients = clients.lock().unwrap();
+                        for addr in dead_clients.iter() {
+                            lock_clients.remove(addr);
                         }
                     }
                 }
@@ -129,7 +139,7 @@ mod net {
     use crate::core::{Notification, Plan};
     use std::{
         collections::HashMap,
-        io::Write,
+        io::{Error, Write},
         net::{SocketAddr, TcpListener, TcpStream},
         sync::{Arc, Mutex},
     };
@@ -155,8 +165,8 @@ mod net {
             }
         }
 
-        pub fn send(&mut self, serialized: &[u8]) {
-            self.stream.write(serialized).unwrap();
+        pub fn send(&mut self, serialized: &[u8]) -> Result<usize, Error> {
+            return self.stream.write(serialized);
         }
     }
 
