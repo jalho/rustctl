@@ -4,7 +4,7 @@ mod core {
         collections::HashMap,
         net::SocketAddr,
         sync::{Arc, Mutex},
-        thread::JoinHandle,
+        thread::{Builder, JoinHandle},
         time::{SystemTime, UNIX_EPOCH},
     };
 
@@ -76,94 +76,103 @@ mod core {
             };
         }
 
-        pub fn start_server(&self) -> JoinHandle<()> {
+        pub fn start_server(&self, thread_name: &str) -> JoinHandle<()> {
             let clients: Arc<Mutex<HashMap<SocketAddr, Client>>> = self.clients.clone();
 
-            return std::thread::spawn(move || {
-                serve(clients);
-            });
+            return std::thread::Builder::new()
+                .name(thread_name.into())
+                .spawn(move || {
+                    serve(clients);
+                })
+                .unwrap();
         }
 
         /// Serve current state and available options to (commanding) clients.
-        pub fn sync_state(&self) -> JoinHandle<()> {
+        pub fn sync_state(&self, thread_name: &str) -> JoinHandle<()> {
             let game_state = self.game_state.clone();
             let clients = self.clients.clone();
 
-            return std::thread::spawn(move || {
-                loop {
-                    let serialized: String;
-                    {
-                        let lock_game_state = game_state.lock().unwrap();
-                        let timestamp_secs = SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs();
-                        serialized = format!("{timestamp_secs}: {lock_game_state:?}\n");
-                    }
+            return Builder::new()
+                .name(thread_name.into())
+                .spawn(move || {
+                    loop {
+                        let serialized: String;
+                        {
+                            let lock_game_state = game_state.lock().unwrap();
+                            let timestamp_secs = SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs();
+                            serialized = format!("{timestamp_secs}: {lock_game_state:?}\n");
+                        }
 
-                    let mut dead_clients: Vec<SocketAddr> = Vec::new();
-                    {
-                        let mut lock_clients = clients.lock().unwrap();
-                        for (addr, client) in lock_clients.iter_mut() {
-                            if let Err(_) = client.send(serialized.as_bytes()) {
-                                dead_clients.push(addr.to_owned());
+                        let mut dead_clients: Vec<SocketAddr> = Vec::new();
+                        {
+                            let mut lock_clients = clients.lock().unwrap();
+                            for (addr, client) in lock_clients.iter_mut() {
+                                if let Err(_) = client.send(serialized.as_bytes()) {
+                                    dead_clients.push(addr.to_owned());
+                                }
+                            }
+                        }
+
+                        {
+                            let mut lock_clients = clients.lock().unwrap();
+                            for addr in dead_clients.iter() {
+                                lock_clients.remove(addr);
                             }
                         }
                     }
-
-                    {
-                        let mut lock_clients = clients.lock().unwrap();
-                        for addr in dead_clients.iter() {
-                            lock_clients.remove(addr);
-                        }
-                    }
-                }
-            });
+                })
+                .unwrap();
         }
 
-        pub fn relay_commands(&self) -> JoinHandle<()> {
+        pub fn relay_commands(&self, thread_name: &str) -> JoinHandle<()> {
             let clients = self.clients.clone();
             let game_state = self.game_state.clone();
 
-            return std::thread::spawn(move || {
-                'relaying: loop {
-                    let mut plan: Option<Plan> = None;
-                    {
-                        let mut clients = clients.lock().unwrap();
-                        'receiving: for (_addr, client) in clients.iter_mut() {
-                            if let Some(n) = client.recv_command() {
-                                plan = Some(n);
-                                break 'receiving;
+            return Builder::new()
+                .name(thread_name.into())
+                .spawn(move || {
+                    'relaying: loop {
+                        let mut plan: Option<Plan> = None;
+                        {
+                            let mut clients = clients.lock().unwrap();
+                            'receiving: for (_addr, client) in clients.iter_mut() {
+                                if let Some(n) = client.recv_command() {
+                                    plan = Some(n);
+                                    break 'receiving;
+                                }
+                            }
+                        }
+
+                        let plan: Plan = match plan {
+                            Some(n) => n,
+                            None => continue 'relaying,
+                        };
+
+                        {
+                            let mut clients = clients.lock().unwrap();
+                            for (_addr, client) in clients.iter_mut() {
+                                client.notify(Notification::Plan(&plan));
+                            }
+                        }
+
+                        let report: Report;
+                        {
+                            let mut game_state = game_state.lock().unwrap();
+                            report = game_state.transition(&plan);
+                        }
+
+                        {
+                            let mut clients = clients.lock().unwrap();
+                            for (_addr, client) in clients.iter_mut() {
+                                client.notify(Notification::Report(&report));
                             }
                         }
                     }
-
-                    let plan: Plan = match plan {
-                        Some(n) => n,
-                        None => continue 'relaying,
-                    };
-
-                    {
-                        let mut clients = clients.lock().unwrap();
-                        for (_addr, client) in clients.iter_mut() {
-                            client.notify(Notification::Plan(&plan));
-                        }
-                    }
-
-                    let report: Report;
-                    {
-                        let mut game_state = game_state.lock().unwrap();
-                        report = game_state.transition(&plan);
-                    }
-
-                    {
-                        let mut clients = clients.lock().unwrap();
-                        for (_addr, client) in clients.iter_mut() {
-                            client.notify(Notification::Report(&report));
-                        }
-                    }
-                }
-            });
+                })
+                .unwrap();
         }
     }
 }
@@ -233,11 +242,11 @@ mod net {
 fn main() {
     let controller = core::Controller::new();
 
-    let th_syncer = controller.sync_state();
+    let th_syncer = controller.sync_state("sync");
 
-    let th_relayer = controller.relay_commands();
+    let th_relayer = controller.relay_commands("relay");
 
-    let th_server = controller.start_server();
+    let th_server = controller.start_server("server");
 
     _ = th_syncer.join();
     _ = th_relayer.join();
