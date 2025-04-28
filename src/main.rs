@@ -37,20 +37,20 @@ mod core {
     /// What is going to be attempted.
     #[derive(Debug)]
     pub struct Plan {
-        command: [u8; 3],
+        command: u8,
     }
 
     impl Plan {
-        pub fn new(command: [u8; 3]) -> Option<Self> {
-            if command.len() < 1 {
+        pub fn new(command: u8) -> Option<Self> {
+            if command == b'\n' {
                 return None;
             } else {
                 return Some(Self { command });
             }
         }
 
-        pub fn serialize(&self) -> &[u8] {
-            return &self.command;
+        pub fn serialize(&self) -> [u8; 1] {
+            return [self.command];
         }
     }
 
@@ -192,15 +192,17 @@ mod net {
 
         /// Wait for a command (to transition state).
         pub fn recv_command(&mut self) -> Option<Plan> {
-            let mut buf: [u8; 3] = [0; 3];
-            self.stream.read(&mut buf).unwrap();
-            return Plan::new(buf);
+            let mut buf: [u8; 1] = [0; 1];
+            match self.stream.read_exact(&mut buf) {
+                Ok(_) => Plan::new(buf[0]),
+                Err(_) => None,
+            }
         }
 
         pub fn notify(&mut self, notification: Notification) {
             match notification {
                 Notification::Plan(plan) => {
-                    self.stream.write(plan.serialize()).unwrap();
+                    self.stream.write(&plan.serialize()).unwrap();
                 }
                 Notification::Report(report) => {
                     self.stream.write(report.serialize()).unwrap();
