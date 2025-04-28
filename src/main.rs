@@ -35,10 +35,33 @@ mod core {
     }
 
     /// What is going to be attempted.
-    pub struct Plan;
+    #[derive(Debug)]
+    pub struct Plan {
+        command: [u8; 3],
+    }
+
+    impl Plan {
+        pub fn new(command: [u8; 3]) -> Option<Self> {
+            if command.len() < 1 {
+                return None;
+            } else {
+                return Some(Self { command });
+            }
+        }
+
+        pub fn serialize(&self) -> &[u8] {
+            return &self.command;
+        }
+    }
 
     /// What happened (while trying to execute a plan).
     pub struct Report;
+
+    impl Report {
+        pub fn serialize(&self) -> &[u8] {
+            todo!();
+        }
+    }
 
     pub enum Notification<'plan, 'report> {
         Plan(&'plan Plan),
@@ -104,14 +127,14 @@ mod core {
 
             return std::thread::spawn(move || {
                 'relaying: loop {
-                    let clients = clients.lock().unwrap();
-                    let mut game_state = game_state.lock().unwrap();
-
                     let mut plan: Option<Plan> = None;
-                    'receiving: for (_addr, client) in clients.iter() {
-                        if let Some(n) = client.recv_command() {
-                            plan = Some(n);
-                            break 'receiving;
+                    {
+                        let mut clients = clients.lock().unwrap();
+                        'receiving: for (_addr, client) in clients.iter_mut() {
+                            if let Some(n) = client.recv_command() {
+                                plan = Some(n);
+                                break 'receiving;
+                            }
                         }
                     }
 
@@ -120,14 +143,24 @@ mod core {
                         None => continue 'relaying,
                     };
 
-                    for (_addr, client) in clients.iter() {
-                        client.notify(Notification::Plan(&plan));
+                    {
+                        let mut clients = clients.lock().unwrap();
+                        for (_addr, client) in clients.iter_mut() {
+                            client.notify(Notification::Plan(&plan));
+                        }
                     }
 
-                    let report: Report = game_state.transition(&plan);
+                    let report: Report;
+                    {
+                        let mut game_state = game_state.lock().unwrap();
+                        report = game_state.transition(&plan);
+                    }
 
-                    for (_addr, client) in clients.iter() {
-                        client.notify(Notification::Report(&report));
+                    {
+                        let mut clients = clients.lock().unwrap();
+                        for (_addr, client) in clients.iter_mut() {
+                            client.notify(Notification::Report(&report));
+                        }
                     }
                 }
             });
@@ -139,9 +172,10 @@ mod net {
     use crate::core::{Notification, Plan};
     use std::{
         collections::HashMap,
-        io::{Error, Write},
+        io::{Error, Read, Write},
         net::{SocketAddr, TcpListener, TcpStream},
         sync::{Arc, Mutex},
+        time::Duration,
     };
 
     pub struct Client {
@@ -150,18 +184,27 @@ mod net {
 
     impl Client {
         pub fn new(stream: TcpStream) -> Self {
+            stream
+                .set_read_timeout(Some(Duration::from_millis(10)))
+                .unwrap();
             return Self { stream };
         }
 
         /// Wait for a command (to transition state).
-        pub fn recv_command(&self) -> Option<Plan> {
-            return None;
+        pub fn recv_command(&mut self) -> Option<Plan> {
+            let mut buf: [u8; 3] = [0; 3];
+            self.stream.read(&mut buf).unwrap();
+            return Plan::new(buf);
         }
 
-        pub fn notify(&self, _notification: Notification) {
-            match _notification {
-                Notification::Plan(_plan) => todo!(),
-                Notification::Report(_report) => todo!(),
+        pub fn notify(&mut self, notification: Notification) {
+            match notification {
+                Notification::Plan(plan) => {
+                    self.stream.write(plan.serialize()).unwrap();
+                }
+                Notification::Report(report) => {
+                    self.stream.write(report.serialize()).unwrap();
+                }
             }
         }
 
