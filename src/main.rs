@@ -4,7 +4,7 @@ mod core {
         collections::HashMap,
         net::SocketAddr,
         sync::{Arc, Mutex},
-        thread::{Builder, JoinHandle},
+        thread::{Builder, JoinHandle, yield_now},
         time::{SystemTime, UNIX_EPOCH},
     };
 
@@ -96,6 +96,8 @@ mod core {
                 .name(thread_name.into())
                 .spawn(move || {
                     loop {
+                        yield_now();
+
                         let serialized: String;
                         {
                             let lock_game_state = game_state.lock().unwrap();
@@ -135,6 +137,8 @@ mod core {
                 .name(thread_name.into())
                 .spawn(move || {
                     'relaying: loop {
+                        yield_now();
+
                         let mut plan: Option<Plan> = None;
                         {
                             let mut clients = clients.lock().unwrap();
@@ -184,6 +188,7 @@ mod net {
         io::{Error, Read, Write},
         net::{SocketAddr, TcpListener, TcpStream},
         sync::{Arc, Mutex},
+        thread::yield_now,
         time::Duration,
     };
 
@@ -228,6 +233,8 @@ mod net {
         let listener: TcpListener = TcpListener::bind("127.0.0.1:8080").unwrap();
 
         loop {
+            yield_now();
+
             let (stream, addr): (TcpStream, SocketAddr) = listener.accept().unwrap();
             let client = Client::new(stream);
 
