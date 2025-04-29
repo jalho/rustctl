@@ -107,7 +107,7 @@ mod core {
                         {
                             let mut lock_clients = clients.lock().unwrap();
                             for (addr, client) in lock_clients.iter_mut() {
-                                if let Err(_) = client.send(Message::text(&serialized)) {
+                                if client.send(Message::text(&serialized)).is_err() {
                                     dead_clients.push(addr.to_owned());
                                 }
                             }
