@@ -32,7 +32,7 @@ mod core {
     impl GameState {
         /// Transition from one state to another.
         fn transition(&mut self, _plan: &Plan) -> Report {
-            return Report;
+            Report
         }
     }
 
@@ -41,7 +41,7 @@ mod core {
 
     impl Plan {
         pub fn new(_command: String) -> Self {
-            return Self;
+            Self
         }
 
         pub fn serialize(&self) -> Message {
@@ -65,21 +65,21 @@ mod core {
 
     impl Controller {
         pub fn new() -> Self {
-            return Self {
+            Self {
                 game_state: Arc::new(Mutex::new(GameState::Initializing)),
                 clients: Arc::new(Mutex::new(HashMap::new())),
-            };
+            }
         }
 
         pub fn start_server(&self, thread_name: &str) -> JoinHandle<()> {
             let clients: Arc<Mutex<HashMap<SocketAddr, Client>>> = self.clients.clone();
 
-            return std::thread::Builder::new()
+            std::thread::Builder::new()
                 .name(thread_name.into())
                 .spawn(move || {
                     serve(clients);
                 })
-                .unwrap();
+                .unwrap()
         }
 
         /// Serve current state and available options to (commanding) clients.
@@ -87,7 +87,7 @@ mod core {
             let game_state = self.game_state.clone();
             let clients = self.clients.clone();
 
-            return Builder::new()
+            Builder::new()
                 .name(thread_name.into())
                 .spawn(move || {
                     loop {
@@ -121,14 +121,14 @@ mod core {
                         }
                     }
                 })
-                .unwrap();
+                .unwrap()
         }
 
         pub fn relay_commands(&self, thread_name: &str) -> JoinHandle<()> {
             let clients = self.clients.clone();
             let game_state = self.game_state.clone();
 
-            return Builder::new()
+            Builder::new()
                 .name(thread_name.into())
                 .spawn(move || {
                     'relaying: loop {
@@ -171,7 +171,7 @@ mod core {
                         }
                     }
                 })
-                .unwrap();
+                .unwrap()
         }
     }
 }
@@ -197,13 +197,13 @@ mod net {
         _request: &Request,
         response: Response,
     ) -> Result<Response, ErrorResponse> {
-        return Ok(response);
+        Ok(response)
     }
 
     impl Client {
         pub fn new(stream: TcpStream) -> Self {
             let websocket = tungstenite::accept_hdr(stream, websocket_handshake).unwrap();
-            return Self { websocket };
+            Self { websocket }
         }
 
         /// Wait for a command (to transition state).
@@ -226,7 +226,7 @@ mod net {
         }
 
         pub fn send(&mut self, serialized: Message) -> Result<(), tungstenite::Error> {
-            return self.websocket.send(serialized);
+            self.websocket.send(serialized)
         }
     }
 
