@@ -202,10 +202,12 @@ mod net {
     }
 
     impl Client {
-        pub fn new(stream: TcpStream) -> Self {
+        pub fn new(stream: TcpStream) -> Option<Self> {
             stream.set_nonblocking(true).unwrap();
-            let websocket = tungstenite::accept_hdr(stream, websocket_handshake).unwrap();
-            Self { websocket }
+            match tungstenite::accept_hdr(stream, websocket_handshake) {
+                Ok(websocket) => Some(Self { websocket }),
+                Err(_) => None,
+            }
         }
 
         pub fn recv_command(&mut self) -> Option<Plan> {
@@ -236,9 +238,7 @@ mod net {
 
         loop {
             let (stream, addr): (TcpStream, SocketAddr) = listener.accept().unwrap();
-            let client = Client::new(stream);
-
-            {
+            if let Some(client) = Client::new(stream) {
                 let mut clients = clients.lock().unwrap();
                 clients.insert(addr, client);
             }
