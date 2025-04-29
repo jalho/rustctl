@@ -203,11 +203,11 @@ mod net {
 
     impl Client {
         pub fn new(stream: TcpStream) -> Self {
+            stream.set_nonblocking(true).unwrap();
             let websocket = tungstenite::accept_hdr(stream, websocket_handshake).unwrap();
             Self { websocket }
         }
 
-        /// Wait for a command (to transition state).
         pub fn recv_command(&mut self) -> Option<Plan> {
             match self.websocket.read() {
                 Ok(Message::Text(utf8)) => Some(Plan::new(utf8.to_string())),
