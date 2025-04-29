@@ -1,4 +1,6 @@
 mod core {
+    use tungstenite::Message;
+
     use crate::net::{Client, serve};
     use std::{
         collections::HashMap,
@@ -35,22 +37,15 @@ mod core {
     }
 
     /// What is going to be attempted.
-    #[derive(Debug)]
-    pub struct Plan {
-        command: u8,
-    }
+    pub struct Plan;
 
     impl Plan {
-        pub fn new(command: u8) -> Option<Self> {
-            if command == b'\n' {
-                return None;
-            } else {
-                return Some(Self { command });
-            }
+        pub fn new(_command: String) -> Self {
+            return Self;
         }
 
-        pub fn serialize(&self) -> [u8; 1] {
-            return [self.command];
+        pub fn serialize(&self) -> Message {
+            todo!();
         }
     }
 
@@ -58,7 +53,7 @@ mod core {
     pub struct Report;
 
     impl Report {
-        pub fn serialize(&self) -> &[u8] {
+        pub fn serialize(&self) -> Message {
             todo!();
         }
     }
@@ -112,7 +107,7 @@ mod core {
                         {
                             let mut lock_clients = clients.lock().unwrap();
                             for (addr, client) in lock_clients.iter_mut() {
-                                if let Err(_) = client.send(serialized.as_bytes()) {
+                                if let Err(_) = client.send(Message::text(&serialized)) {
                                     dead_clients.push(addr.to_owned());
                                 }
                             }
@@ -185,46 +180,53 @@ mod net {
     use crate::core::{Notification, Plan};
     use std::{
         collections::HashMap,
-        io::{Error, Read, Write},
         net::{SocketAddr, TcpListener, TcpStream},
         sync::{Arc, Mutex},
-        time::Duration,
+    };
+    use tungstenite::{
+        Message,
+        handshake::server::{ErrorResponse, Request, Response},
+        protocol::WebSocket,
     };
 
     pub struct Client {
-        stream: TcpStream,
+        websocket: WebSocket<TcpStream>,
+    }
+
+    fn websocket_handshake(
+        _request: &Request,
+        response: Response,
+    ) -> Result<Response, ErrorResponse> {
+        return Ok(response);
     }
 
     impl Client {
         pub fn new(stream: TcpStream) -> Self {
-            stream
-                .set_read_timeout(Some(Duration::from_millis(1)))
-                .unwrap();
-            return Self { stream };
+            let websocket = tungstenite::accept_hdr(stream, websocket_handshake).unwrap();
+            return Self { websocket };
         }
 
         /// Wait for a command (to transition state).
         pub fn recv_command(&mut self) -> Option<Plan> {
-            let mut buf: [u8; 1] = [0; 1];
-            match self.stream.read_exact(&mut buf) {
-                Ok(_) => Plan::new(buf[0]),
-                Err(_) => None,
+            match self.websocket.read() {
+                Ok(Message::Text(utf8)) => Some(Plan::new(utf8.to_string())),
+                _ => None,
             }
         }
 
         pub fn notify(&mut self, notification: Notification) {
             match notification {
                 Notification::Plan(plan) => {
-                    self.stream.write(&plan.serialize()).unwrap();
+                    self.websocket.send(plan.serialize()).unwrap();
                 }
                 Notification::Report(report) => {
-                    self.stream.write(report.serialize()).unwrap();
+                    self.websocket.send(report.serialize()).unwrap();
                 }
             }
         }
 
-        pub fn send(&mut self, serialized: &[u8]) -> Result<usize, Error> {
-            return self.stream.write(serialized);
+        pub fn send(&mut self, serialized: Message) -> Result<(), tungstenite::Error> {
+            return self.websocket.send(serialized);
         }
     }
 
