@@ -193,6 +193,7 @@ mod net {
         websocket: WebSocket<TcpStream>,
     }
 
+    #[allow(clippy::result_large_err)]
     fn websocket_handshake(
         _request: &Request,
         response: Response,
