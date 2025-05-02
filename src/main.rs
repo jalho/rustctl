@@ -79,11 +79,27 @@ async fn handle_websocket_upgrade(
 }
 
 #[derive(Debug)]
-struct Client;
+struct Message {
+    timestamp: u64,
+    content: String,
+}
+
+impl Message {
+    pub fn new(timestamp: u64, content: String) -> Self {
+        Self { timestamp, content }
+    }
+}
+
+#[derive(Debug)]
+struct Client {
+    messages: std::collections::VecDeque<Message>,
+}
 
 impl Client {
     pub fn new() -> Self {
-        Self
+        Self {
+            messages: std::collections::VecDeque::new(),
+        }
     }
 }
 
@@ -102,11 +118,11 @@ impl SharedState {
     }
 
     pub fn serialize(&self) -> axum::extract::ws::Message {
-        axum::extract::ws::Message::Text(axum::extract::ws::Utf8Bytes::from(format!(
-            "{self:?}"
-        )))
+        axum::extract::ws::Message::Text(axum::extract::ws::Utf8Bytes::from(format!("{self:?}")))
     }
 }
+
+const MAX_MESSAGES_PER_CLIENT: usize = 16;
 
 async fn send_and_receive_messages(
     shared: axum::extract::State<std::sync::Arc<tokio::sync::Mutex<SharedState>>>,
@@ -126,7 +142,24 @@ async fn send_and_receive_messages(
 
             match recv {
                 Some(Ok(axum::extract::ws::Message::Text(msg))) => {
-                    println!("{msg}");
+                    let mut shared = shared_rx.lock().await;
+                    match shared.clients.get_mut(&addr) {
+                        Some(initalized) => {
+                            if initalized.messages.len() >= MAX_MESSAGES_PER_CLIENT {
+                                initalized.messages.pop_front();
+                            }
+                            initalized
+                                .messages
+                                .push_back(Message::new(now(), msg.to_string()));
+                        }
+                        None => {
+                            let mut client = Client::new();
+                            client
+                                .messages
+                                .push_front(Message::new(now(), msg.to_string()));
+                            shared.clients.insert(addr, client);
+                        }
+                    }
                 }
                 _ => {
                     break;
@@ -142,15 +175,10 @@ async fn send_and_receive_messages(
         loop {
             interval.tick().await;
 
-            let now: std::time::SystemTime = std::time::SystemTime::now();
-            let duration_since_epoch: std::time::Duration =
-                now.duration_since(std::time::UNIX_EPOCH).unwrap();
-            let timestamp: u64 = duration_since_epoch.as_secs();
-
             {
                 let mut shared_locked: tokio::sync::MutexGuard<SharedState> =
                     shared_tx.lock().await;
-                shared_locked.timestamp = Some(timestamp);
+                shared_locked.timestamp = Some(now());
 
                 let send_result: Result<(), axum::Error> =
                     futures::SinkExt::send(&mut sock_tx, shared_locked.serialize()).await;
@@ -168,4 +196,12 @@ async fn send_and_receive_messages(
         let mut shared_locked: tokio::sync::MutexGuard<SharedState> = shared.lock().await;
         shared_locked.clients.remove(&addr);
     }
+}
+
+fn now() -> u64 {
+    let now: std::time::SystemTime = std::time::SystemTime::now();
+    let duration_since_epoch: std::time::Duration =
+        now.duration_since(std::time::UNIX_EPOCH).unwrap();
+    let timestamp: u64 = duration_since_epoch.as_secs();
+    timestamp
 }
