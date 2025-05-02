@@ -42,26 +42,20 @@ async fn no_content() -> axum::http::StatusCode {
     axum::http::StatusCode::NO_CONTENT
 }
 
-async fn webpage(
-    shared: axum::extract::State<std::sync::Arc<tokio::sync::Mutex<SharedState>>>,
-) -> axum::response::Html<String> {
-    let clients_count: usize;
-    {
-        let shared_locked: tokio::sync::MutexGuard<SharedState> = shared.lock().await;
-        clients_count = shared_locked.clients.len();
-    }
-
+async fn webpage() -> axum::response::Html<String> {
     let content: String = format!(
         r#"<!DOCTYPE html>
 <html>
 <body>
-    <p>{clients_count} clients connected</p>
     <button onclick="ws.send('foobar')">Send 'foobar'</button>
+    <pre><code id="output"></code></pre>
 </body>
 <script>
     const ws = new WebSocket("{path_sock}");
+    const output = document.getElementById("output");
     ws.addEventListener("message", (message) => {{
-        console.log(message.data);
+        const text = JSON.stringify(JSON.parse(message.data), null, 2);
+        output.textContent = text;
     }});
 </script>
 </html>"#,
