@@ -1,261 +1,171 @@
-mod core {
-    use tungstenite::Message;
-
-    use crate::net::{Client, serve};
-    use std::{
-        collections::HashMap,
-        net::SocketAddr,
-        sync::{Arc, Mutex},
-        thread::{Builder, JoinHandle, sleep},
-        time::{Duration, SystemTime, UNIX_EPOCH},
-    };
-
-    pub struct Controller {
-        game_state: Arc<Mutex<GameState>>,
-        clients: Arc<Mutex<HashMap<SocketAddr, Client>>>,
-    }
-
-    /// Game server contoller as a state machine.
-    #[derive(Debug)]
-    enum GameState {
-        /// Determining initial state is in progress.
-        Initializing,
-        /*
-         * TODO: Define states & implement transitions using libraries: Some ideas for states:
-         * - NotRunning: There is no game server process.
-         * - Updating: Game server is being updated.
-         * - Starting: Game server process has been spawned. Game is starting but not yet playable.
-         * - RunningHealthy: Game server is up. Game is playable.
-         */
-    }
-
-    impl GameState {
-        /// Transition from one state to another.
-        fn transition(&mut self, _plan: &Plan) -> Report {
-            Report
-        }
-    }
-
-    /// What is going to be attempted.
-    pub struct Plan;
-
-    impl Plan {
-        pub fn new(_command: String) -> Self {
-            Self
-        }
-
-        pub fn serialize(&self) -> Message {
-            todo!();
-        }
-    }
-
-    /// What happened (while trying to execute a plan).
-    pub struct Report;
-
-    impl Report {
-        pub fn serialize(&self) -> Message {
-            todo!();
-        }
-    }
-
-    pub enum Notification<'plan, 'report> {
-        Plan(&'plan Plan),
-        Report(&'report Report),
-    }
-
-    impl Controller {
-        pub fn new() -> Self {
-            Self {
-                game_state: Arc::new(Mutex::new(GameState::Initializing)),
-                clients: Arc::new(Mutex::new(HashMap::new())),
-            }
-        }
-
-        pub fn start_server(&self, thread_name: &str) -> JoinHandle<()> {
-            let clients: Arc<Mutex<HashMap<SocketAddr, Client>>> = self.clients.clone();
-
-            std::thread::Builder::new()
-                .name(thread_name.into())
-                .spawn(move || {
-                    serve(clients);
-                })
-                .unwrap()
-        }
-
-        /// Serve current state and available options to (commanding) clients.
-        pub fn sync_state(&self, thread_name: &str) -> JoinHandle<()> {
-            let game_state = self.game_state.clone();
-            let clients = self.clients.clone();
-
-            Builder::new()
-                .name(thread_name.into())
-                .spawn(move || {
-                    loop {
-                        sleep(Duration::from_millis(1));
-
-                        let serialized: String;
-                        {
-                            let lock_game_state = game_state.lock().unwrap();
-                            let timestamp_secs = SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap()
-                                .as_secs();
-                            serialized = format!("{timestamp_secs}: {lock_game_state:?}\n");
-                        }
-
-                        let mut dead_clients: Vec<SocketAddr> = Vec::new();
-                        {
-                            let mut lock_clients = clients.lock().unwrap();
-                            for (addr, client) in lock_clients.iter_mut() {
-                                if client.send(Message::text(&serialized)).is_err() {
-                                    dead_clients.push(addr.to_owned());
-                                }
-                            }
-                        }
-
-                        {
-                            let mut lock_clients = clients.lock().unwrap();
-                            for addr in dead_clients.iter() {
-                                lock_clients.remove(addr);
-                            }
-                        }
-                    }
-                })
-                .unwrap()
-        }
-
-        pub fn relay_commands(&self, thread_name: &str) -> JoinHandle<()> {
-            let clients = self.clients.clone();
-            let game_state = self.game_state.clone();
-
-            Builder::new()
-                .name(thread_name.into())
-                .spawn(move || {
-                    'relaying: loop {
-                        sleep(Duration::from_millis(1));
-
-                        let mut plan: Option<Plan> = None;
-                        {
-                            let mut clients = clients.lock().unwrap();
-                            'receiving: for (_addr, client) in clients.iter_mut() {
-                                if let Some(n) = client.recv_command() {
-                                    plan = Some(n);
-                                    break 'receiving;
-                                }
-                            }
-                        }
-
-                        let plan: Plan = match plan {
-                            Some(n) => n,
-                            None => continue 'relaying,
-                        };
-
-                        {
-                            let mut clients = clients.lock().unwrap();
-                            for (_addr, client) in clients.iter_mut() {
-                                client.notify(Notification::Plan(&plan));
-                            }
-                        }
-
-                        let report: Report;
-                        {
-                            let mut game_state = game_state.lock().unwrap();
-                            report = game_state.transition(&plan);
-                        }
-
-                        {
-                            let mut clients = clients.lock().unwrap();
-                            for (_addr, client) in clients.iter_mut() {
-                                client.notify(Notification::Report(&report));
-                            }
-                        }
-                    }
-                })
-                .unwrap()
-        }
-    }
-}
-
-mod net {
-    use crate::core::{Notification, Plan};
-    use std::{
-        collections::HashMap,
-        net::{SocketAddr, TcpListener, TcpStream},
-        sync::{Arc, Mutex},
-    };
-    use tungstenite::{
-        Message,
-        handshake::server::{ErrorResponse, Request, Response},
-        protocol::WebSocket,
-    };
-
-    pub struct Client {
-        websocket: WebSocket<TcpStream>,
-    }
-
-    #[allow(clippy::result_large_err)]
-    fn websocket_handshake(
-        _request: &Request,
-        response: Response,
-    ) -> Result<Response, ErrorResponse> {
-        Ok(response)
-    }
-
-    impl Client {
-        pub fn new(stream: TcpStream) -> Option<Self> {
-            stream.set_nonblocking(true).unwrap();
-            match tungstenite::accept_hdr(stream, websocket_handshake) {
-                Ok(websocket) => Some(Self { websocket }),
-                Err(_) => None,
-            }
-        }
-
-        pub fn recv_command(&mut self) -> Option<Plan> {
-            match self.websocket.read() {
-                Ok(Message::Text(utf8)) => Some(Plan::new(utf8.to_string())),
-                _ => None,
-            }
-        }
-
-        pub fn notify(&mut self, notification: Notification) {
-            match notification {
-                Notification::Plan(plan) => {
-                    self.websocket.send(plan.serialize()).unwrap();
-                }
-                Notification::Report(report) => {
-                    self.websocket.send(report.serialize()).unwrap();
-                }
-            }
-        }
-
-        pub fn send(&mut self, serialized: Message) -> Result<(), tungstenite::Error> {
-            self.websocket.send(serialized)
-        }
-    }
-
-    pub fn serve(clients: Arc<Mutex<HashMap<SocketAddr, Client>>>) {
-        let listener: TcpListener = TcpListener::bind("127.0.0.1:8080").unwrap();
-
-        loop {
-            let (stream, addr): (TcpStream, SocketAddr) = listener.accept().unwrap();
-            if let Some(client) = Client::new(stream) {
-                let mut clients = clients.lock().unwrap();
-                clients.insert(addr, client);
-            }
-        }
-    }
-}
-
 fn main() {
-    let controller = core::Controller::new();
+    let shared: std::sync::Arc<tokio::sync::Mutex<SharedState>> = SharedState::init();
 
-    let th_syncer = controller.sync_state("sync");
+    let app: axum::Router = axum::Router::new()
+        .route("/", axum::routing::get(webpage))
+        .route(
+            &ROUTE_CONFIG.route_path_sock,
+            axum::routing::get(axum::routing::get(handle_websocket_upgrade)),
+        )
+        .fallback(axum::routing::get(no_content))
+        .with_state(shared);
 
-    let th_relayer = controller.relay_commands("relay");
+    let runtime: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
 
-    let th_server = controller.start_server("server");
+    runtime.block_on(async {
+        let listener: tokio::net::TcpListener = tokio::net::TcpListener::bind("127.0.0.1:8080")
+            .await
+            .unwrap();
 
-    _ = th_syncer.join();
-    _ = th_relayer.join();
-    _ = th_server.join();
+        axum::serve(listener, app).await.unwrap();
+    });
+}
+
+#[derive(Debug)]
+struct RouteConfig {
+    route_path_sock: &'static str,
+}
+
+const ROUTE_CONFIG: RouteConfig = RouteConfig {
+    route_path_sock: "/sock",
+};
+
+async fn no_content() -> axum::http::StatusCode {
+    return axum::http::StatusCode::NO_CONTENT;
+}
+
+async fn webpage(
+    shared: axum::extract::State<std::sync::Arc<tokio::sync::Mutex<SharedState>>>,
+) -> axum::response::Html<String> {
+    let clients_count: usize;
+    {
+        let shared_locked: tokio::sync::MutexGuard<SharedState> = shared.lock().await;
+        clients_count = shared_locked.clients.len();
+    }
+
+    let content: String = format!(
+        r#"<!DOCTYPE html>
+<html>
+<body>
+    <p>{clients_count} clients connected</p>
+    <button onclick="ws.send('foobar')">Send 'foobar'</button>
+</body>
+<script>
+    const ws = new WebSocket("{path_sock}");
+    ws.addEventListener("message", (message) => {{
+        console.log(message.data);
+    }});
+</script>
+</html>"#,
+        path_sock = ROUTE_CONFIG.route_path_sock
+    );
+
+    return axum::response::Html(content);
+}
+
+async fn handle_websocket_upgrade(
+    shared: axum::extract::State<std::sync::Arc<tokio::sync::Mutex<SharedState>>>,
+    axum::extract::ConnectInfo(addr): axum::extract::ConnectInfo<std::net::SocketAddr>,
+    ws: axum::extract::WebSocketUpgrade,
+) -> impl axum::response::IntoResponse {
+    {
+        let mut shared_locked: tokio::sync::MutexGuard<SharedState> = shared.lock().await;
+        shared_locked.clients.insert(addr, Client::new());
+    }
+    return ws.on_upgrade(move |sock| send_and_receive_messages(shared, addr, sock));
+}
+
+#[derive(Debug)]
+struct Client;
+
+impl Client {
+    pub fn new() -> Self {
+        return Self;
+    }
+}
+
+#[derive(Debug)]
+struct SharedState {
+    timestamp: Option<u64>,
+    clients: std::collections::HashMap<std::net::SocketAddr, Client>,
+}
+
+impl SharedState {
+    pub fn init() -> std::sync::Arc<tokio::sync::Mutex<Self>> {
+        return std::sync::Arc::new(tokio::sync::Mutex::new(Self {
+            timestamp: None,
+            clients: std::collections::HashMap::new(),
+        }));
+    }
+
+    pub fn serialize(&self) -> axum::extract::ws::Message {
+        return axum::extract::ws::Message::Text(axum::extract::ws::Utf8Bytes::from(format!(
+            "{self:?}"
+        )));
+    }
+}
+
+async fn send_and_receive_messages(
+    shared: axum::extract::State<std::sync::Arc<tokio::sync::Mutex<SharedState>>>,
+    addr: std::net::SocketAddr,
+    sock: axum::extract::ws::WebSocket,
+) {
+    let (mut sock_tx, mut sock_rx): (
+        futures::stream::SplitSink<axum::extract::ws::WebSocket, axum::extract::ws::Message>,
+        futures::stream::SplitStream<axum::extract::ws::WebSocket>,
+    ) = futures::StreamExt::split(sock);
+
+    let shared_rx: std::sync::Arc<tokio::sync::Mutex<SharedState>> = std::sync::Arc::clone(&shared);
+    let rx = tokio::spawn(async move {
+        loop {
+            let recv: Option<Result<axum::extract::ws::Message, axum::Error>> =
+                futures::StreamExt::next(&mut sock_rx).await;
+
+            match recv {
+                Some(Ok(axum::extract::ws::Message::Text(msg))) => {
+                    println!("{msg}");
+                }
+                _ => {
+                    break;
+                }
+            }
+        }
+    });
+
+    let shared_tx: std::sync::Arc<tokio::sync::Mutex<SharedState>> = std::sync::Arc::clone(&shared);
+    let tx = tokio::spawn(async move {
+        let mut interval: tokio::time::Interval =
+            tokio::time::interval(std::time::Duration::from_millis(300));
+        loop {
+            interval.tick().await;
+
+            let now: std::time::SystemTime = std::time::SystemTime::now();
+            let duration_since_epoch: std::time::Duration =
+                now.duration_since(std::time::UNIX_EPOCH).unwrap();
+            let timestamp: u64 = duration_since_epoch.as_secs();
+
+            {
+                let mut shared_locked: tokio::sync::MutexGuard<SharedState> =
+                    shared_tx.lock().await;
+                shared_locked.timestamp = Some(timestamp);
+
+                let send_result: Result<(), axum::Error> =
+                    futures::SinkExt::send(&mut sock_tx, shared_locked.serialize()).await;
+                if send_result.is_err() {
+                    break;
+                }
+            }
+        }
+    });
+
+    _ = rx.await;
+    _ = tx.await;
+
+    {
+        let mut shared_locked: tokio::sync::MutexGuard<SharedState> = shared.lock().await;
+        shared_locked.clients.remove(&addr);
+    }
 }
