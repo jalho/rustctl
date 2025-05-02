@@ -62,6 +62,32 @@ async fn webpage() -> axum::response::Html<String> {
     let content: String = format!(
         r#"<!DOCTYPE html>
 <html>
+<head>
+    <style>
+        html {{
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: sans-serif;
+        }}
+        body {{
+            margin: 2em;
+        }}
+        button {{
+            background-color: #1e1e1e;
+            color: #ffffff;
+            border: 1px solid #333;
+            padding: 0.5em 1em;
+            cursor: pointer;
+        }}
+        pre {{
+            background-color: #1e1e1e;
+            color: #c0c0c0;
+            padding: 1em;
+            border-radius: 0.5em;
+            overflow-x: auto;
+        }}
+    </style>
+</head>
 <body>
     <button onclick="ws.send('foobar')">Send 'foobar'</button>
     <pre><code id="output"></code></pre>
