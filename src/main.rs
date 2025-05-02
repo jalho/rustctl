@@ -4,7 +4,7 @@ fn main() {
     let app: axum::Router = axum::Router::new()
         .route("/", axum::routing::get(webpage))
         .route(
-            &ROUTE_CONFIG.route_path_sock,
+            ROUTE_CONFIG.route_path_sock,
             axum::routing::get(axum::routing::get(handle_websocket_upgrade)),
         )
         .fallback(axum::routing::get(no_content))
@@ -34,7 +34,7 @@ const ROUTE_CONFIG: RouteConfig = RouteConfig {
 };
 
 async fn no_content() -> axum::http::StatusCode {
-    return axum::http::StatusCode::NO_CONTENT;
+    axum::http::StatusCode::NO_CONTENT
 }
 
 async fn webpage(
@@ -63,7 +63,7 @@ async fn webpage(
         path_sock = ROUTE_CONFIG.route_path_sock
     );
 
-    return axum::response::Html(content);
+    axum::response::Html(content)
 }
 
 async fn handle_websocket_upgrade(
@@ -75,7 +75,7 @@ async fn handle_websocket_upgrade(
         let mut shared_locked: tokio::sync::MutexGuard<SharedState> = shared.lock().await;
         shared_locked.clients.insert(addr, Client::new());
     }
-    return ws.on_upgrade(move |sock| send_and_receive_messages(shared, addr, sock));
+    ws.on_upgrade(move |sock| send_and_receive_messages(shared, addr, sock))
 }
 
 #[derive(Debug)]
@@ -83,7 +83,7 @@ struct Client;
 
 impl Client {
     pub fn new() -> Self {
-        return Self;
+        Self
     }
 }
 
@@ -95,16 +95,16 @@ struct SharedState {
 
 impl SharedState {
     pub fn init() -> std::sync::Arc<tokio::sync::Mutex<Self>> {
-        return std::sync::Arc::new(tokio::sync::Mutex::new(Self {
+        std::sync::Arc::new(tokio::sync::Mutex::new(Self {
             timestamp: None,
             clients: std::collections::HashMap::new(),
-        }));
+        }))
     }
 
     pub fn serialize(&self) -> axum::extract::ws::Message {
-        return axum::extract::ws::Message::Text(axum::extract::ws::Utf8Bytes::from(format!(
+        axum::extract::ws::Message::Text(axum::extract::ws::Utf8Bytes::from(format!(
             "{self:?}"
-        )));
+        )))
     }
 }
 
