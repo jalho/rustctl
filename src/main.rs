@@ -1,5 +1,6 @@
 fn main() {
     let shared: std::sync::Arc<tokio::sync::Mutex<SharedState>> = SharedState::init();
+    let shared_sync_game = shared.clone();
 
     let app: axum::Router = axum::Router::new()
         .route("/", axum::routing::get(webpage))
@@ -16,6 +17,22 @@ fn main() {
         .unwrap();
 
     runtime.block_on(async {
+        let mut interval = tokio::time::interval(std::time::Duration::from_millis(300));
+        tokio::spawn(async move {
+            loop {
+                interval.tick().await;
+
+                // TODO: Query game state via RCON
+
+                {
+                    let mut shared = shared_sync_game.lock().await;
+                    shared.game = Some(GameState {
+                        game_world_time: 0.0,
+                    });
+                }
+            }
+        });
+
         let listener: tokio::net::TcpListener = tokio::net::TcpListener::bind("127.0.0.1:8080")
             .await
             .unwrap();
@@ -29,7 +46,6 @@ fn main() {
     });
 }
 
-#[derive(Debug)]
 struct RouteConfig {
     route_path_sock: &'static str,
 }
@@ -77,7 +93,7 @@ async fn handle_websocket_upgrade(
     ws.on_upgrade(move |sock| send_and_receive_messages(shared, addr, sock))
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(serde::Serialize)]
 struct Message {
     timestamp: u64,
     content: String,
@@ -89,7 +105,7 @@ impl Message {
     }
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(serde::Serialize)]
 struct Client {
     messages: std::collections::VecDeque<Message>,
 }
@@ -102,10 +118,16 @@ impl Client {
     }
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(serde::Serialize)]
+struct GameState {
+    game_world_time: f64,
+}
+
+#[derive(serde::Serialize)]
 struct SharedState {
     timestamp: Option<u64>,
     clients: std::collections::HashMap<std::net::SocketAddr, Client>,
+    game: Option<GameState>,
 }
 
 impl SharedState {
@@ -113,6 +135,7 @@ impl SharedState {
         std::sync::Arc::new(tokio::sync::Mutex::new(Self {
             timestamp: None,
             clients: std::collections::HashMap::new(),
+            game: None,
         }))
     }
 
