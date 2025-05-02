@@ -83,7 +83,7 @@ async fn handle_websocket_upgrade(
     ws.on_upgrade(move |sock| send_and_receive_messages(shared, addr, sock))
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 struct Message {
     timestamp: u64,
     content: String,
@@ -95,7 +95,7 @@ impl Message {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 struct Client {
     messages: std::collections::VecDeque<Message>,
 }
@@ -108,7 +108,7 @@ impl Client {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 struct SharedState {
     timestamp: Option<u64>,
     clients: std::collections::HashMap<std::net::SocketAddr, Client>,
@@ -123,7 +123,8 @@ impl SharedState {
     }
 
     pub fn serialize(&self) -> axum::extract::ws::Message {
-        axum::extract::ws::Message::Text(axum::extract::ws::Utf8Bytes::from(format!("{self:?}")))
+        let json: String = serde_json::to_string(&self).unwrap();
+        axum::extract::ws::Message::Text(axum::extract::ws::Utf8Bytes::from(json))
     }
 }
 

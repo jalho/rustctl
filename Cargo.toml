@@ -3,6 +3,13 @@ name = "rustctl"
 version = "0.1.0"
 edition = "2024"
 
+[dependencies.serde]
+version = "1.0.219"
+features = [ "derive" ]
+
+[dependencies.serde_json]
+version = "1.0.140"
+
 [dependencies.futures]
 version = "0.3.31"
 
