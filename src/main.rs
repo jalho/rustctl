@@ -1,12 +1,14 @@
 mod constants {
-    pub const WEB_SERVICE_LISTEN_ADDR: &str = "0.0.0.0:8080";
+    pub const ADDR_WEB_SERVICE_LISTEN: &str = "0.0.0.0:8080";
 
-    pub const GAME_STATE_FETCH_INTERVAL: std::time::Duration =
+    pub const INTERVAL_FETCH_GAME_STATE: std::time::Duration =
         std::time::Duration::from_millis(200);
 
-    pub const CLIENT_SYNC_INTERVAL: std::time::Duration = std::time::Duration::from_millis(200);
+    pub const INTERVAL_SYNC_CLIENT: std::time::Duration = std::time::Duration::from_millis(200);
 
-    pub const WEBSOCKET_CONNECT_URL_PATH: &str = "/sock";
+    pub const URL_PATH_WEBSOCKET_CONNECT: &str = "/sock";
+
+    pub const MESSAGES_PER_CLIENT_INMEM_MAX: usize = 16;
 }
 
 fn main() {
@@ -16,7 +18,7 @@ fn main() {
     let app: axum::Router = axum::Router::new()
         .route("/", axum::routing::get(webpage))
         .route(
-            crate::constants::WEBSOCKET_CONNECT_URL_PATH,
+            crate::constants::URL_PATH_WEBSOCKET_CONNECT,
             axum::routing::get(axum::routing::get(handle_websocket_upgrade)),
         )
         .fallback(axum::routing::get(no_content))
@@ -31,7 +33,7 @@ fn main() {
         tokio::spawn(sync_game_state(shared_w));
 
         let listener: tokio::net::TcpListener =
-            tokio::net::TcpListener::bind(crate::constants::WEB_SERVICE_LISTEN_ADDR)
+            tokio::net::TcpListener::bind(crate::constants::ADDR_WEB_SERVICE_LISTEN)
                 .await
                 .unwrap();
 
@@ -46,7 +48,7 @@ fn main() {
 
 async fn sync_game_state(shared: std::sync::Arc<tokio::sync::Mutex<SharedState>>) {
     let mut interval: tokio::time::Interval =
-        tokio::time::interval(crate::constants::GAME_STATE_FETCH_INTERVAL);
+        tokio::time::interval(crate::constants::INTERVAL_FETCH_GAME_STATE);
     loop {
         interval.tick().await;
 
@@ -106,7 +108,7 @@ async fn webpage() -> axum::response::Html<String> {
     }});
 </script>
 </html>"#,
-        path_sock = crate::constants::WEBSOCKET_CONNECT_URL_PATH
+        path_sock = crate::constants::URL_PATH_WEBSOCKET_CONNECT
     );
 
     axum::response::Html(content)
@@ -178,8 +180,6 @@ impl SharedState {
     }
 }
 
-const MAX_MESSAGES_PER_CLIENT: usize = 16;
-
 async fn send_and_receive_messages(
     shared: axum::extract::State<std::sync::Arc<tokio::sync::Mutex<SharedState>>>,
     addr: std::net::SocketAddr,
@@ -201,7 +201,9 @@ async fn send_and_receive_messages(
                     let mut shared = shared_rx.lock().await;
                     match shared.clients.get_mut(&addr) {
                         Some(initalized) => {
-                            if initalized.messages.len() >= MAX_MESSAGES_PER_CLIENT {
+                            if initalized.messages.len()
+                                >= crate::constants::MESSAGES_PER_CLIENT_INMEM_MAX
+                            {
                                 initalized.messages.pop_front();
                             }
                             initalized
@@ -227,7 +229,7 @@ async fn send_and_receive_messages(
     let shared_tx: std::sync::Arc<tokio::sync::Mutex<SharedState>> = std::sync::Arc::clone(&shared);
     let tx = tokio::spawn(async move {
         let mut interval: tokio::time::Interval =
-            tokio::time::interval(crate::constants::CLIENT_SYNC_INTERVAL);
+            tokio::time::interval(crate::constants::INTERVAL_SYNC_CLIENT);
         loop {
             interval.tick().await;
 
