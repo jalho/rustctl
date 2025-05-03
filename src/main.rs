@@ -1,6 +1,8 @@
 mod constants {
     pub const ADDR_WEB_SERVICE_LISTEN: &str = "0.0.0.0:8080";
 
+    pub const INTERVAL_MONITOR_SYSTEM: std::time::Duration = std::time::Duration::from_millis(500);
+
     pub const INTERVAL_FETCH_GAME_STATE: std::time::Duration =
         std::time::Duration::from_millis(200);
 
@@ -12,8 +14,9 @@ mod constants {
 }
 
 fn main() {
-    let shared_rw: std::sync::Arc<tokio::sync::Mutex<SharedState>> = SharedState::init();
-    let shared_w = shared_rw.clone();
+    let state: std::sync::Arc<tokio::sync::Mutex<SharedState>> = SharedState::init();
+    let state_game = state.clone();
+    let state_system = state.clone();
 
     let app: axum::Router = axum::Router::new()
         .route("/", axum::routing::get(webpage))
@@ -22,7 +25,7 @@ fn main() {
             axum::routing::get(axum::routing::get(handle_websocket_upgrade)),
         )
         .fallback(axum::routing::get(no_content))
-        .with_state(shared_rw);
+        .with_state(state);
 
     let runtime: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -30,7 +33,8 @@ fn main() {
         .unwrap();
 
     runtime.block_on(async {
-        tokio::spawn(sync_game_state(shared_w));
+        tokio::spawn(monitor_system(state_system));
+        tokio::spawn(sync_game_state(state_game));
 
         let listener: tokio::net::TcpListener =
             tokio::net::TcpListener::bind(crate::constants::ADDR_WEB_SERVICE_LISTEN)
@@ -46,17 +50,34 @@ fn main() {
     });
 }
 
+async fn monitor_system(shared: std::sync::Arc<tokio::sync::Mutex<SharedState>>) {
+    let mut interval: tokio::time::Interval =
+        tokio::time::interval(crate::constants::INTERVAL_MONITOR_SYSTEM);
+    loop {
+        interval.tick().await;
+
+        // TODO: Read system CPU, network, memory usage etc.
+
+        let usage = SystemState::read();
+
+        {
+            let mut shared = shared.lock().await;
+            shared.system = usage;
+        }
+    }
+}
+
 async fn sync_game_state(shared: std::sync::Arc<tokio::sync::Mutex<SharedState>>) {
     let mut interval: tokio::time::Interval =
         tokio::time::interval(crate::constants::INTERVAL_FETCH_GAME_STATE);
     loop {
         interval.tick().await;
 
-        // TODO: Query game state via RCON
+        let state = GameState::read();
 
         {
             let mut shared = shared.lock().await;
-            shared.game = Some(GameState { time_of_day: 0.0 });
+            shared.game = state;
         }
     }
 }
@@ -158,19 +179,48 @@ struct GameState {
     time_of_day: f64,
 }
 
+impl GameState {
+    pub fn read() -> Self {
+        // TODO: Query game state via RCON
+        Self { time_of_day: 0.0 }
+    }
+}
+
+#[derive(serde::Serialize)]
+struct ResourceUsage {
+    process_id: (),
+    cpu: (),
+    memory: (),
+}
+
+#[derive(serde::Serialize)]
+struct SystemState {
+    game_server: Option<ResourceUsage>,
+    game_server_installer: Option<ResourceUsage>,
+}
+
+impl SystemState {
+    pub fn read() -> Self {
+        Self {
+            game_server: None,
+            game_server_installer: None,
+        }
+    }
+}
+
 #[derive(serde::Serialize)]
 struct SharedState {
-    timestamp: Option<u64>,
     clients: std::collections::HashMap<std::net::SocketAddr, Client>,
-    game: Option<GameState>,
+    game: GameState,
+    system: SystemState,
 }
 
 impl SharedState {
     pub fn init() -> std::sync::Arc<tokio::sync::Mutex<Self>> {
         std::sync::Arc::new(tokio::sync::Mutex::new(Self {
-            timestamp: None,
             clients: std::collections::HashMap::new(),
-            game: None,
+            game: GameState::read(),
+            system: SystemState::read(),
         }))
     }
 
@@ -234,9 +284,7 @@ async fn send_and_receive_messages(
             interval.tick().await;
 
             {
-                let mut shared_locked: tokio::sync::MutexGuard<SharedState> =
-                    shared_tx.lock().await;
-                shared_locked.timestamp = Some(now());
+                let shared_locked: tokio::sync::MutexGuard<SharedState> = shared_tx.lock().await;
 
                 let send_result: Result<(), axum::Error> =
                     futures::SinkExt::send(&mut sock_tx, shared_locked.serialize()).await;
