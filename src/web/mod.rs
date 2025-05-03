@@ -246,7 +246,7 @@ pub async fn content_main() -> Html<String> {
     ws = new WebSocket("{path_websocket_connect}");
 
     ws.onmessage = function (event) {{
-      // Future message handling
+      console.log(JSON.parse(event.data));
     }};
   }}
 

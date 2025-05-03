@@ -30,28 +30,62 @@ pub struct GameState {
 impl GameState {
     pub fn read() -> Self {
         // TODO: Query game state via RCON
+        let mut players = HashMap::new();
+        let dummy_player = Player::dummy();
+        players.insert(dummy_player.id.to_owned(), dummy_player);
         Self {
             time_of_day: 0.0,
-            players: HashMap::new(),
+            players,
             toolcupboards: HashMap::new(),
         }
     }
 }
 
-#[derive(serde::Serialize)]
-struct Identifier;
+#[derive(serde::Serialize, Eq, PartialEq, Hash, Clone)]
+struct Identifier(String);
 
 #[derive(serde::Serialize)]
-struct Location;
+struct Coordinates {
+    x: f64,
+    y: f64,
+    z: f64,
+}
 
 #[derive(serde::Serialize)]
 struct Toolcupboard {
     id: Identifier,
-    location: Location,
+    coordinates: Coordinates,
+}
+
+/// ISO 3166-1 alpha-3
+#[derive(serde::Serialize)]
+enum CountryCodeIso3166_1Alpha3 {
+    FIN,
 }
 
 #[derive(serde::Serialize)]
 struct Player {
     id: Identifier,
-    location: Location,
+    coordinates: Coordinates,
+    display_name: String,
+    country: CountryCodeIso3166_1Alpha3,
+}
+
+trait Dummy {
+    fn dummy() -> Self;
+}
+
+impl Dummy for Player {
+    fn dummy() -> Self {
+        Self {
+            id: Identifier("00000000000000000".into()),
+            coordinates: Coordinates {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            display_name: "player123".into(),
+            country: CountryCodeIso3166_1Alpha3::FIN,
+        }
+    }
 }
