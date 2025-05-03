@@ -33,9 +33,8 @@ fn main() {
             }
         });
 
-        let listener: tokio::net::TcpListener = tokio::net::TcpListener::bind("127.0.0.1:8080")
-            .await
-            .unwrap();
+        let listener: tokio::net::TcpListener =
+            tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
 
         axum::serve(
             listener,
