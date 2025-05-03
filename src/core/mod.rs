@@ -116,7 +116,7 @@ impl SharedState {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Hash, Eq, PartialEq, Debug)]
-#[serde(tag = "type", content = "payload")]
+#[serde(tag = "_type", content = "payload")]
 pub enum Command {
     InstallOrUpdateAndStart,
     Stop,
