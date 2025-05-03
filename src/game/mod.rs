@@ -1,5 +1,5 @@
 use crate::{constants::INTERVAL_FETCH_GAME_STATE, core::SharedState};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
 pub async fn read_state(shared: Arc<Mutex<SharedState>>) {
@@ -22,9 +22,9 @@ pub struct GameState {
     /// Time of day in the game world.
     time_of_day: f64,
 
-    players: std::collections::HashMap<Identifier, Player>,
+    players: HashMap<Identifier, Player>,
 
-    toolcupboards: std::collections::HashMap<Identifier, Toolcupboard>,
+    toolcupboards: HashMap<Identifier, Toolcupboard>,
 }
 
 impl GameState {
@@ -32,8 +32,8 @@ impl GameState {
         // TODO: Query game state via RCON
         Self {
             time_of_day: 0.0,
-            players: std::collections::HashMap::new(),
-            toolcupboards: std::collections::HashMap::new(),
+            players: HashMap::new(),
+            toolcupboards: HashMap::new(),
         }
     }
 }

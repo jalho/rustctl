@@ -4,7 +4,7 @@ use crate::{
 };
 use axum::{Router, http::StatusCode, response::Html, routing};
 use std::{net::SocketAddr, sync::Arc};
-use tokio::sync::Mutex;
+use tokio::{net::TcpListener, sync::Mutex};
 
 pub async fn start(shared: Arc<Mutex<SharedState>>) {
     let web_service = Router::new()
@@ -16,9 +16,7 @@ pub async fn start(shared: Arc<Mutex<SharedState>>) {
         .fallback(routing::get(no_content))
         .with_state(shared);
 
-    let listener = tokio::net::TcpListener::bind(ADDR_WEB_SERVICE_LISTEN)
-        .await
-        .unwrap();
+    let listener = TcpListener::bind(ADDR_WEB_SERVICE_LISTEN).await.unwrap();
 
     axum::serve(
         listener,
