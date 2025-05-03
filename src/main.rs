@@ -177,13 +177,39 @@ impl Client {
 struct GameState {
     /// Time of day in the game world.
     time_of_day: f64,
+
+    players: std::collections::HashMap<Identifier, Player>,
+
+    toolcupboards: std::collections::HashMap<Identifier, Toolcupboard>,
 }
 
 impl GameState {
     pub fn read() -> Self {
         // TODO: Query game state via RCON
-        Self { time_of_day: 0.0 }
+        Self {
+            time_of_day: 0.0,
+            players: std::collections::HashMap::new(),
+            toolcupboards: std::collections::HashMap::new(),
+        }
     }
+}
+
+#[derive(serde::Serialize)]
+struct Identifier;
+
+#[derive(serde::Serialize)]
+struct Location;
+
+#[derive(serde::Serialize)]
+struct Toolcupboard {
+    id: Identifier,
+    location: Location,
+}
+
+#[derive(serde::Serialize)]
+struct Player {
+    id: Identifier,
+    location: Location,
 }
 
 #[derive(serde::Serialize)]
