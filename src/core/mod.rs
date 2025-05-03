@@ -44,22 +44,29 @@ async fn send_and_receive_messages(
 
             match recv {
                 Some(Ok(Message::Text(msg))) => {
-                    let mut shared = shared_rx.lock().await;
-                    match shared.clients.get_mut(&addr) {
-                        Some(initalized) => {
-                            if initalized.messages.len() >= MESSAGES_PER_CLIENT_INMEM_MAX {
-                                initalized.messages.pop_front();
+                    let command = Command::new(&msg.to_string());
+
+                    // store command in short log in-mem
+                    {
+                        let command = command.clone();
+                        let mut shared = shared_rx.lock().await;
+                        match shared.clients.get_mut(&addr) {
+                            Some(initalized) => {
+                                if initalized.commands.len() >= MESSAGES_PER_CLIENT_INMEM_MAX {
+                                    initalized.commands.pop_front();
+                                }
+                                initalized.commands.push_back(command);
                             }
-                            initalized
-                                .messages
-                                .push_back(Command::new(&msg.to_string()));
-                        }
-                        None => {
-                            let mut client = Client::new();
-                            client.messages.push_front(Command::new(&msg.to_string()));
-                            shared.clients.insert(addr, client);
+                            None => {
+                                let mut client = Client::new();
+                                client.commands.push_front(command);
+                                shared.clients.insert(addr, client);
+                            }
                         }
                     }
+
+                    // TODO: Do a state transition based on the received command
+                    println!("TODO: Transition state: {command:?}");
                 }
                 _ => {
                     break;
@@ -115,7 +122,7 @@ impl SharedState {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Hash, Eq, PartialEq, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Hash, Eq, PartialEq, Debug, Clone)]
 #[serde(tag = "_type", content = "payload")]
 pub enum Command {
     InstallOrUpdateAndStart,
@@ -130,13 +137,13 @@ impl Command {
 
 #[derive(serde::Serialize)]
 pub struct Client {
-    messages: VecDeque<Command>,
+    commands: VecDeque<Command>,
 }
 
 impl Client {
     pub fn new() -> Self {
         Self {
-            messages: VecDeque::new(),
+            commands: VecDeque::new(),
         }
     }
 }
