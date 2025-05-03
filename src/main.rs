@@ -26,9 +26,7 @@ fn main() {
 
                 {
                     let mut shared = shared_sync_game.lock().await;
-                    shared.game = Some(GameState {
-                        game_world_time: 0.0,
-                    });
+                    shared.game = Some(GameState { time_of_day: 0.0 });
                 }
             }
         });
@@ -143,9 +141,11 @@ impl Client {
     }
 }
 
+/// State of the game (obtained via RCON).
 #[derive(serde::Serialize)]
 struct GameState {
-    game_world_time: f64,
+    /// Time of day in the game world.
+    time_of_day: f64,
 }
 
 #[derive(serde::Serialize)]
