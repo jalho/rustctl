@@ -40,8 +40,8 @@
 
         <h2>Dashboard</h2>
         <div class="button-grid">
-          <button class="command-button" onclick="sendCommand('command_foo')">Command Foo</button>
-          <button class="command-button" onclick="sendCommand('command_bar')">Command Bar</button>
+          <button class="command-button" data-command="Stop" onclick="sendCommand('Stop')" disabled>Stop</button>
+          <button class="command-button" data-command="InstallOrUpdateAndStart" onclick="sendCommand('InstallOrUpdateAndStart')" disabled>Install / Update and Start</button>
         </div>
 
         <h2>System Resource Monitor</h2>
@@ -54,3 +54,4 @@
     <script src="/script.js"></script>
   </body>
 </html>
+

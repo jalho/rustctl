@@ -74,6 +74,11 @@ h2 {
   background-color: var(--button-hover);
 }
 
+.command-button:disabled {
+  background-color: #4e5a62;
+  cursor: not-allowed;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -134,3 +139,4 @@ td img {
 .steam-id {
   color: var(--muted);
 }
+

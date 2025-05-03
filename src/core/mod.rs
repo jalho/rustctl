@@ -15,7 +15,6 @@ use std::{
     collections::{HashMap, VecDeque},
     net::SocketAddr,
     sync::Arc,
-    time::SystemTime,
 };
 use tokio::sync::{Mutex, MutexGuard};
 
@@ -53,13 +52,11 @@ async fn send_and_receive_messages(
                             }
                             initalized
                                 .messages
-                                .push_back(Command::new(now(), msg.to_string()));
+                                .push_back(Command::new(&msg.to_string()));
                         }
                         None => {
                             let mut client = Client::new();
-                            client
-                                .messages
-                                .push_front(Command::new(now(), msg.to_string()));
+                            client.messages.push_front(Command::new(&msg.to_string()));
                             shared.clients.insert(addr, client);
                         }
                     }
@@ -118,15 +115,16 @@ impl SharedState {
     }
 }
 
-#[derive(serde::Serialize)]
-struct Command {
-    timestamp: u64,
-    content: String,
+#[derive(serde::Serialize, serde::Deserialize, Hash, Eq, PartialEq, Debug)]
+#[serde(tag = "type", content = "payload")]
+pub enum Command {
+    InstallOrUpdateAndStart,
+    Stop,
 }
 
 impl Command {
-    pub fn new(timestamp: u64, content: String) -> Self {
-        Self { timestamp, content }
+    pub fn new(serialized: &str) -> Self {
+        serde_json::from_str(serialized).unwrap()
     }
 }
 
@@ -141,11 +139,4 @@ impl Client {
             messages: VecDeque::new(),
         }
     }
-}
-
-fn now() -> u64 {
-    let now = SystemTime::now();
-    let dur: std::time::Duration = now.duration_since(std::time::UNIX_EPOCH).unwrap();
-    let timestamp: u64 = dur.as_secs();
-    timestamp
 }

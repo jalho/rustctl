@@ -1,5 +1,11 @@
-use crate::{constants::INTERVAL_FETCH_GAME_STATE, core::SharedState};
-use std::{collections::HashMap, sync::Arc};
+use crate::{
+    constants::INTERVAL_FETCH_GAME_STATE,
+    core::{Command, SharedState},
+};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use tokio::sync::Mutex;
 
 pub async fn read_state(shared: Arc<Mutex<SharedState>>) {
@@ -16,15 +22,27 @@ pub async fn read_state(shared: Arc<Mutex<SharedState>>) {
     }
 }
 
-/// State of the game (obtained via RCON).
 #[derive(serde::Serialize)]
-pub struct GameState {
-    /// Time of day in the game world.
-    time_of_day: f64,
+#[serde(tag = "_type", content = "data")]
+pub enum GameState {
+    Installing {
+        commands_available: HashSet<Command>,
+    },
 
-    players: HashMap<Identifier, Player>,
+    StartupInProgress {
+        commands_available: HashSet<Command>,
+    },
 
-    toolcupboards: HashMap<Identifier, Toolcupboard>,
+    Running {
+        commands_available: HashSet<Command>,
+
+        /// Time of day in the game world.
+        time_of_day: f64,
+
+        players: HashMap<Identifier, Player>,
+
+        toolcupboards: HashMap<Identifier, Toolcupboard>,
+    },
 }
 
 impl GameState {
@@ -33,16 +51,21 @@ impl GameState {
         let mut players = HashMap::new();
         let dummy_player = Player::dummy();
         players.insert(dummy_player.id.to_owned(), dummy_player);
-        Self {
+
+        let mut commands_available = HashSet::new();
+        commands_available.insert(Command::Stop);
+
+        Self::Running {
             time_of_day: 0.0,
             players,
             toolcupboards: HashMap::new(),
+            commands_available,
         }
     }
 }
 
 #[derive(serde::Serialize, Eq, PartialEq, Hash, Clone)]
-struct Identifier(String);
+pub struct Identifier(String);
 
 #[derive(serde::Serialize)]
 struct Coordinates {
@@ -52,7 +75,7 @@ struct Coordinates {
 }
 
 #[derive(serde::Serialize)]
-struct Toolcupboard {
+pub struct Toolcupboard {
     id: Identifier,
     coordinates: Coordinates,
 }
@@ -64,7 +87,7 @@ enum CountryCodeIso3166_1Alpha3 {
 }
 
 #[derive(serde::Serialize)]
-struct Player {
+pub struct Player {
     id: Identifier,
     coordinates: Coordinates,
     display_name: String,
