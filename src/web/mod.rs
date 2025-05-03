@@ -61,7 +61,7 @@ async fn content_main() -> Html<String> {
     </style>
 </head>
 <body>
-    <button onclick="ws.send('foobar')">Send 'foobar'</button>
+    <button onclick="ws.send('some command')">Send some command</button>
     <pre><code id="output"></code></pre>
 </body>
 <script>
