@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>rustctl</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+
+  <body>
+    <header>
+      rustctl
+    </header>
+
+    <main>
+      <div class="panel">
+        <h2>Player Statistics</h2>
+        <div class="placeholder">
+          Player stats and recent event feed placeholder
+        </div>
+
+        <h2>Real-Time World Map</h2>
+        <div class="placeholder">
+          Real-time map rendering placeholder
+        </div>
+
+        <h2>Players Online</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Player Name</th>
+              <th>Country</th>
+              <th>Steam ID</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Populated dynamically -->
+          </tbody>
+        </table>
+
+        <h2>Dashboard</h2>
+        <div class="button-grid">
+          <button class="command-button" onclick="sendCommand('command_foo')">Command Foo</button>
+          <button class="command-button" onclick="sendCommand('command_bar')">Command Bar</button>
+        </div>
+
+        <h2>System Resource Monitor</h2>
+        <div class="placeholder">
+          CPU / Memory / I/O usage graphs placeholder
+        </div>
+      </div>
+    </main>
+
+    <script src="/script.js"></script>
+  </body>
+</html>
