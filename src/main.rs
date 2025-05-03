@@ -1,94 +1,319 @@
+use core::SharedState;
+use std::sync::Arc;
+use tokio::{runtime, sync::Mutex};
+
+mod game {
+    use crate::{constants::INTERVAL_FETCH_GAME_STATE, core::SharedState};
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+
+    pub async fn read_state(shared: Arc<Mutex<SharedState>>) {
+        let mut interval = tokio::time::interval(INTERVAL_FETCH_GAME_STATE);
+        loop {
+            interval.tick().await;
+
+            let state = GameState::read();
+
+            {
+                let mut shared = shared.lock().await;
+                shared.game = state;
+            }
+        }
+    }
+
+    /// State of the game (obtained via RCON).
+    #[derive(serde::Serialize)]
+    pub struct GameState {
+        /// Time of day in the game world.
+        time_of_day: f64,
+
+        players: std::collections::HashMap<Identifier, Player>,
+
+        toolcupboards: std::collections::HashMap<Identifier, Toolcupboard>,
+    }
+
+    impl GameState {
+        pub fn read() -> Self {
+            // TODO: Query game state via RCON
+            Self {
+                time_of_day: 0.0,
+                players: std::collections::HashMap::new(),
+                toolcupboards: std::collections::HashMap::new(),
+            }
+        }
+    }
+
+    #[derive(serde::Serialize)]
+    struct Identifier;
+
+    #[derive(serde::Serialize)]
+    struct Location;
+
+    #[derive(serde::Serialize)]
+    struct Toolcupboard {
+        id: Identifier,
+        location: Location,
+    }
+
+    #[derive(serde::Serialize)]
+    struct Player {
+        id: Identifier,
+        location: Location,
+    }
+}
+
 mod constants {
+    use std::time::Duration;
+
     pub const ADDR_WEB_SERVICE_LISTEN: &str = "0.0.0.0:8080";
 
-    pub const INTERVAL_MONITOR_SYSTEM: std::time::Duration = std::time::Duration::from_millis(500);
+    pub const INTERVAL_MONITOR_SYSTEM: Duration = Duration::from_millis(500);
 
-    pub const INTERVAL_FETCH_GAME_STATE: std::time::Duration =
-        std::time::Duration::from_millis(200);
+    pub const INTERVAL_FETCH_GAME_STATE: Duration = Duration::from_millis(200);
 
-    pub const INTERVAL_SYNC_CLIENT: std::time::Duration = std::time::Duration::from_millis(200);
+    pub const INTERVAL_SYNC_CLIENT: Duration = Duration::from_millis(200);
 
     pub const URL_PATH_WEBSOCKET_CONNECT: &str = "/sock";
 
     pub const MESSAGES_PER_CLIENT_INMEM_MAX: usize = 16;
 }
 
-fn main() {
-    let state: std::sync::Arc<tokio::sync::Mutex<SharedState>> = SharedState::init();
-    let state_game = state.clone();
-    let state_system = state.clone();
+mod core {
+    use crate::{
+        constants::{INTERVAL_SYNC_CLIENT, MESSAGES_PER_CLIENT_INMEM_MAX},
+        game::GameState,
+        system::SystemState,
+    };
+    use axum::{
+        extract::{
+            ConnectInfo, State, WebSocketUpgrade,
+            ws::{Message, Utf8Bytes, WebSocket},
+        },
+        response::IntoResponse,
+    };
+    use futures::{SinkExt, StreamExt};
+    use std::{
+        collections::{HashMap, VecDeque},
+        net::SocketAddr,
+        sync::Arc,
+        time::SystemTime,
+    };
+    use tokio::sync::{Mutex, MutexGuard};
 
-    let app: axum::Router = axum::Router::new()
-        .route("/", axum::routing::get(webpage))
-        .route(
-            crate::constants::URL_PATH_WEBSOCKET_CONNECT,
-            axum::routing::get(axum::routing::get(handle_websocket_upgrade)),
-        )
-        .fallback(axum::routing::get(no_content))
-        .with_state(state);
+    pub async fn handle_websocket_upgrade(
+        shared: State<Arc<Mutex<SharedState>>>,
+        ConnectInfo(addr): ConnectInfo<SocketAddr>,
+        ws: WebSocketUpgrade,
+    ) -> impl IntoResponse {
+        {
+            let mut shared_locked: MutexGuard<SharedState> = shared.lock().await;
+            shared_locked.clients.insert(addr, Client::new());
+        }
+        ws.on_upgrade(move |sock| send_and_receive_messages(shared, addr, sock))
+    }
 
-    let runtime: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
+    async fn send_and_receive_messages(
+        shared: State<Arc<Mutex<SharedState>>>,
+        addr: SocketAddr,
+        sock: WebSocket,
+    ) {
+        let (mut sock_tx, mut sock_rx) = StreamExt::split(sock);
 
-    runtime.block_on(async {
-        tokio::spawn(monitor_system(state_system));
-        tokio::spawn(sync_game_state(state_game));
+        let shared_rx: Arc<Mutex<SharedState>> = Arc::clone(&shared);
+        let rx = tokio::spawn(async move {
+            loop {
+                let recv = StreamExt::next(&mut sock_rx).await;
 
-        let listener: tokio::net::TcpListener =
-            tokio::net::TcpListener::bind(crate::constants::ADDR_WEB_SERVICE_LISTEN)
-                .await
-                .unwrap();
+                match recv {
+                    Some(Ok(Message::Text(msg))) => {
+                        let mut shared = shared_rx.lock().await;
+                        match shared.clients.get_mut(&addr) {
+                            Some(initalized) => {
+                                if initalized.messages.len() >= MESSAGES_PER_CLIENT_INMEM_MAX {
+                                    initalized.messages.pop_front();
+                                }
+                                initalized
+                                    .messages
+                                    .push_back(Command::new(now(), msg.to_string()));
+                            }
+                            None => {
+                                let mut client = Client::new();
+                                client
+                                    .messages
+                                    .push_front(Command::new(now(), msg.to_string()));
+                                shared.clients.insert(addr, client);
+                            }
+                        }
+                    }
+                    _ => {
+                        break;
+                    }
+                }
+            }
+        });
+
+        let shared_tx: Arc<Mutex<SharedState>> = Arc::clone(&shared);
+        let tx = tokio::spawn(async move {
+            let mut interval = tokio::time::interval(INTERVAL_SYNC_CLIENT);
+            loop {
+                interval.tick().await;
+
+                {
+                    let shared_locked: MutexGuard<SharedState> = shared_tx.lock().await;
+                    let sent = SinkExt::send(&mut sock_tx, shared_locked.serialize()).await;
+                    if sent.is_err() {
+                        break;
+                    }
+                }
+            }
+        });
+
+        _ = rx.await;
+        _ = tx.await;
+
+        {
+            let mut shared = shared.lock().await;
+            shared.clients.remove(&addr);
+        }
+    }
+
+    #[derive(serde::Serialize)]
+    pub struct SharedState {
+        pub clients: HashMap<SocketAddr, Client>,
+        pub game: GameState,
+        pub system: SystemState,
+    }
+
+    impl SharedState {
+        pub fn init() -> Arc<Mutex<Self>> {
+            Arc::new(Mutex::new(Self {
+                clients: HashMap::new(),
+                game: GameState::read(),
+                system: SystemState::read(),
+            }))
+        }
+
+        pub fn serialize(&self) -> Message {
+            let json: String = serde_json::to_string(&self).unwrap();
+            Message::Text(Utf8Bytes::from(json))
+        }
+    }
+
+    #[derive(serde::Serialize)]
+    struct Command {
+        timestamp: u64,
+        content: String,
+    }
+
+    impl Command {
+        pub fn new(timestamp: u64, content: String) -> Self {
+            Self { timestamp, content }
+        }
+    }
+
+    #[derive(serde::Serialize)]
+    pub struct Client {
+        messages: VecDeque<Command>,
+    }
+
+    impl Client {
+        pub fn new() -> Self {
+            Self {
+                messages: VecDeque::new(),
+            }
+        }
+    }
+
+    fn now() -> u64 {
+        let now = SystemTime::now();
+        let dur: std::time::Duration = now.duration_since(std::time::UNIX_EPOCH).unwrap();
+        let timestamp: u64 = dur.as_secs();
+        timestamp
+    }
+}
+
+mod system {
+    use crate::{constants::INTERVAL_MONITOR_SYSTEM, core::SharedState};
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+
+    #[derive(serde::Serialize)]
+    struct ResourceUsage {
+        process_id: (),
+        cpu: (),
+        memory: (),
+    }
+
+    #[derive(serde::Serialize)]
+    pub struct SystemState {
+        game_server: Option<ResourceUsage>,
+        game_server_installer: Option<ResourceUsage>,
+    }
+
+    impl SystemState {
+        pub fn read() -> Self {
+            Self {
+                game_server: None,
+                game_server_installer: None,
+            }
+        }
+    }
+
+    pub async fn monitor_usage(shared: Arc<Mutex<SharedState>>) {
+        let mut interval = tokio::time::interval(INTERVAL_MONITOR_SYSTEM);
+        loop {
+            interval.tick().await;
+
+            // TODO: Read system CPU, network, memory usage etc.
+
+            let usage = SystemState::read();
+
+            {
+                let mut shared = shared.lock().await;
+                shared.system = usage;
+            }
+        }
+    }
+}
+
+mod web {
+    use crate::{
+        constants::{ADDR_WEB_SERVICE_LISTEN, URL_PATH_WEBSOCKET_CONNECT},
+        core::{SharedState, handle_websocket_upgrade},
+    };
+    use axum::{Router, http::StatusCode, response::Html, routing};
+    use std::{net::SocketAddr, sync::Arc};
+    use tokio::sync::Mutex;
+
+    pub async fn start(shared: Arc<Mutex<SharedState>>) {
+        let web_service = Router::new()
+            .route("/", routing::get(content_main))
+            .route(
+                URL_PATH_WEBSOCKET_CONNECT,
+                routing::get(routing::get(handle_websocket_upgrade)),
+            )
+            .fallback(routing::get(no_content))
+            .with_state(shared);
+
+        let listener = tokio::net::TcpListener::bind(ADDR_WEB_SERVICE_LISTEN)
+            .await
+            .unwrap();
 
         axum::serve(
             listener,
-            app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+            web_service.into_make_service_with_connect_info::<SocketAddr>(),
         )
         .await
         .unwrap();
-    });
-}
-
-async fn monitor_system(shared: std::sync::Arc<tokio::sync::Mutex<SharedState>>) {
-    let mut interval: tokio::time::Interval =
-        tokio::time::interval(crate::constants::INTERVAL_MONITOR_SYSTEM);
-    loop {
-        interval.tick().await;
-
-        // TODO: Read system CPU, network, memory usage etc.
-
-        let usage = SystemState::read();
-
-        {
-            let mut shared = shared.lock().await;
-            shared.system = usage;
-        }
     }
-}
 
-async fn sync_game_state(shared: std::sync::Arc<tokio::sync::Mutex<SharedState>>) {
-    let mut interval: tokio::time::Interval =
-        tokio::time::interval(crate::constants::INTERVAL_FETCH_GAME_STATE);
-    loop {
-        interval.tick().await;
-
-        let state = GameState::read();
-
-        {
-            let mut shared = shared.lock().await;
-            shared.game = state;
-        }
+    async fn no_content() -> StatusCode {
+        StatusCode::NO_CONTENT
     }
-}
 
-async fn no_content() -> axum::http::StatusCode {
-    axum::http::StatusCode::NO_CONTENT
-}
-
-async fn webpage() -> axum::response::Html<String> {
-    let content: String = format!(
-        r#"<!DOCTYPE html>
+    async fn content_main() -> Html<String> {
+        let content: String = format!(
+            r#"<!DOCTYPE html>
 <html>
 <head>
     <style>
@@ -129,211 +354,24 @@ async fn webpage() -> axum::response::Html<String> {
     }});
 </script>
 </html>"#,
-        path_sock = crate::constants::URL_PATH_WEBSOCKET_CONNECT
-    );
+            path_sock = URL_PATH_WEBSOCKET_CONNECT
+        );
 
-    axum::response::Html(content)
-}
-
-async fn handle_websocket_upgrade(
-    shared: axum::extract::State<std::sync::Arc<tokio::sync::Mutex<SharedState>>>,
-    axum::extract::ConnectInfo(addr): axum::extract::ConnectInfo<std::net::SocketAddr>,
-    ws: axum::extract::WebSocketUpgrade,
-) -> impl axum::response::IntoResponse {
-    {
-        let mut shared_locked: tokio::sync::MutexGuard<SharedState> = shared.lock().await;
-        shared_locked.clients.insert(addr, Client::new());
-    }
-    ws.on_upgrade(move |sock| send_and_receive_messages(shared, addr, sock))
-}
-
-#[derive(serde::Serialize)]
-struct Message {
-    timestamp: u64,
-    content: String,
-}
-
-impl Message {
-    pub fn new(timestamp: u64, content: String) -> Self {
-        Self { timestamp, content }
+        Html(content)
     }
 }
 
-#[derive(serde::Serialize)]
-struct Client {
-    messages: std::collections::VecDeque<Message>,
-}
+fn main() {
+    let state: Arc<Mutex<SharedState>> = SharedState::init();
 
-impl Client {
-    pub fn new() -> Self {
-        Self {
-            messages: std::collections::VecDeque::new(),
-        }
-    }
-}
+    let runtime = runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
 
-/// State of the game (obtained via RCON).
-#[derive(serde::Serialize)]
-struct GameState {
-    /// Time of day in the game world.
-    time_of_day: f64,
-
-    players: std::collections::HashMap<Identifier, Player>,
-
-    toolcupboards: std::collections::HashMap<Identifier, Toolcupboard>,
-}
-
-impl GameState {
-    pub fn read() -> Self {
-        // TODO: Query game state via RCON
-        Self {
-            time_of_day: 0.0,
-            players: std::collections::HashMap::new(),
-            toolcupboards: std::collections::HashMap::new(),
-        }
-    }
-}
-
-#[derive(serde::Serialize)]
-struct Identifier;
-
-#[derive(serde::Serialize)]
-struct Location;
-
-#[derive(serde::Serialize)]
-struct Toolcupboard {
-    id: Identifier,
-    location: Location,
-}
-
-#[derive(serde::Serialize)]
-struct Player {
-    id: Identifier,
-    location: Location,
-}
-
-#[derive(serde::Serialize)]
-struct ResourceUsage {
-    process_id: (),
-    cpu: (),
-    memory: (),
-}
-
-#[derive(serde::Serialize)]
-struct SystemState {
-    game_server: Option<ResourceUsage>,
-    game_server_installer: Option<ResourceUsage>,
-}
-
-impl SystemState {
-    pub fn read() -> Self {
-        Self {
-            game_server: None,
-            game_server_installer: None,
-        }
-    }
-}
-
-#[derive(serde::Serialize)]
-struct SharedState {
-    clients: std::collections::HashMap<std::net::SocketAddr, Client>,
-    game: GameState,
-    system: SystemState,
-}
-
-impl SharedState {
-    pub fn init() -> std::sync::Arc<tokio::sync::Mutex<Self>> {
-        std::sync::Arc::new(tokio::sync::Mutex::new(Self {
-            clients: std::collections::HashMap::new(),
-            game: GameState::read(),
-            system: SystemState::read(),
-        }))
-    }
-
-    pub fn serialize(&self) -> axum::extract::ws::Message {
-        let json: String = serde_json::to_string(&self).unwrap();
-        axum::extract::ws::Message::Text(axum::extract::ws::Utf8Bytes::from(json))
-    }
-}
-
-async fn send_and_receive_messages(
-    shared: axum::extract::State<std::sync::Arc<tokio::sync::Mutex<SharedState>>>,
-    addr: std::net::SocketAddr,
-    sock: axum::extract::ws::WebSocket,
-) {
-    let (mut sock_tx, mut sock_rx): (
-        futures::stream::SplitSink<axum::extract::ws::WebSocket, axum::extract::ws::Message>,
-        futures::stream::SplitStream<axum::extract::ws::WebSocket>,
-    ) = futures::StreamExt::split(sock);
-
-    let shared_rx: std::sync::Arc<tokio::sync::Mutex<SharedState>> = std::sync::Arc::clone(&shared);
-    let rx = tokio::spawn(async move {
-        loop {
-            let recv: Option<Result<axum::extract::ws::Message, axum::Error>> =
-                futures::StreamExt::next(&mut sock_rx).await;
-
-            match recv {
-                Some(Ok(axum::extract::ws::Message::Text(msg))) => {
-                    let mut shared = shared_rx.lock().await;
-                    match shared.clients.get_mut(&addr) {
-                        Some(initalized) => {
-                            if initalized.messages.len()
-                                >= crate::constants::MESSAGES_PER_CLIENT_INMEM_MAX
-                            {
-                                initalized.messages.pop_front();
-                            }
-                            initalized
-                                .messages
-                                .push_back(Message::new(now(), msg.to_string()));
-                        }
-                        None => {
-                            let mut client = Client::new();
-                            client
-                                .messages
-                                .push_front(Message::new(now(), msg.to_string()));
-                            shared.clients.insert(addr, client);
-                        }
-                    }
-                }
-                _ => {
-                    break;
-                }
-            }
-        }
+    runtime.block_on(async {
+        tokio::spawn(system::monitor_usage(state.clone()));
+        tokio::spawn(game::read_state(state.clone()));
+        web::start(state).await;
     });
-
-    let shared_tx: std::sync::Arc<tokio::sync::Mutex<SharedState>> = std::sync::Arc::clone(&shared);
-    let tx = tokio::spawn(async move {
-        let mut interval: tokio::time::Interval =
-            tokio::time::interval(crate::constants::INTERVAL_SYNC_CLIENT);
-        loop {
-            interval.tick().await;
-
-            {
-                let shared_locked: tokio::sync::MutexGuard<SharedState> = shared_tx.lock().await;
-
-                let send_result: Result<(), axum::Error> =
-                    futures::SinkExt::send(&mut sock_tx, shared_locked.serialize()).await;
-                if send_result.is_err() {
-                    break;
-                }
-            }
-        }
-    });
-
-    _ = rx.await;
-    _ = tx.await;
-
-    {
-        let mut shared_locked: tokio::sync::MutexGuard<SharedState> = shared.lock().await;
-        shared_locked.clients.remove(&addr);
-    }
-}
-
-fn now() -> u64 {
-    let now: std::time::SystemTime = std::time::SystemTime::now();
-    let duration_since_epoch: std::time::Duration =
-        now.duration_since(std::time::UNIX_EPOCH).unwrap();
-    let timestamp: u64 = duration_since_epoch.as_secs();
-    timestamp
 }
