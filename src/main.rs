@@ -1,3 +1,14 @@
+mod constants {
+    pub const WEB_SERVICE_LISTEN_ADDR: &str = "0.0.0.0:8080";
+
+    pub const GAME_STATE_FETCH_INTERVAL: std::time::Duration =
+        std::time::Duration::from_millis(200);
+
+    pub const CLIENT_SYNC_INTERVAL: std::time::Duration = std::time::Duration::from_millis(200);
+
+    pub const WEBSOCKET_CONNECT_URL_PATH: &str = "/sock";
+}
+
 fn main() {
     let shared_rw: std::sync::Arc<tokio::sync::Mutex<SharedState>> = SharedState::init();
     let shared_w = shared_rw.clone();
@@ -5,7 +16,7 @@ fn main() {
     let app: axum::Router = axum::Router::new()
         .route("/", axum::routing::get(webpage))
         .route(
-            ROUTE_CONFIG.route_path_sock,
+            crate::constants::WEBSOCKET_CONNECT_URL_PATH,
             axum::routing::get(axum::routing::get(handle_websocket_upgrade)),
         )
         .fallback(axum::routing::get(no_content))
@@ -20,7 +31,9 @@ fn main() {
         tokio::spawn(sync_game_state(shared_w));
 
         let listener: tokio::net::TcpListener =
-            tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
+            tokio::net::TcpListener::bind(crate::constants::WEB_SERVICE_LISTEN_ADDR)
+                .await
+                .unwrap();
 
         axum::serve(
             listener,
@@ -33,7 +46,7 @@ fn main() {
 
 async fn sync_game_state(shared: std::sync::Arc<tokio::sync::Mutex<SharedState>>) {
     let mut interval: tokio::time::Interval =
-        tokio::time::interval(std::time::Duration::from_millis(300));
+        tokio::time::interval(crate::constants::GAME_STATE_FETCH_INTERVAL);
     loop {
         interval.tick().await;
 
@@ -45,14 +58,6 @@ async fn sync_game_state(shared: std::sync::Arc<tokio::sync::Mutex<SharedState>>
         }
     }
 }
-
-struct RouteConfig {
-    route_path_sock: &'static str,
-}
-
-const ROUTE_CONFIG: RouteConfig = RouteConfig {
-    route_path_sock: "/sock",
-};
 
 async fn no_content() -> axum::http::StatusCode {
     axum::http::StatusCode::NO_CONTENT
@@ -101,7 +106,7 @@ async fn webpage() -> axum::response::Html<String> {
     }});
 </script>
 </html>"#,
-        path_sock = ROUTE_CONFIG.route_path_sock
+        path_sock = crate::constants::WEBSOCKET_CONNECT_URL_PATH
     );
 
     axum::response::Html(content)
@@ -222,7 +227,7 @@ async fn send_and_receive_messages(
     let shared_tx: std::sync::Arc<tokio::sync::Mutex<SharedState>> = std::sync::Arc::clone(&shared);
     let tx = tokio::spawn(async move {
         let mut interval: tokio::time::Interval =
-            tokio::time::interval(std::time::Duration::from_millis(300));
+            tokio::time::interval(crate::constants::CLIENT_SYNC_INTERVAL);
         loop {
             interval.tick().await;
 
