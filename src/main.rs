@@ -1,6 +1,6 @@
 fn main() {
-    let shared: std::sync::Arc<tokio::sync::Mutex<SharedState>> = SharedState::init();
-    let shared_sync_game = shared.clone();
+    let shared_rw: std::sync::Arc<tokio::sync::Mutex<SharedState>> = SharedState::init();
+    let shared_w = shared_rw.clone();
 
     let app: axum::Router = axum::Router::new()
         .route("/", axum::routing::get(webpage))
@@ -9,7 +9,7 @@ fn main() {
             axum::routing::get(axum::routing::get(handle_websocket_upgrade)),
         )
         .fallback(axum::routing::get(no_content))
-        .with_state(shared);
+        .with_state(shared_rw);
 
     let runtime: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -17,19 +17,7 @@ fn main() {
         .unwrap();
 
     runtime.block_on(async {
-        let mut interval = tokio::time::interval(std::time::Duration::from_millis(300));
-        tokio::spawn(async move {
-            loop {
-                interval.tick().await;
-
-                // TODO: Query game state via RCON
-
-                {
-                    let mut shared = shared_sync_game.lock().await;
-                    shared.game = Some(GameState { time_of_day: 0.0 });
-                }
-            }
-        });
+        tokio::spawn(sync_game_state(shared_w));
 
         let listener: tokio::net::TcpListener =
             tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
@@ -41,6 +29,21 @@ fn main() {
         .await
         .unwrap();
     });
+}
+
+async fn sync_game_state(shared: std::sync::Arc<tokio::sync::Mutex<SharedState>>) {
+    let mut interval: tokio::time::Interval =
+        tokio::time::interval(std::time::Duration::from_millis(300));
+    loop {
+        interval.tick().await;
+
+        // TODO: Query game state via RCON
+
+        {
+            let mut shared = shared.lock().await;
+            shared.game = Some(GameState { time_of_day: 0.0 });
+        }
+    }
 }
 
 struct RouteConfig {
