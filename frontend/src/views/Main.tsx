@@ -1,6 +1,9 @@
-import * as React from "react";
+import type * as React from "react";
+import type { Player, SteamID } from "../main";
 
-export const Main: () => React.ReactElement = () => {
+export const Main: (props: { players: Record<SteamID, Player> }) => React.ReactElement = (props) => {
+  const playerCount = Object.keys(props.players).length;
+
   return (
     <div style={{ margin: "0", backgroundColor: "#0d1117", color: "#c9d1d9", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif", lineHeight: "1.6" }}>
       <header style={{ backgroundColor: "#161b22", color: "#c9d1d9", padding: "16px 24px", fontSize: "18px", fontWeight: 600, borderBottom: "1px solid #30363d" }}>
@@ -25,7 +28,7 @@ export const Main: () => React.ReactElement = () => {
           </div>
 
           <h2 style={{ fontSize: "18px", fontWeight: 600, borderBottom: "1px solid #30363d", paddingBottom: "6px", marginTop: "24px", marginBottom: "16px" }}>
-            Players Online
+            Players ({playerCount})
           </h2>
           <table style={{ width: "100%", borderCollapse: "collapse", backgroundColor: "#161b22", border: "1px solid #30363d", borderRadius: "6px", overflow: "hidden", marginBottom: "16px" }}>
             <thead>
