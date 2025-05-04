@@ -5,7 +5,13 @@ mod system;
 mod web;
 
 fn main() {
-    let state = core::SharedState::init();
+    let args = core::Cli::get_args();
+
+    let web_root = match args.command {
+        core::CliCommand::Start { web_root } => web_root,
+    };
+
+    let state = core::SharedState::init(&web_root);
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()

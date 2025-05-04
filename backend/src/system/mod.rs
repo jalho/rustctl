@@ -2,14 +2,14 @@ use crate::{constants::INTERVAL_MONITOR_SYSTEM, core::SharedState};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone)]
 struct ResourceUsage {
     process_id: (),
     cpu: (),
     memory: (),
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone)]
 pub struct SystemState {
     game_server: Option<ResourceUsage>,
     game_server_installer: Option<ResourceUsage>,

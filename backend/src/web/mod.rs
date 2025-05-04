@@ -4,11 +4,12 @@ use crate::{
 };
 use axum::{
     Router,
+    extract::State,
     http::{StatusCode, header},
     response::{Html, IntoResponse, Response},
     routing,
 };
-use std::{net::SocketAddr, path::Path, sync::Arc};
+use std::{net::SocketAddr, sync::Arc};
 use tokio::{fs, net::TcpListener, sync::Mutex};
 
 pub async fn start(shared: Arc<Mutex<SharedState>>) {
@@ -37,8 +38,13 @@ async fn no_content() -> StatusCode {
     StatusCode::NO_CONTENT
 }
 
-async fn get_index_html() -> Response {
-    let path: &Path = Path::new("./web/index.html");
+async fn get_index_html(shared: State<Arc<Mutex<SharedState>>>) -> Response {
+    let path: String;
+    {
+        let shared = shared.lock().await;
+        path = shared.web_assets.abs_path_index_html.clone();
+    }
+
     match fs::read_to_string(path).await {
         Ok(content) => {
             let mut response: Response = Html(content).into_response();
@@ -52,8 +58,13 @@ async fn get_index_html() -> Response {
     }
 }
 
-async fn get_styles_css() -> Response {
-    let path: &Path = Path::new("./web/styles.css");
+async fn get_styles_css(shared: State<Arc<Mutex<SharedState>>>) -> Response {
+    let path: String;
+    {
+        let shared = shared.lock().await;
+        path = shared.web_assets.abs_path_styles_css.clone();
+    }
+
     match fs::read_to_string(path).await {
         Ok(content) => {
             let mut response: Response = content.into_response();
@@ -67,8 +78,13 @@ async fn get_styles_css() -> Response {
     }
 }
 
-async fn get_script_js() -> Response {
-    let path: &Path = Path::new("./web/script.js");
+async fn get_script_js(shared: State<Arc<Mutex<SharedState>>>) -> Response {
+    let path: String;
+    {
+        let shared = shared.lock().await;
+        path = shared.web_assets.abs_path_script_js.clone();
+    }
+
     match fs::read_to_string(path).await {
         Ok(content) => {
             let mut response: Response = content.into_response();

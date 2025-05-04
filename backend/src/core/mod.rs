@@ -7,7 +7,7 @@ use axum::{
     response::IntoResponse,
 };
 use futures::{SinkExt, StreamExt};
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::sync::{Mutex, MutexGuard};
 
 pub async fn handle_websocket_upgrade(
@@ -73,24 +73,66 @@ async fn send_and_receive_messages(
     }
 }
 
+pub struct WebAssets {
+    pub abs_path_index_html: String,
+    pub abs_path_styles_css: String,
+    pub abs_path_script_js: String,
+}
+
+trait ExistingFile {
+    fn to_absolute_path(&self, root: &PathBuf) -> String;
+}
+
+impl ExistingFile for &str {
+    fn to_absolute_path(&self, root: &PathBuf) -> String {
+        let mut path = root.to_owned();
+        path.push(self);
+        path = path.canonicalize().unwrap();
+        path.to_str().unwrap().to_owned()
+    }
+}
+
 #[derive(serde::Serialize)]
-pub struct SharedState {
+struct ClientState {
     pub clients: HashMap<SocketAddr, Client>,
     pub game: GameState,
     pub system: SystemState,
 }
 
+impl From<&SharedState> for ClientState {
+    fn from(value: &SharedState) -> Self {
+        Self {
+            clients: value.clients.clone(),
+            game: value.game.clone(),
+            system: value.system.clone(),
+        }
+    }
+}
+
+pub struct SharedState {
+    pub clients: HashMap<SocketAddr, Client>,
+    pub game: GameState,
+    pub system: SystemState,
+    pub web_assets: WebAssets,
+}
+
 impl SharedState {
-    pub fn init() -> Arc<Mutex<Self>> {
+    pub fn init(web_root: &PathBuf) -> Arc<Mutex<Self>> {
         Arc::new(Mutex::new(Self {
             clients: HashMap::new(),
             game: GameState::read(),
             system: SystemState::read(),
+            web_assets: WebAssets {
+                abs_path_index_html: "index.html".to_absolute_path(web_root),
+                abs_path_styles_css: "styles.css".to_absolute_path(web_root),
+                abs_path_script_js: "script.js".to_absolute_path(web_root),
+            },
         }))
     }
 
     pub fn serialize(&self) -> Message {
-        let json: String = serde_json::to_string(&self).unwrap();
+        let payload: ClientState = self.into();
+        let json: String = serde_json::to_string(&payload).unwrap();
         Message::Text(Utf8Bytes::from(json))
     }
 }
@@ -108,7 +150,7 @@ impl Command {
     }
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone)]
 pub struct Client {
     addr: SocketAddr,
 }
@@ -117,4 +159,26 @@ impl Client {
     pub fn new(addr: SocketAddr) -> Self {
         Self { addr }
     }
+}
+
+#[derive(clap::Parser)]
+#[command(name = "rustctl")]
+#[command(version)]
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: CliCommand,
+}
+
+impl Cli {
+    pub fn get_args() -> Self {
+        return <Cli as clap::Parser>::parse();
+    }
+}
+
+#[derive(clap::Subcommand)]
+pub enum CliCommand {
+    Start {
+        #[arg(long = "web-root", short, value_name = "PATH")]
+        web_root: PathBuf,
+    },
 }

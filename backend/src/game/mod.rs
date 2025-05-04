@@ -22,7 +22,7 @@ pub async fn read_state(shared: Arc<Mutex<SharedState>>) {
     }
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone)]
 #[serde(tag = "_type", content = "data")]
 pub enum GameState {
     Installing {
@@ -67,26 +67,26 @@ impl GameState {
 #[derive(serde::Serialize, Eq, PartialEq, Hash, Clone)]
 pub struct Identifier(String);
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone)]
 struct Coordinates {
     x: f64,
     y: f64,
     z: f64,
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone)]
 pub struct Toolcupboard {
     id: Identifier,
     coordinates: Coordinates,
 }
 
 /// ISO 3166-1 alpha-3
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone)]
 enum CountryCodeIso3166_1Alpha3 {
     FIN,
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone)]
 pub struct Player {
     id: Identifier,
     coordinates: Coordinates,
