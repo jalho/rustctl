@@ -75,8 +75,6 @@ async fn send_and_receive_messages(
 
 pub struct WebAssets {
     pub abs_path_index_html: String,
-    pub abs_path_styles_css: String,
-    pub abs_path_script_js: String,
 }
 
 trait ExistingFile {
@@ -124,8 +122,6 @@ impl SharedState {
             system: SystemState::read(),
             web_assets: WebAssets {
                 abs_path_index_html: "index.html".to_absolute_path(web_root),
-                abs_path_styles_css: "styles.css".to_absolute_path(web_root),
-                abs_path_script_js: "script.js".to_absolute_path(web_root),
             },
         }))
     }
