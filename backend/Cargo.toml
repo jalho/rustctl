@@ -3,6 +3,9 @@ name = "rustctl"
 version = "0.1.0"
 edition = "2024"
 
+[dependencies]
+tower-http = { version = "0.6.2", features = ["fs"] }
+
 [dependencies.clap]
 version = "4.5.37"
 features = [ "derive" ]

@@ -11,7 +11,7 @@ fn main() {
         core::CliCommand::Start { web_root } => web_root,
     };
 
-    let state = core::SharedState::init(&web_root);
+    let state = core::SharedState::init();
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -32,6 +32,6 @@ fn main() {
         /*
          * Serve a web app for observing and managing the system.
          */
-        web::start(state).await;
+        web::start(state, &web_root).await;
     });
 }

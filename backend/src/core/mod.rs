@@ -111,18 +111,14 @@ pub struct SharedState {
     pub clients: HashMap<SocketAddr, Client>,
     pub game: GameState,
     pub system: SystemState,
-    pub web_assets: WebAssets,
 }
 
 impl SharedState {
-    pub fn init(web_root: &PathBuf) -> Arc<Mutex<Self>> {
+    pub fn init() -> Arc<Mutex<Self>> {
         Arc::new(Mutex::new(Self {
             clients: HashMap::new(),
             game: GameState::read(),
             system: SystemState::read(),
-            web_assets: WebAssets {
-                abs_path_index_html: "index.html".to_absolute_path(web_root),
-            },
         }))
     }
 
