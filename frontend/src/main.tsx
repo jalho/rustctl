@@ -9,33 +9,19 @@ import { useEffect } from "react";
 
 const root: ReactDOM.Root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
 
-enum ErrorType {
-  None = "None",
-  BadBuild = "BadBuild",
-  Offline = "Offline",
+enum WebSocketState {
+  Connecting = "Connecting",
+  ErrBadBuild = "ErrBadBuild",
+  ErrOffline = "ErrOffline",
 }
+
+type TWebSocketStateUpdatePayload = {};
 
 const websocketSlice = createSlice({
   name: "websocket",
-  initialState: {
-    loading: true,
-    error: ErrorType.None,
-  },
+  initialState: WebSocketState.Connecting as WebSocketState | TWebSocketStateUpdatePayload,
   reducers: {
-    setLoading: (state, action) => {
-      state.loading = action.payload;
-    },
-    setError: (state, action) => {
-      state.error = action.payload;
-    },
-  },
-});
-
-const messageSlice = createSlice({
-  name: "message",
-  initialState: null as any,
-  reducers: {
-    setMessage: (state, action) => {
+    setState: (state, action) => {
       return action.payload;
     },
   },
@@ -44,20 +30,17 @@ const messageSlice = createSlice({
 const store = configureStore({
   reducer: {
     websocket: websocketSlice.reducer,
-    message: messageSlice.reducer,
   },
 });
 
 const WebSocketConnector = () => {
   const dispatch = useDispatch();
-  const { loading, error } = useSelector((state: any) => state.websocket);
-  const message = useSelector((state: any) => state.message);
+  const websocketState = useSelector((state: any) => state.websocket);
 
   useEffect(() => {
     const backendHost = import.meta.env.VITE_BACKEND_HOST;
     if (!backendHost) {
-      dispatch(websocketSlice.actions.setError(ErrorType.BadBuild));
-      dispatch(websocketSlice.actions.setLoading(false));
+      dispatch(websocketSlice.actions.setState(WebSocketState.ErrBadBuild));
       return;
     }
 
@@ -68,23 +51,17 @@ const WebSocketConnector = () => {
 
     const socket = new WebSocket(socketUrl);
 
-    socket.onopen = () => {
-      dispatch(websocketSlice.actions.setLoading(false));
-    };
-
     socket.onmessage = (event) => {
-      const payload = JSON.parse(event.data);
-      dispatch(messageSlice.actions.setMessage(payload));
+      const payload: TWebSocketStateUpdatePayload = JSON.parse(event.data);
+      dispatch(websocketSlice.actions.setState(payload));
     };
 
     socket.onerror = () => {
-      dispatch(websocketSlice.actions.setError(ErrorType.Offline));
-      dispatch(websocketSlice.actions.setLoading(false));
+      dispatch(websocketSlice.actions.setState(WebSocketState.ErrOffline));
     };
 
     socket.onclose = () => {
-      dispatch(websocketSlice.actions.setError(ErrorType.Offline));
-      dispatch(websocketSlice.actions.setLoading(false));
+      dispatch(websocketSlice.actions.setState(WebSocketState.ErrOffline));
     };
 
     return () => {
@@ -92,20 +69,16 @@ const WebSocketConnector = () => {
     };
   }, [dispatch]);
 
-  if (loading) {
+  if (websocketState === WebSocketState.Connecting) {
     return <div>Connecting...</div>;
   }
 
-  if (error === ErrorType.BadBuild) {
+  if (websocketState === WebSocketState.ErrBadBuild) {
     return <ErrBadBuild />;
   }
 
-  if (error === ErrorType.Offline) {
+  if (websocketState === WebSocketState.ErrOffline) {
     return <ErrOffline />;
-  }
-
-  if (message === null) {
-    return <div>Waiting for WebSocket connection...</div>;
   }
 
   return <Main />;
