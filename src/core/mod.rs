@@ -1,8 +1,4 @@
-use crate::{
-    constants::{INTERVAL_SYNC_CLIENT, MESSAGES_PER_CLIENT_INMEM_MAX},
-    game::GameState,
-    system::SystemState,
-};
+use crate::{constants::INTERVAL_SYNC_CLIENT, game::GameState, system::SystemState};
 use axum::{
     extract::{
         ConnectInfo, State, WebSocketUpgrade,
@@ -11,11 +7,7 @@ use axum::{
     response::IntoResponse,
 };
 use futures::{SinkExt, StreamExt};
-use std::{
-    collections::{HashMap, VecDeque},
-    net::SocketAddr,
-    sync::Arc,
-};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tokio::sync::{Mutex, MutexGuard};
 
 pub async fn handle_websocket_upgrade(
@@ -25,7 +17,7 @@ pub async fn handle_websocket_upgrade(
 ) -> impl IntoResponse {
     {
         let mut shared_locked: MutexGuard<SharedState> = shared.lock().await;
-        shared_locked.clients.insert(addr, Client::new());
+        shared_locked.clients.insert(addr, Client::new(addr));
     }
     ws.on_upgrade(move |sock| send_and_receive_messages(shared, addr, sock))
 }
@@ -45,25 +37,6 @@ async fn send_and_receive_messages(
             match recv {
                 Some(Ok(Message::Text(msg))) => {
                     let command = Command::new(&msg.to_string());
-
-                    // store command in short log in-mem
-                    {
-                        let command = command.clone();
-                        let mut shared = shared_rx.lock().await;
-                        match shared.clients.get_mut(&addr) {
-                            Some(initalized) => {
-                                if initalized.commands.len() >= MESSAGES_PER_CLIENT_INMEM_MAX {
-                                    initalized.commands.pop_front();
-                                }
-                                initalized.commands.push_back(command);
-                            }
-                            None => {
-                                let mut client = Client::new();
-                                client.commands.push_front(command);
-                                shared.clients.insert(addr, client);
-                            }
-                        }
-                    }
 
                     // TODO: Do a state transition based on the received command
                     println!("TODO: Transition state: {command:?}");
@@ -137,13 +110,11 @@ impl Command {
 
 #[derive(serde::Serialize)]
 pub struct Client {
-    commands: VecDeque<Command>,
+    addr: SocketAddr,
 }
 
 impl Client {
-    pub fn new() -> Self {
-        Self {
-            commands: VecDeque::new(),
-        }
+    pub fn new(addr: SocketAddr) -> Self {
+        Self { addr }
     }
 }
