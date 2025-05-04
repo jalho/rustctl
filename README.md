@@ -5,7 +5,11 @@ Work in progress!
 Tooling for running a _Rust_ (the game) server and an integrated web service
 on Linux.
 
-### Cheatsheet
+## State machine
+
+<img src="./diagrams/rustctl-state-machine.svg">
+
+## Cheatsheet
 
 #### Running a light server
 
