@@ -16,6 +16,7 @@ fn main() {
     let state = core::SharedState::init();
 
     let runtime = tokio::runtime::Builder::new_current_thread()
+        .worker_threads(1)
         .enable_all()
         .build()
         .unwrap();
