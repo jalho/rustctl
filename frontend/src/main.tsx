@@ -5,7 +5,6 @@ import { ErrBadBuild } from "./views/ErrBadBuild";
 import { ErrOffline } from "./views/ErrOffline";
 import { Main } from "./views/Main";
 import { Provider, useDispatch, useSelector } from "react-redux";
-import { useEffect } from "react";
 
 const root: ReactDOM.Root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
 
@@ -42,7 +41,7 @@ const websocketSlice = createSlice({
   name: "websocket",
   initialState: Connection.Connecting as TGlobalState,
   reducers: {
-    setState: (state, action) => {
+    setState: (_state, action) => {
       return action.payload;
     },
   },
@@ -58,50 +57,55 @@ const WebSocketConnector = () => {
   const dispatch = useDispatch();
   const state: TGlobalState = useSelector((state: { websocket: TGlobalState }) => state.websocket);
 
-  useEffect(() => {
-    let socketUrl: string;
-    if (import.meta.env.MODE === "development") {
-      const backendHost = import.meta.env.VITE_BACKEND_HOST;
-      if (!backendHost) {
-        dispatch(websocketSlice.actions.setState(Connection.ErrBadBuild));
-        return;
-      } else {
-        socketUrl = `ws://${backendHost}/sock`;
-      }
-    } else {
-      socketUrl = "/sock";
+  switch (state) {
+    case Connection.ErrBadBuild: {
+      return <ErrBadBuild />;
     }
 
-    const socket = new WebSocket(socketUrl);
+    case Connection.Connecting: {
+      let socketUrl: string;
+      if (import.meta.env.MODE === "development") {
+        const backendHost = import.meta.env.VITE_BACKEND_HOST;
+        if (!backendHost) {
+          dispatch(websocketSlice.actions.setState(Connection.ErrBadBuild));
+          return;
+        } else {
+          socketUrl = `ws://${backendHost}/sock`;
+        }
+      } else {
+        socketUrl = "/sock";
+      }
 
-    socket.onmessage = (event) => {
-      const payload: TWebSocketStateUpdatePayload = JSON.parse(event.data);
-      dispatch(websocketSlice.actions.setState(payload));
-    };
+      const socket = new WebSocket(socketUrl);
 
-    socket.onerror = () => {
-      dispatch(websocketSlice.actions.setState(Connection.ErrOffline));
-    };
+      socket.onmessage = (event) => {
+        const payload: TWebSocketStateUpdatePayload = JSON.parse(event.data);
+        dispatch(websocketSlice.actions.setState(payload));
+      };
 
-    socket.onclose = () => {
-      dispatch(websocketSlice.actions.setState(Connection.ErrOffline));
-    };
+      socket.onerror = () => {
+        dispatch(websocketSlice.actions.setState(Connection.ErrOffline));
+      };
 
-    return () => {
-      socket.close();
-    };
-  }, [dispatch]);
+      socket.onclose = () => {
+        /*
+         * TODO: Transition to (re)Connecting
+         */
+        dispatch(websocketSlice.actions.setState(Connection.ErrOffline));
+      };
 
-  if (state === Connection.Connecting) {
-    return <div>Connecting...</div>;
-  } else if (state === Connection.ErrBadBuild) {
-    return <ErrBadBuild />;
-  } else if (state === Connection.ErrOffline) {
-    return <ErrOffline />;
-  } else {
-    return <Main players={state.game.data.players} />;
+      return <>Connecting</>;
+    }
+
+    case Connection.ErrOffline: {
+      return <ErrOffline />;
+    }
+
+    // case connected
+    default: {
+      return <Main players={state.game.data.players} />;
+    }
   }
-
 };
 
 root.render(
