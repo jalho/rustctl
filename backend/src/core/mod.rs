@@ -30,42 +30,48 @@ async fn send_and_receive_messages(
     let (mut sock_tx, mut sock_rx) = StreamExt::split(sock);
 
     let shared_rx: Arc<Mutex<SharedState>> = Arc::clone(&shared);
-    let rx = tokio::spawn(async move {
-        loop {
-            let recv = StreamExt::next(&mut sock_rx).await;
+    let jh_rx_cmd = tokio::task::Builder::new()
+        .name("recv_commands")
+        .spawn(async move {
+            loop {
+                let recv = StreamExt::next(&mut sock_rx).await;
 
-            match recv {
-                Some(Ok(Message::Text(msg))) => {
-                    let command = Command::new(&msg.to_string());
+                match recv {
+                    Some(Ok(Message::Text(msg))) => {
+                        let command = Command::new(&msg.to_string());
 
-                    // TODO: Do a state transition based on the received command
-                    println!("TODO: Transition state: {command:?}");
-                }
-                _ => {
-                    break;
+                        // TODO: Do a state transition based on the received command
+                        println!("TODO: Transition state: {command:?}");
+                    }
+                    _ => {
+                        break;
+                    }
                 }
             }
-        }
-    });
+        })
+        .unwrap();
 
     let shared_tx: Arc<Mutex<SharedState>> = Arc::clone(&shared);
-    let tx = tokio::spawn(async move {
-        let mut interval = tokio::time::interval(INTERVAL_SYNC_CLIENT);
-        loop {
-            interval.tick().await;
+    let jh_tx_state = tokio::task::Builder::new()
+        .name("send_state")
+        .spawn(async move {
+            let mut interval = tokio::time::interval(INTERVAL_SYNC_CLIENT);
+            loop {
+                interval.tick().await;
 
-            {
-                let shared_locked: MutexGuard<SharedState> = shared_tx.lock().await;
-                let sent = SinkExt::send(&mut sock_tx, shared_locked.serialize()).await;
-                if sent.is_err() {
-                    break;
+                {
+                    let shared_locked: MutexGuard<SharedState> = shared_tx.lock().await;
+                    let sent = SinkExt::send(&mut sock_tx, shared_locked.serialize()).await;
+                    if sent.is_err() {
+                        break;
+                    }
                 }
             }
-        }
-    });
+        })
+        .unwrap();
 
-    _ = rx.await;
-    _ = tx.await;
+    _ = jh_rx_cmd.await;
+    _ = jh_tx_state.await;
 
     {
         let mut shared = shared.lock().await;

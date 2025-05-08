@@ -3,9 +3,12 @@ name = "rustctl"
 version = "0.1.0"
 edition = "2024"
 
-[dependencies]
-console-subscriber = "0.4.1"
-tower-http = { version = "0.6.2", features = ["fs"] }
+[dependencies.console-subscriber]
+version = "0.4.1"
+
+[dependencies.tower-http]
+version = "0.6.2"
+features = ["fs"]
 
 [dependencies.clap]
 version = "4.5.37"
@@ -27,4 +30,4 @@ features = [ "ws" ]
 
 [dependencies.tokio]
 version = "1.44.2"
-features = [ "fs" ]
+features = [ "fs", "tracing", "rt" ]

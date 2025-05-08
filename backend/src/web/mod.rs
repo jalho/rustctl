@@ -7,7 +7,7 @@ use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::{net::TcpListener, sync::Mutex};
 use tower_http::services::ServeDir;
 
-pub async fn start(shared: Arc<Mutex<SharedState>>, web_root: &PathBuf) {
+pub async fn start(shared: Arc<Mutex<SharedState>>, web_root: PathBuf) {
     let web_service = Router::new()
         .route(
             "/sock",
