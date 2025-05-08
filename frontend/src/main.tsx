@@ -59,16 +59,18 @@ const WebSocketConnector = () => {
   const state: TGlobalState = useSelector((state: { websocket: TGlobalState }) => state.websocket);
 
   useEffect(() => {
-    const backendHost = import.meta.env.VITE_BACKEND_HOST;
-    if (!backendHost) {
-      dispatch(websocketSlice.actions.setState(Connection.ErrBadBuild));
-      return;
+    let socketUrl: string;
+    if (import.meta.env.MODE === "development") {
+      const backendHost = import.meta.env.VITE_BACKEND_HOST;
+      if (!backendHost) {
+        dispatch(websocketSlice.actions.setState(Connection.ErrBadBuild));
+        return;
+      } else {
+        socketUrl = `ws://${backendHost}/sock`;
+      }
+    } else {
+      socketUrl = "/sock";
     }
-
-    const socketUrl =
-      import.meta.env.MODE === "development"
-        ? `ws://${backendHost}/sock`
-        : `/sock`;
 
     const socket = new WebSocket(socketUrl);
 

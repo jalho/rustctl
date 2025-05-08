@@ -11,6 +11,13 @@ on Linux.
 
 ## Cheatsheet
 
+#### Development
+
+```console
+$ cd ./frontend && ./node_modules/.bin/vite build && cd -
+$ cd ./backend && cargo run -- start --web-root ../frontend/out/
+```
+
 #### Running a light server
 
 It seems the minimum world size (settable with `+server.worldsize`) is 1000. In
