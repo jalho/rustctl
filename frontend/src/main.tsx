@@ -87,11 +87,8 @@ const WebSocketConnector = () => {
         dispatch(websocketSlice.actions.setState(Connection.ErrOffline));
       };
 
-      socket.onclose = () => {
-        /*
-         * TODO: Transition to (re)Connecting
-         */
-        dispatch(websocketSlice.actions.setState(Connection.ErrOffline));
+      socket.onclose = async () => {
+        dispatch(websocketSlice.actions.setState(Connection.Connecting));
       };
 
       return <>Connecting</>;
