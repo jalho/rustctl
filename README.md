@@ -16,6 +16,7 @@ on Linux.
 ```console
 $ cd ./frontend && ./node_modules/.bin/vite build && cd -
 $ cd ./backend && cargo run -- start --web-root ../frontend/out/
+$ tokio-console
 ```
 
 #### Running a light server

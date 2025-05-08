@@ -5,6 +5,8 @@ mod system;
 mod web;
 
 fn main() {
+    console_subscriber::init();
+
     let args = core::Cli::get_args();
 
     let web_root = match args.command {
