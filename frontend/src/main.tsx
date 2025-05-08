@@ -37,8 +37,8 @@ export type TWebSocketStateUpdatePayload = {
 /** State stored in Redux. */
 type TGlobalState = Connection | TWebSocketStateUpdatePayload;
 
-const websocketSlice = createSlice({
-  name: "websocket",
+const slice = createSlice({
+  name: "main",
   initialState: Connection.Connecting as TGlobalState,
   reducers: {
     setState: (_state, action) => {
@@ -49,13 +49,13 @@ const websocketSlice = createSlice({
 
 const store = configureStore({
   reducer: {
-    websocket: websocketSlice.reducer,
+    main: slice.reducer,
   },
 });
 
 const WebSocketConnector = () => {
   const dispatch = useDispatch();
-  const state: TGlobalState = useSelector((state: { websocket: TGlobalState }) => state.websocket);
+  const state: TGlobalState = useSelector((state: { main: TGlobalState }) => state.main);
 
   switch (state) {
     case Connection.ErrBadBuild: {
@@ -67,7 +67,7 @@ const WebSocketConnector = () => {
       if (import.meta.env.MODE === "development") {
         const backendHost = import.meta.env.VITE_BACKEND_HOST;
         if (!backendHost) {
-          dispatch(websocketSlice.actions.setState(Connection.ErrBadBuild));
+          dispatch(slice.actions.setState(Connection.ErrBadBuild));
           return;
         } else {
           socketUrl = `ws://${backendHost}/sock`;
@@ -80,15 +80,15 @@ const WebSocketConnector = () => {
 
       socket.onmessage = (event) => {
         const payload: TWebSocketStateUpdatePayload = JSON.parse(event.data);
-        dispatch(websocketSlice.actions.setState(payload));
+        dispatch(slice.actions.setState(payload));
       };
 
       socket.onerror = () => {
-        dispatch(websocketSlice.actions.setState(Connection.ErrOffline));
+        dispatch(slice.actions.setState(Connection.ErrOffline));
       };
 
       socket.onclose = async () => {
-        dispatch(websocketSlice.actions.setState(Connection.Connecting));
+        dispatch(slice.actions.setState(Connection.Connecting));
       };
 
       return <>Connecting</>;
