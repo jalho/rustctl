@@ -1,11 +1,18 @@
-use crate::{constants::INTERVAL_SYNC_CLIENT, game::GameState, system::SystemState};
+use crate::{
+    constants::{COOKIE_NAME_SESSION, INTERVAL_SYNC_CLIENT},
+    game::GameState,
+    system::SystemState,
+    web::{AppState, ClientSession},
+};
 use axum::{
     extract::{
         ConnectInfo, State, WebSocketUpgrade,
         ws::{Message, Utf8Bytes, WebSocket},
     },
+    http::StatusCode,
     response::IntoResponse,
 };
+use axum_extra::extract::SignedCookieJar;
 use chrono::Utc;
 use futures::{SinkExt, StreamExt};
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
@@ -13,26 +20,36 @@ use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
 
 pub async fn handle_websocket_upgrade(
-    State(state): State<Arc<Mutex<SharedState>>>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     ws: WebSocketUpgrade,
+    jar: SignedCookieJar,
+    state: State<AppState>,
+    connect_info: ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
-    ws.on_upgrade(async move |sock| {
-        let client = Client::new(addr, sock, Arc::clone(&state));
+    match jar
+        .get(COOKIE_NAME_SESSION)
+        .and_then(|cookie| serde_json::from_str::<ClientSession>(cookie.value()).ok())
+    {
+        Some(_) => {
+            let shared_state = Arc::clone(&state.shared);
+            ws.on_upgrade(async move |sock| {
+                let client = Client::new(connect_info.0, sock, Arc::clone(&shared_state));
 
-        let client_id: Uuid;
-        {
-            let mut lock = state.lock().await;
-            client_id = lock.register(&client);
+                let client_id: Uuid;
+                {
+                    let mut lock = shared_state.lock().await;
+                    client_id = lock.register(&client);
+                }
+
+                client.send_and_receive_messages().await;
+
+                {
+                    let mut lock = shared_state.lock().await;
+                    lock.unregister(&client_id);
+                }
+            })
         }
-
-        client.send_and_receive_messages().await;
-
-        {
-            let mut lock = state.lock().await;
-            lock.unregister(&client_id);
-        }
-    })
+        None => StatusCode::UNAUTHORIZED.into_response(),
+    }
 }
 
 #[derive(Clone)]

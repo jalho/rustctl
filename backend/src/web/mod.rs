@@ -1,5 +1,5 @@
 use crate::{
-    constants::ADDR_WEB_SERVICE_LISTEN,
+    constants::{ADDR_WEB_SERVICE_LISTEN, COOKIE_NAME_SESSION},
     core::{SharedState, handle_websocket_upgrade},
 };
 use axum::{Router, extract::FromRef, http::StatusCode, response::IntoResponse, routing};
@@ -11,14 +11,14 @@ use tower_http::services::ServeDir;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct ClientSession {
+pub struct ClientSession {
     client_id: Uuid,
 }
 
 #[derive(Clone)]
-struct AppState {
+pub struct AppState {
     key: Key,
-    shared: Arc<Mutex<SharedState>>,
+    pub shared: Arc<Mutex<SharedState>>,
 }
 
 impl FromRef<AppState> for Key {
@@ -62,12 +62,13 @@ async fn no_content() -> StatusCode {
 }
 
 async fn login(jar: SignedCookieJar) -> impl IntoResponse {
-    let session = ClientSession {
+    let session: ClientSession = ClientSession {
         client_id: Uuid::new_v4(),
     };
-    let session_json = serde_json::to_string(&session).unwrap();
 
-    let new_jar = jar.add(Cookie::new("session", session_json));
+    let session: String = serde_json::to_string(&session).unwrap();
 
-    (StatusCode::OK, new_jar)
+    let session: SignedCookieJar = jar.add(Cookie::new(COOKIE_NAME_SESSION, session));
+
+    (StatusCode::OK, session)
 }
