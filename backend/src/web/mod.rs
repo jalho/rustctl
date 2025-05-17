@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClientSession {
-    client_id: Uuid,
+    pub session_id: Uuid,
 }
 
 #[derive(Clone)]
@@ -63,7 +63,7 @@ async fn no_content() -> StatusCode {
 
 async fn login(jar: SignedCookieJar) -> impl IntoResponse {
     let session: ClientSession = ClientSession {
-        client_id: Uuid::new_v4(),
+        session_id: Uuid::new_v4(),
     };
 
     let session: String = serde_json::to_string(&session).unwrap();

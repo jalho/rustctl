@@ -29,22 +29,21 @@ pub async fn handle_websocket_upgrade(
         .get(COOKIE_NAME_SESSION)
         .and_then(|cookie| serde_json::from_str::<ClientSession>(cookie.value()).ok())
     {
-        Some(_) => {
+        Some(client_session) => {
             let shared_state = Arc::clone(&state.shared);
             ws.on_upgrade(async move |sock| {
                 let client = Client::new(connect_info.0, sock, Arc::clone(&shared_state));
 
-                let client_id: Uuid;
                 {
                     let mut lock = shared_state.lock().await;
-                    client_id = lock.register(&client);
+                    lock.register(client_session.session_id, &client);
                 }
 
                 client.send_and_receive_messages().await;
 
                 {
                     let mut lock = shared_state.lock().await;
-                    lock.unregister(&client_id);
+                    lock.unregister(&client_session.session_id);
                 }
             })
         }
@@ -52,22 +51,10 @@ pub async fn handle_websocket_upgrade(
     }
 }
 
-#[derive(Clone)]
+#[derive(serde::Serialize, Clone)]
 enum ClientIdentity {
-    Anonymous,
+    Anonymous { session_id: Uuid },
     // could add e.g. variant SteamUser here (encapsulating Steam ID)
-}
-
-impl serde::Serialize for ClientIdentity {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let s: &str = match self {
-            ClientIdentity::Anonymous => "Anonymous",
-        };
-        return serializer.serialize_str(s);
-    }
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -132,17 +119,14 @@ impl SharedState {
         }))
     }
 
-    fn register(&mut self, client: &Client) -> Uuid {
-        let client_id = Uuid::new_v4();
+    fn register(&mut self, session_id: Uuid, client: &Client) {
         let client_meta = ClientMeta {
             _addr: client.addr,
             connected_at: Utc::now(),
-            identity: ClientIdentity::Anonymous,
+            identity: ClientIdentity::Anonymous { session_id },
         };
 
-        self.clients.insert(client_id, client_meta);
-
-        client_id
+        self.clients.insert(session_id, client_meta);
     }
 
     fn unregister(&mut self, client_id: &Uuid) {
