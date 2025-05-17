@@ -9,6 +9,8 @@ export const Main: (
 ) => React.ReactElement = (props) => {
   const playerCount = Object.keys(props.players).length;
   const clientEntries = Object.entries(props.clients);
+  // TODO: Expect sessionId as prop instead?
+  const sessionId: Uuid = getSessionId(document.cookie);
 
   return (
     <div style={{ margin: "0", backgroundColor: "#0d1117", color: "#c9d1d9", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif", lineHeight: "1.6" }}>
@@ -68,7 +70,7 @@ export const Main: (
             <tbody>
               {clientEntries.map(([uuid, client]) => (
                 <tr key={uuid}>
-                  <td style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #30363d", color: "#8b949e" }}>{client.identity}</td>
+                  <td style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #30363d", color: "#8b949e" }}>{client.identity.Anonymous.session_id + formatIsSelf(sessionId === client.identity.Anonymous.session_id)}</td>
                   <td style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #30363d" }}>{formatDate(new Date(client.connected_at))}</td>
                 </tr>
               ))}
@@ -105,4 +107,36 @@ function formatDate(date: Date): string {
     dateStyle: "short",
     timeStyle: "short"
   });
+}
+
+function formatIsSelf(isSelf: boolean): string {
+  return isSelf ? " (you)" : "";
+}
+
+// TODO: Render some error view instead or redirect to login in case cannot get session id?
+/**
+ * @example "session=R3N2yEX5LxRRxl8gkQJZB+zpgOoTCwvoEzvDqqwhgCQ%3D%7B%22session_id%22%3A%223e24b217-1f31-4be7-88be-a1309353228b%22%7D"
+ */
+function getSessionId(cookie: string): Uuid {
+  const cookieDelimiterIdx: number = cookie.indexOf("=");
+  if (cookieDelimiterIdx < 0) {
+    throw new Error("TODO1");
+  }
+  const cookieValueEnc: string = cookie.substring(cookieDelimiterIdx + 1);
+  const cookieValueDec: string = decodeURIComponent(cookieValueEnc);
+
+  const cookieInnerDelimiterIdx: number = cookieValueDec.indexOf("=");
+  if (cookieInnerDelimiterIdx < 0) {
+    throw new Error("TODO2");
+  }
+  const cookieValueJson: string = cookieValueDec.substring(cookieInnerDelimiterIdx + 1);
+
+  const deserialized: unknown = JSON.parse(cookieValueJson);
+  if (typeof deserialized !== "object" || !deserialized || !("session_id" in deserialized)) {
+    throw new Error("TODO3");
+  }
+  if (typeof deserialized.session_id !== "string") {
+    throw new Error("TODO4");
+  }
+  return deserialized.session_id;
 }

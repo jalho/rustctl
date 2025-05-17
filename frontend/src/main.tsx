@@ -24,9 +24,15 @@ export type Player = {
   country: string;
 };
 
+export type ClientIdentity = {
+  Anonymous: {
+    session_id: Uuid;
+  }
+}
+
 export type Client = {
   connected_at: string;
-  identity: string;
+  identity: ClientIdentity;
 };
 
 /** State updates received from the backend over a WebSocket. */
