@@ -15,6 +15,7 @@ enum Connection {
 }
 
 export type SteamID = string;
+export type Uuid = string;
 
 export type Player = {
   id: SteamID;
@@ -23,12 +24,16 @@ export type Player = {
   country: string;
 };
 
+export type Client = {
+  connected_at: string;
+};
+
 /** State updates received from the backend over a WebSocket. */
 export type TWebSocketStateUpdatePayload = {
+  clients: Record<Uuid, Client>;
   game: {
     _type: 'Running';
     data: {
-      time_of_day: number;
       players: Record<SteamID, Player>;
     };
   };
@@ -100,7 +105,7 @@ const WebSocketConnector = () => {
 
     // case connected
     default: {
-      return <Main players={state.game.data.players} />;
+      return <Main players={state.game.data.players} clients={state.clients} />;
     }
   }
 };

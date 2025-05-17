@@ -1,8 +1,14 @@
 import type * as React from "react";
-import type { Player, SteamID } from "../main";
+import type { Client, Player, SteamID, Uuid } from "../main";
 
-export const Main: (props: { players: Record<SteamID, Player> }) => React.ReactElement = (props) => {
+export const Main: (
+  props: {
+    clients: Record<Uuid, Client>,
+    players: Record<SteamID, Player>,
+  }
+) => React.ReactElement = (props) => {
   const playerCount = Object.keys(props.players).length;
+  const clientEntries = Object.entries(props.clients);
 
   return (
     <div style={{ margin: "0", backgroundColor: "#0d1117", color: "#c9d1d9", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif", lineHeight: "1.6" }}>
@@ -46,6 +52,26 @@ export const Main: (props: { players: Record<SteamID, Player> }) => React.ReactE
                 </td>
                 <td style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #30363d", color: "#8b949e" }}>00000000000000000</td>
               </tr>
+            </tbody>
+          </table>
+
+          <h2 style={{ fontSize: "18px", fontWeight: 600, borderBottom: "1px solid #30363d", paddingBottom: "6px", marginTop: "24px", marginBottom: "16px" }}>
+            Web Portal Clients ({clientEntries.length})
+          </h2>
+          <table style={{ width: "100%", borderCollapse: "collapse", backgroundColor: "#161b22", border: "1px solid #30363d", borderRadius: "6px", overflow: "hidden", marginBottom: "16px" }}>
+            <thead>
+              <tr>
+                <th style={{ backgroundColor: "#1f242d", color: "#c9d1d9", fontWeight: 600, padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #30363d" }}>UUID</th>
+                <th style={{ backgroundColor: "#1f242d", color: "#c9d1d9", fontWeight: 600, padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #30363d" }}>Connected At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clientEntries.map(([uuid, client]) => (
+                <tr key={uuid}>
+                  <td style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #30363d", color: "#8b949e" }}>{uuid}</td>
+                  <td style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #30363d" }}>{client.connected_at}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
 

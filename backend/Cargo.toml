@@ -3,12 +3,20 @@ name = "rustctl"
 version = "0.1.0"
 edition = "2024"
 
+[dependencies.chrono]
+version = "0.4.41"
+features = [ "serde" ]
+
+[dependencies.uuid]
+version = "1.16.0"
+features = [ "v4", "serde" ]
+
 [dependencies.console-subscriber]
 version = "0.4.1"
 
 [dependencies.tower-http]
 version = "0.6.2"
-features = ["fs"]
+features = [ "fs" ]
 
 [dependencies.clap]
 version = "4.5.37"
