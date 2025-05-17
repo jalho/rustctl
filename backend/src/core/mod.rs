@@ -99,6 +99,7 @@ impl From<&SharedState> for TWebSocketStateUpdatePayload {
     }
 }
 
+#[derive(Clone)]
 pub struct SharedState {
     clients: HashMap<Uuid, ClientMeta>,
     pub game: GameState,
@@ -112,12 +113,6 @@ impl SharedState {
             game: GameState::read(),
             system: SystemState::read(),
         }))
-    }
-
-    fn serialize(&self) -> Message {
-        let payload: TWebSocketStateUpdatePayload = self.into();
-        let json: String = serde_json::to_string(&payload).unwrap();
-        Message::Text(Utf8Bytes::from(json))
     }
 
     fn register(&mut self, client: &Client) -> Uuid {
@@ -135,6 +130,14 @@ impl SharedState {
 
     fn unregister(&mut self, client_id: &Uuid) {
         self.clients.remove(client_id);
+    }
+}
+
+impl From<&SharedState> for Message {
+    fn from(value: &SharedState) -> Self {
+        let payload: TWebSocketStateUpdatePayload = value.into();
+        let json: String = serde_json::to_string(&payload).unwrap();
+        Message::Text(Utf8Bytes::from(json))
     }
 }
 
@@ -195,12 +198,16 @@ impl Client {
                 loop {
                     interval.tick().await;
 
+                    let snapshot: SharedState;
                     {
                         let shared_locked: MutexGuard<SharedState> = shared_tx.lock().await;
-                        let sent = SinkExt::send(&mut sock_tx, shared_locked.serialize()).await;
-                        if sent.is_err() {
-                            break;
-                        }
+                        snapshot = shared_locked.clone();
+                    }
+
+                    let serialized: Message = (&snapshot).into();
+                    let sent = SinkExt::send(&mut sock_tx, serialized).await;
+                    if sent.is_err() {
+                        break;
                     }
                 }
             })
