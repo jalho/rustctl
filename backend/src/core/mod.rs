@@ -80,14 +80,16 @@ where
     return serializer.serialize_str(&timestamp);
 }
 
+/// State update payload to be sent to clients regularly.
+/// (This type exists in the frontend code too, using the same name.)
 #[derive(serde::Serialize)]
-struct ClientState {
+struct TWebSocketStateUpdatePayload {
     clients: HashMap<Uuid, ClientMeta>,
     game: GameState,
     system: SystemState,
 }
 
-impl From<&SharedState> for ClientState {
+impl From<&SharedState> for TWebSocketStateUpdatePayload {
     fn from(value: &SharedState) -> Self {
         Self {
             clients: value.clients.clone(),
@@ -113,7 +115,7 @@ impl SharedState {
     }
 
     fn serialize(&self) -> Message {
-        let payload: ClientState = self.into();
+        let payload: TWebSocketStateUpdatePayload = self.into();
         let json: String = serde_json::to_string(&payload).unwrap();
         Message::Text(Utf8Bytes::from(json))
     }
