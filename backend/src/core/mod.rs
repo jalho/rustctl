@@ -145,7 +145,7 @@ pub struct Cli {
 
 impl Cli {
     pub fn get_args() -> Self {
-        return <Cli as clap::Parser>::parse();
+        <Cli as clap::Parser>::parse()
     }
 }
 
