@@ -84,7 +84,7 @@ impl Client {
         let (mut sock_tx, mut sock_rx) = StreamExt::split(self.sock);
 
         let shared_rx: Arc<Mutex<SharedState>> = Arc::clone(&self.shared);
-        let jh_rx_cmd = tokio::task::Builder::new()
+        let mut task_rx_cmd = tokio::task::Builder::new()
             .name("recv_commands")
             .spawn(async move {
                 loop {
@@ -106,7 +106,7 @@ impl Client {
             .unwrap();
 
         let shared_tx: Arc<Mutex<SharedState>> = Arc::clone(&self.shared);
-        let jh_tx_state = tokio::task::Builder::new()
+        let mut task_tx_state = tokio::task::Builder::new()
             .name("send_state")
             .spawn(async move {
                 let mut interval = tokio::time::interval(INTERVAL_SYNC_CLIENT);
@@ -124,8 +124,14 @@ impl Client {
             })
             .unwrap();
 
-        _ = jh_rx_cmd.await;
-        _ = jh_tx_state.await;
+        tokio::select! {
+            _ = (&mut task_rx_cmd) => {
+                task_tx_state.abort();
+            },
+            _ = (&mut task_tx_state) => {
+                task_rx_cmd.abort();
+            }
+        }
     }
 }
 
