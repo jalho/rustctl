@@ -26,6 +26,7 @@ export type Player = {
 
 export type Client = {
   connected_at: string;
+  identity: string;
 };
 
 /** State updates received from the backend over a WebSocket. */

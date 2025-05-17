@@ -6,7 +6,7 @@ use axum::{
     },
     response::IntoResponse,
 };
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use futures::{SinkExt, StreamExt};
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::sync::{Mutex, MutexGuard};
@@ -35,6 +35,24 @@ pub async fn handle_websocket_upgrade(
     })
 }
 
+#[derive(Clone)]
+enum ClientIdentity {
+    Anonymous,
+    // could add e.g. variant SteamUser here (encapsulating Steam ID)
+}
+
+impl serde::Serialize for ClientIdentity {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let s: &str = match self {
+            ClientIdentity::Anonymous => "Anonymous",
+        };
+        return serializer.serialize_str(s);
+    }
+}
+
 #[derive(serde::Serialize, Clone)]
 struct ClientMeta {
     #[serde(skip_serializing)]
@@ -42,6 +60,8 @@ struct ClientMeta {
 
     #[serde(serialize_with = "serialize_date_utc_js")]
     connected_at: chrono::DateTime<chrono::Utc>,
+
+    identity: ClientIdentity,
 }
 
 /// Serialize into JavaScript compatible date notation, e.g. "2025-01-01T00:00:00.000Z"
@@ -103,6 +123,7 @@ impl SharedState {
         let client_meta = ClientMeta {
             _addr: client.addr,
             connected_at: Utc::now(),
+            identity: ClientIdentity::Anonymous,
         };
 
         self.clients.insert(client_id, client_meta);

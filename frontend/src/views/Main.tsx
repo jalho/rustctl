@@ -61,15 +61,15 @@ export const Main: (
           <table style={{ width: "100%", borderCollapse: "collapse", backgroundColor: "#161b22", border: "1px solid #30363d", borderRadius: "6px", overflow: "hidden", marginBottom: "16px" }}>
             <thead>
               <tr>
-                <th style={{ backgroundColor: "#1f242d", color: "#c9d1d9", fontWeight: 600, padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #30363d" }}>UUID</th>
+                <th style={{ backgroundColor: "#1f242d", color: "#c9d1d9", fontWeight: 600, padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #30363d" }}>Identity</th>
                 <th style={{ backgroundColor: "#1f242d", color: "#c9d1d9", fontWeight: 600, padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #30363d" }}>Connected At</th>
               </tr>
             </thead>
             <tbody>
               {clientEntries.map(([uuid, client]) => (
                 <tr key={uuid}>
-                  <td style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #30363d", color: "#8b949e" }}>{uuid}</td>
-                  <td style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #30363d" }}>{client.connected_at}</td>
+                  <td style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #30363d", color: "#8b949e" }}>{client.identity}</td>
+                  <td style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid #30363d" }}>{formatDate(new Date(client.connected_at))}</td>
                 </tr>
               ))}
             </tbody>
@@ -100,3 +100,9 @@ export const Main: (
   );
 };
 
+function formatDate(date: Date): string {
+  return date.toLocaleString(undefined, {
+    dateStyle: "short",
+    timeStyle: "short"
+  });
+}
