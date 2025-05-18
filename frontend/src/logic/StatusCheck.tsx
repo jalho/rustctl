@@ -5,7 +5,7 @@ import * as libstore from "../store/_mod";
 import * as libutil from "../util";
 import type * as libsync from "../store/sync";
 
-const StatusCheck = (props: { url: string }): null | libreact.ReactElement => {
+const StatusCheck = (props: { urlCheckStatus: string, urlLogIn: string }): null | libreact.ReactElement => {
   const state: libstatus.State = libredux.useSelector<libstore.RootState, libstatus.State>((s) => {
     return s.status;
   });
@@ -17,17 +17,17 @@ const StatusCheck = (props: { url: string }): null | libreact.ReactElement => {
       const sessionId: null | libsync.Uuid = libutil.getSessionId(document.cookie);
 
       if (sessionId) {
-        checkStatus(props.url).then((status) => {
+        checkStatus(props.urlCheckStatus).then((status) => {
 
-          if (status === Status.Offline) {
+          if (status === SessionStatus.Offline) {
             dispatch(libstore.actions.status.setOffline());
           }
 
-          else if (status === Status.OnlineSessionInvalid) {
+          else if (status === SessionStatus.OnlineSessionInvalid) {
             dispatch(libstore.actions.status.setLoggedOut());
           }
 
-          else if (status === Status.OnlineSessionValid) {
+          else if (status === SessionStatus.OnlineSessionValid) {
             dispatch(libstore.actions.status.setLoggedIn({ sessionId }));
           }
 
@@ -42,11 +42,19 @@ const StatusCheck = (props: { url: string }): null | libreact.ReactElement => {
         dispatch(libstore.actions.status.setLoggedOut());
       }
 
-      return <>Initializing</>;
+      return <>Initializing...</>;
     }
 
     case libstatus.PreLogin.LoggedOut: {
-      return <>LoggedOut</>;
+      logIn(props.urlLogIn).then((result) => {
+        if (result === SessionStatus.Offline) {
+          dispatch(libstore.actions.status.setOffline());
+        } else {
+          dispatch(libstore.actions.status.setLoggedIn({ sessionId: result.sessionId }));
+        }
+      });
+
+      return <>Logging in...</>;
     }
 
     case libstatus.PreLogin.Offline: {
@@ -60,23 +68,43 @@ const StatusCheck = (props: { url: string }): null | libreact.ReactElement => {
   }
 };
 
-enum Status {
-  Offline,
-  OnlineSessionValid,
-  OnlineSessionInvalid,
+enum SessionStatus {
+  Offline = "Offline",
+  OnlineSessionValid = "OnlineSessionValid",
+  OnlineSessionInvalid = "OnlineSessionInvalid",
 }
 
-async function checkStatus(url: string): Promise<Status> {
+async function checkStatus(url: string): Promise<SessionStatus> {
   try {
     const response = await fetch(url);
     if (response.ok) {
-      return Status.OnlineSessionValid;
+      return SessionStatus.OnlineSessionValid;
     } else {
-      return Status.OnlineSessionInvalid;
+      return SessionStatus.OnlineSessionInvalid;
     }
-  } catch (err) {
-    console.debug(err);
-    return Status.Offline;
+  } catch (_) {
+    return SessionStatus.Offline;
+  }
+}
+
+async function logIn(url: string): Promise<{ sessionId: libsync.Uuid } | SessionStatus.Offline> {
+  let response: Response;
+
+  try {
+    response = await fetch(url);
+  } catch (_) {
+    return SessionStatus.Offline;
+  }
+
+  if (response.ok) {
+    const sessionId: null | libsync.Uuid = libutil.getSessionId(document.cookie);
+    if (sessionId) {
+      return { sessionId };
+    } else {
+      throw new Error("BUG: login response OK but no cookie set");
+    }
+  } else {
+    throw new Error("BUG: login rejected by remote with status " + response.status);
   }
 }
 
