@@ -32,8 +32,17 @@ export const reducers = {
   status: status.reducer,
   sync: sync.reducer,
 };
+export type Reducers = typeof reducers;
 
 export const actions = {
   status: status.actions,
   sync: sync.actions,
 };
+
+export function init(reducers: Reducers) {
+  const store = librtk.configureStore({ reducer: reducers });
+  return store;
+}
+
+export type Store = ReturnType<typeof init>;
+export type RootState = ReturnType<Store["getState"]>;

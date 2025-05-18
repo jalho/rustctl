@@ -1,6 +1,5 @@
 import * as librdom from "react-dom/client";
 import * as libredux from "react-redux";
-import * as librtk from "@reduxjs/toolkit";
 import * as libstore from "./store/_mod";
 import * as libutil from "./util";
 import StatusCheck from "./logic/StatusCheck";
@@ -10,7 +9,7 @@ const root: librdom.Root = librdom.createRoot(element);
 
 const endpoints: libutil.Endpoints = libutil.getUrls();
 
-const store = librtk.configureStore({ reducer: libstore.reducers });
+const store: libstore.Store = libstore.init(libstore.reducers);
 
 root.render(
   <libredux.Provider store={store}>
