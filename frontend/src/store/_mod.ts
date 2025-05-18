@@ -16,14 +16,14 @@ const status = librtk.createSlice({
   name: libstatus.reduxSliceName,
   initialState: libstatus.reduxSliceInitialState,
   reducers: {
-    setLoggedIn: (_state, _action) => {
-      return libstatus.State.LoggedIn;
+    setLoggedIn: (_state, action: { payload: { sessionId: libsync.Uuid } }) => {
+      return { sessionId: action.payload.sessionId } satisfies libstatus.LoggedIn;
     },
-    setLoggedOut: (_state, _action) => {
-      return libstatus.State.LoggedOut;
+    setLoggedOut: (_state) => {
+      return libstatus.PreLogin.LoggedOut;
     },
-    setOffline: (_state, _action) => {
-      return libstatus.State.Offline;
+    setOffline: (_state) => {
+      return libstatus.PreLogin.Offline;
     },
   },
 });
