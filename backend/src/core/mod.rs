@@ -245,10 +245,10 @@ pub enum CliCommand {
         #[arg(long = "web-root", short, value_name = "PATH")]
         web_root: PathBuf,
 
-        #[arg(long = "backend-hostname", short, value_name = "HOSTNAME")]
-        backend_hostname: String,
+        #[arg(long = "backend-host", short, value_name = "HOST")]
+        backend_host: String,
 
-        #[arg(long = "frontend-hostname", short, value_name = "HOSTNAME")]
-        frontend_hostname: String,
+        #[arg(long = "frontend-host", short, value_name = "HOST")]
+        frontend_host: String,
     },
 }

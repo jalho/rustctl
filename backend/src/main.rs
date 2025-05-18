@@ -9,12 +9,12 @@ fn main() {
 
     let args = core::Cli::get_args();
 
-    let (web_root, backend_hostname, frontend_hostname) = match args.command {
+    let (web_root, backend_host, frontend_host) = match args.command {
         core::CliCommand::Start {
             web_root,
-            backend_hostname,
-            frontend_hostname,
-        } => (web_root, backend_hostname, frontend_hostname),
+            backend_host,
+            frontend_host,
+        } => (web_root, backend_host, frontend_host),
     };
 
     let state = core::SharedState::init();
@@ -25,7 +25,7 @@ fn main() {
         .build()
         .unwrap();
 
-    let subject_alt_names: Vec<String> = vec![backend_hostname, frontend_hostname.clone()];
+    let subject_alt_names: Vec<String> = vec![backend_host, frontend_host.clone()];
     let cert_and_key: rcgen::CertifiedKey =
         rcgen::generate_simple_self_signed(subject_alt_names).unwrap();
 
@@ -58,7 +58,7 @@ fn main() {
          */
         let jh_web = tokio::task::Builder::new()
             .name("web_server")
-            .spawn(web::start(tls_config, frontend_hostname, state, web_root))
+            .spawn(web::start(tls_config, frontend_host, state, web_root))
             .unwrap();
 
         jh_monitor.await.unwrap();

@@ -15,7 +15,7 @@ on Linux.
 
 ```console
 $ cd ./frontend && ./node_modules/.bin/vite build && cd -
-$ cd ./backend && cargo run -- start --web-root ../frontend/out/ --backend-hostname api.rustctl.internal --frontend-hostname ui.rustctl.internal
+$ cd ./backend && cargo run -- start --web-root ../frontend/out/ --backend-host api.rustctl.internal:8080 --frontend-host ui.rustctl.internal:8080
 $ tokio-console
 ```
 

@@ -26,20 +26,37 @@ pub struct ClientSession {
 }
 
 #[derive(Clone)]
+pub struct FrontendHost(Arc<String>);
+
+impl FrontendHost {
+    pub fn to_header_cors_allow_origin(&self) -> HeaderValue {
+        let host: String = self.0.to_string();
+        let origin: String = format!("https://{host}");
+        HeaderValue::from_str(&origin).unwrap()
+    }
+}
+
+impl From<String> for FrontendHost {
+    fn from(value: String) -> Self {
+        Self(Arc::new(value))
+    }
+}
+
+#[derive(Clone)]
 pub struct WebServerState {
-    pub cors_allow_origin: Arc<String>,
+    pub frontend_host: FrontendHost,
     session_sign_verif_key: Key,
     pub shared_state: Arc<Mutex<SharedState>>,
 }
 
 impl WebServerState {
     pub fn init(
-        cors_allow_origin: String,
+        frontend_host: String,
         session_sign_verif_key: Key,
         shared_state: Arc<Mutex<SharedState>>,
     ) -> Self {
         Self {
-            cors_allow_origin: Arc::new(cors_allow_origin),
+            frontend_host: frontend_host.into(),
             session_sign_verif_key,
             shared_state,
         }
@@ -105,14 +122,12 @@ async fn login(jar: SignedCookieJar, state: State<WebServerState>) -> impl IntoR
 
     let session: SignedCookieJar = jar.add(cookie);
 
-    let cors_allow_origin: String = state.cors_allow_origin.clone().to_string();
-
     let response: Response = (
         StatusCode::OK,
         [
             (
                 ACCESS_CONTROL_ALLOW_ORIGIN,
-                HeaderValue::from_str(&cors_allow_origin).unwrap(),
+                state.frontend_host.to_header_cors_allow_origin(),
             ),
             (
                 ACCESS_CONTROL_ALLOW_CREDENTIALS,
@@ -132,13 +147,12 @@ async fn status(jar: SignedCookieJar, state: State<WebServerState>) -> impl Into
         .and_then(|cookie| serde_json::from_str::<ClientSession>(cookie.value()).ok())
     {
         Some(_client_session) => {
-            let cors_allow_origin: String = state.cors_allow_origin.clone().to_string();
             let response: Response = (
                 StatusCode::NO_CONTENT,
                 [
                     (
                         ACCESS_CONTROL_ALLOW_ORIGIN,
-                        HeaderValue::from_str(&cors_allow_origin).unwrap(),
+                        state.frontend_host.to_header_cors_allow_origin(),
                     ),
                     (
                         ACCESS_CONTROL_ALLOW_CREDENTIALS,
