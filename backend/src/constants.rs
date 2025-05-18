@@ -8,4 +8,4 @@ pub const INTERVAL_FETCH_GAME_STATE: Duration = Duration::from_millis(200);
 
 pub const INTERVAL_SYNC_CLIENT: Duration = Duration::from_millis(200);
 
-pub const COOKIE_NAME_SESSION: &'static str = "session";
+pub const COOKIE_NAME_SESSION: &str = "session";

@@ -15,7 +15,7 @@ on Linux.
 
 ```console
 $ cd ./frontend && ./node_modules/.bin/vite build && cd -
-$ cd ./backend && cargo run -- start --web-root ../frontend/out/
+$ cd ./backend && cargo run -- start --web-root ../frontend/out/ --cors-allow-origin http://192.168.0.103:5173
 $ tokio-console
 ```
 

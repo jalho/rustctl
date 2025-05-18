@@ -2,7 +2,7 @@ use crate::{
     constants::{COOKIE_NAME_SESSION, INTERVAL_SYNC_CLIENT},
     game::GameState,
     system::SystemState,
-    web::{AppState, ClientSession},
+    web::{ClientSession, WebServerState},
 };
 use axum::{
     extract::{
@@ -22,7 +22,7 @@ use uuid::Uuid;
 pub async fn handle_websocket_upgrade(
     ws: WebSocketUpgrade,
     jar: SignedCookieJar,
-    state: State<AppState>,
+    state: State<WebServerState>,
     connect_info: ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
     match jar
@@ -30,7 +30,7 @@ pub async fn handle_websocket_upgrade(
         .and_then(|cookie| serde_json::from_str::<ClientSession>(cookie.value()).ok())
     {
         Some(client_session) => {
-            let shared_state = Arc::clone(&state.shared);
+            let shared_state = Arc::clone(&state.shared_state);
             ws.on_upgrade(async move |sock| {
                 let client = Client::new(connect_info.0, sock, Arc::clone(&shared_state));
 
@@ -81,7 +81,7 @@ where
         dt.format("%Y-%m-%dT%H:%M:%S"),
         dt.timestamp_subsec_millis()
     );
-    return serializer.serialize_str(&timestamp);
+    serializer.serialize_str(&timestamp)
 }
 
 /// State update payload to be sent to clients regularly.
@@ -244,5 +244,8 @@ pub enum CliCommand {
     Start {
         #[arg(long = "web-root", short, value_name = "PATH")]
         web_root: PathBuf,
+
+        #[arg(long = "cors-allow-origin", short, value_name = "ORIGIN")]
+        cors_allow_origin: String,
     },
 }

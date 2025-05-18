@@ -9,8 +9,11 @@ fn main() {
 
     let args = core::Cli::get_args();
 
-    let web_root = match args.command {
-        core::CliCommand::Start { web_root } => web_root,
+    let (web_root, cors_allow_origin) = match args.command {
+        core::CliCommand::Start {
+            web_root,
+            cors_allow_origin,
+        } => (web_root, cors_allow_origin),
     };
 
     let state = core::SharedState::init();
@@ -43,7 +46,7 @@ fn main() {
          */
         let jh_web = tokio::task::Builder::new()
             .name("web_server")
-            .spawn(web::start(state, web_root))
+            .spawn(web::start(cors_allow_origin, state, web_root))
             .unwrap();
 
         jh_monitor.await.unwrap();

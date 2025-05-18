@@ -2,36 +2,42 @@
 import type * as libsync from "./store/sync";
 
 export type Endpoints = {
-  status: string;
-  login: string;
-  websocket: string;
+  status: URL;
+  login: URL;
+  websocket: URL;
 };
 
 export function getUrls(): Endpoints {
-  if (import.meta.env.MODE === "development") {
-    const backendHost = import.meta.env.VITE_BACKEND_HOST;
-    if (!backendHost) {
-      throw new Error("bad build: missing required parameter: backend host");
-    } else {
-      return {
-        status: `http://${backendHost}/status`,
-        login: `http://${backendHost}/login`,
-        websocket: `ws://${backendHost}/sock`,
-      };
-    }
+  let backendHost: string;
+  const buildParam: unknown = import.meta.env.VITE_BACKEND_HOST;
+  if (typeof buildParam !== "string" || !buildParam) {
+    throw new Error("BUG: bad build: missing required parameter: backend host");
   } else {
-    return {
-      status: "/status",
-      login: "/login",
-      websocket: "/sock",
-    };
+    backendHost = buildParam;
   }
+
+  let schemeHttp: "http" | "https";
+  let schemeWebSocket: "ws" | "wss";
+  const origin: URL = new URL(window.origin);
+  if (origin.protocol === "http:") {
+    schemeHttp = "http";
+    schemeWebSocket = "ws";
+  } else {
+    schemeHttp = "https";
+    schemeWebSocket = "wss";
+  }
+
+  return {
+    status: new URL(`${schemeHttp}://${backendHost}/status`),
+    login: new URL(`${schemeHttp}://${backendHost}/login`),
+    websocket: new URL(`${schemeWebSocket}://${backendHost}/sock`),
+  };
 }
 
 export function getRootElement(): HTMLElement {
   const element: null | HTMLElement = document.getElementById("root");
   if (!element) {
-    throw new Error("bad build: missing required HTML root element");
+    throw new Error("BUG: bad build: missing required HTML root element");
   }
   return element;
 }
@@ -40,6 +46,7 @@ export function getRootElement(): HTMLElement {
  * @example "session=R3N2yEX5LxRRxl8gkQJZB+zpgOoTCwvoEzvDqqwhgCQ%3D%7B%22session_id%22%3A%223e24b217-1f31-4be7-88be-a1309353228b%22%7D"
  */
 export function getSessionId(cookie: string): null | libsync.Uuid {
+  console.debug('DEBUG: trying to read session ID from cookie: "%s"', cookie);
   const cookieDelimiterIdx: number = cookie.indexOf("=");
   if (cookieDelimiterIdx < 0) {
     return null;

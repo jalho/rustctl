@@ -21,6 +21,7 @@ $ ./node_modules/.bin/vite --host
 Emitted to `./out/`, configured in `./vite.config.ts`:
 
 ```console
+$ export VITE_BACKEND_HOST=192.168.0.103:8080
 $ ./node_modules/.bin/vite build
 ```
 

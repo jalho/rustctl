@@ -5,7 +5,7 @@ import * as libstore from "../store/_mod";
 import * as libutil from "../util";
 import type * as libsync from "../store/sync";
 
-const StatusCheck = (props: { urlCheckStatus: string, urlLogIn: string }): null | libreact.ReactElement => {
+const StatusCheck = (props: { urlCheckStatus: URL, urlLogIn: URL }): null | libreact.ReactElement => {
   const state: libstatus.State = libredux.useSelector<libstore.RootState, libstatus.State>((s) => {
     return s.status;
   });
@@ -32,7 +32,7 @@ const StatusCheck = (props: { urlCheckStatus: string, urlLogIn: string }): null 
           }
 
           else {
-            throw new Error("unhandled case: " + status);
+            throw new Error("BUG: status check: unhandled case: " + status);
           }
 
         });
@@ -74,7 +74,7 @@ enum SessionStatus {
   OnlineSessionInvalid = "OnlineSessionInvalid",
 }
 
-async function checkStatus(url: string): Promise<SessionStatus> {
+async function checkStatus(url: URL): Promise<SessionStatus> {
   try {
     const response = await fetch(url);
     if (response.ok) {
@@ -87,7 +87,7 @@ async function checkStatus(url: string): Promise<SessionStatus> {
   }
 }
 
-async function logIn(url: string): Promise<{ sessionId: libsync.Uuid } | SessionStatus.Offline> {
+async function logIn(url: URL): Promise<{ sessionId: libsync.Uuid } | SessionStatus.Offline> {
   let response: Response;
 
   try {
@@ -97,7 +97,7 @@ async function logIn(url: string): Promise<{ sessionId: libsync.Uuid } | Session
   }
 
   if (response.ok) {
-    const sessionId: null | libsync.Uuid = libutil.getSessionId(document.cookie);
+    const sessionId: null | libsync.Uuid = await reread(5, 1000, () => libutil.getSessionId(document.cookie));
     if (sessionId) {
       return { sessionId };
     } else {
@@ -106,6 +106,25 @@ async function logIn(url: string): Promise<{ sessionId: libsync.Uuid } | Session
   } else {
     throw new Error("BUG: login rejected by remote with status " + response.status);
   }
+}
+
+async function reread<T>(attemptsMax: number, intervalMs: number, reader: () => T): Promise<null | T> {
+  for (let i = 0; i < attemptsMax; i++) {
+    console.debug("DEBUG: read attempt #%d", i);
+    const read = reader();
+    if (read) {
+      console.debug("\tread:", read);
+      return read;
+    } else {
+      console.debug("\tsleeping...");
+      await sleepMs(intervalMs);
+    }
+  }
+  return null;
+}
+
+function sleepMs(durationMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, durationMs));
 }
 
 export default StatusCheck;
