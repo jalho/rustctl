@@ -1,5 +1,5 @@
 use crate::{
-    constants::{ADDR_WEB_SERVICE_LISTEN, COOKIE_NAME_SESSION},
+    constants::COOKIE_NAME_SESSION,
     core::{SharedState, handle_websocket_upgrade},
 };
 use axum::{
@@ -13,9 +13,10 @@ use axum::{
     routing,
 };
 use axum_extra::extract::cookie::{self, Cookie, Key, SignedCookieJar};
+use axum_server::tls_rustls::RustlsConfig;
 use serde::{Deserialize, Serialize};
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
-use tokio::{net::TcpListener, sync::Mutex};
+use tokio::sync::Mutex;
 use tower_http::services::ServeDir;
 use uuid::Uuid;
 
@@ -57,9 +58,14 @@ impl FromRef<WebServerState> for Arc<Mutex<SharedState>> {
     }
 }
 
-pub async fn start(cors_allow_origin: String, shared: Arc<Mutex<SharedState>>, web_root: PathBuf) {
-    let key = Key::generate();
-    let app_state = WebServerState::init(cors_allow_origin, key, shared);
+pub async fn start(
+    tls_config: RustlsConfig,
+    cors_allow_origin: String,
+    shared: Arc<Mutex<SharedState>>,
+    web_root: PathBuf,
+) {
+    let cookie_sign_verif_key = Key::generate();
+    let app_state = WebServerState::init(cors_allow_origin, cookie_sign_verif_key, shared);
 
     let web_service = Router::new()
         .route(
@@ -72,14 +78,11 @@ pub async fn start(cors_allow_origin: String, shared: Arc<Mutex<SharedState>>, w
         .fallback_service(ServeDir::new(web_root).append_index_html_on_directories(true))
         .with_state(app_state);
 
-    let listener = TcpListener::bind(ADDR_WEB_SERVICE_LISTEN).await.unwrap();
-
-    axum::serve(
-        listener,
-        web_service.into_make_service_with_connect_info::<SocketAddr>(),
-    )
-    .await
-    .unwrap();
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
+    axum_server::bind_rustls(addr, tls_config)
+        .serve(web_service.into_make_service_with_connect_info::<SocketAddr>())
+        .await
+        .unwrap();
 }
 
 async fn no_content() -> StatusCode {

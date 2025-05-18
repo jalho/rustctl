@@ -108,15 +108,13 @@ async function logIn(url: URL): Promise<{ sessionId: libsync.Uuid } | SessionSta
   }
 }
 
+// TODO: Remove reread? (Is the cookie immediately readable when response has arrived?)
 async function reread<T>(attemptsMax: number, intervalMs: number, reader: () => T): Promise<null | T> {
   for (let i = 0; i < attemptsMax; i++) {
-    console.debug("DEBUG: read attempt #%d", i);
     const read = reader();
     if (read) {
-      console.debug("\tread:", read);
       return read;
     } else {
-      console.debug("\tsleeping...");
       await sleepMs(intervalMs);
     }
   }

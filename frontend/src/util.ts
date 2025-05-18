@@ -46,7 +46,6 @@ export function getRootElement(): HTMLElement {
  * @example "session=R3N2yEX5LxRRxl8gkQJZB+zpgOoTCwvoEzvDqqwhgCQ%3D%7B%22session_id%22%3A%223e24b217-1f31-4be7-88be-a1309353228b%22%7D"
  */
 export function getSessionId(cookie: string): null | libsync.Uuid {
-  console.debug('DEBUG: trying to read session ID from cookie: "%s"', cookie);
   const cookieDelimiterIdx: number = cookie.indexOf("=");
   if (cookieDelimiterIdx < 0) {
     return null;

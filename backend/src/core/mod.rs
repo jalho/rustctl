@@ -245,7 +245,10 @@ pub enum CliCommand {
         #[arg(long = "web-root", short, value_name = "PATH")]
         web_root: PathBuf,
 
-        #[arg(long = "cors-allow-origin", short, value_name = "ORIGIN")]
-        cors_allow_origin: String,
+        #[arg(long = "backend-hostname", short, value_name = "HOSTNAME")]
+        backend_hostname: String,
+
+        #[arg(long = "frontend-hostname", short, value_name = "HOSTNAME")]
+        frontend_hostname: String,
     },
 }

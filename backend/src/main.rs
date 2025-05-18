@@ -9,11 +9,12 @@ fn main() {
 
     let args = core::Cli::get_args();
 
-    let (web_root, cors_allow_origin) = match args.command {
+    let (web_root, backend_hostname, frontend_hostname) = match args.command {
         core::CliCommand::Start {
             web_root,
-            cors_allow_origin,
-        } => (web_root, cors_allow_origin),
+            backend_hostname,
+            frontend_hostname,
+        } => (web_root, backend_hostname, frontend_hostname),
     };
 
     let state = core::SharedState::init();
@@ -24,7 +25,18 @@ fn main() {
         .build()
         .unwrap();
 
+    let subject_alt_names: Vec<String> = vec![backend_hostname, frontend_hostname.clone()];
+    let cert_and_key: rcgen::CertifiedKey =
+        rcgen::generate_simple_self_signed(subject_alt_names).unwrap();
+
     runtime.block_on(async {
+        let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem(
+            cert_and_key.cert.pem().as_bytes().to_vec(),
+            cert_and_key.key_pair.serialize_pem().as_bytes().to_vec(),
+        )
+        .await
+        .unwrap();
+
         /*
          * Monitor system resources's usage such as CPU and memory.
          */
@@ -46,7 +58,7 @@ fn main() {
          */
         let jh_web = tokio::task::Builder::new()
             .name("web_server")
-            .spawn(web::start(cors_allow_origin, state, web_root))
+            .spawn(web::start(tls_config, frontend_hostname, state, web_root))
             .unwrap();
 
         jh_monitor.await.unwrap();
