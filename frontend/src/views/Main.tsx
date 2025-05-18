@@ -1,16 +1,16 @@
-import type * as React from "react";
-import type { Client, Player, SteamID, Uuid } from "../main";
+import type * as libreact from "react";
+import type * as libsync from "../store/sync";
 
 export const Main: (
   props: {
-    clients: Record<Uuid, Client>,
-    players: Record<SteamID, Player>,
+    clients: Record<libsync.Uuid, libsync.Client>,
+    players: Record<libsync.SteamID, libsync.Player>,
   }
-) => React.ReactElement = (props) => {
+) => libreact.ReactElement = (props) => {
   const playerCount = Object.keys(props.players).length;
   const clientEntries = Object.entries(props.clients);
   // TODO: Expect sessionId as prop instead?
-  const sessionId: Uuid = getSessionId(document.cookie);
+  const sessionId: libsync.Uuid = getSessionId(document.cookie);
 
   return (
     <div style={{ margin: "0", backgroundColor: "#0d1117", color: "#c9d1d9", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif", lineHeight: "1.6" }}>
@@ -117,7 +117,7 @@ function formatIsSelf(isSelf: boolean): string {
 /**
  * @example "session=R3N2yEX5LxRRxl8gkQJZB+zpgOoTCwvoEzvDqqwhgCQ%3D%7B%22session_id%22%3A%223e24b217-1f31-4be7-88be-a1309353228b%22%7D"
  */
-function getSessionId(cookie: string): Uuid {
+function getSessionId(cookie: string): libsync.Uuid {
   const cookieDelimiterIdx: number = cookie.indexOf("=");
   if (cookieDelimiterIdx < 0) {
     throw new Error("TODO1");

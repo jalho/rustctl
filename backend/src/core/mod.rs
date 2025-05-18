@@ -87,13 +87,13 @@ where
 /// State update payload to be sent to clients regularly.
 /// (This type exists in the frontend code too, using the same name.)
 #[derive(serde::Serialize)]
-struct TWebSocketStateUpdatePayload {
+struct WebSocketStateUpdatePayload {
     clients: HashMap<Uuid, ClientMeta>,
     game: GameState,
     system: SystemState,
 }
 
-impl From<&SharedState> for TWebSocketStateUpdatePayload {
+impl From<&SharedState> for WebSocketStateUpdatePayload {
     fn from(value: &SharedState) -> Self {
         Self {
             clients: value.clients.clone(),
@@ -136,7 +136,7 @@ impl SharedState {
 
 impl From<&SharedState> for Message {
     fn from(value: &SharedState) -> Self {
-        let payload: TWebSocketStateUpdatePayload = value.into();
+        let payload: WebSocketStateUpdatePayload = value.into();
         let json: String = serde_json::to_string(&payload).unwrap();
         Message::Text(Utf8Bytes::from(json))
     }
