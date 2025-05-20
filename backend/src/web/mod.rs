@@ -5,10 +5,7 @@ use crate::{
 use axum::{
     Router,
     extract::{FromRef, State},
-    http::{
-        StatusCode,
-        header::{ACCESS_CONTROL_ALLOW_CREDENTIALS, ACCESS_CONTROL_ALLOW_ORIGIN},
-    },
+    http::StatusCode,
     response::{IntoResponse, Response},
     routing,
 };
@@ -27,19 +24,13 @@ pub struct ClientSession {
 
 #[derive(Clone)]
 pub struct WebServerState {
-    pub frontend_host: Url,
     session_sign_verif_key: Key,
     pub shared_state: Arc<Mutex<SharedState>>,
 }
 
 impl WebServerState {
-    pub fn init(
-        frontend_host: Url,
-        session_sign_verif_key: Key,
-        shared_state: Arc<Mutex<SharedState>>,
-    ) -> Self {
+    pub fn init(session_sign_verif_key: Key, shared_state: Arc<Mutex<SharedState>>) -> Self {
         Self {
-            frontend_host,
             session_sign_verif_key,
             shared_state,
         }
@@ -65,7 +56,15 @@ pub async fn start(
     web_root: PathBuf,
 ) {
     let cookie_sign_verif_key = Key::generate();
-    let app_state = WebServerState::init(cors_allow_origin.into(), cookie_sign_verif_key, shared);
+    let app_state = WebServerState::init(cookie_sign_verif_key, shared);
+
+    let cors_layer: tower_http::cors::CorsLayer = tower_http::cors::CorsLayer::new()
+        .allow_origin(
+            axum::http::HeaderValue::from_str(&Into::<String>::into(cors_allow_origin)).unwrap(),
+        )
+        .allow_credentials(true)
+        .allow_methods([axum::http::Method::GET])
+        .allow_headers([axum::http::header::CONTENT_TYPE]);
 
     let web_service = Router::new()
         .route(
@@ -76,6 +75,7 @@ pub async fn start(
         .route("/login", routing::get(login))
         .route("/status", routing::get(status))
         .fallback_service(ServeDir::new(web_root).append_index_html_on_directories(true))
+        .layer(cors_layer)
         .with_state(app_state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
@@ -90,7 +90,7 @@ async fn no_content() -> StatusCode {
 }
 
 /* TODO: Add CSRF protection? */
-async fn login(jar: SignedCookieJar, state: State<WebServerState>) -> impl IntoResponse {
+async fn login(jar: SignedCookieJar) -> impl IntoResponse {
     let session: ClientSession = ClientSession {
         session_id: Uuid::new_v4(),
     };
@@ -105,39 +105,18 @@ async fn login(jar: SignedCookieJar, state: State<WebServerState>) -> impl IntoR
 
     let session: SignedCookieJar = jar.add(cookie);
 
-    let response: Response = (
-        StatusCode::OK,
-        [
-            (
-                ACCESS_CONTROL_ALLOW_ORIGIN,
-                Into::<String>::into(state.frontend_host.clone()),
-            ),
-            (ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".to_owned()),
-        ],
-        session,
-    )
-        .into_response();
+    let response: Response = (StatusCode::OK, session).into_response();
 
     response
 }
 
-async fn status(jar: SignedCookieJar, state: State<WebServerState>) -> impl IntoResponse {
+async fn status(jar: SignedCookieJar) -> impl IntoResponse {
     match jar
         .get(COOKIE_NAME_SESSION)
         .and_then(|cookie| serde_json::from_str::<ClientSession>(cookie.value()).ok())
     {
         Some(_client_session) => {
-            let response: Response = (
-                StatusCode::NO_CONTENT,
-                [
-                    (
-                        ACCESS_CONTROL_ALLOW_ORIGIN,
-                        Into::<String>::into(state.frontend_host.clone()),
-                    ),
-                    (ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".to_owned()),
-                ],
-            )
-                .into_response();
+            let response: Response = (StatusCode::NO_CONTENT,).into_response();
 
             response
         }

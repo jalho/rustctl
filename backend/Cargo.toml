@@ -3,8 +3,8 @@ name = "rustctl"
 version = "0.1.0"
 edition = "2024"
 
-[dependencies]
-rcgen = "0.13.2"
+[dependencies.rcgen]
+version = "0.13.2"
 
 [dependencies.axum-server]
 version = "0.7.2"
@@ -27,7 +27,7 @@ version = "0.4.1"
 
 [dependencies.tower-http]
 version = "0.6.2"
-features = [ "fs" ]
+features = [ "cors", "fs" ]
 
 [dependencies.clap]
 version = "4.5.37"
