@@ -6,7 +6,7 @@ use axum::{
     Router,
     extract::{FromRef, State},
     http::{
-        HeaderValue, StatusCode,
+        StatusCode,
         header::{ACCESS_CONTROL_ALLOW_CREDENTIALS, ACCESS_CONTROL_ALLOW_ORIGIN},
     },
     response::{IntoResponse, Response},
@@ -26,37 +26,20 @@ pub struct ClientSession {
 }
 
 #[derive(Clone)]
-pub struct FrontendHost(Arc<String>);
-
-impl FrontendHost {
-    pub fn to_header_cors_allow_origin(&self) -> HeaderValue {
-        let host: String = self.0.to_string();
-        let origin: String = format!("https://{host}");
-        HeaderValue::from_str(&origin).unwrap()
-    }
-}
-
-impl From<String> for FrontendHost {
-    fn from(value: String) -> Self {
-        Self(Arc::new(value))
-    }
-}
-
-#[derive(Clone)]
 pub struct WebServerState {
-    pub frontend_host: FrontendHost,
+    pub frontend_host: Url,
     session_sign_verif_key: Key,
     pub shared_state: Arc<Mutex<SharedState>>,
 }
 
 impl WebServerState {
     pub fn init(
-        frontend_host: String,
+        frontend_host: Url,
         session_sign_verif_key: Key,
         shared_state: Arc<Mutex<SharedState>>,
     ) -> Self {
         Self {
-            frontend_host: frontend_host.into(),
+            frontend_host,
             session_sign_verif_key,
             shared_state,
         }
@@ -127,12 +110,9 @@ async fn login(jar: SignedCookieJar, state: State<WebServerState>) -> impl IntoR
         [
             (
                 ACCESS_CONTROL_ALLOW_ORIGIN,
-                state.frontend_host.to_header_cors_allow_origin(),
+                Into::<String>::into(state.frontend_host.clone()),
             ),
-            (
-                ACCESS_CONTROL_ALLOW_CREDENTIALS,
-                HeaderValue::from_static("true"),
-            ),
+            (ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".to_owned()),
         ],
         session,
     )
@@ -152,12 +132,9 @@ async fn status(jar: SignedCookieJar, state: State<WebServerState>) -> impl Into
                 [
                     (
                         ACCESS_CONTROL_ALLOW_ORIGIN,
-                        state.frontend_host.to_header_cors_allow_origin(),
+                        Into::<String>::into(state.frontend_host.clone()),
                     ),
-                    (
-                        ACCESS_CONTROL_ALLOW_CREDENTIALS,
-                        HeaderValue::from_static("true"),
-                    ),
+                    (ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".to_owned()),
                 ],
             )
                 .into_response();
