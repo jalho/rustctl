@@ -25,9 +25,8 @@ fn main() {
         .build()
         .unwrap();
 
-    let subject_alt_names: Vec<String> = vec![backend_host, frontend_host.clone()];
-    let cert_and_key: rcgen::CertifiedKey =
-        rcgen::generate_simple_self_signed(subject_alt_names).unwrap();
+    let sans: Vec<String> = vec![backend_host.to_cert_san(), frontend_host.to_cert_san()];
+    let cert_and_key: rcgen::CertifiedKey = rcgen::generate_simple_self_signed(sans).unwrap();
 
     runtime.block_on(async {
         let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem(

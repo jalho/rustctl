@@ -246,9 +246,9 @@ pub enum CliCommand {
         web_root: PathBuf,
 
         #[arg(long = "backend-host", short, value_name = "HOST")]
-        backend_host: String,
+        backend_host: crate::web::Url,
 
         #[arg(long = "frontend-host", short, value_name = "HOST")]
-        frontend_host: String,
+        frontend_host: crate::web::Url,
     },
 }

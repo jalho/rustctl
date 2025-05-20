@@ -77,12 +77,12 @@ impl FromRef<WebServerState> for Arc<Mutex<SharedState>> {
 
 pub async fn start(
     tls_config: RustlsConfig,
-    cors_allow_origin: String,
+    cors_allow_origin: Url,
     shared: Arc<Mutex<SharedState>>,
     web_root: PathBuf,
 ) {
     let cookie_sign_verif_key = Key::generate();
-    let app_state = WebServerState::init(cors_allow_origin, cookie_sign_verif_key, shared);
+    let app_state = WebServerState::init(cors_allow_origin.into(), cookie_sign_verif_key, shared);
 
     let web_service = Router::new()
         .route(
@@ -165,5 +165,91 @@ async fn status(jar: SignedCookieJar, state: State<WebServerState>) -> impl Into
             response
         }
         None => StatusCode::UNAUTHORIZED.into_response(),
+    }
+}
+
+#[derive(Clone)]
+pub struct Host {
+    hostname: String,
+    port: u16,
+}
+
+#[derive(Clone)]
+pub enum Scheme {
+    Https,
+    Http,
+}
+
+#[derive(Clone)]
+pub struct Url {
+    scheme: Scheme,
+    authority: Host,
+}
+
+impl Url {
+    /// SAN as in _Subject Alt Name_.
+    pub fn to_cert_san(&self) -> String {
+        self.authority.hostname.to_owned()
+    }
+}
+
+impl Into<String> for Url {
+    fn into(self) -> String {
+        let scheme = match self.scheme {
+            Scheme::Https => "https",
+            Scheme::Http => "http",
+        };
+        format!(
+            "{scheme}://{hostname}:{port}/",
+            hostname = self.authority.hostname,
+            port = self.authority.port,
+        )
+    }
+}
+
+impl std::str::FromStr for Url {
+    type Err = String;
+
+    fn from_str(parseable: &str) -> Result<Url, Self::Err> {
+        let mut remainder: &str = parseable;
+        let mut scheme: Scheme = Scheme::Https;
+
+        if remainder.starts_with("http://") {
+            scheme = Scheme::Http;
+            remainder = &remainder[7..];
+        } else if remainder.starts_with("https://") {
+            scheme = Scheme::Https;
+            remainder = &remainder[8..];
+        }
+
+        while remainder.ends_with("/") {
+            remainder = &remainder[..remainder.len() - 1];
+        }
+
+        let mut hostname: &str = remainder;
+        let mut port: u16 = match scheme {
+            Scheme::Http => 80,
+            Scheme::Https => 443,
+        };
+
+        if let Some(delim_idx) = remainder.rfind(':') {
+            let port_raw: &str = &remainder[delim_idx + 1..];
+            if let Ok(parsed_port) = u16::from_str_radix(port_raw, 10) {
+                port = parsed_port;
+                hostname = &remainder[..delim_idx];
+            }
+        }
+
+        if hostname.len() > 0 {
+            return Ok(Url {
+                scheme,
+                authority: Host {
+                    hostname: hostname.to_owned(),
+                    port,
+                },
+            });
+        } else {
+            return Err(format!("invalid URL: \"{parseable}\""));
+        }
     }
 }
