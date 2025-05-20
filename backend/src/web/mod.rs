@@ -156,7 +156,7 @@ impl Into<String> for Url {
             Scheme::Http => "http",
         };
         format!(
-            "{scheme}://{hostname}:{port}/",
+            "{scheme}://{hostname}:{port}",
             hostname = self.authority.hostname,
             port = self.authority.port,
         )
