@@ -63,7 +63,7 @@ pub async fn start(
             axum::http::HeaderValue::from_str(&Into::<String>::into(cors_allow_origin)).unwrap(),
         )
         .allow_credentials(true)
-        .allow_methods([axum::http::Method::GET])
+        .allow_methods([axum::http::Method::GET, axum::http::Method::OPTIONS])
         .allow_headers([axum::http::header::CONTENT_TYPE]);
 
     let web_service = Router::new()
@@ -72,7 +72,7 @@ pub async fn start(
             routing::get(routing::get(handle_websocket_upgrade)),
         )
         .route("/favicon.ico", routing::get(routing::get(no_content)))
-        .route("/login", routing::get(login))
+        .route("/login", routing::get(login).options(no_content))
         .route("/status", routing::get(status))
         .fallback_service(ServeDir::new(web_root).append_index_html_on_directories(true))
         .layer(cors_layer)

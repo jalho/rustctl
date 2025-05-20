@@ -91,7 +91,7 @@ async function logIn(url: URL): Promise<{ sessionId: libsync.Uuid } | SessionSta
   let response: Response;
 
   try {
-    response = await fetch(url);
+    response = await fetch(url, { credentials: "include" });
   } catch (_) {
     return SessionStatus.Offline;
   }
