@@ -4,7 +4,7 @@ use crate::{
 };
 use axum::{
     Router,
-    extract::{FromRef, State},
+    extract::FromRef,
     http::StatusCode,
     response::{IntoResponse, Response},
     routing,
@@ -14,7 +14,10 @@ use axum_server::tls_rustls::RustlsConfig;
 use serde::{Deserialize, Serialize};
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
-use tower_http::services::ServeDir;
+use tower_http::{
+    cors::CorsLayer,
+    services::{ServeDir, ServeFile},
+};
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -58,24 +61,27 @@ pub async fn start(
     let cookie_sign_verif_key = Key::generate();
     let app_state = WebServerState::init(cookie_sign_verif_key, shared);
 
-    let cors_layer: tower_http::cors::CorsLayer = tower_http::cors::CorsLayer::new()
+    let cors_layer: CorsLayer = CorsLayer::new()
         .allow_origin(
             axum::http::HeaderValue::from_str(&Into::<String>::into(cors_allow_origin)).unwrap(),
         )
         .allow_credentials(true)
-        .allow_methods([axum::http::Method::GET, axum::http::Method::OPTIONS])
+        .allow_methods([
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::OPTIONS,
+        ])
         .allow_headers([axum::http::header::CONTENT_TYPE]);
 
     let web_service = Router::new()
-        .route(
-            "/sock",
-            routing::get(routing::get(handle_websocket_upgrade)),
-        )
-        .route("/favicon.ico", routing::get(routing::get(no_content)))
-        .route("/login", routing::get(login).options(no_content))
-        .route("/status", routing::get(status))
-        .fallback_service(ServeDir::new(web_root).append_index_html_on_directories(true))
         .layer(cors_layer)
+        .route_service("/", ServeFile::new(web_root.join("index.html")))
+        .nest_service("/assets", ServeDir::new(web_root.join("assets")))
+        .route("/favicon.ico", routing::get(no_content))
+        .route("/login", routing::get(login))
+        .route("/{*path}", routing::options(preflight_ok))
+        .route("/sock", routing::get(handle_websocket_upgrade))
+        .route("/status", routing::get(status))
         .with_state(app_state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
@@ -83,6 +89,10 @@ pub async fn start(
         .serve(web_service.into_make_service_with_connect_info::<SocketAddr>())
         .await
         .unwrap();
+}
+
+async fn preflight_ok() -> impl IntoResponse {
+    StatusCode::NO_CONTENT
 }
 
 async fn no_content() -> StatusCode {

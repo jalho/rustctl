@@ -169,7 +169,7 @@ impl Client {
     async fn send_and_receive_messages(self) {
         let (mut sock_tx, mut sock_rx) = StreamExt::split(self.sock);
 
-        let shared_rx: Arc<Mutex<SharedState>> = Arc::clone(&self.shared);
+        let _shared_rx: Arc<Mutex<SharedState>> = Arc::clone(&self.shared);
         let mut task_rx_cmd = tokio::task::Builder::new()
             .name("recv_commands")
             .spawn(async move {
