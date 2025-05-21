@@ -28,9 +28,9 @@ export function getUrls(): Endpoints {
   }
 
   return {
-    status: new URL(`${schemeHttp}://${backendHost}/status`),
-    login: new URL(`${schemeHttp}://${backendHost}/login`),
-    websocket: new URL(`${schemeWebSocket}://${backendHost}/sock`),
+    status: new URL(`${schemeHttp}://${backendHost}/api/status`),
+    login: new URL(`${schemeHttp}://${backendHost}/api/login`),
+    websocket: new URL(`${schemeWebSocket}://${backendHost}/api/sock`),
   };
 }
 

@@ -66,22 +66,38 @@ pub async fn start(
             axum::http::HeaderValue::from_str(&Into::<String>::into(cors_allow_origin)).unwrap(),
         )
         .allow_credentials(true)
-        .allow_methods([
-            axum::http::Method::GET,
-            axum::http::Method::POST,
-            axum::http::Method::OPTIONS,
-        ])
+        .allow_methods([axum::http::Method::GET, axum::http::Method::OPTIONS])
         .allow_headers([axum::http::header::CONTENT_TYPE]);
 
     let web_service = Router::new()
+        /*
+         * Host: api.rustctl
+         *
+         * Routes:
+         * - GET /api/status: Indicate backend connectivity
+         * - GET /api/login: Set cookie
+         * - GET /api/sock: Connect WebSocket
+         *
+         * CORS is needed because backend ("api.rustctl") and frontend
+         * ("ui.rustctl") are served under different names.
+         */
         .layer(cors_layer)
+        .route("/api/{*path}", routing::options(preflight_ok))
+        .route("/api/login", routing::get(login))
+        .route("/api/sock", routing::get(handle_websocket_upgrade))
+        .route("/api/status", routing::get(status))
+        /*
+         *  Host: ui.rustctl
+         *
+         *  Routes:
+         *  - GET /favicon.ico: Icon
+         *  - GET /: HTML
+         *  - GET /assets: JavaScript: Call "/api/" routes using Fetch API or
+         *                             WebSocket constructor
+         */
+        .route("/favicon.ico", routing::get(no_content))
         .route_service("/", ServeFile::new(web_root.join("index.html")))
         .nest_service("/assets", ServeDir::new(web_root.join("assets")))
-        .route("/favicon.ico", routing::get(no_content))
-        .route("/login", routing::get(login))
-        .route("/{*path}", routing::options(preflight_ok))
-        .route("/sock", routing::get(handle_websocket_upgrade))
-        .route("/status", routing::get(status))
         .with_state(app_state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
