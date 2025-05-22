@@ -53,7 +53,8 @@ impl FromRef<WebServerState> for Arc<Mutex<SharedState>> {
 }
 
 pub async fn start(
-    tls_config: RustlsConfig,
+    tls_config_be: RustlsConfig,
+    tls_config_fe: RustlsConfig,
     cors_allow_origin: Url,
     shared: Arc<Mutex<SharedState>>,
     web_root: PathBuf,
@@ -69,42 +70,26 @@ pub async fn start(
         .allow_methods([axum::http::Method::GET, axum::http::Method::OPTIONS])
         .allow_headers([axum::http::header::CONTENT_TYPE]);
 
-    let web_service = Router::new()
-        /*
-         * Host: api.rustctl
-         *
-         * Routes:
-         * - GET /api/status: Indicate backend connectivity
-         * - GET /api/login: Set cookie
-         * - GET /api/sock: Connect WebSocket
-         *
-         * CORS is needed because backend ("api.rustctl") and frontend
-         * ("ui.rustctl") are served under different names.
-         */
-        .layer(cors_layer)
+    let router_be = Router::new()
         .route("/api/{*path}", routing::options(preflight_ok))
         .route("/api/login", routing::get(login))
         .route("/api/sock", routing::get(handle_websocket_upgrade))
         .route("/api/status", routing::get(status))
-        /*
-         *  Host: ui.rustctl
-         *
-         *  Routes:
-         *  - GET /favicon.ico: Icon
-         *  - GET /: HTML
-         *  - GET /assets: JavaScript: Call "/api/" routes using Fetch API or
-         *                             WebSocket constructor
-         */
+        .layer(cors_layer)
+        .with_state(app_state);
+    let addr_be = SocketAddr::from(([0, 0, 0, 0], 8081));
+    let server_be = axum_server::bind_rustls(addr_be, tls_config_be)
+        .serve(router_be.into_make_service_with_connect_info::<SocketAddr>());
+
+    let router_fe = Router::new()
         .route("/favicon.ico", routing::get(no_content))
         .route_service("/", ServeFile::new(web_root.join("index.html")))
-        .nest_service("/assets", ServeDir::new(web_root.join("assets")))
-        .with_state(app_state);
+        .nest_service("/assets", ServeDir::new(web_root.join("assets")));
+    let addr_fe = SocketAddr::from(([0, 0, 0, 0], 8080));
+    let server_fe = axum_server::bind_rustls(addr_fe, tls_config_fe)
+        .serve(router_fe.into_make_service_with_connect_info::<SocketAddr>());
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
-    axum_server::bind_rustls(addr, tls_config)
-        .serve(web_service.into_make_service_with_connect_info::<SocketAddr>())
-        .await
-        .unwrap();
+    _ = tokio::join!(server_be, server_fe);
 }
 
 async fn preflight_ok() -> impl IntoResponse {

@@ -25,13 +25,23 @@ fn main() {
         .build()
         .unwrap();
 
-    let sans: Vec<String> = vec![backend_host.to_cert_san(), frontend_host.to_cert_san()];
-    let cert_and_key: rcgen::CertifiedKey = rcgen::generate_simple_self_signed(sans).unwrap();
+    let sans_be: Vec<String> = vec![backend_host.to_cert_san()];
+    let cert_and_key_be: rcgen::CertifiedKey = rcgen::generate_simple_self_signed(sans_be).unwrap();
+
+    let sans_fe: Vec<String> = vec![frontend_host.to_cert_san()];
+    let cert_and_key_fe: rcgen::CertifiedKey = rcgen::generate_simple_self_signed(sans_fe).unwrap();
 
     runtime.block_on(async {
-        let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem(
-            cert_and_key.cert.pem().as_bytes().to_vec(),
-            cert_and_key.key_pair.serialize_pem().as_bytes().to_vec(),
+        let tls_config_be = axum_server::tls_rustls::RustlsConfig::from_pem(
+            cert_and_key_be.cert.pem().as_bytes().to_vec(),
+            cert_and_key_be.key_pair.serialize_pem().as_bytes().to_vec(),
+        )
+        .await
+        .unwrap();
+
+        let tls_config_fe = axum_server::tls_rustls::RustlsConfig::from_pem(
+            cert_and_key_fe.cert.pem().as_bytes().to_vec(),
+            cert_and_key_fe.key_pair.serialize_pem().as_bytes().to_vec(),
         )
         .await
         .unwrap();
@@ -57,7 +67,13 @@ fn main() {
          */
         let jh_web = tokio::task::Builder::new()
             .name("web_server")
-            .spawn(web::start(tls_config, frontend_host, state, web_root))
+            .spawn(web::start(
+                tls_config_be,
+                tls_config_fe,
+                frontend_host,
+                state,
+                web_root,
+            ))
             .unwrap();
 
         jh_monitor.await.unwrap();
