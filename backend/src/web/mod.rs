@@ -71,7 +71,6 @@ pub async fn start(
         .allow_headers([axum::http::header::CONTENT_TYPE]);
 
     let router_be = Router::new()
-        .route("/api/{*path}", routing::options(preflight_ok))
         .route("/api/login", routing::get(login))
         .route("/api/sock", routing::get(handle_websocket_upgrade))
         .route("/api/status", routing::get(status))
@@ -90,10 +89,6 @@ pub async fn start(
         .serve(router_fe.into_make_service_with_connect_info::<SocketAddr>());
 
     _ = tokio::join!(server_be, server_fe);
-}
-
-async fn preflight_ok() -> impl IntoResponse {
-    StatusCode::NO_CONTENT
 }
 
 async fn no_content() -> StatusCode {
