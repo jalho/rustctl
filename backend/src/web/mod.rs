@@ -20,38 +20,6 @@ use tower_http::{
 };
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ClientSession {
-    pub session_id: Uuid,
-}
-
-#[derive(Clone)]
-pub struct WebServerState {
-    session_sign_verif_key: Key,
-    pub shared_state: Arc<Mutex<SharedState>>,
-}
-
-impl WebServerState {
-    pub fn init(session_sign_verif_key: Key, shared_state: Arc<Mutex<SharedState>>) -> Self {
-        Self {
-            session_sign_verif_key,
-            shared_state,
-        }
-    }
-}
-
-impl FromRef<WebServerState> for Key {
-    fn from_ref(state: &WebServerState) -> Self {
-        state.session_sign_verif_key.clone()
-    }
-}
-
-impl FromRef<WebServerState> for Arc<Mutex<SharedState>> {
-    fn from_ref(state: &WebServerState) -> Self {
-        state.shared_state.clone()
-    }
-}
-
 pub async fn start(
     tls_config_be: RustlsConfig,
     tls_config_fe: RustlsConfig,
@@ -155,16 +123,16 @@ impl Url {
     }
 }
 
-impl Into<String> for Url {
-    fn into(self) -> String {
-        let scheme = match self.scheme {
+impl From<Url> for String {
+    fn from(val: Url) -> Self {
+        let scheme = match val.scheme {
             Scheme::Https => "https",
             Scheme::Http => "http",
         };
         format!(
             "{scheme}://{hostname}:{port}",
-            hostname = self.authority.hostname,
-            port = self.authority.port,
+            hostname = val.authority.hostname,
+            port = val.authority.port,
         )
     }
 }
@@ -202,16 +170,48 @@ impl std::str::FromStr for Url {
             }
         }
 
-        if hostname.len() > 0 {
-            return Ok(Url {
+        if !hostname.is_empty() {
+            Ok(Url {
                 scheme,
                 authority: Host {
                     hostname: hostname.to_owned(),
                     port,
                 },
-            });
+            })
         } else {
-            return Err(format!("invalid URL: \"{parseable}\""));
+            Err(format!("invalid URL: \"{parseable}\""))
         }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ClientSession {
+    pub session_id: Uuid,
+}
+
+#[derive(Clone)]
+pub struct WebServerState {
+    session_sign_verif_key: Key,
+    pub shared_state: Arc<Mutex<SharedState>>,
+}
+
+impl WebServerState {
+    pub fn init(session_sign_verif_key: Key, shared_state: Arc<Mutex<SharedState>>) -> Self {
+        Self {
+            session_sign_verif_key,
+            shared_state,
+        }
+    }
+}
+
+impl FromRef<WebServerState> for Key {
+    fn from_ref(state: &WebServerState) -> Self {
+        state.session_sign_verif_key.clone()
+    }
+}
+
+impl FromRef<WebServerState> for Arc<Mutex<SharedState>> {
+    fn from_ref(state: &WebServerState) -> Self {
+        state.shared_state.clone()
     }
 }
