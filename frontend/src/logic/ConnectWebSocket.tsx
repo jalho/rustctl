@@ -6,9 +6,15 @@ import type * as libstatus from "../store/status";
 import type * as libsync from "../store/sync";
 
 let SOCKET: null | WebSocket;
+let SOCKET_EVENT_LISTENER: any;
 
 type Props = { loggedIn: libstatus.LoggedIn, urlWs: URL };
 
+/**
+ * On mount, connect WebSocket and register a Redux state updating event handler
+ * for the socket. On unmount, undo both: Unregister the event handler and
+ * disconnect the socket.
+ */
 const ConnectWebSocket = (props: Props): libreact.ReactElement => {
   const state: libsync.State = librredux.useSelector<libstore.RootState, libsync.State>((s) => {
     return s.sync;
@@ -39,18 +45,24 @@ function connectWebSocket(
   urlWs: URL,
 ) {
   return function() {
-    console.debug("TODO: Connect WebSocket");
     SOCKET = new WebSocket(urlWs);
-    SOCKET.addEventListener("message", function handleMessage(event) {
-      console.debug("TODO: Store in Redux", event);
-    });
-    return disconnectWebSocket;
+    SOCKET_EVENT_LISTENER = function handleMessage(event: any) {
+      const payload: libsync.WebSocketStateUpdatePayload = JSON.parse(event.data);
+      dispatch(libstore.actions.sync.setState(payload));
+    };
+    SOCKET.addEventListener("message", SOCKET_EVENT_LISTENER);
+    return disconnectWebSocket(dispatch);
   }
 }
 
-function disconnectWebSocket() {
-  if (SOCKET) {
-    SOCKET.close();
+function disconnectWebSocket(
+  dispatch: libreact.Dispatch<libredux.UnknownAction>,
+) {
+  return function() {
+    if (SOCKET) {
+      SOCKET.removeEventListener("message", SOCKET_EVENT_LISTENER);
+      SOCKET.close();
+      dispatch(libstore.actions.sync.setState(null));
+    }
   }
-  console.debug("TODO: Disconnect WebSocket");
 }
