@@ -9,12 +9,13 @@ fn main() {
 
     let args = core::Cli::get_args();
 
-    let (web_root, backend_host, frontend_host) = match args.command {
+    let (listen_addr, cors_allow_origin, tls_key_pem, tls_cert_pem) = match args.command {
         core::CliCommand::Start {
-            web_root,
-            backend_host,
-            frontend_host,
-        } => (web_root, backend_host, frontend_host),
+            listen_addr,
+            cors_allow_origin,
+            tls_key_pem,
+            tls_cert_pem,
+        } => (listen_addr, cors_allow_origin, tls_key_pem, tls_cert_pem),
     };
 
     let state = core::SharedState::init();
@@ -25,26 +26,19 @@ fn main() {
         .build()
         .unwrap();
 
-    let sans_be: Vec<String> = vec![backend_host.to_cert_san()];
-    let cert_and_key_be: rcgen::CertifiedKey = rcgen::generate_simple_self_signed(sans_be).unwrap();
-
-    let sans_fe: Vec<String> = vec![frontend_host.to_cert_san()];
-    let cert_and_key_fe: rcgen::CertifiedKey = rcgen::generate_simple_self_signed(sans_fe).unwrap();
-
     runtime.block_on(async {
-        let tls_config_be = axum_server::tls_rustls::RustlsConfig::from_pem(
-            cert_and_key_be.cert.pem().as_bytes().to_vec(),
-            cert_and_key_be.key_pair.serialize_pem().as_bytes().to_vec(),
-        )
-        .await
-        .unwrap();
-
-        let tls_config_fe = axum_server::tls_rustls::RustlsConfig::from_pem(
-            cert_and_key_fe.cert.pem().as_bytes().to_vec(),
-            cert_and_key_fe.key_pair.serialize_pem().as_bytes().to_vec(),
-        )
-        .await
-        .unwrap();
+        let tls_config: Option<axum_server::tls_rustls::RustlsConfig> =
+            match (tls_key_pem, tls_cert_pem) {
+                (Some(key), Some(cert)) => {
+                    let cert: std::vec::Vec<u8> = std::fs::read(cert).unwrap();
+                    let key: std::vec::Vec<u8> = std::fs::read(key).unwrap();
+                    let cfg = axum_server::tls_rustls::RustlsConfig::from_pem(cert, key)
+                        .await
+                        .unwrap();
+                    Some(cfg)
+                }
+                _ => None,
+            };
 
         /*
          * Monitor system resources's usage such as CPU and memory.
@@ -68,11 +62,10 @@ fn main() {
         let jh_web = tokio::task::Builder::new()
             .name("web_server")
             .spawn(web::start(
-                tls_config_be,
-                tls_config_fe,
-                frontend_host,
+                listen_addr,
+                tls_config,
+                cors_allow_origin,
                 state,
-                web_root,
             ))
             .unwrap();
 

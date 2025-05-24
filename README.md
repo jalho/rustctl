@@ -15,7 +15,7 @@ on Linux.
 
 ```console
 $ cd ./frontend && ./node_modules/.bin/vite build && cd -
-$ cd ./backend && cargo run -- start --web-root ../frontend/out/ --backend-host api.rustctl:8081 --frontend-host ui.rustctl:8080
+$ cd ./backend && cargo run -- start --listen-addr "0.0.0.0:8080" --cors-allow-origin "http://ui.rustctl:8080"
 $ tokio-console
 ```
 

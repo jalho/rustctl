@@ -12,55 +12,45 @@ use axum::{
 use axum_extra::extract::cookie::{self, Cookie, Key, SignedCookieJar};
 use axum_server::tls_rustls::RustlsConfig;
 use serde::{Deserialize, Serialize};
-use std::{net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{net::SocketAddr, sync::Arc};
 use tokio::sync::Mutex;
-use tower_http::{
-    cors::CorsLayer,
-    services::{ServeDir, ServeFile},
-};
+use tower_http::cors::CorsLayer;
 use uuid::Uuid;
 
 pub async fn start(
-    tls_config_be: RustlsConfig,
-    tls_config_fe: RustlsConfig,
-    cors_allow_origin: Url,
+    listen_addr: SocketAddr,
+    tls_config: Option<RustlsConfig>,
+    cors_allow_origin: String,
     shared: Arc<Mutex<SharedState>>,
-    web_root: PathBuf,
 ) {
     let cookie_sign_verif_key = Key::generate();
     let app_state = WebServerState::init(cookie_sign_verif_key, shared);
 
-    let cors_layer: CorsLayer = CorsLayer::new()
-        .allow_origin(
-            axum::http::HeaderValue::from_str(&Into::<String>::into(cors_allow_origin)).unwrap(),
-        )
+    let cors: CorsLayer = CorsLayer::new()
+        .allow_origin(axum::http::HeaderValue::from_str(&cors_allow_origin).unwrap())
         .allow_credentials(true)
         .allow_methods([axum::http::Method::GET, axum::http::Method::OPTIONS])
         .allow_headers([axum::http::header::CONTENT_TYPE]);
 
-    let router_be = Router::new()
+    let router = Router::new()
         .route("/api/login", routing::get(login))
         .route("/api/sock", routing::get(handle_websocket_upgrade))
         .route("/api/status", routing::get(status))
-        .layer(cors_layer)
+        .layer(cors)
         .with_state(app_state);
-    let addr_be = SocketAddr::from(([0, 0, 0, 0], 8081));
-    let server_be = axum_server::bind_rustls(addr_be, tls_config_be)
-        .serve(router_be.into_make_service_with_connect_info::<SocketAddr>());
 
-    let router_fe = Router::new()
-        .route("/favicon.ico", routing::get(no_content))
-        .route_service("/", ServeFile::new(web_root.join("index.html")))
-        .nest_service("/assets", ServeDir::new(web_root.join("assets")));
-    let addr_fe = SocketAddr::from(([0, 0, 0, 0], 8080));
-    let server_fe = axum_server::bind_rustls(addr_fe, tls_config_fe)
-        .serve(router_fe.into_make_service_with_connect_info::<SocketAddr>());
-
-    _ = tokio::join!(server_be, server_fe);
-}
-
-async fn no_content() -> StatusCode {
-    StatusCode::NO_CONTENT
+    match tls_config {
+        Some(tls_config) => {
+            let server = axum_server::bind_rustls(listen_addr, tls_config)
+                .serve(router.into_make_service_with_connect_info::<SocketAddr>());
+            let _done: () = server.await.unwrap();
+        }
+        None => {
+            let server = axum_server::bind(listen_addr)
+                .serve(router.into_make_service_with_connect_info::<SocketAddr>());
+            let _done: () = server.await.unwrap();
+        }
+    }
 }
 
 /* TODO: Add CSRF protection? */

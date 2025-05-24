@@ -242,13 +242,16 @@ impl Cli {
 #[derive(clap::Subcommand)]
 pub enum CliCommand {
     Start {
-        #[arg(long = "web-root", short, value_name = "PATH")]
-        web_root: PathBuf,
+        #[arg(long = "listen-addr", short = 'l', value_name = "ADDR")]
+        listen_addr: SocketAddr,
 
-        #[arg(long = "backend-host", short, value_name = "HOST")]
-        backend_host: crate::web::Url,
+        #[arg(long = "cors-allow-origin", short = 'O', value_name = "ORIGIN")]
+        cors_allow_origin: String,
 
-        #[arg(long = "frontend-host", short, value_name = "HOST")]
-        frontend_host: crate::web::Url,
+        #[arg(long = "tls-key-pem", short = 'k', value_name = "PATH")]
+        tls_key_pem: Option<PathBuf>,
+
+        #[arg(long = "tls-cert-pem", short = 'c', value_name = "PATH")]
+        tls_cert_pem: Option<PathBuf>,
     },
 }
