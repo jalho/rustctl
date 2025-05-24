@@ -55,6 +55,7 @@ pub async fn ws_upgrade(
         Some(client_session) => {
             let shared_state = Arc::clone(&state.shared_state);
             ws.on_upgrade(async move |sock| {
+                println!("Client accepted!");
                 let client = Client::new(connect_info.0, sock, Arc::clone(&shared_state));
 
                 {
@@ -62,12 +63,14 @@ pub async fn ws_upgrade(
                     lock.register(client_session.session_id, &client);
                 }
 
-                client.send_and_receive_messages().await;
+                let _done: () = client.send_and_receive_messages().await;
 
                 {
                     let mut lock = shared_state.lock().await;
                     lock.unregister(&client_session.session_id);
                 }
+
+                println!("Client dropped!");
             })
         }
         None => StatusCode::UNAUTHORIZED.into_response(),
