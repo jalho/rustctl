@@ -34,7 +34,7 @@ pub async fn start(
 
     let router = Router::new()
         .route("/api/login", routing::get(login))
-        .route("/api/sock", routing::get(handle_websocket_upgrade))
+        .route("/api/websocket", routing::get(handle_websocket_upgrade))
         .route("/api/status", routing::get(status))
         .layer(cors)
         .with_state(app_state);

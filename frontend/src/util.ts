@@ -8,29 +8,28 @@ export type Endpoints = {
 };
 
 export function getUrls(): Endpoints {
-  let backendHost: string;
+  let backendHost: URL;
   const buildParam: unknown = import.meta.env.VITE_BACKEND_HOST;
   if (typeof buildParam !== "string" || !buildParam) {
     throw new Error("BUG: bad build: missing required parameter: backend host");
   } else {
-    backendHost = buildParam;
+    backendHost = new URL(buildParam);
   }
 
-  let schemeHttp: "http" | "https";
-  let schemeWebSocket: "ws" | "wss";
-  const origin: URL = new URL(window.origin);
-  if (origin.protocol === "http:") {
-    schemeHttp = "http";
-    schemeWebSocket = "ws";
-  } else {
-    schemeHttp = "https";
-    schemeWebSocket = "wss";
-  }
+  const status: URL = new URL(backendHost);
+  status.pathname = "/api/status";
+
+  const login: URL = new URL(backendHost);
+  login.pathname = "/api/login";
+
+  const websocket: URL = new URL(backendHost);
+  websocket.pathname = "/api/websocket";
+  websocket.protocol = backendHost.protocol === "http:" ? "ws:" : "wss:";
 
   return {
-    status: new URL(`${schemeHttp}://${backendHost}/api/status`),
-    login: new URL(`${schemeHttp}://${backendHost}/api/login`),
-    websocket: new URL(`${schemeWebSocket}://${backendHost}/api/sock`),
+    status,
+    login,
+    websocket,
   };
 }
 
