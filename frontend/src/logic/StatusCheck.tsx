@@ -6,7 +6,9 @@ import ConnectWebSocket from "./ConnectWebSocket";
 import type * as libreact from "react";
 import type * as libsync from "../store/sync";
 
-const StatusCheck = (props: { urlCheckStatus: URL, urlLogIn: URL }): null | libreact.ReactElement => {
+type Props = { urlCheckStatus: URL, urlLogIn: URL, urlWs: URL };
+
+const StatusCheck = (props: Props): libreact.ReactElement => {
   const state: libstatus.State = libredux.useSelector<libstore.RootState, libstatus.State>((s) => {
     return s.status;
   });
@@ -64,7 +66,7 @@ const StatusCheck = (props: { urlCheckStatus: URL, urlLogIn: URL }): null | libr
 
     default: {
       const loggedIn: libstatus.LoggedIn = state;
-      return <ConnectWebSocket loggedIn={loggedIn} />;
+      return <ConnectWebSocket loggedIn={loggedIn} urlWs={props.urlWs} />;
     }
 
   }

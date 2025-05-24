@@ -13,6 +13,10 @@ const store: libstore.Store = libstore.init(libstore.reducers);
 
 root.render(
   <libredux.Provider store={store}>
-    <StatusCheck urlCheckStatus={endpoints.status} urlLogIn={endpoints.login} />
+    <StatusCheck
+      urlCheckStatus={endpoints.status}
+      urlLogIn={endpoints.login}
+      urlWs={endpoints.websocket}
+    />
   </libredux.Provider>
 );
