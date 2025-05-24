@@ -197,6 +197,9 @@ impl Cli {
 #[derive(clap::Subcommand)]
 pub enum CliCommand {
     Start {
+        #[arg(long = "cookie-domain", short = 'd', value_name = "DOMAIN")]
+        cookie_domain: String,
+
         #[arg(long = "listen-addr", short = 'l', value_name = "ADDR")]
         listen_addr: SocketAddr,
 

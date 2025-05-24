@@ -11,13 +11,18 @@ use tower_http::cors::CorsLayer;
 use uuid::Uuid;
 
 pub async fn start(
+    cookie_domain: String,
     listen_addr: SocketAddr,
     tls_config: Option<RustlsConfig>,
     cors_allow_origin: String,
     shared: Arc<Mutex<SharedState>>,
 ) {
     let cookie_sign_verif_key = Key::generate();
-    let app_state = WebServerState::init(cookie_sign_verif_key, shared);
+    let is_tls: bool = match tls_config {
+        Some(_) => true,
+        None => false,
+    };
+    let app_state = WebServerState::init(cookie_domain, is_tls, cookie_sign_verif_key, shared);
 
     let cors: CorsLayer = CorsLayer::new()
         .allow_origin(axum::http::HeaderValue::from_str(&cors_allow_origin).unwrap())
@@ -139,15 +144,25 @@ pub struct ClientSession {
 
 #[derive(Clone)]
 pub struct WebServerState {
+    cookie_secure: bool,
+    cookie_domain: String,
+
     session_sign_verif_key: Key,
     pub shared_state: Arc<Mutex<SharedState>>,
 }
 
 impl WebServerState {
-    pub fn init(session_sign_verif_key: Key, shared_state: Arc<Mutex<SharedState>>) -> Self {
+    pub fn init(
+        cookie_domain: String,
+        cookie_secure: bool,
+        session_sign_verif_key: Key,
+        shared_state: Arc<Mutex<SharedState>>,
+    ) -> Self {
         Self {
             session_sign_verif_key,
             shared_state,
+            cookie_secure,
+            cookie_domain,
         }
     }
 }

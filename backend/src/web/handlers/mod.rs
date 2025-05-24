@@ -13,7 +13,7 @@ use std::{net::SocketAddr, sync::Arc};
 use uuid::Uuid;
 
 /* TODO: Add CSRF protection? */
-pub async fn login(jar: SignedCookieJar) -> impl IntoResponse {
+pub async fn login(jar: SignedCookieJar, state: State<WebServerState>) -> impl IntoResponse {
     let session: ClientSession = ClientSession {
         session_id: Uuid::new_v4(),
     };
@@ -22,9 +22,10 @@ pub async fn login(jar: SignedCookieJar) -> impl IntoResponse {
 
     let mut cookie: Cookie<'static> = Cookie::new(COOKIE_NAME_SESSION, session.clone());
     cookie.set_path("/");
+    cookie.set_secure(state.cookie_secure);
     cookie.set_http_only(false);
-    cookie.set_secure(true);
     cookie.set_same_site(cookie::SameSite::None);
+    cookie.set_domain(state.cookie_domain.to_owned());
 
     let session: SignedCookieJar = jar.add(cookie);
 
@@ -43,9 +44,9 @@ pub async fn status(jar: SignedCookieJar) -> impl IntoResponse {
 
 pub async fn ws_upgrade(
     ws: WebSocketUpgrade,
+    connect_info: ConnectInfo<SocketAddr>,
     jar: SignedCookieJar,
     state: State<WebServerState>,
-    connect_info: ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
     match jar
         .get(COOKIE_NAME_SESSION)
