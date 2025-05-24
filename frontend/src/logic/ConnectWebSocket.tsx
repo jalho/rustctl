@@ -50,6 +50,9 @@ function connectWebSocket(
       const payload: libsync.WebSocketStateUpdatePayload = JSON.parse(event.data);
       dispatch(libstore.actions.sync.setState(payload));
     };
+    /*
+     * TODO: Register "on close" handler
+     */
     SOCKET.addEventListener("message", SOCKET_EVENT_LISTENER);
     return disconnectWebSocket(dispatch);
   }
