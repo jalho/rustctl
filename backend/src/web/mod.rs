@@ -1,15 +1,8 @@
-use crate::{
-    constants::COOKIE_NAME_SESSION,
-    core::{SharedState, handle_websocket_upgrade},
-};
-use axum::{
-    Router,
-    extract::FromRef,
-    http::StatusCode,
-    response::{IntoResponse, Response},
-    routing,
-};
-use axum_extra::extract::cookie::{self, Cookie, Key, SignedCookieJar};
+mod handlers;
+
+use crate::core::SharedState;
+use axum::{Router, extract::FromRef, routing};
+use axum_extra::extract::cookie::Key;
 use axum_server::tls_rustls::RustlsConfig;
 use serde::{Deserialize, Serialize};
 use std::{net::SocketAddr, sync::Arc};
@@ -33,9 +26,9 @@ pub async fn start(
         .allow_headers([axum::http::header::CONTENT_TYPE]);
 
     let router = Router::new()
-        .route("/api/login", routing::get(login))
-        .route("/api/websocket", routing::get(handle_websocket_upgrade))
-        .route("/api/status", routing::get(status))
+        .route("/api/login", routing::get(handlers::login))
+        .route("/api/websocket", routing::get(handlers::ws_upgrade))
+        .route("/api/status", routing::get(handlers::status))
         .layer(cors)
         .with_state(app_state);
 
@@ -50,41 +43,6 @@ pub async fn start(
                 .serve(router.into_make_service_with_connect_info::<SocketAddr>());
             let _done: () = server.await.unwrap();
         }
-    }
-}
-
-/* TODO: Add CSRF protection? */
-async fn login(jar: SignedCookieJar) -> impl IntoResponse {
-    let session: ClientSession = ClientSession {
-        session_id: Uuid::new_v4(),
-    };
-
-    let session: String = serde_json::to_string(&session).unwrap();
-
-    let mut cookie: Cookie<'static> = Cookie::new(COOKIE_NAME_SESSION, session.clone());
-    cookie.set_path("/");
-    cookie.set_http_only(false);
-    cookie.set_secure(true);
-    cookie.set_same_site(cookie::SameSite::None);
-
-    let session: SignedCookieJar = jar.add(cookie);
-
-    let response: Response = (StatusCode::OK, session).into_response();
-
-    response
-}
-
-async fn status(jar: SignedCookieJar) -> impl IntoResponse {
-    match jar
-        .get(COOKIE_NAME_SESSION)
-        .and_then(|cookie| serde_json::from_str::<ClientSession>(cookie.value()).ok())
-    {
-        Some(_client_session) => {
-            let response: Response = (StatusCode::NO_CONTENT,).into_response();
-
-            response
-        }
-        None => StatusCode::UNAUTHORIZED.into_response(),
     }
 }
 

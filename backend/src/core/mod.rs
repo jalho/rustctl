@@ -1,55 +1,10 @@
-use crate::{
-    constants::{COOKIE_NAME_SESSION, INTERVAL_SYNC_CLIENT},
-    game::GameState,
-    system::SystemState,
-    web::{ClientSession, WebServerState},
-};
-use axum::{
-    extract::{
-        ConnectInfo, State, WebSocketUpgrade,
-        ws::{Message, Utf8Bytes, WebSocket},
-    },
-    http::StatusCode,
-    response::IntoResponse,
-};
-use axum_extra::extract::SignedCookieJar;
+use crate::{constants::INTERVAL_SYNC_CLIENT, game::GameState, system::SystemState};
+use axum::extract::ws::{Message, Utf8Bytes, WebSocket};
 use chrono::Utc;
 use futures::{SinkExt, StreamExt};
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
-
-pub async fn handle_websocket_upgrade(
-    ws: WebSocketUpgrade,
-    jar: SignedCookieJar,
-    state: State<WebServerState>,
-    connect_info: ConnectInfo<SocketAddr>,
-) -> impl IntoResponse {
-    match jar
-        .get(COOKIE_NAME_SESSION)
-        .and_then(|cookie| serde_json::from_str::<ClientSession>(cookie.value()).ok())
-    {
-        Some(client_session) => {
-            let shared_state = Arc::clone(&state.shared_state);
-            ws.on_upgrade(async move |sock| {
-                let client = Client::new(connect_info.0, sock, Arc::clone(&shared_state));
-
-                {
-                    let mut lock = shared_state.lock().await;
-                    lock.register(client_session.session_id, &client);
-                }
-
-                client.send_and_receive_messages().await;
-
-                {
-                    let mut lock = shared_state.lock().await;
-                    lock.unregister(&client_session.session_id);
-                }
-            })
-        }
-        None => StatusCode::UNAUTHORIZED.into_response(),
-    }
-}
 
 #[derive(serde::Serialize, Clone)]
 enum ClientIdentity {
@@ -119,7 +74,7 @@ impl SharedState {
         }))
     }
 
-    fn register(&mut self, session_id: Uuid, client: &Client) {
+    pub fn register(&mut self, session_id: Uuid, client: &Client) {
         let client_meta = ClientMeta {
             _addr: client.addr,
             connected_at: Utc::now(),
@@ -129,7 +84,7 @@ impl SharedState {
         self.clients.insert(session_id, client_meta);
     }
 
-    fn unregister(&mut self, client_id: &Uuid) {
+    pub fn unregister(&mut self, client_id: &Uuid) {
         self.clients.remove(client_id);
     }
 }
@@ -166,7 +121,7 @@ impl Client {
         Self { addr, sock, shared }
     }
 
-    async fn send_and_receive_messages(self) {
+    pub async fn send_and_receive_messages(self) {
         let (mut sock_tx, mut sock_rx) = StreamExt::split(self.sock);
 
         let _shared_rx: Arc<Mutex<SharedState>> = Arc::clone(&self.shared);
