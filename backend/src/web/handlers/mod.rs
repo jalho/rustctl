@@ -24,11 +24,11 @@ pub async fn login(jar: SignedCookieJar, state: State<WebServerState>) -> impl I
     cookie.set_path("/");
     cookie.set_secure(state.cookie_secure);
     cookie.set_http_only(false);
-    cookie.set_same_site(cookie::SameSite::None);
-    cookie.set_domain(state.cookie_domain.to_owned());
-
+    if let Some(ref cookie_domain) = state.cookie_domain {
+        cookie.set_same_site(cookie::SameSite::None);
+        cookie.set_domain(cookie_domain.to_owned());
+    }
     let session: SignedCookieJar = jar.add(cookie);
-
     (StatusCode::OK, session).into_response()
 }
 

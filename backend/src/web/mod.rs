@@ -11,7 +11,7 @@ use tower_http::cors::CorsLayer;
 use uuid::Uuid;
 
 pub async fn start(
-    cookie_domain: String,
+    cookie_domain: Option<String>,
     listen_addr: SocketAddr,
     tls_config: Option<RustlsConfig>,
     cors_allow_origin: String,
@@ -145,7 +145,7 @@ pub struct ClientSession {
 #[derive(Clone)]
 pub struct WebServerState {
     cookie_secure: bool,
-    cookie_domain: String,
+    cookie_domain: Option<String>,
 
     session_sign_verif_key: Key,
     pub shared_state: Arc<Mutex<SharedState>>,
@@ -153,7 +153,7 @@ pub struct WebServerState {
 
 impl WebServerState {
     pub fn init(
-        cookie_domain: String,
+        cookie_domain: Option<String>,
         cookie_secure: bool,
         session_sign_verif_key: Key,
         shared_state: Arc<Mutex<SharedState>>,

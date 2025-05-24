@@ -198,7 +198,7 @@ impl Cli {
 pub enum CliCommand {
     Start {
         #[arg(long = "cookie-domain", short = 'd', value_name = "DOMAIN")]
-        cookie_domain: String,
+        cookie_domain: Option<String>,
 
         #[arg(long = "listen-addr", short = 'l', value_name = "ADDR")]
         listen_addr: SocketAddr,

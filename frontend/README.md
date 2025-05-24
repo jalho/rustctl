@@ -1,4 +1,10 @@
-### Tooling
+```console
+$ export VITE_BACKEND_HOST=http://localhost:8080
+
+$ ./node_modules/.bin/vite
+```
+
+### Toolchain
 
 ```console
 $ node --version
