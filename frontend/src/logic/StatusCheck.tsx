@@ -1,8 +1,9 @@
-import * as libreact from "react";
 import * as libredux from "react-redux";
 import * as libstatus from "../store/status";
 import * as libstore from "../store/_mod";
 import * as libutil from "../util";
+import ConnectWebSocket from "./ConnectWebSocket";
+import type * as libreact from "react";
 import type * as libsync from "../store/sync";
 
 const StatusCheck = (props: { urlCheckStatus: URL, urlLogIn: URL }): null | libreact.ReactElement => {
@@ -62,7 +63,8 @@ const StatusCheck = (props: { urlCheckStatus: URL, urlLogIn: URL }): null | libr
     }
 
     default: {
-      return <>TODO: Connect WebSocket...</>;
+      const loggedIn: libstatus.LoggedIn = state;
+      return <ConnectWebSocket loggedIn={loggedIn} />;
     }
 
   }

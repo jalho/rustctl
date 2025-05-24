@@ -1,11 +1,11 @@
 export const reduxSliceName = "sync" as const;
 
-export type SteamID = string;
+export type SteamId = string;
 
 export type Uuid = string;
 
 export type Player = {
-  id: SteamID;
+  id: SteamId;
   coordinates: { x: number; y: number; z: number };
   display_name: string;
   country: string;
@@ -28,7 +28,7 @@ export type WebSocketStateUpdatePayload = {
   game: {
     _type: "Running";
     data: {
-      players: Record<SteamID, Player>;
+      players: Record<SteamId, Player>;
     };
   };
 };
