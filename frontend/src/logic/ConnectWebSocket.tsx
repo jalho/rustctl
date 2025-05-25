@@ -48,7 +48,7 @@ function connectWebSocket(
     SOCKET = new WebSocket(urlWs);
     SOCKET_EVENT_LISTENER = function handleMessage(event: any) {
       const payload: libsync.WebSocketStateUpdatePayload = JSON.parse(event.data);
-      dispatch(libstore.actions.sync.setState(payload));
+      dispatch(libstore.actions.sync.setSyncState(payload));
     };
     /*
      * TODO: Register "on close" handler
@@ -65,7 +65,7 @@ function disconnectWebSocket(
     if (SOCKET) {
       SOCKET.removeEventListener("message", SOCKET_EVENT_LISTENER);
       SOCKET.close();
-      dispatch(libstore.actions.sync.setState(null));
+      dispatch(libstore.actions.sync.setSyncReset());
     }
   }
 }

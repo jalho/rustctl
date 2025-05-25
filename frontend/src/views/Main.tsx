@@ -5,7 +5,7 @@ const Main: (
   props: {
     sessionId: libsync.Uuid,
     clients: Record<libsync.Uuid, libsync.Client>,
-    players: Record<libsync.SteamID, libsync.Player>,
+    players: Record<libsync.SteamId, libsync.Player>,
   }
 ) => libreact.ReactElement = (props) => {
   const playerCount = Object.keys(props.players).length;
