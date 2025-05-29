@@ -28,9 +28,23 @@ const Session = (): react.JSX.Element => {
     );
   }
 
+  else if (state._tag === "ErrSession") {
+    return (
+      <ErrSession name={state.name} message={state.message} code={state.code} />
+    );
+  }
+
   else {
     throw new Error("unreachable");
   }
+}
+
+const ErrSession = (props: { name: string, message: string, code: string }): react.JSX.Element => {
+  return (
+    <>
+      ErrSession: {props.name} (code {props.code}): {props.message}
+    </>
+  );
 }
 
 const Initializing = (): react.JSX.Element => {

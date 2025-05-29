@@ -27,7 +27,14 @@ type AuthorizedWebSocketConnected = {
    */
   remote_state_snapshot_full: ffi.StateSnapshotFull,
 };
-export type State = Initializing | Offline | Unauthorized | AuthorizedWebSocketConnected;
+type ErrSession = {
+  _tag: "ErrSession",
+  name: string,
+  message: string,
+  stack: string,
+  code: string,
+};
+export type State = Initializing | Offline | Unauthorized | AuthorizedWebSocketConnected | ErrSession;
 
 const initial_state: State = {
   _tag: "Initializing",
@@ -65,11 +72,21 @@ const slice = reduxjs_toolkit.createSlice({
     ) => {
       const updated: AuthorizedWebSocketConnected = {
         _tag: "AuthorizedWebSocketConnected",
-          websocket_connection_id: action.payload.websocket_connection_id,
-          remote_state_snapshot_full: action.payload.remote_state_snapshot_full,
+        websocket_connection_id: action.payload.websocket_connection_id,
+        remote_state_snapshot_full: action.payload.remote_state_snapshot_full,
       };
       return updated;
     },
+    set_error: (_state: State, action) => {
+      const updated: ErrSession = {
+        _tag: "ErrSession",
+        name: action.payload.name,
+        message: action.payload.message,
+        stack: action.payload.stack,
+        code: action.payload.code,
+      };
+      return updated;
+    }
   },
 });
 
