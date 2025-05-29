@@ -11,8 +11,7 @@ async function main() {
   const dom_root_elem: HTMLElement = document.getElementById("root")!;
   const react_root: react_dom_client.Root = react_dom_client.createRoot(dom_root_elem);
 
-  const connection_manager = new ConnectionManager();
-  connection_manager.start();
+  ConnectionManager.start();
 
   const react_app: react.JSX.Element = (
     <react_redux.Provider store={Store}>

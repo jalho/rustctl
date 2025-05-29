@@ -2,13 +2,20 @@ import SessionSlice from "./state/slices/session";
 import Store from "./state/store";
 
 class ConnectionManager {
-  #url_status: URL = new URL("http://localhost:8080/api/status");
+  static WEBSOCKET: null | WebSocket = null;
+  static WS_EVENT_HANDLER_CLOSE: any = null;
+  static WS_EVENT_HANDLER_ERROR: any = null;
+  static WS_EVENT_HANDLER_MESSAGE: any = null;
+  static WS_EVENT_HANDLER_OPEN: any = null;
 
-  public async start(): Promise<void> {
+  static URL_STATUS: URL = new URL("http://localhost:8080/api/status");
+  static URL_WEBSOCKET: URL = new URL("ws://localhost:8080/api/websocket");
+
+  static async start(): Promise<void> {
     let response: Response;
     let response_instant: string;
     try {
-      response = await fetch(this.#url_status);
+      response = await fetch(this.URL_STATUS);
       response_instant = new Date().toISOString();
     } catch (err) {
       const web_api_err = err as DOMException;
@@ -29,6 +36,28 @@ class ConnectionManager {
         rejection_http_status_code: response.status,
       }));
       return;
+    }
+
+    try {
+      this.WEBSOCKET = new WebSocket(this.URL_WEBSOCKET);
+    } catch (err) {
+      this.#free_websocket_resources();
+      const web_api_err = err as DOMException;
+      const websocket_instantiation_error = new WebSocketInstantiationError(
+        "WebSocket instantiation failed: maybe offline, or maybe TLS, CORS or DNS related issue -- Who knows!",
+        { cause: web_api_err },
+      );
+    }
+  }
+
+  static #free_websocket_resources() {
+    if (this.WEBSOCKET) {
+      this.WEBSOCKET.removeEventListener("close", this.WS_EVENT_HANDLER_CLOSE);
+      this.WEBSOCKET.removeEventListener("message", this.WS_EVENT_HANDLER_MESSAGE);
+      this.WEBSOCKET.removeEventListener("error", this.WS_EVENT_HANDLER_ERROR);
+      this.WEBSOCKET.removeEventListener("open", this.WS_EVENT_HANDLER_OPEN);
+      this.WEBSOCKET.close();
+      this.WEBSOCKET = null;
     }
   }
 }
@@ -84,3 +113,8 @@ function collect_causes_enumerable<Error>(root: Error): Array<{ name: string, me
  * just a downside of the platform (web) I suppose.
  */
 class FetchAPIError extends Error { }
+
+/**
+ * The exception(s) that may occur when instantiating a `WebSocket`.
+ */
+class WebSocketInstantiationError extends Error { }
