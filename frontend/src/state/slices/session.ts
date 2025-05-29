@@ -77,7 +77,15 @@ const slice = reduxjs_toolkit.createSlice({
       };
       return updated;
     },
-    set_error: (_state: State, action) => {
+    set_error: (
+      _state: State,
+      action: reduxjs_toolkit.PayloadAction<{
+        name: string,
+        message: string,
+        stack: string,
+        code: string,
+      }>,
+    ) => {
       const updated: ErrSession = {
         _tag: "ErrSession",
         name: action.payload.name,
