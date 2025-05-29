@@ -16,7 +16,7 @@ function decrement(state: State): void {
   state.value -= 1;
 }
 
-function increment_by_amount(state: State, action: reduxjs_toolkit.PayloadAction<number>): void {
+function increment_by_amount(state: State, action: { payload: number }): void {
   state.value += action.payload;
 }
 
