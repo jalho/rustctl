@@ -8,9 +8,13 @@ class ConnectionManager {
   static WS_EVENT_HANDLER_MESSAGE: any = null;
   static WS_EVENT_HANDLER_OPEN: any = null;
 
-  static URL_STATUS: URL = new URL("http://localhost:8080/api/status");
-  static URL_LOGIN: URL = new URL("http://localhost:8080/api/login");
-  static URL_WEBSOCKET: URL = new URL("ws://localhost:8080/api/websocket");
+  /*
+   * TODO: Use different host for API in "release" build... (Plan is to deploy
+   *       the UI and the backend in different clouds...)
+   */
+  static URL_STATUS: string = "/api/status";
+  static URL_LOGIN: string = "/api/login";
+  static URL_WEBSOCKET: string = "/api/websocket";
 
   static async restart(): Promise<void> {
     this.#abort_close_free_all();
