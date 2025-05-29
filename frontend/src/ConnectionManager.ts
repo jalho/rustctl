@@ -70,6 +70,11 @@ class ConnectionManager {
       console.debug("TODO: WebSocket was closed -- Reconnect?", event);
     };
     this.WEBSOCKET.addEventListener("close", this.WS_EVENT_HANDLER_CLOSE);
+
+    this.WS_EVENT_HANDLER_MESSAGE = (event: unknown) => {
+      console.debug("TODO: Deserialize message and set to Redux state", event);
+    };
+    this.WEBSOCKET.addEventListener("message", this.WS_EVENT_HANDLER_MESSAGE);
   }
 
   /**
