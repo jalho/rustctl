@@ -1,10 +1,18 @@
 import * as reduxjs_toolkit from '@reduxjs/toolkit'
 import type * as ffi from '../../ffi';
 
+/**
+ * The initial state of the program.
+ */
 type Initializing = {
   _tag: "Initializing",
   TODO: "TODO",
 };
+
+/**
+ * Backend is reachable, and per status query response the client is considered
+ * unauthorized.
+ */
 type Unauthorized = {
   _tag: "Unauthorized",
 
@@ -22,6 +30,11 @@ type Unauthorized = {
    */
   rejection_http_status_code: number,
 };
+
+/**
+ * Client is authorized and has a healthy WebSocket connection established to
+ * the backend.
+ */
 type AuthorizedWebSocketConnected = {
   _tag: "AuthorizedWebSocketConnected",
 
@@ -36,6 +49,10 @@ type AuthorizedWebSocketConnected = {
    */
   remote_state_snapshot_full: ffi.StateSnapshotFull,
 };
+
+/**
+ * Something is not right (and cannot or will not be automatically corrected).
+ */
 type ErrSession = {
   _tag: "ErrSession",
   error_chain: Array<{ name: string, message: string, stack: string }>,
