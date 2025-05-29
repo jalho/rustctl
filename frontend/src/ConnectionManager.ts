@@ -53,17 +53,23 @@ class ConnectionManager {
       return;
     }
 
-    this.WS_EVENT_HANDLER_ERROR = (web_api_err: DOMException) => {
+    this.WS_EVENT_HANDLER_ERROR = (event: unknown) => {
       this.#free_websocket_resources();
       const websocket_emitted_error = new WebSocketInstantiationError(
         "WebSocket emitted error after instantiation: maybe WebSocket protocol handshake was rejected, or something else",
-        { cause: web_api_err },
+        { cause: event },
       );
       Store.dispatch(SessionSlice.actions.set_error({
         error_chain: collect_causes_enumerable(websocket_emitted_error),
       }));
     };
     this.WEBSOCKET.addEventListener("error", this.WS_EVENT_HANDLER_ERROR);
+
+    this.WS_EVENT_HANDLER_CLOSE = (event: unknown) => {
+      this.#free_websocket_resources();
+      console.debug("TODO: WebSocket was closed -- Reconnect?", event);
+    };
+    this.WEBSOCKET.addEventListener("close", this.WS_EVENT_HANDLER_CLOSE);
   }
 
   /**
