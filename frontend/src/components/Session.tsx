@@ -128,9 +128,9 @@ const Unauthorized = (props: {
             error_chain: collect_causes_enumerable(err),
           }));
           return;
+        } else {
+          ConnectionManager.restart();
         }
-
-        // TODO: Reload (set state to initializing?) if response ok?
       }}>Log in</button>
     </>
   );

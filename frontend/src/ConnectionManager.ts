@@ -12,7 +12,10 @@ class ConnectionManager {
   static URL_LOGIN: URL = new URL("http://localhost:8080/api/login");
   static URL_WEBSOCKET: URL = new URL("ws://localhost:8080/api/websocket");
 
-  static async start(): Promise<void> {
+  static async restart(): Promise<void> {
+    this.#abort_close_free_all();
+    Store.dispatch(SessionSlice.actions.set_initializing());
+
     let response: Response;
     let response_instant: string;
     try {
@@ -38,7 +41,7 @@ class ConnectionManager {
     try {
       this.WEBSOCKET = new WebSocket(this.URL_WEBSOCKET);
     } catch (err) {
-      this.#free_websocket_resources();
+      this.#abort_close_free_all();
       const web_api_err = err as DOMException;
       const websocket_instantiation_error = new WebSocketInstantiationError(web_api_err);
       Store.dispatch(SessionSlice.actions.set_error({
@@ -48,7 +51,7 @@ class ConnectionManager {
     }
 
     this.WS_EVENT_HANDLER_ERROR = (event: unknown) => {
-      this.#free_websocket_resources();
+      this.#abort_close_free_all();
       const websocket_emitted_error = new WebSocketEmittedError(event);
       Store.dispatch(SessionSlice.actions.set_error({
         error_chain: collect_causes_enumerable(websocket_emitted_error),
@@ -57,7 +60,7 @@ class ConnectionManager {
     this.WEBSOCKET.addEventListener("error", this.WS_EVENT_HANDLER_ERROR);
 
     this.WS_EVENT_HANDLER_CLOSE = (event: unknown) => {
-      this.#free_websocket_resources();
+      this.#abort_close_free_all();
       console.debug("TODO: WebSocket was closed -- Reconnect?", event);
     };
     this.WEBSOCKET.addEventListener("close", this.WS_EVENT_HANDLER_CLOSE);
@@ -72,8 +75,10 @@ class ConnectionManager {
    * Unregister all event handlers associated with a tracked WebSocket, and
    * close the socket, and NULL the tracking reference. No-op if there's no
    * tracked socket.
+   *
+   * TODO: Add AbortContoller, track all Fetch API requests too, and abort them...
    */
-  static #free_websocket_resources() {
+  static #abort_close_free_all() {
     if (this.WEBSOCKET) {
       if (this.WS_EVENT_HANDLER_CLOSE) {
         this.WEBSOCKET.removeEventListener("close", this.WS_EVENT_HANDLER_CLOSE);
