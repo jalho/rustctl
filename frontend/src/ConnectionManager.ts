@@ -66,6 +66,11 @@ class ConnectionManager {
     this.WEBSOCKET.addEventListener("error", this.WS_EVENT_HANDLER_ERROR);
   }
 
+  /**
+   * Unregister all event handlers associated with a tracked WebSocket, and
+   * close the socket, and NULL the tracking reference. No-op if there's no
+   * tracked socket.
+   */
   static #free_websocket_resources() {
     if (this.WEBSOCKET) {
       this.WEBSOCKET.removeEventListener("close", this.WS_EVENT_HANDLER_CLOSE);
