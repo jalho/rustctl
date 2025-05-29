@@ -73,10 +73,22 @@ class ConnectionManager {
    */
   static #free_websocket_resources() {
     if (this.WEBSOCKET) {
-      this.WEBSOCKET.removeEventListener("close", this.WS_EVENT_HANDLER_CLOSE);
-      this.WEBSOCKET.removeEventListener("message", this.WS_EVENT_HANDLER_MESSAGE);
-      this.WEBSOCKET.removeEventListener("error", this.WS_EVENT_HANDLER_ERROR);
-      this.WEBSOCKET.removeEventListener("open", this.WS_EVENT_HANDLER_OPEN);
+      if (this.WS_EVENT_HANDLER_CLOSE) {
+        this.WEBSOCKET.removeEventListener("close", this.WS_EVENT_HANDLER_CLOSE);
+        this.WS_EVENT_HANDLER_CLOSE = null;
+      }
+      if (this.WS_EVENT_HANDLER_MESSAGE) {
+        this.WEBSOCKET.removeEventListener("message", this.WS_EVENT_HANDLER_MESSAGE);
+        this.WS_EVENT_HANDLER_MESSAGE = null;
+      }
+      if (this.WS_EVENT_HANDLER_ERROR) {
+        this.WEBSOCKET.removeEventListener("error", this.WS_EVENT_HANDLER_ERROR);
+        this.WS_EVENT_HANDLER_ERROR = null;
+      }
+      if (this.WS_EVENT_HANDLER_OPEN) {
+        this.WEBSOCKET.removeEventListener("open", this.WS_EVENT_HANDLER_OPEN);
+        this.WS_EVENT_HANDLER_OPEN = null;
+      }
       this.WEBSOCKET.close();
       this.WEBSOCKET = null;
     }
