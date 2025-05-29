@@ -31,7 +31,9 @@ const Session = (): react.JSX.Element => {
 
   else if (state._tag === "ErrSession") {
     return (
-      <ErrSession name={state.name} message={state.message} stack={state.stack} />
+      <ErrSession
+        error_chain={state.error_chain}
+      />
     );
   }
 
@@ -40,21 +42,12 @@ const Session = (): react.JSX.Element => {
   }
 }
 
-const ErrSession = (props: { name: string, message: string, stack: string }): react.JSX.Element => {
+const ErrSession = (props: { error_chain: Array<{ name: string, message: string, stack: string }> }): react.JSX.Element => {
   return (
     <>
-      <p>
-        <b>Error: </b>
-        <i>
-          {props.name}: {props.message}
-        </i>
-      </p>
-      <div>
-        <b>Stack: </b>
-        <code>
-          {props.stack}
-        </code>
-      </div>
+      <code>
+        {JSON.stringify(props.error_chain, null, 2)}
+      </code>
     </>
   );
 }

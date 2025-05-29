@@ -18,9 +18,7 @@ class ConnectionManager {
       );
 
       Store.dispatch(SessionSlice.actions.set_error({
-        name: display(fetch_api_err.name),
-        message: display(fetch_api_err.message),
-        stack: display(fetch_api_err.stack),
+        error_chain: collect_causes_enumerable(fetch_api_err),
       }));
       return;
     }
@@ -48,6 +46,30 @@ function display(n: unknown, fallback = "N/A"): string {
   } else {
     return fallback;
   }
+}
+
+function collect_causes_enumerable<Error>(root: Error): Array<{ name: string, message: string, stack: string }> {
+  if (!(root instanceof Error)) {
+    return [];
+  }
+
+  const collected: ReturnType<typeof collect_causes_enumerable> = [];
+
+  let current: any = root;
+  while (current) {
+    if (current instanceof Error) {
+      collected.push({
+        name: display(current.name),
+        message: display(current.message),
+        stack: display(current.stack),
+      });
+      current = current.cause;
+    } else {
+      break;
+    }
+  }
+
+  return collected;
 }
 
 /**

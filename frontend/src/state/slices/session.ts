@@ -38,9 +38,7 @@ type AuthorizedWebSocketConnected = {
 };
 type ErrSession = {
   _tag: "ErrSession",
-  name: string,
-  message: string,
-  stack: string,
+  error_chain: Array<{ name: string, message: string, stack: string }>,
 };
 export type State = Initializing | Unauthorized | AuthorizedWebSocketConnected | ErrSession;
 
@@ -85,16 +83,12 @@ const slice = reduxjs_toolkit.createSlice({
     set_error: (
       _state: State,
       action: reduxjs_toolkit.PayloadAction<{
-        name: string,
-        message: string,
-        stack: string,
+        error_chain: Array<{ name: string, message: string, stack: string }>,
       }>,
     ) => {
       const updated: ErrSession = {
         _tag: "ErrSession",
-        name: action.payload.name,
-        message: action.payload.message,
-        stack: action.payload.stack,
+        error_chain: action.payload.error_chain,
       };
       return updated;
     }
