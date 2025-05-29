@@ -16,7 +16,12 @@ const Session = (): react.JSX.Element => {
   }
 
   else if (state._tag === "Unauthorized") {
-    return <Unauthorized />;
+    return (
+      <Unauthorized
+        checked_at_client_time={state.checked_at_client_time}
+        rejection_http_status_code={state.rejection_http_status_code}
+      />
+    );
   }
 
   else if (state._tag === "AuthorizedWebSocketConnected") {
@@ -74,10 +79,14 @@ const Offline = (): react.JSX.Element => {
   );
 }
 
-const Unauthorized = (): react.JSX.Element => {
+const Unauthorized = (props: {
+  checked_at_client_time: string,
+  rejection_http_status_code: number,
+}): react.JSX.Element => {
   return (
     <>
-      Unauthorized
+      <b>Unauthorized: </b>
+      <code>at {props.checked_at_client_time}: HTTP status {props.rejection_http_status_code}</code>
     </>
   );
 }

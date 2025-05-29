@@ -6,8 +6,10 @@ class ConnectionManager {
 
   public async start(): Promise<void> {
     let response: Response;
+    let response_instant: string;
     try {
       response = await fetch(this.#url_status);
+      response_instant = new Date().toISOString();
     } catch (err) {
       const error = err as DOMException;
       Store.dispatch(SessionSlice.actions.set_error({
@@ -15,6 +17,14 @@ class ConnectionManager {
         message: display(error.message),
         stack: display(error.stack),
         code: display(error.code),
+      }));
+      return;
+    }
+
+    if (!response.ok) {
+      Store.dispatch(SessionSlice.actions.set_unauthorized({
+        checked_at_client_time: response_instant,
+        rejection_http_status_code: response.status,
       }));
       return;
     }

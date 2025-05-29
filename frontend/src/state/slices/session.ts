@@ -11,7 +11,20 @@ type Offline = {
 };
 type Unauthorized = {
   _tag: "Unauthorized",
-  TODO: "TODO",
+
+  /**
+   * Timestamp of when the client received the response that indicates that it
+   * is not authorized.
+   *
+   * Datetime string in ISO format. For example: `"2025-05-29T13:34:19.478Z"`.
+   */
+  checked_at_client_time: string,
+
+  /**
+   * HTTP status code of the response that indicated that the client is not
+   * authorized.
+   */
+  rejection_http_status_code: number,
 };
 type AuthorizedWebSocketConnected = {
   _tag: "AuthorizedWebSocketConnected",
@@ -59,10 +72,14 @@ const slice = reduxjs_toolkit.createSlice({
       };
       return updated;
     },
-    set_unauthorized: (_state: State) => {
+    set_unauthorized: (_state: State, action: reduxjs_toolkit.PayloadAction<{
+      checked_at_client_time: string,
+      rejection_http_status_code: number,
+    }>) => {
       const updated: Unauthorized = {
         _tag: "Unauthorized",
-        TODO: "TODO",
+        checked_at_client_time: action.payload.checked_at_client_time,
+        rejection_http_status_code: action.payload.rejection_http_status_code,
       };
       return updated;
     },
