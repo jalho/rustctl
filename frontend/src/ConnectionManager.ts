@@ -1,5 +1,6 @@
 import SessionSlice from "./state/slices/session";
 import Store from "./state/store";
+import type * as ffi from "./ffi";
 
 class ConnectionManager {
   static WEBSOCKET: null | WebSocket = null;
@@ -76,8 +77,13 @@ class ConnectionManager {
     };
     this.WEBSOCKET.addEventListener("close", this.WS_EVENT_HANDLER_CLOSE);
 
-    this.WS_EVENT_HANDLER_MESSAGE = (event: unknown) => {
-      console.debug("TODO: Deserialize message and set to Redux state", event);
+    this.WS_EVENT_HANDLER_MESSAGE = (event: any) => {
+      const received_at_timestamp: string = new Date().toISOString();
+      const remote_state_snapshot: ffi.StateSnapshotFull = JSON.parse(event.data);
+      Store.dispatch(SessionSlice.actions.set_authorized_websocket_connected({
+        received_at_client_time: received_at_timestamp,
+        remote_state_snapshot_full: remote_state_snapshot,
+      }));
     };
     this.WEBSOCKET.addEventListener("message", this.WS_EVENT_HANDLER_MESSAGE);
   }

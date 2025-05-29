@@ -39,15 +39,17 @@ type AuthorizedWebSocketConnected = {
   _tag: "AuthorizedWebSocketConnected",
 
   /**
-   * Backend assigned UUID associated with WebSocket connection.
-   */
-  websocket_connection_id: string,
-
-  /**
    * Snapshot of full remote state expected to be received and re-rendered on
    * a regular interval.
    */
   remote_state_snapshot_full: ffi.StateSnapshotFull,
+
+  /**
+   * Timestamp of when the client received the state snapshot over a WebSocket.
+   *
+   * Datetime string in ISO format. For example: `"2025-05-29T13:34:19.478Z"`.
+   */
+  received_at_client_time: string,
 };
 
 type SessionDisconnected = {
@@ -114,11 +116,14 @@ const slice = reduxjs_toolkit.createSlice({
     },
     set_authorized_websocket_connected: (
       _state: State,
-      action,
+      action: reduxjs_toolkit.PayloadAction<{
+        received_at_client_time: string,
+        remote_state_snapshot_full: ffi.StateSnapshotFull,
+      }>,
     ) => {
       const updated: AuthorizedWebSocketConnected = {
         _tag: "AuthorizedWebSocketConnected",
-        websocket_connection_id: action.payload.websocket_connection_id,
+        received_at_client_time: action.payload.received_at_client_time,
         remote_state_snapshot_full: action.payload.remote_state_snapshot_full,
       };
       return updated;
