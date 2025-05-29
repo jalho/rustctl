@@ -154,7 +154,7 @@ export function collect_causes_enumerable<Error>(root: Error): Array<{ name: str
  */
 export class FetchAPIError extends Error {
   constructor(cause: DOMException) {
-    super("Fetch API failed: maybe offline, or maybe TLS, CORS or DNS related issue -- Who knows!", { cause });
+    super("Fetch API failed: maybe offline, or maybe TLS, CORS or DNS related issue, or something else", { cause });
   }
 }
 
