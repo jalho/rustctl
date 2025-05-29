@@ -30,7 +30,7 @@ const Session = (): react.JSX.Element => {
 
   else if (state._tag === "ErrSession") {
     return (
-      <ErrSession name={state.name} message={state.message} code={state.code} />
+      <ErrSession name={state.name} message={state.message} code={state.code} stack={state.stack} />
     );
   }
 
@@ -39,10 +39,21 @@ const Session = (): react.JSX.Element => {
   }
 }
 
-const ErrSession = (props: { name: string, message: string, code: string }): react.JSX.Element => {
+const ErrSession = (props: { name: string, message: string, code: string, stack: string }): react.JSX.Element => {
   return (
     <>
-      ErrSession: {props.name} (code {props.code}): {props.message}
+      <p>
+        <b>Error: </b>
+        <i>
+          {props.name} (code {props.code}): {props.message}
+        </i>
+      </p>
+      <div>
+        <b>Stack: </b>
+        <code>
+          {props.stack}
+        </code>
+      </div>
     </>
   );
 }
