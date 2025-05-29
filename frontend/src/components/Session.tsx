@@ -42,28 +42,58 @@ const Session = (): react.JSX.Element => {
   }
 }
 
-const ErrSession = (props: { error_chain: Array<{ name: string, message: string, stack: string }> }): react.JSX.Element => {
+const ErrSession = (
+  props: {
+    error_chain: Array<{ name: string; message: string; stack: string }>;
+  }
+): react.JSX.Element => {
   return (
-    <>
-      <code>
-        {JSON.stringify(props.error_chain, null, 2)}
-      </code>
-    </>
+    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      {props.error_chain.map(
+        (
+          error: { name: string; message: string; stack: string },
+          index: number
+        ): react.JSX.Element => {
+          return (
+            <div
+              key={index}
+              style={{
+                border: "1px solid #fca5a5",
+                backgroundColor: "#fef2f2",
+                padding: "12px",
+                borderRadius: "12px",
+                color: "#7f1d1d",
+                fontSize: "14px",
+                fontFamily: "monospace"
+              }}
+            >
+              <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+                {error.name}
+              </div>
+              <div style={{ marginBottom: "8px" }}>{error.message}</div>
+              <pre
+                style={{
+                  whiteSpace: "pre-wrap",
+                  overflowX: "auto",
+                  fontSize: "12px",
+                  color: "#991b1b",
+                  margin: 0
+                }}
+              >
+                {error.stack}
+              </pre>
+            </div>
+          );
+        }
+      )}
+    </div>
   );
-}
+};
 
 const Initializing = (): react.JSX.Element => {
   return (
     <>
       Initializing
-    </>
-  );
-}
-
-const Offline = (): react.JSX.Element => {
-  return (
-    <>
-      Offline
     </>
   );
 }
