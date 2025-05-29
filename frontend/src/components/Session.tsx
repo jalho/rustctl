@@ -122,7 +122,14 @@ const Unauthorized = (props: {
           return;
         }
 
-        // TODO: Check response status
+        if (!response.ok) {
+          const err = new Error("login failed: unexpected status " + response.status);
+          Store.dispatch(SessionSlice.actions.set_error({
+            error_chain: collect_causes_enumerable(err),
+          }));
+          return;
+        }
+
         // TODO: Reload (set state to initializing?) if response ok?
       }}>Log in</button>
     </>
