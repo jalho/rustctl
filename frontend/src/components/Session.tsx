@@ -22,8 +22,8 @@ const Session = (): react.JSX.Element => {
   else if (state._tag === "AuthorizedWebSocketConnected") {
     return (
       <AuthorizedWebSocketConnected
-        websocket_connection_id={state.content.websocket_connection_id}
-        remote_state_snapshot_full={state.content.remote_state_snapshot_full}
+        websocket_connection_id={state.websocket_connection_id}
+        remote_state_snapshot_full={state.remote_state_snapshot_full}
       />
     );
   }
