@@ -61,11 +61,38 @@ const SessionDisconnected = (props: {
   code: number,
 }): react.JSX.Element => {
   return (
-    <>
-      SessionDisconnected
-    </>
+    <div style={{
+      padding: "16px",
+      borderRadius: "12px",
+      boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+      backgroundColor: "#fef2f2",
+      border: "1px solid #fca5a5",
+      maxWidth: "400px",
+      margin: "32px auto",
+      fontFamily: "sans-serif"
+    }}>
+      <h2 style={{
+        fontSize: "18px",
+        fontWeight: "600",
+        color: "#b91c1c",
+        marginBottom: "8px"
+      }}>
+        WebSocket Disconnected
+      </h2>
+      <div style={{ fontSize: "14px", color: "#7f1d1d", lineHeight: "1.5" }}>
+        <div>
+          <span style={{ fontWeight: "500" }}>Time:</span> {props.closed_at_client_time}
+        </div>
+        <div>
+          <span style={{ fontWeight: "500" }}>Closed Cleanly:</span> {props.was_clean ? "Yes" : "No"}
+        </div>
+        <div>
+          <span style={{ fontWeight: "500" }}>Code:</span> {props.code}
+        </div>
+      </div>
+    </div>
   );
-}
+};
 
 const ErrSession = (
   props: {
