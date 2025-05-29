@@ -1,22 +1,16 @@
-import * as librdom from "react-dom/client";
-import * as libredux from "react-redux";
-import * as libstore from "./store/_mod";
-import * as libutil from "./util";
-import StatusCheck from "./logic/StatusCheck";
+import type * as react from "react";
+import * as react_dom from "react-dom/client";
 
-const element: HTMLElement = libutil.getRootElement();
-const root: librdom.Root = librdom.createRoot(element);
+async function main() {
+  console.log("Hello world!");
 
-const endpoints: libutil.Endpoints = libutil.getUrls();
+  const root_elem: HTMLElement = document.getElementById("root")!;
 
-const store: libstore.Store = libstore.init(libstore.reducers);
+  const root: react_dom.Root = react_dom.createRoot(root_elem);
 
-root.render(
-  <libredux.Provider store={store}>
-    <StatusCheck
-      urlCheckStatus={endpoints.status}
-      urlLogIn={endpoints.login}
-      urlWs={endpoints.websocket}
-    />
-  </libredux.Provider>
-);
+  const app: react.JSX.Element = <>TODO</>;
+
+  root.render(app);
+}
+
+main();
