@@ -106,35 +106,52 @@ const Unauthorized = (props: {
   rejection_http_status_code: number,
 }): react.JSX.Element => {
   return (
-    <>
-      <b>Unauthorized: </b>
-      <code>at {props.checked_at_client_time}: HTTP status {props.rejection_http_status_code}</code>
-      <button onClick={async () => {
-        let response: Response;
-        try {
-          response = await fetch(ConnectionManager.URL_LOGIN);
-        } catch (err) {
-          const web_api_err = err as DOMException;
-          const fetch_api_err = new FetchAPIError(web_api_err);
-          Store.dispatch(SessionSlice.actions.set_error({
-            error_chain: collect_causes_enumerable(fetch_api_err),
-          }));
-          return;
-        }
+    <div style={{ fontFamily: "sans-serif", lineHeight: "1.5", padding: "1rem" }}>
+      <div style={{ fontWeight: "bold", marginBottom: "0.5rem" }}>
+        Unauthorized:
+      </div>
+      <div style={{ fontFamily: "monospace", marginBottom: "1rem" }}>
+        at {props.checked_at_client_time}: HTTP status {props.rejection_http_status_code}
+      </div>
+      <button
+        style={{
+          padding: "0.5rem 1rem",
+          fontSize: "1rem",
+          fontWeight: "bold",
+          border: "1px solid #ccc",
+          borderRadius: "4px",
+          backgroundColor: "#f5f5f5",
+          cursor: "pointer",
+        }}
+        onClick={async (): Promise<void> => {
+          let response: Response;
+          try {
+            response = await fetch(ConnectionManager.URL_LOGIN);
+          } catch (err: unknown) {
+            const web_api_err: DOMException = err as DOMException;
+            const fetch_api_err: FetchAPIError = new FetchAPIError(web_api_err);
+            Store.dispatch(SessionSlice.actions.set_error({
+              error_chain: collect_causes_enumerable(fetch_api_err),
+            }));
+            return;
+          }
 
-        if (!response.ok) {
-          const err = new Error("login failed: unexpected status " + response.status);
-          Store.dispatch(SessionSlice.actions.set_error({
-            error_chain: collect_causes_enumerable(err),
-          }));
-          return;
-        } else {
-          ConnectionManager.restart();
-        }
-      }}>Log in</button>
-    </>
+          if (!response.ok) {
+            const err: Error = new Error("login failed: unexpected status " + response.status);
+            Store.dispatch(SessionSlice.actions.set_error({
+              error_chain: collect_causes_enumerable(err),
+            }));
+            return;
+          } else {
+            ConnectionManager.restart();
+          }
+        }}
+      >
+        Log in
+      </button>
+    </div>
   );
-}
+};
 
 const AuthorizedWebSocketConnected = (
   props: {
