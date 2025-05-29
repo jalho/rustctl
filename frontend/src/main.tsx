@@ -1,7 +1,7 @@
 import * as react_dom_client from "react-dom/client";
 import * as react_redux from "react-redux";
-import FooBar from "./components/FooBar";
 import redux_store from "./state/store";
+import Session from "./components/Session";
 import type * as react from "react";
 
 async function main() {
@@ -12,7 +12,7 @@ async function main() {
 
   const react_app: react.JSX.Element = (
     <react_redux.Provider store={redux_store}>
-      <FooBar />
+      <Session />
     </react_redux.Provider>
   );
 
