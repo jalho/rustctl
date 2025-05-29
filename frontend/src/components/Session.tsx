@@ -1,4 +1,7 @@
 import * as react_redux from "react-redux";
+import ConnectionManager, { collect_causes_enumerable, FetchAPIError } from "../ConnectionManager";
+import SessionSlice from "../state/slices/session";
+import Store from "../state/store";
 import type * as ffi from "../ffi";
 import type * as react from "react";
 import type * as session from "../state/slices/session";
@@ -106,6 +109,22 @@ const Unauthorized = (props: {
     <>
       <b>Unauthorized: </b>
       <code>at {props.checked_at_client_time}: HTTP status {props.rejection_http_status_code}</code>
+      <button onClick={async () => {
+        let response: Response;
+        try {
+          response = await fetch(ConnectionManager.URL_LOGIN);
+        } catch (err) {
+          const web_api_err = err as DOMException;
+          const fetch_api_err = new FetchAPIError(web_api_err);
+          Store.dispatch(SessionSlice.actions.set_error({
+            error_chain: collect_causes_enumerable(fetch_api_err),
+          }));
+          return;
+        }
+
+        // TODO: Check response status
+        // TODO: Reload (set state to initializing?) if response ok?
+      }}>Log in</button>
     </>
   );
 }

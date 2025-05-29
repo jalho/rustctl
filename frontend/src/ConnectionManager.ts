@@ -9,6 +9,7 @@ class ConnectionManager {
   static WS_EVENT_HANDLER_OPEN: any = null;
 
   static URL_STATUS: URL = new URL("http://localhost:8080/api/status");
+  static URL_LOGIN: URL = new URL("http://localhost:8080/api/login");
   static URL_WEBSOCKET: URL = new URL("ws://localhost:8080/api/websocket");
 
   static async start(): Promise<void> {
@@ -19,11 +20,7 @@ class ConnectionManager {
       response_instant = new Date().toISOString();
     } catch (err) {
       const web_api_err = err as DOMException;
-      const fetch_api_err = new FetchAPIError(
-        "Fetch API failed: maybe offline, or maybe TLS, CORS or DNS related issue -- Who knows!",
-        { cause: web_api_err },
-      );
-
+      const fetch_api_err = new FetchAPIError(web_api_err);
       Store.dispatch(SessionSlice.actions.set_error({
         error_chain: collect_causes_enumerable(fetch_api_err),
       }));
@@ -43,10 +40,7 @@ class ConnectionManager {
     } catch (err) {
       this.#free_websocket_resources();
       const web_api_err = err as DOMException;
-      const websocket_instantiation_error = new WebSocketInstantiationError(
-        "WebSocket instantiation failed: maybe offline, or maybe TLS, CORS or DNS related issue, or something else",
-        { cause: web_api_err },
-      );
+      const websocket_instantiation_error = new WebSocketInstantiationError(web_api_err);
       Store.dispatch(SessionSlice.actions.set_error({
         error_chain: collect_causes_enumerable(websocket_instantiation_error),
       }));
@@ -55,10 +49,7 @@ class ConnectionManager {
 
     this.WS_EVENT_HANDLER_ERROR = (event: unknown) => {
       this.#free_websocket_resources();
-      const websocket_emitted_error = new WebSocketInstantiationError(
-        "WebSocket emitted error after instantiation: maybe WebSocket protocol handshake was rejected, or something else",
-        { cause: event },
-      );
+      const websocket_emitted_error = new WebSocketEmittedError(event);
       Store.dispatch(SessionSlice.actions.set_error({
         error_chain: collect_causes_enumerable(websocket_emitted_error),
       }));
@@ -121,7 +112,7 @@ function display(n: unknown, fallback = "N/A"): string {
   }
 }
 
-function collect_causes_enumerable<Error>(root: Error): Array<{ name: string, message: string, stack: string }> {
+export function collect_causes_enumerable<Error>(root: Error): Array<{ name: string, message: string, stack: string }> {
   if (!(root instanceof Error)) {
     return [];
   }
@@ -156,9 +147,26 @@ function collect_causes_enumerable<Error>(root: Error): Array<{ name: string, me
  * In other words, we just cannot reliably detect what's wrong exactly. That's
  * just a downside of the platform (web) I suppose.
  */
-class FetchAPIError extends Error { }
+export class FetchAPIError extends Error {
+  constructor(cause: DOMException) {
+    super("Fetch API failed: maybe offline, or maybe TLS, CORS or DNS related issue -- Who knows!", { cause });
+  }
+}
 
 /**
  * The exception(s) that may occur when instantiating a `WebSocket`.
  */
-class WebSocketInstantiationError extends Error { }
+class WebSocketInstantiationError extends Error {
+  constructor(cause: unknown) {
+    super("WebSocket instantiation failed: maybe offline, or maybe TLS, CORS or DNS related issue, or something else", { cause });
+  }
+}
+
+/**
+ * The event(s) that a `WebSocket` instance may emit as "error".
+ */
+class WebSocketEmittedError extends Error {
+  constructor(cause: unknown) {
+    super("WebSocket emitted error: maybe WebSocket protocol handshake was rejected, or something else", { cause });
+  }
+}
