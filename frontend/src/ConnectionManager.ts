@@ -47,6 +47,10 @@ class ConnectionManager {
         "WebSocket instantiation failed: maybe offline, or maybe TLS, CORS or DNS related issue -- Who knows!",
         { cause: web_api_err },
       );
+      Store.dispatch(SessionSlice.actions.set_error({
+        error_chain: collect_causes_enumerable(websocket_instantiation_error),
+      }));
+      return;
     }
   }
 
