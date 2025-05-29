@@ -11,10 +11,6 @@ const Session = (): react.JSX.Element => {
     return <Initializing />;
   }
 
-  else if (state._tag === "Offline") {
-    return <Offline />;
-  }
-
   else if (state._tag === "Unauthorized") {
     return (
       <Unauthorized

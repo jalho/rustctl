@@ -5,10 +5,6 @@ type Initializing = {
   _tag: "Initializing",
   TODO: "TODO",
 };
-type Offline = {
-  _tag: "Offline",
-  TODO: "TODO",
-};
 type Unauthorized = {
   _tag: "Unauthorized",
 
@@ -47,7 +43,7 @@ type ErrSession = {
   stack: string,
   code: string,
 };
-export type State = Initializing | Offline | Unauthorized | AuthorizedWebSocketConnected | ErrSession;
+export type State = Initializing | Unauthorized | AuthorizedWebSocketConnected | ErrSession;
 
 const initial_state: State = {
   _tag: "Initializing",
@@ -61,13 +57,6 @@ const slice = reduxjs_toolkit.createSlice({
     set_initializing: (_state: State) => {
       const updated: Initializing = {
         _tag: "Initializing",
-        TODO: "TODO",
-      };
-      return updated;
-    },
-    set_offline: (_state: State) => {
-      const updated: Offline = {
-        _tag: "Offline",
         TODO: "TODO",
       };
       return updated;
