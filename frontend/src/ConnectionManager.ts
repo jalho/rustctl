@@ -63,9 +63,16 @@ class ConnectionManager {
     };
     this.WEBSOCKET.addEventListener("error", this.WS_EVENT_HANDLER_ERROR);
 
-    this.WS_EVENT_HANDLER_CLOSE = (event: unknown) => {
+    this.WS_EVENT_HANDLER_CLOSE = (event: any) => {
+      const closed_at_instant: string = new Date().toISOString();
       this.#abort_close_free_all();
-      console.debug("TODO: WebSocket was closed -- Reconnect?", event);
+      Store.dispatch(SessionSlice.actions.set_session_disconnected({
+        websocket_close: {
+          closed_at_client_time: closed_at_instant,
+          was_clean: event.wasClean,
+          code: event.code,
+        }
+      }));
     };
     this.WEBSOCKET.addEventListener("close", this.WS_EVENT_HANDLER_CLOSE);
 

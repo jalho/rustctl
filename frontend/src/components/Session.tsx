@@ -40,9 +40,31 @@ const Session = (): react.JSX.Element => {
     );
   }
 
+  else if (state._tag === "SessionDisconnected") {
+    return (
+      <SessionDisconnected
+        closed_at_client_time={state.websocket_close.closed_at_client_time}
+        was_clean={state.websocket_close.was_clean}
+        code={state.websocket_close.code}
+      />
+    );
+  }
+
   else {
     throw new Error("unreachable");
   }
+}
+
+const SessionDisconnected = (props: {
+  closed_at_client_time: string,
+  was_clean: boolean,
+  code: number,
+}): react.JSX.Element => {
+  return (
+    <>
+      SessionDisconnected
+    </>
+  );
 }
 
 const ErrSession = (

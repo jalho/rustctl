@@ -50,6 +50,32 @@ type AuthorizedWebSocketConnected = {
   remote_state_snapshot_full: ffi.StateSnapshotFull,
 };
 
+type SessionDisconnected = {
+  _tag: "SessionDisconnected",
+
+  /**
+   * How the session was disconnected, i.e. the WebSocket connection.
+   */
+  websocket_close: {
+    /**
+     * Timestamp of when the client WebSocket emitted close event was picked up.
+     *
+     * Datetime string in ISO format. For example: `"2025-05-29T13:34:19.478Z"`.
+     */
+    closed_at_client_time: string,
+
+    /**
+     * WebSocket standard thing.
+     */
+    was_clean: boolean,
+
+    /**
+     * WebSocket standard thing.
+     */
+    code: number,
+  }
+}
+
 /**
  * Something is not right (and cannot or will not be automatically corrected).
  */
@@ -57,7 +83,7 @@ type ErrSession = {
   _tag: "ErrSession",
   error_chain: Array<{ name: string, message: string, stack: string }>,
 };
-export type State = Initializing | Unauthorized | AuthorizedWebSocketConnected | ErrSession;
+export type State = Initializing | Unauthorized | AuthorizedWebSocketConnected | SessionDisconnected | ErrSession;
 
 const initial_state: State = {
   _tag: "Initializing",
@@ -108,7 +134,27 @@ const slice = reduxjs_toolkit.createSlice({
         error_chain: action.payload.error_chain,
       };
       return updated;
-    }
+    },
+    set_session_disconnected: (
+      _state: State,
+      action: reduxjs_toolkit.PayloadAction<{
+        websocket_close: {
+          closed_at_client_time: string,
+          was_clean: boolean,
+          code: number,
+        }
+      }>,
+    ) => {
+      const updated: SessionDisconnected = {
+        _tag: "SessionDisconnected",
+        websocket_close: {
+          closed_at_client_time: action.payload.websocket_close.closed_at_client_time,
+          was_clean: action.payload.websocket_close.was_clean,
+          code: action.payload.websocket_close.code,
+        }
+      };
+      return updated;
+    },
   },
 });
 
