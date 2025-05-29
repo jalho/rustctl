@@ -44,7 +44,7 @@ class ConnectionManager {
       this.#free_websocket_resources();
       const web_api_err = err as DOMException;
       const websocket_instantiation_error = new WebSocketInstantiationError(
-        "WebSocket instantiation failed: maybe offline, or maybe TLS, CORS or DNS related issue -- Who knows!",
+        "WebSocket instantiation failed: maybe offline, or maybe TLS, CORS or DNS related issue, or something else",
         { cause: web_api_err },
       );
       Store.dispatch(SessionSlice.actions.set_error({
@@ -52,6 +52,18 @@ class ConnectionManager {
       }));
       return;
     }
+
+    this.WS_EVENT_HANDLER_ERROR = (web_api_err: DOMException) => {
+      this.#free_websocket_resources();
+      const websocket_emitted_error = new WebSocketInstantiationError(
+        "WebSocket emitted error after instantiation: maybe WebSocket protocol handshake was rejected, or something else",
+        { cause: web_api_err },
+      );
+      Store.dispatch(SessionSlice.actions.set_error({
+        error_chain: collect_causes_enumerable(websocket_emitted_error),
+      }));
+    };
+    this.WEBSOCKET.addEventListener("error", this.WS_EVENT_HANDLER_ERROR);
   }
 
   static #free_websocket_resources() {
