@@ -1,20 +1,17 @@
 import SessionSlice from "./state/slices/session";
 import Store from "./state/store";
 
-let counter: number = 0;
-
 class ConnectionManager {
-  public start(): void {
-    console.debug("TODO: Keep WebSocket connected", Store.getState());
+  #url_status: URL = new URL("http://127.0.0.1:8080/api/status");
 
-    setInterval(() => {
-      counter++;
-      if (counter % 2 === 0) {
-        Store.dispatch(SessionSlice.actions.set_offline());
-      } else {
-        Store.dispatch(SessionSlice.actions.set_unauthorized());
-      }
-    }, 3000);
+  public async start(): Promise<void> {
+    let response: Response;
+    try {
+      response = await fetch(this.#url_status);
+    } catch (err) {
+      Store.dispatch(SessionSlice.actions.set_error({ name: "N/A", message: "N/A", stack: "N/A", code: "N/A" }));
+      return;
+    }
   }
 }
 
