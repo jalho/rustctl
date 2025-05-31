@@ -1,5 +1,10 @@
 use crate::{constants::INTERVAL_FETCH_GAME_STATE, core::SharedState};
-use std::{collections::HashMap, sync::Arc};
+use chrono::{DateTime, Utc};
+use std::{
+    collections::HashMap,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 use tokio::sync::Mutex;
 
 pub async fn read_state(shared: Arc<Mutex<SharedState>>) {
@@ -20,26 +25,47 @@ pub async fn read_state(shared: Arc<Mutex<SharedState>>) {
 #[serde(tag = "_type", content = "data")]
 pub enum GameState {
     Running {
+        /// When the state snapshotting was initiated.
+        read_start_utc: DateTime<Utc>,
+
+        /// How long the state snapshotting took, in nanoseconds.
+        read_duration_ns: u128,
+
         /// Time of day in the game world.
         time_of_day: f64,
 
         players: HashMap<Identifier, Player>,
-
-        toolcupboards: HashMap<Identifier, Toolcupboard>,
     },
 }
 
 impl GameState {
     pub fn read() -> Self {
-        // TODO: Query game state via RCON
-        let mut players = HashMap::new();
-        let dummy_player = Player::dummy();
-        players.insert(dummy_player.id.to_owned(), dummy_player);
+        let mut players: HashMap<Identifier, Player>;
+        let time_of_day: f64;
+
+        /*
+         * TODO: Query game state via RCON
+         */
+        let read_start = SystemTime::now();
+        {
+            time_of_day = 0.0;
+
+            players = HashMap::new();
+            let dummy_player = Player::dummy();
+            players.insert(dummy_player.id.to_owned(), dummy_player);
+        }
+        let read_end = SystemTime::now();
+        let elapsed: Duration = read_end.duration_since(read_start).unwrap();
+
+        let read_start_utc: DateTime<Utc> = read_start.into();
+        let read_duration_ns: u128 = elapsed.as_nanos();
 
         Self::Running {
-            time_of_day: 0.0,
+            read_start_utc,
+            read_duration_ns,
+
+            time_of_day,
             players,
-            toolcupboards: HashMap::new(),
         }
     }
 }
@@ -62,6 +88,7 @@ pub struct Toolcupboard {
 
 /// ISO 3166-1 alpha-3
 #[derive(serde::Serialize, Clone)]
+#[allow(clippy::upper_case_acronyms)]
 enum CountryCodeIso3166_1Alpha3 {
     FIN,
 }

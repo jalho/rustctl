@@ -16,18 +16,18 @@ pub async fn ws_upgrade(
     ws.on_upgrade(async move |sock| {
         println!("Client accepted!");
         let client = Client::new(connect_info.0, sock, Arc::clone(&shared_state));
-        let dummy_session = Uuid::new_v4();
+        let client_id = Uuid::new_v4();
 
         {
             let mut lock = shared_state.lock().await;
-            lock.register(dummy_session.clone(), &client);
+            lock.register(client_id, &client);
         }
 
         let _done: () = client.send_and_receive_messages().await;
 
         {
             let mut lock = shared_state.lock().await;
-            lock.unregister(&dummy_session);
+            lock.unregister(&client_id);
         }
 
         println!("Client dropped!");

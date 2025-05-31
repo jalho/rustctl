@@ -1,19 +1,9 @@
 ```console
-$ node --version
-v22.15.0
-```
+$ dx --version
+dioxus 0.6.3
 
-```console
-$ npm --version
-10.9.2
-```
+$ dx serve --platform web
 
-```console
-$ npm ci
-$ ./node_modules/.bin/vite
-```
-
-```console
-$ ./node_modules/.bin/vite build
-$ python3 -m http.server --directory dist/
+$ dx bundle --platform web
+$ python3 -m http.server --directory target/dx/rustctl-frontend/release/web/public/
 ```

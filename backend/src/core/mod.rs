@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 #[derive(serde::Serialize, Clone)]
 enum ClientIdentity {
-    Anonymous { session_id: Uuid },
+    Anonymous { client_id: Uuid },
     // could add e.g. variant SteamUser here (encapsulating Steam ID)
 }
 
@@ -74,14 +74,14 @@ impl SharedState {
         }))
     }
 
-    pub fn register(&mut self, session_id: Uuid, client: &Client) {
+    pub fn register(&mut self, client_id: Uuid, client: &Client) {
         let client_meta = ClientMeta {
             _addr: client.addr,
             connected_at: Utc::now(),
-            identity: ClientIdentity::Anonymous { session_id },
+            identity: ClientIdentity::Anonymous { client_id },
         };
 
-        self.clients.insert(session_id, client_meta);
+        self.clients.insert(client_id, client_meta);
     }
 
     pub fn unregister(&mut self, client_id: &Uuid) {
