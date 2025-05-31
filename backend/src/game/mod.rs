@@ -1,11 +1,5 @@
-use crate::{
-    constants::INTERVAL_FETCH_GAME_STATE,
-    core::{Command, SharedState},
-};
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use crate::{constants::INTERVAL_FETCH_GAME_STATE, core::SharedState};
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
 pub async fn read_state(shared: Arc<Mutex<SharedState>>) {
@@ -25,17 +19,7 @@ pub async fn read_state(shared: Arc<Mutex<SharedState>>) {
 #[derive(serde::Serialize, Clone)]
 #[serde(tag = "_type", content = "data")]
 pub enum GameState {
-    Installing {
-        commands_available: HashSet<Command>,
-    },
-
-    StartupInProgress {
-        commands_available: HashSet<Command>,
-    },
-
     Running {
-        commands_available: HashSet<Command>,
-
         /// Time of day in the game world.
         time_of_day: f64,
 
@@ -52,14 +36,10 @@ impl GameState {
         let dummy_player = Player::dummy();
         players.insert(dummy_player.id.to_owned(), dummy_player);
 
-        let mut commands_available = HashSet::new();
-        commands_available.insert(Command::Stop);
-
         Self::Running {
             time_of_day: 0.0,
             players,
             toolcupboards: HashMap::new(),
-            commands_available,
         }
     }
 }

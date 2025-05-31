@@ -9,22 +9,14 @@ fn main() {
 
     let args = core::Cli::get_args();
 
-    let (cookie_domain, listen_addr, cors_allow_origin, tls_key_pem, tls_cert_pem) =
-        match args.command {
-            core::CliCommand::Start {
-                listen_addr,
-                cors_allow_origin,
-                tls_key_pem,
-                tls_cert_pem,
-                cookie_domain,
-            } => (
-                cookie_domain,
-                listen_addr,
-                cors_allow_origin,
-                tls_key_pem,
-                tls_cert_pem,
-            ),
-        };
+    let (listen_addr, cors_allow_origin, tls_key_pem, tls_cert_pem) = match args.command {
+        core::CliCommand::Start {
+            listen_addr,
+            cors_allow_origin,
+            tls_key_pem,
+            tls_cert_pem,
+        } => (listen_addr, cors_allow_origin, tls_key_pem, tls_cert_pem),
+    };
 
     let state = core::SharedState::init();
 
@@ -70,7 +62,6 @@ fn main() {
         let jh_web = tokio::task::Builder::new()
             .name("web_server")
             .spawn(web::start(
-                cookie_domain,
                 listen_addr,
                 tls_config,
                 cors_allow_origin,

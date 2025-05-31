@@ -97,19 +97,6 @@ impl From<&SharedState> for Message {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Hash, Eq, PartialEq, Debug, Clone)]
-#[serde(tag = "_type", content = "payload")]
-pub enum Command {
-    InstallOrUpdateAndStart,
-    Stop,
-}
-
-impl Command {
-    pub fn new(serialized: &str) -> Self {
-        serde_json::from_str(serialized).unwrap()
-    }
-}
-
 pub struct Client {
     addr: SocketAddr,
     sock: WebSocket,
@@ -133,10 +120,8 @@ impl Client {
 
                     match recv {
                         Some(Ok(Message::Text(msg))) => {
-                            let command = Command::new(&msg.to_string());
-
-                            // TODO: Do a state transition based on the received command
-                            println!("TODO: Transition state: {command:?}");
+                            // TODO: Do a state transition based on the received command?
+                            println!("TODO: Got a message: \"{msg}\"");
                         }
                         _ => {
                             break;
@@ -197,9 +182,6 @@ impl Cli {
 #[derive(clap::Subcommand)]
 pub enum CliCommand {
     Start {
-        #[arg(long = "cookie-domain", short = 'd', value_name = "DOMAIN")]
-        cookie_domain: Option<String>,
-
         #[arg(long = "listen-addr", short = 'l', value_name = "ADDR")]
         listen_addr: SocketAddr,
 
