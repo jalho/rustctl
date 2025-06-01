@@ -14,7 +14,7 @@ default-features = false
 features = ["serde", "alloc", "now"]
 
 [dependencies.uuid]
-version = "1.16.0"
+version = "1.17.0"
 default-features = false
 features = ["v4", "serde"]
 
@@ -23,12 +23,12 @@ version = "0.4.1"
 default-features = false
 
 [dependencies.tower-http]
-version = "0.6.2"
+version = "0.6.4"
 default-features = false
 features = ["cors", "fs"]
 
 [dependencies.clap]
-version = "4.5.37"
+version = "4.5.39"
 default-features = false
 features = ["derive", "std"]
 
@@ -51,6 +51,6 @@ default-features = false
 features = ["ws"]
 
 [dependencies.tokio]
-version = "1.44.2"
+version = "1.45.1"
 default-features = false
 features = ["fs", "tracing", "rt"]
