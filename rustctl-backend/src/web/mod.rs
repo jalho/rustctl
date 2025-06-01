@@ -1,6 +1,6 @@
 mod handlers;
 
-use crate::core::SharedState;
+use crate::core::CrossTasksSharedState;
 use axum::{Router, routing};
 use axum_server::tls_rustls::RustlsConfig;
 use serde::{Deserialize, Serialize};
@@ -13,7 +13,7 @@ pub async fn start(
     listen_addr: SocketAddr,
     tls_config: Option<RustlsConfig>,
     cors_allow_origin: String,
-    shared: Arc<Mutex<SharedState>>,
+    shared: Arc<Mutex<CrossTasksSharedState>>,
 ) {
     let app_state = WebServerState::init(shared);
 
@@ -49,11 +49,11 @@ pub struct ClientSession {
 
 #[derive(Clone)]
 pub struct WebServerState {
-    shared_state: Arc<Mutex<SharedState>>,
+    shared_state: Arc<Mutex<CrossTasksSharedState>>,
 }
 
 impl WebServerState {
-    pub fn init(shared_state: Arc<Mutex<SharedState>>) -> Self {
+    pub fn init(shared_state: Arc<Mutex<CrossTasksSharedState>>) -> Self {
         Self { shared_state }
     }
 }

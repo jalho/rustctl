@@ -18,7 +18,7 @@ fn main() {
         } => (listen_addr, cors_allow_origin, tls_key_pem, tls_cert_pem),
     };
 
-    let state = core::SharedState::init();
+    let state = core::CrossTasksSharedState::init();
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .worker_threads(1)
@@ -45,7 +45,10 @@ fn main() {
          */
         let jh_monitor = tokio::task::Builder::new()
             .name("monitor_usage")
-            .spawn(system::monitor_usage(state.clone()))
+            .spawn(system::monitor_usage(
+                constants::INTERVAL_MONITOR_SYSTEM,
+                state.clone(),
+            ))
             .unwrap();
 
         /*
@@ -53,7 +56,10 @@ fn main() {
          */
         let jh_state = tokio::task::Builder::new()
             .name("read_state")
-            .spawn(game::read_state(state.clone()))
+            .spawn(game::read_state(
+                constants::INTERVAL_FETCH_GAME_STATE,
+                state.clone(),
+            ))
             .unwrap();
 
         /*

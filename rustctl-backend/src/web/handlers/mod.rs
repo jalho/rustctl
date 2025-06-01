@@ -5,7 +5,6 @@ use axum::{
     response::IntoResponse,
 };
 use std::{net::SocketAddr, sync::Arc};
-use uuid::Uuid;
 
 pub async fn ws_upgrade(
     ws: WebSocketUpgrade,
@@ -14,22 +13,15 @@ pub async fn ws_upgrade(
 ) -> impl IntoResponse {
     let shared_state = Arc::clone(&state.shared_state);
     ws.on_upgrade(async move |sock| {
-        println!("Client accepted!");
-        let client = Client::new(connect_info.0, sock, Arc::clone(&shared_state));
-        let client_id = Uuid::new_v4();
-
-        {
-            let mut lock = shared_state.lock().await;
-            lock.register(client_id, &client);
-        }
-
+        let connected_at = chrono::Utc::now();
+        println!("Client accepted: {}", connect_info.0);
+        let client = Client::new(
+            connected_at,
+            connect_info.0,
+            sock,
+            Arc::clone(&shared_state),
+        );
         let _done: () = client.send_and_receive_messages().await;
-
-        {
-            let mut lock = shared_state.lock().await;
-            lock.unregister(&client_id);
-        }
-
-        println!("Client dropped!");
+        println!("Client dropped");
     })
 }

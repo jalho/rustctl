@@ -1,90 +1,51 @@
-use crate::{constants::INTERVAL_SYNC_CLIENT, game::GameState, system::SystemState};
+use crate::constants::INTERVAL_SYNC_CLIENT;
 use axum::extract::ws::{Message, WebSocket};
-use chrono::Utc;
 use futures::{SinkExt, StreamExt};
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
 
-#[derive(serde::Serialize, Clone)]
-enum ClientIdentity {
-    Anonymous { client_id: Uuid },
-    // could add e.g. variant SteamUser here (encapsulating Steam ID)
-}
-
-#[derive(serde::Serialize, Clone)]
-struct ClientMeta {
-    #[serde(skip_serializing)]
-    _addr: std::net::SocketAddr,
-
-    #[serde(serialize_with = "serialize_date_utc_js")]
-    connected_at: chrono::DateTime<chrono::Utc>,
-
-    identity: ClientIdentity,
-}
-
-/// Serialize into JavaScript compatible date notation, e.g. "2025-01-01T00:00:00.000Z"
-fn serialize_date_utc_js<S>(
-    dt: &chrono::DateTime<chrono::Utc>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    let timestamp: String = format!(
-        "{}.{:03}Z",
-        dt.format("%Y-%m-%dT%H:%M:%S"),
-        dt.timestamp_subsec_millis()
-    );
-    serializer.serialize_str(&timestamp)
-}
-
 #[derive(Clone)]
-pub struct SharedState {
-    clients: HashMap<Uuid, ClientMeta>,
-    pub game: GameState,
-    pub system: SystemState,
+pub struct CrossTasksSharedState {
+    /*
+     * TODO: Define a cross-tasks shared state...
+     */
 }
 
-impl SharedState {
+impl CrossTasksSharedState {
     pub fn init() -> Arc<Mutex<Self>> {
-        Arc::new(Mutex::new(Self {
-            clients: HashMap::new(),
-            game: GameState::read(),
-            system: SystemState::read(),
-        }))
-    }
-
-    pub fn register(&mut self, client_id: Uuid, client: &Client) {
-        let client_meta = ClientMeta {
-            _addr: client.addr,
-            connected_at: Utc::now(),
-            identity: ClientIdentity::Anonymous { client_id },
-        };
-
-        self.clients.insert(client_id, client_meta);
-    }
-
-    pub fn unregister(&mut self, client_id: &Uuid) {
-        self.clients.remove(client_id);
+        Arc::new(Mutex::new(Self {}))
     }
 }
 
 pub struct Client {
+    id: Uuid,
+    connected_at: chrono::DateTime<chrono::Utc>,
     addr: SocketAddr,
     sock: WebSocket,
-    shared: Arc<Mutex<SharedState>>,
+    shared: Arc<Mutex<CrossTasksSharedState>>,
 }
 
 impl Client {
-    pub fn new(addr: SocketAddr, sock: WebSocket, shared: Arc<Mutex<SharedState>>) -> Self {
-        Self { addr, sock, shared }
+    pub fn new(
+        connected_at: chrono::DateTime<chrono::Utc>,
+        addr: SocketAddr,
+        sock: WebSocket,
+        shared: Arc<Mutex<CrossTasksSharedState>>,
+    ) -> Self {
+        Self {
+            addr,
+            sock,
+            shared,
+            id: Uuid::new_v4(),
+            connected_at,
+        }
     }
 
     pub async fn send_and_receive_messages(self) {
         let (mut sock_tx, mut sock_rx) = StreamExt::split(self.sock);
 
-        let _shared_rx: Arc<Mutex<SharedState>> = Arc::clone(&self.shared);
+        let _shared_rx: Arc<Mutex<CrossTasksSharedState>> = Arc::clone(&self.shared);
         let mut task_rx_cmd = tokio::task::Builder::new()
             .name("recv_commands")
             .spawn(async move {
@@ -104,7 +65,7 @@ impl Client {
             })
             .unwrap();
 
-        let shared_tx: Arc<Mutex<SharedState>> = Arc::clone(&self.shared);
+        let shared_tx: Arc<Mutex<CrossTasksSharedState>> = Arc::clone(&self.shared);
         let mut task_tx_state = tokio::task::Builder::new()
             .name("send_state")
             .spawn(async move {
@@ -113,9 +74,10 @@ impl Client {
                     interval.tick().await;
 
                     let sendable: rustctl_common::snapshot::Snapshot;
-                    let snapshot: SharedState;
+                    let snapshot: CrossTasksSharedState;
                     {
-                        let shared_locked: MutexGuard<SharedState> = shared_tx.lock().await;
+                        let shared_locked: MutexGuard<CrossTasksSharedState> =
+                            shared_tx.lock().await;
                         snapshot = shared_locked.clone();
                     }
                     sendable = snapshot.into();
@@ -140,8 +102,8 @@ impl Client {
     }
 }
 
-impl From<SharedState> for rustctl_common::snapshot::Snapshot {
-    fn from(value: SharedState) -> Self {
+impl From<CrossTasksSharedState> for rustctl_common::snapshot::Snapshot {
+    fn from(_value: CrossTasksSharedState) -> Self {
         Self {
             game: rustctl_common::snapshot::Game::Running {
                 players: HashMap::new(),
