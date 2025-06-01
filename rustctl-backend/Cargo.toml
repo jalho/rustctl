@@ -3,6 +3,9 @@ name = "rustctl-backend"
 version = "0.1.0"
 edition = "2024"
 
+[dependencies.rustctl-common]
+path = "../rustctl-common"
+
 [dependencies.axum-server]
 version = "0.7.2"
 default-features = false

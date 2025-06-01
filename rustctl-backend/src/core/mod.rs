@@ -1,5 +1,5 @@
 use crate::{constants::INTERVAL_SYNC_CLIENT, game::GameState, system::SystemState};
-use axum::extract::ws::{Message, Utf8Bytes, WebSocket};
+use axum::extract::ws::{Message, WebSocket};
 use chrono::Utc;
 use futures::{SinkExt, StreamExt};
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
@@ -39,25 +39,6 @@ where
     serializer.serialize_str(&timestamp)
 }
 
-/// State update payload to be sent to clients regularly.
-/// (This type exists in the frontend code too, using the same name.)
-#[derive(serde::Serialize)]
-struct WebSocketStateUpdatePayload {
-    clients: HashMap<Uuid, ClientMeta>,
-    game: GameState,
-    system: SystemState,
-}
-
-impl From<&SharedState> for WebSocketStateUpdatePayload {
-    fn from(value: &SharedState) -> Self {
-        Self {
-            clients: value.clients.clone(),
-            game: value.game.clone(),
-            system: value.system.clone(),
-        }
-    }
-}
-
 #[derive(Clone)]
 pub struct SharedState {
     clients: HashMap<Uuid, ClientMeta>,
@@ -86,14 +67,6 @@ impl SharedState {
 
     pub fn unregister(&mut self, client_id: &Uuid) {
         self.clients.remove(client_id);
-    }
-}
-
-impl From<&SharedState> for Message {
-    fn from(value: &SharedState) -> Self {
-        let payload: WebSocketStateUpdatePayload = value.into();
-        let json: String = serde_json::to_string(&payload).unwrap();
-        Message::Text(Utf8Bytes::from(json))
     }
 }
 
@@ -139,14 +112,16 @@ impl Client {
                 loop {
                     interval.tick().await;
 
+                    let sendable: rustctl_common::snapshot::Snapshot;
                     let snapshot: SharedState;
                     {
                         let shared_locked: MutexGuard<SharedState> = shared_tx.lock().await;
                         snapshot = shared_locked.clone();
                     }
+                    sendable = snapshot.into();
 
-                    let serialized: Message = (&snapshot).into();
-                    let sent = SinkExt::send(&mut sock_tx, serialized).await;
+                    let serialized: String = serde_json::to_string(&sendable).unwrap();
+                    let sent = SinkExt::send(&mut sock_tx, serialized.into()).await;
                     if sent.is_err() {
                         break;
                     }
@@ -161,6 +136,29 @@ impl Client {
             _ = (&mut task_tx_state) => {
                 task_rx_cmd.abort();
             }
+        }
+    }
+}
+
+impl From<SharedState> for rustctl_common::snapshot::Snapshot {
+    fn from(value: SharedState) -> Self {
+        Self {
+            game: rustctl_common::snapshot::Game::Running {
+                players: HashMap::new(),
+                toolcupboards: HashMap::new(),
+            },
+            system: rustctl_common::snapshot::System {
+                cpu: (),
+                memory: (),
+            },
+
+            /*
+             * TODO: Make Snapshot not with `From` trait, but instead using
+             *       some parameterized method that takes the read instant and
+             *       duration...
+             */
+            read_finished_at: chrono::Utc::now(),
+            read_duration_ns: 0,
         }
     }
 }

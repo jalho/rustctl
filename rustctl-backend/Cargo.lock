@@ -1264,11 +1264,20 @@ dependencies = [
  "clap",
  "console-subscriber",
  "futures",
+ "rustctl-common",
  "serde",
  "serde_json",
  "tokio",
  "tower-http",
  "uuid",
+]
+
+[[package]]
+name = "rustctl-common"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
 ]
 
 [[package]]
