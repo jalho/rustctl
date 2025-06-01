@@ -21,7 +21,9 @@ pub async fn ws_upgrade(
             sock,
             Arc::clone(&shared_state),
         );
-        let _done: () = client.send_and_receive_messages().await;
+        let _done: () = client
+            .send_and_receive_messages(state.client_sync_interval)
+            .await;
         println!("Client dropped");
     })
 }

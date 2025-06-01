@@ -1,7 +1,6 @@
-use crate::constants::INTERVAL_SYNC_CLIENT;
 use axum::extract::ws::{Message, WebSocket};
 use futures::{SinkExt, StreamExt};
-use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
 
@@ -42,7 +41,7 @@ impl Client {
         }
     }
 
-    pub async fn send_and_receive_messages(self) {
+    pub async fn send_and_receive_messages(self, interval: Duration) {
         let (mut sock_tx, mut sock_rx) = StreamExt::split(self.sock);
 
         let _shared_rx: Arc<Mutex<CrossTasksSharedState>> = Arc::clone(&self.shared);
@@ -69,7 +68,7 @@ impl Client {
         let mut task_tx_state = tokio::task::Builder::new()
             .name("send_state")
             .spawn(async move {
-                let mut interval = tokio::time::interval(INTERVAL_SYNC_CLIENT);
+                let mut interval = tokio::time::interval(interval);
                 loop {
                     interval.tick().await;
 

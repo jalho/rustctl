@@ -4,18 +4,19 @@ use crate::core::CrossTasksSharedState;
 use axum::{Router, routing};
 use axum_server::tls_rustls::RustlsConfig;
 use serde::{Deserialize, Serialize};
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 use uuid::Uuid;
 
 pub async fn start(
+    client_sync_interval: Duration,
     listen_addr: SocketAddr,
     tls_config: Option<RustlsConfig>,
     cors_allow_origin: String,
     shared: Arc<Mutex<CrossTasksSharedState>>,
 ) {
-    let app_state = WebServerState::init(shared);
+    let app_state = WebServerState::init(client_sync_interval, shared);
 
     let cors: CorsLayer = CorsLayer::new()
         .allow_origin(axum::http::HeaderValue::from_str(&cors_allow_origin).unwrap())
@@ -49,11 +50,18 @@ pub struct ClientSession {
 
 #[derive(Clone)]
 pub struct WebServerState {
+    client_sync_interval: Duration,
     shared_state: Arc<Mutex<CrossTasksSharedState>>,
 }
 
 impl WebServerState {
-    pub fn init(shared_state: Arc<Mutex<CrossTasksSharedState>>) -> Self {
-        Self { shared_state }
+    pub fn init(
+        client_sync_interval: Duration,
+        shared_state: Arc<Mutex<CrossTasksSharedState>>,
+    ) -> Self {
+        Self {
+            shared_state,
+            client_sync_interval,
+        }
     }
 }

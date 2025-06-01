@@ -68,6 +68,7 @@ fn main() {
         let jh_web = tokio::task::Builder::new()
             .name("web_server")
             .spawn(web::start(
+                constants::INTERVAL_SYNC_CLIENT,
                 listen_addr,
                 tls_config,
                 cors_allow_origin,
