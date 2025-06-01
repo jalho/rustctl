@@ -6,7 +6,21 @@ edition = "2024"
 [dependencies.dioxus]
 version = "0.6.3"
 default-features = false
-features = ["hooks", "signals", "launch", "macro", "html"]
+features = [
+  "asset",
+  "cli-config",
+  "devtools",
+  "document",
+  "file_engine",
+  "hooks",
+  "html",
+  "launch",
+  "logger",
+  "macro",
+  "mounted",
+  "signals",
+  "warnings",
+]
 
 [dependencies.futures-util]
 version = "0.3.31"
