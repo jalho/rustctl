@@ -3,39 +3,32 @@ name = "rustctl-backend"
 version = "0.1.0"
 edition = "2024"
 
-[dependencies.rcgen]
-version = "0.13.2"
-
 [dependencies.axum-server]
 version = "0.7.2"
-features = [ "tls-rustls" ]
-
-[dependencies.axum-extra]
-version = "0.10.1"
-features = [ "cookie-signed" ]
+features = ["tls-rustls"]
 
 [dependencies.chrono]
 version = "0.4.41"
-features = [ "serde" ]
+features = ["serde"]
 
 [dependencies.uuid]
 version = "1.16.0"
-features = [ "v4", "serde" ]
+features = ["v4", "serde"]
 
 [dependencies.console-subscriber]
 version = "0.4.1"
 
 [dependencies.tower-http]
 version = "0.6.2"
-features = [ "cors", "fs" ]
+features = ["cors", "fs"]
 
 [dependencies.clap]
 version = "4.5.37"
-features = [ "derive" ]
+features = ["derive"]
 
 [dependencies.serde]
 version = "1.0.219"
-features = [ "derive" ]
+features = ["derive"]
 
 [dependencies.serde_json]
 version = "1.0.140"
@@ -45,8 +38,8 @@ version = "0.3.31"
 
 [dependencies.axum]
 version = "0.8.4"
-features = [ "ws" ]
+features = ["ws"]
 
 [dependencies.tokio]
 version = "1.44.2"
-features = [ "fs", "tracing", "rt" ]
+features = ["fs", "tracing", "rt"]
