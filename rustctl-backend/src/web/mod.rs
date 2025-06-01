@@ -3,11 +3,9 @@ mod handlers;
 use crate::core::CrossTasksSharedState;
 use axum::{Router, routing};
 use axum_server::tls_rustls::RustlsConfig;
-use serde::{Deserialize, Serialize};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
-use uuid::Uuid;
 
 pub async fn start(
     client_sync_interval: Duration,
@@ -41,11 +39,6 @@ pub async fn start(
             let _done: () = server.await.unwrap();
         }
     }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ClientSession {
-    pub session_id: Uuid,
 }
 
 #[derive(Clone)]
