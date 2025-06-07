@@ -43,16 +43,12 @@ fn main() {
             };
 
         /*
-         * TODO: Spawn a task for cancelling the cancellation token on SIGINT,
-         *       SIGTERM...
-         */
-
-        /*
          * Monitor system resources's usage such as CPU and memory.
          */
         let jh_monitor = tokio::task::Builder::new()
             .name("monitor_usage")
             .spawn(system::monitor_usage(
+                cancel.child_token(),
                 constants::INTERVAL_MONITOR_SYSTEM,
                 state.clone(),
             ))
@@ -64,6 +60,7 @@ fn main() {
         let jh_state = tokio::task::Builder::new()
             .name("read_state")
             .spawn(game::read_state(
+                cancel.child_token(),
                 constants::INTERVAL_FETCH_GAME_STATE,
                 state.clone(),
             ))
@@ -83,8 +80,17 @@ fn main() {
             ))
             .unwrap();
 
+        /*
+         * Activate cancellation sequences on SIGINT, SIGTERM etc.
+         */
+        let jh_signal = tokio::task::Builder::new()
+            .name("wait_signal")
+            .spawn(system::wait_signal(cancel))
+            .unwrap();
+
         jh_monitor.await.unwrap();
         jh_state.await.unwrap();
         jh_web.await.unwrap();
+        jh_signal.await.unwrap();
     });
 }

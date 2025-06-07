@@ -60,4 +60,4 @@ features = ["ws"]
 [dependencies.tokio]
 version = "1.45.1"
 default-features = false
-features = ["fs", "tracing", "rt"]
+features = ["fs", "tracing", "rt", "signal"]
