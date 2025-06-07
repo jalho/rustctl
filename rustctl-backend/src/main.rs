@@ -18,6 +18,8 @@ fn main() {
         } => (listen_addr, cors_allow_origin, tls_key_pem, tls_cert_pem),
     };
 
+    let cancel = tokio_util::sync::CancellationToken::new();
+
     let state = core::CrossTasksSharedState::init();
 
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -39,6 +41,11 @@ fn main() {
                 }
                 _ => None,
             };
+
+        /*
+         * TODO: Spawn a task for cancelling the cancellation token on SIGINT,
+         *       SIGTERM...
+         */
 
         /*
          * Monitor system resources's usage such as CPU and memory.
