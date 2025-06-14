@@ -4,10 +4,9 @@ pub mod snapshot {
     /// interval).
     #[derive(serde::Serialize, serde::Deserialize)]
     pub struct Snapshot {
+        /// ID of the snapshot receiving client.
+        pub client_id: uuid::Uuid,
         pub clients_connected_all: std::collections::HashMap<uuid::Uuid, ClientExposed>,
-
-        pub read_finished_at: chrono::DateTime<chrono::Utc>,
-        pub read_duration_ns: u128,
 
         pub game: Game,
         pub system: System,

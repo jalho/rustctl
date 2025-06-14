@@ -1,7 +1,7 @@
 use axum::extract::ws::{Message, WebSocket};
 use futures::{SinkExt, StreamExt};
 use log4rs::{append::console::ConsoleAppender, config::Appender, encode::pattern::PatternEncoder};
-use rustctl_common::snapshot::ClientExposed;
+use rustctl_common::snapshot::{ClientExposed, Snapshot};
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
@@ -104,7 +104,8 @@ impl Client {
                         snapshot = shared_locked.clone();
                     }
 
-                    let sendable: rustctl_common::snapshot::Snapshot = snapshot.into();
+                    let sendable: rustctl_common::snapshot::Snapshot =
+                        make_snapshot(self.id, snapshot);
                     let serialized: String = serde_json::to_string(&sendable).unwrap();
 
                     let sent = SinkExt::send(&mut sock_tx, serialized.into()).await;
@@ -128,37 +129,25 @@ impl Client {
             let mut lock = self.shared.lock().await;
             lock.clients_connected_all.remove(&self.id);
         }
-        log::info!(
-            "Client unregistered: {id}: {addr}",
-            id = self.id,
-            addr = self.addr
-        );
+        log::info!("Client unregistered");
     }
 }
 
-impl From<CrossTasksSharedState> for rustctl_common::snapshot::Snapshot {
-    fn from(value: CrossTasksSharedState) -> Self {
-        Self {
-            clients_connected_all: value.clients_connected_all,
+fn make_snapshot(for_client_id: Uuid, from_state: CrossTasksSharedState) -> Snapshot {
+    let snapshot = Snapshot {
+        client_id: for_client_id,
+        clients_connected_all: from_state.clients_connected_all,
 
-            game: rustctl_common::snapshot::Game::Running {
-                players: HashMap::new(),
-                toolcupboards: HashMap::new(),
-            },
-            system: rustctl_common::snapshot::System {
-                cpu: (),
-                memory: (),
-            },
-
-            /*
-             * TODO: Make Snapshot not with `From` trait, but instead using
-             *       some parameterized method that takes the read instant and
-             *       duration...
-             */
-            read_finished_at: chrono::Utc::now(),
-            read_duration_ns: 0,
-        }
-    }
+        game: rustctl_common::snapshot::Game::Running {
+            players: HashMap::new(),
+            toolcupboards: HashMap::new(),
+        },
+        system: rustctl_common::snapshot::System {
+            cpu: (),
+            memory: (),
+        },
+    };
+    return snapshot;
 }
 
 #[derive(clap::Parser)]
