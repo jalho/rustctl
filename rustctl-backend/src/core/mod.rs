@@ -159,7 +159,7 @@ pub enum CliCommand {
 pub fn init_logging(level: log::LevelFilter) -> log4rs::Handle {
     let stdout = ConsoleAppender::builder()
         .encoder(Box::new(PatternEncoder::new(
-            "{d(%+)} {l} - {m} [{f}:{L}] [{T}]\n",
+            "{d(%Y-%m-%dT%H:%M:%SZ)(utc)} {l} - {m} [{f}:{L}] [{T}]\n",
         )))
         .build();
 
