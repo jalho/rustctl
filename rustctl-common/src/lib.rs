@@ -6,6 +6,9 @@ pub mod snapshot {
     pub struct Snapshot {
         /// ID of the snapshot receiving client.
         pub client_id: uuid::Uuid,
+        /// Salted hash of the IP address of the snapshot receiving client.
+        pub ip_hash_salted: String,
+
         pub clients_connected_all: std::collections::HashMap<uuid::Uuid, ClientExposed>,
 
         pub game: Game,

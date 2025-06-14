@@ -137,7 +137,7 @@ impl Client {
                     }
 
                     let sendable: rustctl_common::snapshot::Snapshot =
-                        make_snapshot(self.id, snapshot);
+                        make_snapshot((self.id, self.ip_hash_salted.clone()), snapshot);
                     let serialized: String = serde_json::to_string(&sendable).unwrap();
 
                     let sent = SinkExt::send(&mut sock_tx, serialized.into()).await;
@@ -175,9 +175,11 @@ fn hash_socket_ip_addr(addr: IpAddr, salt: &str) -> String {
     format!("{:x}", hash)[..8].to_string()
 }
 
-fn make_snapshot(for_client_id: Uuid, from_state: CrossTasksSharedState) -> Snapshot {
+fn make_snapshot(for_client: (Uuid, String), from_state: CrossTasksSharedState) -> Snapshot {
+    let (client_id, ip_hash_salted) = for_client;
     let snapshot = Snapshot {
-        client_id: for_client_id,
+        client_id,
+        ip_hash_salted,
         clients_connected_all: from_state.clients_connected_all,
 
         game: rustctl_common::snapshot::Game::Running {
