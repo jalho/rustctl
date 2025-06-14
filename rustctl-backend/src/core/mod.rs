@@ -1,24 +1,25 @@
 use axum::extract::ws::{Message, WebSocket};
 use futures::{SinkExt, StreamExt};
 use log4rs::{append::console::ConsoleAppender, config::Appender, encode::pattern::PatternEncoder};
+use rustctl_common::snapshot::ClientExposed;
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct CrossTasksSharedState {
-    /*
-     * TODO: Define a cross-tasks shared state...
-     */
+    clients_connected_all: HashMap<Uuid, ClientExposed>,
 }
 
 impl CrossTasksSharedState {
     pub fn init() -> Arc<Mutex<Self>> {
-        Arc::new(Mutex::new(Self {}))
+        Arc::new(Mutex::new(Self {
+            clients_connected_all: HashMap::new(),
+        }))
     }
 }
 
-pub struct Client {
+pub struct ClientInternal {
     id: Uuid,
     connected_at: chrono::DateTime<chrono::Utc>,
     addr: SocketAddr,
@@ -26,7 +27,7 @@ pub struct Client {
     shared: Arc<Mutex<CrossTasksSharedState>>,
 }
 
-impl Client {
+impl ClientInternal {
     pub fn new(
         connected_at: chrono::DateTime<chrono::Utc>,
         addr: SocketAddr,
@@ -103,8 +104,10 @@ impl Client {
 }
 
 impl From<CrossTasksSharedState> for rustctl_common::snapshot::Snapshot {
-    fn from(_value: CrossTasksSharedState) -> Self {
+    fn from(value: CrossTasksSharedState) -> Self {
         Self {
+            clients_connected_all: value.clients_connected_all,
+
             game: rustctl_common::snapshot::Game::Running {
                 players: HashMap::new(),
                 toolcupboards: HashMap::new(),

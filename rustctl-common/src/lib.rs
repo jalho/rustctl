@@ -1,11 +1,20 @@
 pub mod snapshot {
     #[derive(serde::Serialize, serde::Deserialize)]
     pub struct Snapshot {
+        pub clients_connected_all: std::collections::HashMap<uuid::Uuid, ClientExposed>,
+
         pub read_finished_at: chrono::DateTime<chrono::Utc>,
         pub read_duration_ns: u128,
 
         pub game: Game,
         pub system: System,
+    }
+
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub struct ClientExposed {
+        id: uuid::Uuid,
+        connected_at: chrono::DateTime<chrono::Utc>,
+        addr_hash: String,
     }
 
     #[derive(serde::Serialize, serde::Deserialize)]

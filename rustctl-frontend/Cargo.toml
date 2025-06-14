@@ -3,6 +3,11 @@ name = "rustctl-frontend"
 version = "0.1.0"
 edition = "2024"
 
+[dependencies.uuid]
+version = "1.17.0"
+default-features = false
+features = ["v4", "serde", "js"]
+
 [dependencies.gloo-timers]
 version = "0.3.0"
 default-features = false

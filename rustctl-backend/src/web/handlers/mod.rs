@@ -1,5 +1,5 @@
 use super::WebServerState;
-use crate::core::Client;
+use crate::core::ClientInternal;
 use axum::{
     extract::{ConnectInfo, State, WebSocketUpgrade},
     response::IntoResponse,
@@ -15,7 +15,7 @@ pub async fn ws_upgrade(
     ws.on_upgrade(async move |sock| {
         let connected_at = chrono::Utc::now();
         log::info!("Client accepted: {}", connect_info.0);
-        let client = Client::new(
+        let client = ClientInternal::new(
             connected_at,
             connect_info.0,
             sock,
