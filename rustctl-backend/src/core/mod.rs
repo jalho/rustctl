@@ -1,5 +1,6 @@
 use axum::extract::ws::{Message, WebSocket};
 use futures::{SinkExt, StreamExt};
+use log4rs::{append::console::ConsoleAppender, config::Appender};
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
@@ -153,4 +154,18 @@ pub enum CliCommand {
         #[arg(long = "tls-cert-pem", short = 'c', value_name = "PATH")]
         tls_cert_pem: Option<PathBuf>,
     },
+}
+
+pub fn init_logging(level: log::LevelFilter) -> log4rs::Handle {
+    let stdout = ConsoleAppender::builder().build();
+    let name = "stdout";
+
+    let config = log4rs::Config::builder()
+        .appender(Appender::builder().build(name, Box::new(stdout)))
+        .build(log4rs::config::Root::builder().appender(name).build(level))
+        .unwrap();
+
+    let handle: log4rs::Handle = log4rs::init_config(config).unwrap();
+
+    return handle;
 }

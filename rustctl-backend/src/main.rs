@@ -18,6 +18,9 @@ fn main() {
         } => (listen_addr, cors_allow_origin, tls_key_pem, tls_cert_pem),
     };
 
+    let _handle: log4rs::Handle = core::init_logging(log::LevelFilter::Trace);
+    log::debug!("Logging initialized");
+
     let cancel = tokio_util::sync::CancellationToken::new();
 
     let state = core::CrossTasksSharedState::init();
