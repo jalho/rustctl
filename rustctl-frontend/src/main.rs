@@ -13,7 +13,7 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    let interval = std::time::Duration::from_secs(3);
+    let interval = std::time::Duration::from_secs(1);
     use_effect(move || {
         spawn_local(async move {
             'connect_websocket: loop {
