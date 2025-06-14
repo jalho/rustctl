@@ -1245,6 +1245,7 @@ dependencies = [
  "gloo-net",
  "rustctl-common",
  "serde",
+ "serde_json",
  "wasm-bindgen-futures",
 ]
 
