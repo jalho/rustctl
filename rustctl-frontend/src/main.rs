@@ -13,20 +13,39 @@ fn main() {
 
 #[component]
 fn App() -> Element {
+    let interval = std::time::Duration::from_secs(3);
     use_effect(move || {
         spawn_local(async move {
-            let ws = WebSocket::open(&format!(
-                "ws://localhost:8081{path}",
-                path = WEBSOCKET_CONNECT_URL_PATH
-            ))
-            .unwrap();
-            let (_write, mut read) = ws.split();
+            'connect_websocket: loop {
+                let ws_result = WebSocket::open(&format!(
+                    "ws://localhost:8081{path}",
+                    path = WEBSOCKET_CONNECT_URL_PATH
+                ));
 
-            while let Some(Ok(Message::Text(serialized))) = read.next().await {
-                GLOBAL_SIGNAL.with_mut(|state| {
-                    let deserialized: Snapshot = serde_json::from_str(&serialized).unwrap();
-                    *state = Some(deserialized);
-                });
+                let ws = match ws_result {
+                    Ok(ws) => ws,
+                    Err(_) => {
+                        gloo_timers::future::sleep(interval).await;
+                        continue 'connect_websocket;
+                    }
+                };
+
+                let (_write, mut read) = ws.split();
+
+                'recv_messages: while let Some(msg_result) = read.next().await {
+                    match msg_result {
+                        Ok(Message::Text(serialized)) => {
+                            GLOBAL_SIGNAL.with_mut(|state| {
+                                let deserialized: Snapshot =
+                                    serde_json::from_str(&serialized).unwrap();
+                                *state = Some(deserialized);
+                            });
+                        }
+                        Ok(_) => {}
+                        Err(_) => break 'recv_messages,
+                    }
+                }
+                gloo_timers::future::sleep(interval).await;
             }
         });
     });
