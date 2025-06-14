@@ -2,7 +2,10 @@ use crate::game::{self, GameStateMachine};
 use axum::extract::ws::{Message, WebSocket};
 use futures::{SinkExt, StreamExt};
 use log4rs::{append::console::ConsoleAppender, config::Appender, encode::pattern::PatternEncoder};
-use rustctl_common::snapshot::{ClientExposed, Game, Init, Snapshot};
+use rustctl_common::{
+    snapshot::{ClientExposed, Game, Snapshot},
+    state_machine::Init,
+};
 use std::{
     collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},

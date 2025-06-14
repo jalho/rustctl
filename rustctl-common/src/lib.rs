@@ -1,4 +1,5 @@
 pub mod snapshot {
+    use crate::state_machine;
 
     /// Snapshot of the remote (server) state sent to each client (on a regular
     /// interval).
@@ -25,30 +26,12 @@ pub mod snapshot {
     }
 
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
-    pub struct Init;
-
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
-    pub struct StartupSequenceInitiated;
-
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
-    pub struct Shutoff;
-
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
-    pub struct ShutdownSequenceInitiated;
-
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
-    pub struct RunningHealthy {
-        players: std::collections::HashMap<Identifier, Player>,
-        toolcupboards: std::collections::HashMap<Identifier, Toolcupboard>,
-    }
-
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub enum Game {
-        A(Init),
-        B(StartupSequenceInitiated),
-        C(RunningHealthy),
-        D(ShutdownSequenceInitiated),
-        E(Shutoff),
+        A(state_machine::Init),
+        B(state_machine::StartupSequenceInitiated),
+        C(state_machine::RunningHealthy),
+        D(state_machine::ShutdownSequenceInitiated),
+        E(state_machine::Shutoff),
     }
 
     #[derive(Clone, serde::Serialize, serde::Deserialize, Eq, PartialEq, Hash)]
@@ -108,4 +91,26 @@ pub mod snapshot {
 
 pub mod web_app {
     pub const WEBSOCKET_CONNECT_URL_PATH: &'static str = "/api/websocket";
+}
+
+pub mod state_machine {
+    use crate::snapshot::{Identifier, Player, Toolcupboard};
+
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub struct Init;
+
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub struct StartupSequenceInitiated;
+
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub struct Shutoff;
+
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub struct ShutdownSequenceInitiated;
+
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub struct RunningHealthy {
+        players: std::collections::HashMap<Identifier, Player>,
+        toolcupboards: std::collections::HashMap<Identifier, Toolcupboard>,
+    }
 }
