@@ -41,21 +41,20 @@ impl GameStateMachineCommand for Game {
             Game::B(state) => todo!(),
             Game::C(state) => todo!(),
             Game::D(state) => todo!(),
-            Game::E(state) => todo!(),
         }
     }
 }
 
 pub mod transitions {
-    use rustctl_common::{snapshot::Game, state_machine::StartupSequenceInitiated};
+    use rustctl_common::{snapshot::Game, state_machine::StartupInProgress};
 
     pub trait Launch {
         fn launch(self) -> Game;
     }
-    impl Launch for rustctl_common::state_machine::Init {
+    impl Launch for rustctl_common::state_machine::NotRunning {
         fn launch(self) -> Game {
             // TODO!
-            return Game::B(StartupSequenceInitiated);
+            return Game::B(StartupInProgress);
         }
     }
 }

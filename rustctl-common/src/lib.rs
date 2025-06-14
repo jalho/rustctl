@@ -27,11 +27,10 @@ pub mod snapshot {
 
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub enum Game {
-        A(state_machine::Init),
-        B(state_machine::StartupSequenceInitiated),
+        A(state_machine::NotRunning),
+        B(state_machine::StartupInProgress),
         C(state_machine::RunningHealthy),
-        D(state_machine::ShutdownSequenceInitiated),
-        E(state_machine::Shutoff),
+        D(state_machine::ShutdownInProgress),
     }
 
     #[derive(Clone, serde::Serialize, serde::Deserialize, Eq, PartialEq, Hash)]
@@ -97,16 +96,16 @@ pub mod state_machine {
     use crate::snapshot::{Identifier, Player, Toolcupboard};
 
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
-    pub struct Init;
+    pub struct NotRunning;
 
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
-    pub struct StartupSequenceInitiated;
+    pub struct StartupInProgress;
 
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub struct Shutoff;
 
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
-    pub struct ShutdownSequenceInitiated;
+    pub struct ShutdownInProgress;
 
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub struct RunningHealthy {
