@@ -82,6 +82,7 @@ fn main() {
                 state,
             ))
             .unwrap();
+        log::info!("Web server started: {listen_addr}");
 
         /*
          * Activate cancellation sequences on SIGINT, SIGTERM etc.
