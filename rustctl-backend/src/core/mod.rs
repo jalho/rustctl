@@ -1,6 +1,6 @@
 use axum::extract::ws::{Message, WebSocket};
 use futures::{SinkExt, StreamExt};
-use log4rs::{append::console::ConsoleAppender, config::Appender};
+use log4rs::{append::console::ConsoleAppender, config::Appender, encode::pattern::PatternEncoder};
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
@@ -157,7 +157,12 @@ pub enum CliCommand {
 }
 
 pub fn init_logging(level: log::LevelFilter) -> log4rs::Handle {
-    let stdout = ConsoleAppender::builder().build();
+    let stdout = ConsoleAppender::builder()
+        .encoder(Box::new(PatternEncoder::new(
+            "{d(%+)} {l} - {m} [{f}:{L}] [{T}]\n",
+        )))
+        .build();
+
     let name = "stdout";
 
     let config = log4rs::Config::builder()
@@ -165,7 +170,5 @@ pub fn init_logging(level: log::LevelFilter) -> log4rs::Handle {
         .build(log4rs::config::Root::builder().appender(name).build(level))
         .unwrap();
 
-    let handle: log4rs::Handle = log4rs::init_config(config).unwrap();
-
-    return handle;
+    log4rs::init_config(config).unwrap()
 }
