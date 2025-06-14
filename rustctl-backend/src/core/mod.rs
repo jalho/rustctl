@@ -73,16 +73,16 @@ impl Client {
                 loop {
                     interval.tick().await;
 
-                    let sendable: rustctl_common::snapshot::Snapshot;
                     let snapshot: CrossTasksSharedState;
                     {
                         let shared_locked: MutexGuard<CrossTasksSharedState> =
                             shared_tx.lock().await;
                         snapshot = shared_locked.clone();
                     }
-                    sendable = snapshot.into();
 
+                    let sendable: rustctl_common::snapshot::Snapshot = snapshot.into();
                     let serialized: String = serde_json::to_string(&sendable).unwrap();
+
                     let sent = SinkExt::send(&mut sock_tx, serialized.into()).await;
                     if sent.is_err() {
                         break;
