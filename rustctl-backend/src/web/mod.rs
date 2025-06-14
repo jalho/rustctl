@@ -3,6 +3,7 @@ mod handlers;
 use crate::core::CrossTasksSharedState;
 use axum::{Router, routing};
 use axum_server::tls_rustls::RustlsConfig;
+use rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH;
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
@@ -25,7 +26,10 @@ pub async fn start(
         .allow_headers([axum::http::header::CONTENT_TYPE]);
 
     let router = Router::new()
-        .route("/api/websocket", routing::get(handlers::ws_upgrade))
+        .route(
+            WEBSOCKET_CONNECT_URL_PATH,
+            routing::get(handlers::ws_upgrade),
+        )
         .layer(cors)
         .with_state(app_state);
 

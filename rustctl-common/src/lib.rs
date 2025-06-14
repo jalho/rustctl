@@ -70,3 +70,7 @@ pub mod snapshot {
         pub memory: (),
     }
 }
+
+pub mod web_app {
+    pub const WEBSOCKET_CONNECT_URL_PATH: &'static str = "/api/websocket";
+}

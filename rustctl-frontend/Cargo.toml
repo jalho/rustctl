@@ -3,6 +3,9 @@ name = "rustctl-frontend"
 version = "0.1.0"
 edition = "2024"
 
+[dependencies.rustctl-common]
+path = "../rustctl-common"
+
 [dependencies.dioxus]
 version = "0.6.3"
 default-features = false

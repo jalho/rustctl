@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 use futures_util::StreamExt;
 use gloo_net::websocket::{Message, futures::WebSocket};
+use rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH;
 use wasm_bindgen_futures::spawn_local;
 
 static GLOBAL_SIGNAL: GlobalSignal<std::string::String> =
@@ -14,7 +15,11 @@ fn main() {
 fn App() -> Element {
     use_effect(move || {
         spawn_local(async move {
-            let ws = WebSocket::open("ws://localhost:8081/api/websocket").unwrap();
+            let ws = WebSocket::open(&format!(
+                "ws://localhost:8081{path}",
+                path = WEBSOCKET_CONNECT_URL_PATH
+            ))
+            .unwrap();
             let (_write, mut read) = ws.split();
 
             while let Some(Ok(Message::Text(payload))) = read.next().await {
