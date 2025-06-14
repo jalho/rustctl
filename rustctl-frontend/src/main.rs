@@ -46,11 +46,11 @@ fn MessageView() -> Element {
     match *value {
         Some(ref n) => {
             let snapshot: &Snapshot = n;
-            let serialized: String = serde_json::to_string(snapshot).unwrap();
+            let serialized: String = serde_json::to_string_pretty(snapshot).unwrap();
             rsx! {
                 div {
                     h2 { "Latest message:" }
-                    code { "{serialized}" }
+                    pre { "{serialized}" }
                 }
             }
         }
