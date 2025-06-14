@@ -45,7 +45,7 @@ pub async fn start(
     match done {
         Some(Err(err)) => todo!("{err}"),
         Some(Ok(_)) => todo!(),
-        None => println!("Web server closed"),
+        None => log::info!("Cancelled"),
     }
 }
 

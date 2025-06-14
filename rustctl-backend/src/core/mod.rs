@@ -55,7 +55,7 @@ impl Client {
                     match recv {
                         Some(Ok(Message::Text(msg))) => {
                             // TODO: Do a state transition based on the received command?
-                            println!("TODO: Got a message: \"{msg}\"");
+                            log::debug!("TODO: Got a message: \"{msg}\"");
                         }
                         _ => {
                             break;

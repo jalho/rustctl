@@ -18,8 +18,7 @@ fn main() {
         } => (listen_addr, cors_allow_origin, tls_key_pem, tls_cert_pem),
     };
 
-    let _handle: log4rs::Handle = core::init_logging(log::LevelFilter::Trace);
-    log::debug!("Logging initialized");
+    let _handle: log4rs::Handle = core::init_logging(log::LevelFilter::Debug);
 
     let cancel = tokio_util::sync::CancellationToken::new();
 
@@ -97,4 +96,6 @@ fn main() {
         jh_web.await.unwrap();
         jh_signal.await.unwrap();
     });
+
+    log::info!("Done");
 }

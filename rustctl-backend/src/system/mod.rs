@@ -15,7 +15,6 @@ pub async fn monitor_usage(
     loop {
         let is_cancelled: bool = cancel.is_cancelled();
         if is_cancelled {
-            println!("Cancelled -- Cleaning up...");
             break;
         } else {
             interval.tick().await;
@@ -25,16 +24,15 @@ pub async fn monitor_usage(
              */
         }
     }
-    // TODO: Do cleanup
-    println!("Cleanup done!");
+    log::info!("Cancelled");
 }
 
 pub async fn wait_signal(cancel: CancellationToken) {
     let mut sigint = signal(SignalKind::interrupt()).unwrap();
     let mut sigterm = signal(SignalKind::terminate()).unwrap();
     tokio::select! {
-        _ = sigint.recv() => println!("Got signal: SIGINT"),
-        _ = sigterm.recv() => println!("Got signal: SIGTERM"),
+        _ = sigint.recv() => log::info!("SIGINT"),
+        _ = sigterm.recv() => log::info!("SIGTERM"),
     }
     cancel.cancel();
 }

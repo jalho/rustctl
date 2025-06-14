@@ -14,7 +14,7 @@ pub async fn ws_upgrade(
     let shared_state = Arc::clone(&state.shared_state);
     ws.on_upgrade(async move |sock| {
         let connected_at = chrono::Utc::now();
-        println!("Client accepted: {}", connect_info.0);
+        log::info!("Client accepted: {}", connect_info.0);
         let client = Client::new(
             connected_at,
             connect_info.0,
@@ -24,6 +24,6 @@ pub async fn ws_upgrade(
         let _done: () = client
             .send_and_receive_messages(state.client_sync_interval)
             .await;
-        println!("Client dropped");
+        log::info!("Client dropped");
     })
 }

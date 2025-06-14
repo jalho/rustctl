@@ -12,7 +12,6 @@ pub async fn read_state(
     loop {
         let is_cancelled: bool = cancel.is_cancelled();
         if is_cancelled {
-            println!("Cancelled -- Cleaning up...");
             break;
         } else {
             interval.tick().await;
@@ -22,6 +21,5 @@ pub async fn read_state(
              */
         }
     }
-    // TODO: Do cleanup
-    println!("Cleanup done!");
+    log::info!("Cancelled");
 }
