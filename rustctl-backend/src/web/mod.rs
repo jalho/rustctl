@@ -17,7 +17,8 @@ pub async fn start(
     cors_allow_origin: String,
     shared: Arc<Mutex<CrossTasksSharedState>>,
 ) {
-    let app_state = WebServerState::init(client_sync_interval, shared);
+    let ip_hash_salt: String = generate_random_salt_not_secure();
+    let app_state = WebServerState::init(client_sync_interval, shared, ip_hash_salt);
 
     let cors: CorsLayer = CorsLayer::new()
         .allow_origin(axum::http::HeaderValue::from_str(&cors_allow_origin).unwrap())
@@ -56,6 +57,7 @@ pub async fn start(
 #[derive(Clone)]
 pub struct WebServerState {
     client_sync_interval: Duration,
+    ip_hash_salt: String,
     shared_state: Arc<Mutex<CrossTasksSharedState>>,
 }
 
@@ -63,10 +65,16 @@ impl WebServerState {
     pub fn init(
         client_sync_interval: Duration,
         shared_state: Arc<Mutex<CrossTasksSharedState>>,
+        ip_hash_salt: String,
     ) -> Self {
         Self {
             shared_state,
             client_sync_interval,
+            ip_hash_salt,
         }
     }
+}
+
+fn generate_random_salt_not_secure() -> String {
+    uuid::Uuid::new_v4().to_string()
 }

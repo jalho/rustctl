@@ -16,7 +16,7 @@ pub mod snapshot {
     pub struct ClientExposed {
         pub id: uuid::Uuid,
         pub connected_at: chrono::DateTime<chrono::Utc>,
-        pub addr_hash: String,
+        pub ip_hash_salted: String,
     }
 
     #[derive(serde::Serialize, serde::Deserialize)]

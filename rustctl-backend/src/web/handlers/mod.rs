@@ -19,6 +19,7 @@ pub async fn ws_upgrade(
             connect_info.0,
             sock,
             Arc::clone(&shared_state),
+            &state.0.ip_hash_salt,
         )
         .await;
 

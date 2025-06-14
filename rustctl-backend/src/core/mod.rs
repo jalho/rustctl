@@ -2,7 +2,14 @@ use axum::extract::ws::{Message, WebSocket};
 use futures::{SinkExt, StreamExt};
 use log4rs::{append::console::ConsoleAppender, config::Appender, encode::pattern::PatternEncoder};
 use rustctl_common::snapshot::{ClientExposed, Snapshot};
-use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    hash::{DefaultHasher, Hash, Hasher},
+    net::{IpAddr, SocketAddr},
+    path::PathBuf,
+    sync::Arc,
+    time::Duration,
+};
 use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
 
@@ -24,8 +31,12 @@ pub struct Client {
     pub id: Uuid,
     connected_at: chrono::DateTime<chrono::Utc>,
     addr: SocketAddr,
-    addr_hash: String,
     sock: WebSocket,
+
+    /// Salted hash of the IP address of the hash, i.e. socket address without
+    /// port number. Intended for identifying peer clients that belong to the
+    /// same address without exposing the exact address.
+    ip_hash_salted: String,
 
     /// Handle to the state that is shared between many concurrent WebSockets.
     shared: Arc<Mutex<CrossTasksSharedState>>,
@@ -36,9 +47,9 @@ impl std::fmt::Display for Client {
         let id_prefix: &str = &self.id.to_string()[..8];
         write!(
             f,
-            "{id_prefix}: {addr} (addr_hash {addr_hash})",
+            "{id_prefix}: {addr} (ip_hash_salted {ip_hash_salted})",
             addr = self.addr,
-            addr_hash = self.addr_hash,
+            ip_hash_salted = self.ip_hash_salted,
         )
     }
 }
@@ -48,7 +59,7 @@ impl Into<ClientExposed> for &Client {
         ClientExposed {
             id: self.id,
             connected_at: self.connected_at,
-            addr_hash: self.addr_hash.clone(),
+            ip_hash_salted: self.ip_hash_salted.clone(),
         }
     }
 }
@@ -59,11 +70,15 @@ impl Client {
         addr: SocketAddr,
         sock: WebSocket,
         shared: Arc<Mutex<CrossTasksSharedState>>,
+        ip_hash_salt: &str,
     ) -> Self {
         let id = Uuid::new_v4();
+
+        let addr_hash: String = hash_socket_ip_addr(addr.ip(), ip_hash_salt);
+
         let client = Self {
             addr,
-            addr_hash: format!("TODO: Hash addr: {addr}"),
+            ip_hash_salted: addr_hash,
             sock,
             shared: shared.clone(),
             id,
@@ -145,6 +160,14 @@ impl Client {
         }
         log::info!("Client unregistered");
     }
+}
+
+fn hash_socket_ip_addr(addr: IpAddr, salt: &str) -> String {
+    let mut hasher = DefaultHasher::new();
+    salt.hash(&mut hasher);
+    addr.hash(&mut hasher);
+    let hash = hasher.finish();
+    format!("{:x}", hash)[..8].to_string()
 }
 
 fn make_snapshot(for_client_id: Uuid, from_state: CrossTasksSharedState) -> Snapshot {
