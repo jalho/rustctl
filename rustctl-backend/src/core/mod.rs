@@ -86,16 +86,19 @@ impl Client {
         };
         let client_exposed: ClientExposed = (&client).into();
 
+        let clients_total: usize;
         {
             let mut lock = shared.lock().await;
             lock.clients_connected_all.insert(id, client_exposed);
+            clients_total = lock.clients_connected_all.len();
         }
-        log::info!("Client registered: {client}");
+        log::info!("Client registered: {client} -- Total count: {clients_total}");
 
         return client;
     }
 
     pub async fn send_and_receive_messages(self, interval: Duration) {
+        let self_display: String = self.to_string();
         let (mut sock_tx, mut sock_rx) = StreamExt::split(self.sock);
 
         let _shared_rx: Arc<Mutex<CrossTasksSharedState>> = Arc::clone(&self.shared);
@@ -154,11 +157,13 @@ impl Client {
             }
         }
 
+        let clients_remaining: usize;
         {
             let mut lock = self.shared.lock().await;
             lock.clients_connected_all.remove(&self.id);
+            clients_remaining = lock.clients_connected_all.len();
         }
-        log::info!("Client unregistered");
+        log::info!("Client unregistered: {self_display} -- Clients remaining: {clients_remaining}");
     }
 }
 
