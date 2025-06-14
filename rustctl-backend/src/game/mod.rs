@@ -27,17 +27,17 @@ pub async fn read_state(
 }
 
 pub trait GameStateMachineCommand {
-    fn handle_client_message(self, client_msg: String) -> Self;
+    async fn handle_client_message(self, client_msg: String) -> Self;
 }
 
 impl GameStateMachineCommand for Game {
-    fn handle_client_message(self, client_msg: String) -> Self {
+    async fn handle_client_message(self, client_msg: String) -> Self {
         // TODO: Check if a command is even expected at this time
         // TODO: Check if the received command matches the current state
         // TODO: Get args from command if necessary
         // TODO: Make a state transition: return new state
         match self {
-            Game::A(state) => state.launch(),
+            Game::A(state) => state.launch().await,
             Game::B(state) => todo!(),
             Game::C(state) => todo!(),
             Game::D(state) => todo!(),
@@ -49,12 +49,21 @@ pub mod transitions {
     use rustctl_common::{snapshot::Game, state_machine::StartupInProgress};
 
     pub trait Launch {
-        fn launch(self) -> Game;
+        async fn launch(self) -> Game;
     }
     impl Launch for rustctl_common::state_machine::NotRunning {
-        fn launch(self) -> Game {
+        async fn launch(self) -> Game {
             // TODO!
             return Game::B(StartupInProgress);
         }
     }
+}
+
+mod proc {
+    /// Absolute path of the `steamcmd` executable, i.e. the game server installer.
+    const EXEC_ABS_STEAMCMD: &'static str = "/home/jka/probe/mock-steamcmd";
+    /// Absolute path of the `RustDedicated` executable, i.e. the game server.
+    const EXEC_ABS_RDS: &'static str = "/home/jka/probe/mock-rustdedicated";
+    /// Absolute path of the `pgrep` executable.
+    const EXEC_ABS_PGREP: &'static str = "/usr/bin/pgrep";
 }

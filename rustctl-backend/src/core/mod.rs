@@ -120,7 +120,8 @@ impl Client {
                             let new_state = lock
                                 .game_state
                                 .clone()
-                                .handle_client_message(msg.to_string());
+                                .handle_client_message(msg.to_string())
+                                .await;
                             lock.game_state = new_state;
                         }
                         _ => {
