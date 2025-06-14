@@ -1,3 +1,4 @@
+use crate::game;
 use axum::extract::ws::{Message, WebSocket};
 use futures::{SinkExt, StreamExt};
 use log4rs::{append::console::ConsoleAppender, config::Appender, encode::pattern::PatternEncoder};
@@ -16,12 +17,14 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct CrossTasksSharedState {
     pub clients_connected_all: HashMap<Uuid, ClientExposed>,
+    pub game_state: game::GameState,
 }
 
 impl CrossTasksSharedState {
     pub fn init() -> Arc<Mutex<Self>> {
         Arc::new(Mutex::new(Self {
             clients_connected_all: HashMap::new(),
+            game_state: game::GameState::A(game::Init),
         }))
     }
 }
@@ -101,7 +104,7 @@ impl Client {
         let self_display: String = self.to_string();
         let (mut sock_tx, mut sock_rx) = StreamExt::split(self.sock);
 
-        let _shared_rx: Arc<Mutex<CrossTasksSharedState>> = Arc::clone(&self.shared);
+        let shared_rx: Arc<Mutex<CrossTasksSharedState>> = Arc::clone(&self.shared);
         let mut task_rx_cmd = tokio::task::Builder::new()
             .name("recv_commands")
             .spawn(async move {
@@ -110,8 +113,12 @@ impl Client {
 
                     match recv {
                         Some(Ok(Message::Text(msg))) => {
-                            // TODO: Do a state transition based on the received command?
-                            log::debug!("TODO: Got a message: \"{msg}\"");
+                            let mut lock = shared_rx.lock().await;
+                            let new_state: game::GameState = lock
+                                .game_state
+                                .clone()
+                                .handle_client_message(msg.to_string());
+                            lock.game_state = new_state;
                         }
                         _ => {
                             break;
@@ -192,10 +199,13 @@ fn make_snapshot(
         ip_hash_salted,
         clients_connected_all: state.clients_connected_all,
 
+        // TODO: Pick game state from the snapshot
         game: rustctl_common::snapshot::Game::Running {
             players: HashMap::new(),
             toolcupboards: HashMap::new(),
         },
+
+        // TODO: Pick system resources state from the snapshot
         system: rustctl_common::snapshot::System {
             cpu: (),
             memory: (),

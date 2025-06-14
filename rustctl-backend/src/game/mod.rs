@@ -23,3 +23,23 @@ pub async fn read_state(
     }
     log::info!("Cancelled");
 }
+
+#[derive(Clone)]
+pub struct Init;
+
+#[derive(Clone)]
+pub enum GameState {
+    A(Init),
+}
+
+impl GameState {
+    pub fn handle_client_message(self, msg: String) -> Self {
+        /*
+         * TODO:
+         * 1. Check if commands are expected -- Ignore if not!
+         * 2. Pick arguments from command if necessary
+         * 3. Do transition: Return new state
+         */
+        return self;
+    }
+}
