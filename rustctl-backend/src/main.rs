@@ -72,6 +72,7 @@ fn main() {
         let jh_web = tokio::task::Builder::new()
             .name("web_server")
             .spawn(web::start(
+                cancel.child_token(),
                 constants::INTERVAL_SYNC_CLIENT,
                 listen_addr,
                 tls_config,

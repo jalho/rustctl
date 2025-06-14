@@ -5,9 +5,11 @@ use axum::{Router, routing};
 use axum_server::tls_rustls::RustlsConfig;
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 use tower_http::cors::CorsLayer;
 
 pub async fn start(
+    cancel: CancellationToken,
     client_sync_interval: Duration,
     listen_addr: SocketAddr,
     tls_config: Option<RustlsConfig>,
@@ -27,17 +29,23 @@ pub async fn start(
         .layer(cors)
         .with_state(app_state);
 
-    match tls_config {
+    let done: Option<Result<(), std::io::Error>> = match tls_config {
         Some(tls_config) => {
             let server = axum_server::bind_rustls(listen_addr, tls_config)
                 .serve(router.into_make_service_with_connect_info::<SocketAddr>());
-            let _done: () = server.await.unwrap();
+            cancel.run_until_cancelled(server).await
         }
         None => {
             let server = axum_server::bind(listen_addr)
                 .serve(router.into_make_service_with_connect_info::<SocketAddr>());
-            let _done: () = server.await.unwrap();
+            cancel.run_until_cancelled(server).await
         }
+    };
+
+    match done {
+        Some(Err(err)) => todo!("{err}"),
+        Some(Ok(_)) => todo!(),
+        None => println!("Web server closed"),
     }
 }
 
