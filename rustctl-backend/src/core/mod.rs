@@ -24,10 +24,23 @@ pub struct Client {
     pub id: Uuid,
     connected_at: chrono::DateTime<chrono::Utc>,
     addr: SocketAddr,
+    addr_hash: String,
     sock: WebSocket,
 
     /// Handle to the state that is shared between many concurrent WebSockets.
     shared: Arc<Mutex<CrossTasksSharedState>>,
+}
+
+impl std::fmt::Display for Client {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let id_prefix: &str = &self.id.to_string()[..8];
+        write!(
+            f,
+            "{id_prefix}: {addr} (addr_hash {addr_hash})",
+            addr = self.addr,
+            addr_hash = self.addr_hash,
+        )
+    }
 }
 
 impl Into<ClientExposed> for &Client {
@@ -35,7 +48,7 @@ impl Into<ClientExposed> for &Client {
         ClientExposed {
             id: self.id,
             connected_at: self.connected_at,
-            addr_hash: format!("TODO: hash address: {}", self.addr),
+            addr_hash: self.addr_hash.clone(),
         }
     }
 }
@@ -50,6 +63,7 @@ impl Client {
         let id = Uuid::new_v4();
         let client = Self {
             addr,
+            addr_hash: format!("TODO: Hash addr: {addr}"),
             sock,
             shared: shared.clone(),
             id,
@@ -61,7 +75,7 @@ impl Client {
             let mut lock = shared.lock().await;
             lock.clients_connected_all.insert(id, client_exposed);
         }
-        log::info!("Client registered: {id}: {addr}");
+        log::info!("Client registered: {client}");
 
         return client;
     }
