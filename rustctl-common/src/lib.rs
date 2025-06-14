@@ -4,6 +4,8 @@ pub mod snapshot {
     /// interval).
     #[derive(serde::Serialize, serde::Deserialize)]
     pub struct Snapshot {
+        pub captured_at: chrono::DateTime<chrono::Utc>,
+
         /// ID of the snapshot receiving client.
         pub client_id: uuid::Uuid,
         /// Salted hash of the IP address of the snapshot receiving client.

@@ -130,14 +130,18 @@ impl Client {
                     interval.tick().await;
 
                     let snapshot: CrossTasksSharedState;
+                    let captured_at: chrono::DateTime<chrono::Utc>;
                     {
                         let shared_locked: MutexGuard<CrossTasksSharedState> =
                             shared_tx.lock().await;
+                        captured_at = chrono::Utc::now();
                         snapshot = shared_locked.clone();
                     }
 
-                    let sendable: rustctl_common::snapshot::Snapshot =
-                        make_snapshot((self.id, self.ip_hash_salted.clone()), snapshot);
+                    let sendable: rustctl_common::snapshot::Snapshot = make_snapshot(
+                        (self.id, self.ip_hash_salted.clone()),
+                        (captured_at, snapshot),
+                    );
                     let serialized: String = serde_json::to_string(&sendable).unwrap();
 
                     let sent = SinkExt::send(&mut sock_tx, serialized.into()).await;
@@ -175,12 +179,18 @@ fn hash_socket_ip_addr(addr: IpAddr, salt: &str) -> String {
     format!("{:x}", hash)[..8].to_string()
 }
 
-fn make_snapshot(for_client: (Uuid, String), from_state: CrossTasksSharedState) -> Snapshot {
+fn make_snapshot(
+    for_client: (Uuid, String),
+    from_state: (chrono::DateTime<chrono::Utc>, CrossTasksSharedState),
+) -> Snapshot {
     let (client_id, ip_hash_salted) = for_client;
+    let (captured_at, state) = from_state;
     let snapshot = Snapshot {
+        captured_at,
+
         client_id,
         ip_hash_salted,
-        clients_connected_all: from_state.clients_connected_all,
+        clients_connected_all: state.clients_connected_all,
 
         game: rustctl_common::snapshot::Game::Running {
             players: HashMap::new(),
