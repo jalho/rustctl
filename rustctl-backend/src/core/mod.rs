@@ -1,8 +1,8 @@
-use crate::game;
+use crate::game::{self, GameStateMachine};
 use axum::extract::ws::{Message, WebSocket};
 use futures::{SinkExt, StreamExt};
 use log4rs::{append::console::ConsoleAppender, config::Appender, encode::pattern::PatternEncoder};
-use rustctl_common::snapshot::{ClientExposed, Snapshot};
+use rustctl_common::snapshot::{ClientExposed, Game, Init, Snapshot};
 use std::{
     collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},
@@ -17,14 +17,14 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct CrossTasksSharedState {
     pub clients_connected_all: HashMap<Uuid, ClientExposed>,
-    pub game_state: game::GameState,
+    pub game_state: Game,
 }
 
 impl CrossTasksSharedState {
     pub fn init() -> Arc<Mutex<Self>> {
         Arc::new(Mutex::new(Self {
             clients_connected_all: HashMap::new(),
-            game_state: game::GameState::A(game::Init),
+            game_state: Game::A(Init),
         }))
     }
 }
@@ -114,7 +114,7 @@ impl Client {
                     match recv {
                         Some(Ok(Message::Text(msg))) => {
                             let mut lock = shared_rx.lock().await;
-                            let new_state: game::GameState = lock
+                            let new_state = lock
                                 .game_state
                                 .clone()
                                 .handle_client_message(msg.to_string());
@@ -199,11 +199,7 @@ fn make_snapshot(
         ip_hash_salted,
         clients_connected_all: state.clients_connected_all,
 
-        // TODO: Pick game state from the snapshot
-        game: rustctl_common::snapshot::Game::Running {
-            players: HashMap::new(),
-            toolcupboards: HashMap::new(),
-        },
+        game: state.game_state,
 
         // TODO: Pick system resources state from the snapshot
         system: rustctl_common::snapshot::System {

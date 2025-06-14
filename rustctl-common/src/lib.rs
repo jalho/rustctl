@@ -24,15 +24,34 @@ pub mod snapshot {
         pub ip_hash_salted: String,
     }
 
-    #[derive(serde::Serialize, serde::Deserialize)]
-    pub enum Game {
-        Running {
-            players: std::collections::HashMap<Identifier, Player>,
-            toolcupboards: std::collections::HashMap<Identifier, Toolcupboard>,
-        },
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub struct Init;
+
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub struct StartupSequenceInitiated;
+
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub struct Shutoff;
+
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub struct ShutdownSequenceInitiated;
+
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub struct RunningHealthy {
+        players: std::collections::HashMap<Identifier, Player>,
+        toolcupboards: std::collections::HashMap<Identifier, Toolcupboard>,
     }
 
-    #[derive(serde::Serialize, serde::Deserialize, Eq, PartialEq, Hash)]
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub enum Game {
+        A(Init),
+        B(StartupSequenceInitiated),
+        C(RunningHealthy),
+        D(ShutdownSequenceInitiated),
+        E(Shutoff),
+    }
+
+    #[derive(Clone, serde::Serialize, serde::Deserialize, Eq, PartialEq, Hash)]
     pub struct Identifier(String);
 
     impl Identifier {
@@ -45,7 +64,7 @@ pub mod snapshot {
         }
     }
 
-    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub struct Location {
         /*
          * TODO: What's the resolution? Meters? Centimeters? Define as some
@@ -59,7 +78,7 @@ pub mod snapshot {
         pub z: (),
     }
 
-    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub struct Player {
         /// Steam ID.
         pub id: Identifier,
@@ -70,7 +89,7 @@ pub mod snapshot {
          */
     }
 
-    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub struct Toolcupboard {
         /// In-game identifier of the game world object.
         pub id: Identifier,
