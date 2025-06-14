@@ -1,4 +1,4 @@
-use crate::game::{self, GameStateMachine};
+use crate::game::{self, GameStateMachineCommand};
 use axum::extract::ws::{Message, WebSocket};
 use futures::{SinkExt, StreamExt};
 use log4rs::{append::console::ConsoleAppender, config::Appender, encode::pattern::PatternEncoder};
