@@ -19,11 +19,14 @@ impl CrossTasksSharedState {
     }
 }
 
+/// An alive WebSocket connection to a client.
 pub struct Client {
     pub id: Uuid,
     connected_at: chrono::DateTime<chrono::Utc>,
     addr: SocketAddr,
     sock: WebSocket,
+
+    /// Handle to the state that is shared between many concurrent WebSockets.
     shared: Arc<Mutex<CrossTasksSharedState>>,
 }
 

@@ -1,4 +1,7 @@
 pub mod snapshot {
+
+    /// Snapshot of the remote (server) state sent to each client (on a regular
+    /// interval).
     #[derive(serde::Serialize, serde::Deserialize)]
     pub struct Snapshot {
         pub clients_connected_all: std::collections::HashMap<uuid::Uuid, ClientExposed>,
