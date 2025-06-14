@@ -12,9 +12,9 @@ pub mod snapshot {
 
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub struct ClientExposed {
-        id: uuid::Uuid,
-        connected_at: chrono::DateTime<chrono::Utc>,
-        addr_hash: String,
+        pub id: uuid::Uuid,
+        pub connected_at: chrono::DateTime<chrono::Utc>,
+        pub addr_hash: String,
     }
 
     #[derive(serde::Serialize, serde::Deserialize)]

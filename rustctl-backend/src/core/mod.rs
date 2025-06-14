@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct CrossTasksSharedState {
-    clients_connected_all: HashMap<Uuid, ClientExposed>,
+    pub clients_connected_all: HashMap<Uuid, ClientExposed>,
 }
 
 impl CrossTasksSharedState {
@@ -19,28 +19,48 @@ impl CrossTasksSharedState {
     }
 }
 
-pub struct ClientInternal {
-    id: Uuid,
+pub struct Client {
+    pub id: Uuid,
     connected_at: chrono::DateTime<chrono::Utc>,
     addr: SocketAddr,
     sock: WebSocket,
     shared: Arc<Mutex<CrossTasksSharedState>>,
 }
 
-impl ClientInternal {
-    pub fn new(
+impl Into<ClientExposed> for &Client {
+    fn into(self) -> ClientExposed {
+        ClientExposed {
+            id: self.id,
+            connected_at: self.connected_at,
+            addr_hash: format!("TODO: hash address: {}", self.addr),
+        }
+    }
+}
+
+impl Client {
+    pub async fn new(
         connected_at: chrono::DateTime<chrono::Utc>,
         addr: SocketAddr,
         sock: WebSocket,
         shared: Arc<Mutex<CrossTasksSharedState>>,
     ) -> Self {
-        Self {
+        let id = Uuid::new_v4();
+        let client = Self {
             addr,
             sock,
-            shared,
-            id: Uuid::new_v4(),
+            shared: shared.clone(),
+            id,
             connected_at,
+        };
+        let client_exposed: ClientExposed = (&client).into();
+
+        {
+            let mut lock = shared.lock().await;
+            lock.clients_connected_all.insert(id, client_exposed);
         }
+        log::info!("Client registered: {id}: {addr}");
+
+        return client;
     }
 
     pub async fn send_and_receive_messages(self, interval: Duration) {
@@ -100,6 +120,16 @@ impl ClientInternal {
                 task_rx_cmd.abort();
             }
         }
+
+        {
+            let mut lock = self.shared.lock().await;
+            lock.clients_connected_all.remove(&self.id);
+        }
+        log::info!(
+            "Client unregistered: {id}: {addr}",
+            id = self.id,
+            addr = self.addr
+        );
     }
 }
 
