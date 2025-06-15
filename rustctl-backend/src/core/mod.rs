@@ -1,4 +1,4 @@
-use crate::game::GameStateMachineCommand;
+use crate::game::GameStateMachine;
 use axum::extract::ws::{Message, WebSocket};
 use futures::{SinkExt, StreamExt};
 use log4rs::{append::console::ConsoleAppender, config::Appender, encode::pattern::PatternEncoder};
@@ -27,7 +27,7 @@ impl CrossTasksSharedState {
     pub fn init() -> Arc<Mutex<Self>> {
         Arc::new(Mutex::new(Self {
             clients_connected_all: HashMap::new(),
-            game_state: Game::A(Init),
+            game_state: Game::Init(Init),
         }))
     }
 }

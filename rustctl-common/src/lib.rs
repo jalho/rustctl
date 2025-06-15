@@ -27,11 +27,11 @@ pub mod snapshot {
 
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub enum Game {
-        A(state_machine::Init),
-        B(state_machine::NotRunning),
-        C(state_machine::StartupInProgress),
-        D(state_machine::RunningHealthy),
-        E(state_machine::ShutdownInProgress),
+        Init(state_machine::Init),
+        NotRunning(state_machine::NotRunning),
+        StartupInProgress(state_machine::StartupInProgress),
+        RunningHealthy(state_machine::RunningHealthy),
+        ShutdownInProgress(state_machine::ShutdownInProgress),
     }
 
     #[derive(Clone, serde::Serialize, serde::Deserialize, Eq, PartialEq, Hash)]

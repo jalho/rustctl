@@ -25,15 +25,15 @@ pub async fn read_state(
     log::info!("Cancelled");
 }
 
-pub trait GameStateMachineCommand {
+pub trait GameStateMachine {
     async fn determine_initial_state(&mut self);
     async fn handle_client_message(&mut self, client_msg: String);
 }
 
-impl GameStateMachineCommand for Game {
+impl GameStateMachine for Game {
     async fn determine_initial_state(&mut self) {
         // TODO: Check if SteamCMD or RustDedicated is already running
-        *self = Game::B(NotRunning);
+        *self = Game::NotRunning(NotRunning);
     }
 
     async fn handle_client_message(&mut self, client_msg: String) {
@@ -42,11 +42,15 @@ impl GameStateMachineCommand for Game {
         // TODO: Get args from command if necessary
         // TODO: Make a state transition: return new state
         match self {
-            Game::A(state) => todo!(),
-            Game::B(state) => todo!(),
-            Game::C(state) => todo!(),
-            Game::D(state) => todo!(),
-            Game::E(state) => todo!(),
+            Game::Init(state) => {
+                /*
+                 * Nothing to do!
+                 */
+            }
+            Game::NotRunning(state) => todo!(),
+            Game::StartupInProgress(state) => todo!(),
+            Game::RunningHealthy(state) => todo!(),
+            Game::ShutdownInProgress(state) => todo!(),
         }
     }
 }
