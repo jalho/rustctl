@@ -28,7 +28,7 @@ pub mod snapshot {
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub enum StateTransitionInitiator {
         AutomaticBySytem,
-        CommandedByUser { user_id: Identifier },
+        CommandedByUser { client_id: uuid::Uuid },
     }
 
     #[derive(Clone, serde::Serialize, serde::Deserialize)]

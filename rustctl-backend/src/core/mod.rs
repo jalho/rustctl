@@ -125,13 +125,7 @@ impl Client {
                                 .handle_client_message(
                                     msg.to_string(),
                                     StateTransitionInitiator::CommandedByUser {
-                                        /*
-                                         * TODO: Use a "user ID" (instead of
-                                         *       WebSocket client ID) once it's
-                                         *       implemented (i.e. once there's
-                                         *       some kinda auth system)
-                                         */
-                                        user_id: Identifier::new(&self.id.to_string()).unwrap(),
+                                        client_id: self.id,
                                     },
                                 )
                                 .await;
