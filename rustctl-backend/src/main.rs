@@ -92,6 +92,10 @@ fn main() -> std::process::ExitCode {
             .spawn(system::wait_signal(cancel))
             .unwrap();
 
+        /*
+         * TODO: Don't cancel the tasks with "select!" -- Instead, toggle the
+         *       CancellationToken shared between the tasks?
+         */
         let done = tokio::select! {
             result = jh_monitor => result,
             result = jh_state => result,
