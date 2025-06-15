@@ -97,22 +97,33 @@ pub mod state_machine {
     use crate::snapshot::{Identifier, Player, Toolcupboard};
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-    pub struct Init;
+    pub struct Init {
+        pub state_transitioned_into_at: chrono::DateTime<chrono::Utc>,
+    }
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-    pub struct NotRunning;
+    pub struct NotRunning {
+        pub state_transitioned_into_at: chrono::DateTime<chrono::Utc>,
+    }
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-    pub struct StartupInProgress;
+    pub struct StartupInProgress {
+        pub state_transitioned_into_at: chrono::DateTime<chrono::Utc>,
+    }
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-    pub struct Shutoff;
+    pub struct Shutoff {
+        pub state_transitioned_into_at: chrono::DateTime<chrono::Utc>,
+    }
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-    pub struct ShutdownInProgress;
+    pub struct ShutdownInProgress {
+        pub state_transitioned_into_at: chrono::DateTime<chrono::Utc>,
+    }
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     pub struct RunningHealthy {
+        pub state_transitioned_into_at: chrono::DateTime<chrono::Utc>,
         players: std::collections::HashMap<Identifier, Player>,
         toolcupboards: std::collections::HashMap<Identifier, Toolcupboard>,
     }

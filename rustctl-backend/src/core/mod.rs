@@ -27,7 +27,9 @@ impl CrossTasksSharedState {
     pub fn init() -> Arc<Mutex<Self>> {
         Arc::new(Mutex::new(Self {
             clients_connected_all: HashMap::new(),
-            game_state: Game::Init(Init),
+            game_state: Game::Init(Init {
+                state_transitioned_into_at: chrono::Utc::now(),
+            }),
         }))
     }
 }

@@ -41,7 +41,9 @@ impl GameStateMachine for Game {
         log::debug!("TODO: Check if SteamCMD or RustDedicated is already running");
         log::debug!("TODO: Install or update RustDedicatedd using SteamCMD");
         log::debug!("TODO: Launch RustDedicated");
-        *self = Game::NotRunning(NotRunning);
+        *self = Game::NotRunning(NotRunning {
+            state_transitioned_into_at: chrono::Utc::now(),
+        });
     }
 
     async fn handle_client_message(&mut self, client_msg: String) {
@@ -66,19 +68,25 @@ impl GameStateMachine for Game {
                 log::debug!(
                     "TODO: Launch game with args: '{client_msg}' -- Current state: {state:?}"
                 );
-                *self = Game::StartupInProgress(StartupInProgress);
+                *self = Game::StartupInProgress(StartupInProgress {
+                    state_transitioned_into_at: chrono::Utc::now(),
+                });
             }
             Game::StartupInProgress(state) => {
                 log::debug!(
                     "TODO: Abort game startup with args: '{client_msg}' -- Current state: {state:?}"
                 );
-                *self = Game::NotRunning(NotRunning);
+                *self = Game::NotRunning(NotRunning {
+                    state_transitioned_into_at: chrono::Utc::now(),
+                });
             }
             Game::RunningHealthy(state) => {
                 log::debug!(
                     "TODO: Save game state and close with args: '{client_msg}' -- Current state: {state:?}"
                 );
-                *self = Game::ShutdownInProgress(ShutdownInProgress);
+                *self = Game::ShutdownInProgress(ShutdownInProgress {
+                    state_transitioned_into_at: chrono::Utc::now(),
+                });
             }
             Game::ShutdownInProgress(_state) => {
                 /*
