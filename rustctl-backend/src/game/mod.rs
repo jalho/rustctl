@@ -1,10 +1,10 @@
-use crate::core::CrossTasksSharedState;
+use crate::core::{CrossTasksSharedState, error::NonRecoverableError};
 use proc::Dependency;
 use rustctl_common::{
     snapshot::{Game, GameState, StateTransitionInitiator},
     state_machine::{NotRunning, ShutdownInProgress, StartupInProgress},
 };
-use std::{sync::Arc, time::Duration};
+use std::{process::Stdio, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
@@ -31,7 +31,10 @@ pub async fn read_state(
 
 pub trait GameStateMachine {
     /// Update and launch game server.
-    async fn update_and_launch(&mut self, initiator: StateTransitionInitiator);
+    async fn update_and_launch(
+        &mut self,
+        initiator: StateTransitionInitiator,
+    ) -> Result<(), NonRecoverableError>;
 
     /// Make a client message driven state transition in the game state.
     async fn handle_client_message(
@@ -42,20 +45,26 @@ pub trait GameStateMachine {
 }
 
 impl GameStateMachine for GameState {
-    async fn update_and_launch(&mut self, initiator: StateTransitionInitiator) {
+    async fn update_and_launch(
+        &mut self,
+        initiator: StateTransitionInitiator,
+    ) -> Result<(), NonRecoverableError> {
         log::debug!("Checking if SteamCMD or RustDedicated is already running...");
         let mut command = tokio::process::Command::new(Dependency::pgrep.get_absolute_path());
         let command = command.current_dir("/");
         let command = command.args(vec![Dependency::steamcmd.get_executable_name()]);
+        let command = command.stdout(Stdio::piped());
+        let command = command.stderr(Stdio::piped());
         let output = command.spawn().unwrap().wait_with_output().await.unwrap();
-        log::debug!("\t{command:?}");
-        log::debug!("\t{output:?}");
         if output.status.success() {
-            // TODO: Implement non-recoverable error: Make error log and terminate the program!
-            log::error!(
-                "Cannot update and launch game: Dependency already running: {dependency}",
-                dependency = Dependency::steamcmd
-            );
+            let stdout: String = String::from_utf8(output.stdout).unwrap();
+            let stdout = stdout.trim();
+            let pid: u32 = stdout.parse().unwrap();
+            return Err(NonRecoverableError::ConcurrentDependency {
+                cannot_display: String::from("cannot update and launch game"),
+                dependency: Dependency::steamcmd,
+                pid,
+            });
         }
 
         log::debug!("TODO: Install or update RustDedicatedd using SteamCMD");
@@ -65,6 +74,7 @@ impl GameStateMachine for GameState {
         self.game = Game::NotRunning(NotRunning {});
         self.last_state_transition_at = chrono::Utc::now();
         self.last_state_transition_inititated_by = initiator;
+        return Ok(());
     }
 
     async fn handle_client_message(
