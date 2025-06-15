@@ -53,11 +53,23 @@ impl GameStateMachine for GameState {
         &mut self,
         initiator: StateTransitionInitiator,
     ) -> Result<(), NonRecoverableError> {
-        log::debug!("Checking if SteamCMD or RustDedicated is already running...");
         if let Some(pid) = proc::is_running(Dependency::steamcmd).await {
             let err = NonRecoverableError::ConcurrentDependency {
                 cannot_display: String::from("cannot update and launch game"),
                 dependency: Dependency::steamcmd,
+                pid,
+            };
+            log::error!(
+                "Non-recoverable error: {source_tree}",
+                source_tree = format_error_source_tree(&err)
+            );
+            return Err(err);
+        }
+
+        if let Some(pid) = proc::is_running(Dependency::RustDedicated).await {
+            let err = NonRecoverableError::ConcurrentDependency {
+                cannot_display: String::from("cannot update and launch game"),
+                dependency: Dependency::RustDedicated,
                 pid,
             };
             log::error!(
