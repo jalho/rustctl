@@ -83,6 +83,7 @@ impl GameStateMachine for GameState {
 
         log::debug!("TODO: Launch RustDedicated");
 
+        // TODO: Mutate self by assigning new state to self.game once game startup is in progress!
         self.game = Game::NotRunning(NotRunning {});
         self.last_state_transition_at = chrono::Utc::now();
         self.last_state_transition_inititated_by = initiator;
