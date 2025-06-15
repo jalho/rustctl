@@ -187,6 +187,9 @@ pub mod proc {
         }
     }
 
+    /*
+     * TODO: Determine the dependencies's paths during bootstrap...
+     */
     /// Absolute path of the `steamcmd` executable, i.e. the game server installer.
     const EXEC_ABS_STEAMCMD: &str = "/home/jka/probe/mock-steamcmd";
     /// Absolute path of the `RustDedicated` executable, i.e. the game server.
