@@ -14,7 +14,7 @@ pub mod snapshot {
 
         pub clients_connected_all: std::collections::HashMap<uuid::Uuid, ClientExposed>,
 
-        pub game: Game,
+        pub game_state: GameState,
         pub system: System,
     }
 

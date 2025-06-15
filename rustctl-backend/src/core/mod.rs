@@ -209,7 +209,7 @@ fn make_snapshot_for_client(
         ip_hash_salted,
         clients_connected_all: state.clients_connected_all,
 
-        game: state.game_state.game,
+        game_state: state.game_state,
 
         // TODO: Pick system resources state from the snapshot
         system: rustctl_common::snapshot::System {
