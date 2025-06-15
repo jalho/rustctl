@@ -28,7 +28,7 @@ pub async fn read_state(
 
 pub trait GameStateMachineCommand {
     async fn determine_initial_state(&mut self);
-    async fn handle_client_message(self, client_msg: String) -> Self;
+    async fn handle_client_message(&mut self, client_msg: String);
 }
 
 impl GameStateMachineCommand for Game {
@@ -37,14 +37,14 @@ impl GameStateMachineCommand for Game {
         *self = Game::B(NotRunning);
     }
 
-    async fn handle_client_message(self, client_msg: String) -> Self {
+    async fn handle_client_message(&mut self, client_msg: String) {
         // TODO: Check if a command is even expected at this time
         // TODO: Check if the received command matches the current state
         // TODO: Get args from command if necessary
         // TODO: Make a state transition: return new state
         match self {
             Game::A(state) => todo!(),
-            Game::B(state) => state.launch().await,
+            Game::B(state) => todo!(),
             Game::C(state) => todo!(),
             Game::D(state) => todo!(),
             Game::E(state) => todo!(),

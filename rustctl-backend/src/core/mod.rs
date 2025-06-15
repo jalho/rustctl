@@ -117,12 +117,7 @@ impl Client {
                     match recv {
                         Some(Ok(Message::Text(msg))) => {
                             let mut lock = shared_rx.lock().await;
-                            let new_state = lock
-                                .game_state
-                                .clone()
-                                .handle_client_message(msg.to_string())
-                                .await;
-                            lock.game_state = new_state;
+                            lock.game_state.handle_client_message(msg.to_string()).await;
                         }
                         _ => {
                             break;
