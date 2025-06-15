@@ -22,7 +22,7 @@ pub async fn start(
 
     {
         let mut lock = app_state.shared_state.lock().await;
-        lock.game_state.determine_initial_state().await;
+        lock.game_state.update_and_launch().await;
     }
 
     let cors: CorsLayer = CorsLayer::new()
