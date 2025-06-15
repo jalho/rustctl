@@ -3,7 +3,6 @@ use rustctl_common::{snapshot::Game, state_machine::NotRunning};
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
-use transitions::Launch;
 
 pub async fn read_state(
     cancel: CancellationToken,
@@ -48,19 +47,6 @@ impl GameStateMachineCommand for Game {
             Game::C(state) => todo!(),
             Game::D(state) => todo!(),
             Game::E(state) => todo!(),
-        }
-    }
-}
-
-pub mod transitions {
-    use rustctl_common::snapshot::Game;
-
-    pub trait Launch {
-        async fn launch(self) -> Game;
-    }
-    impl Launch for rustctl_common::state_machine::NotRunning {
-        async fn launch(self) -> Game {
-            todo!("install updates and launch game");
         }
     }
 }
