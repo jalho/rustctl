@@ -31,6 +31,10 @@ pub mod snapshot {
         CommandedByUser { client_id: uuid::Uuid },
     }
 
+    /*
+     * TODO: Collect at size-restricted state transition log, instead of just
+     *       that last transition's metadata!
+     */
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub struct GameState {
         pub last_state_transition_at: chrono::DateTime<chrono::Utc>,
