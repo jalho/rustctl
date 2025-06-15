@@ -27,10 +27,11 @@ pub mod snapshot {
 
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub enum Game {
-        A(state_machine::NotRunning),
-        B(state_machine::StartupInProgress),
-        C(state_machine::RunningHealthy),
-        D(state_machine::ShutdownInProgress),
+        A(state_machine::Init),
+        B(state_machine::NotRunning),
+        C(state_machine::StartupInProgress),
+        D(state_machine::RunningHealthy),
+        E(state_machine::ShutdownInProgress),
     }
 
     #[derive(Clone, serde::Serialize, serde::Deserialize, Eq, PartialEq, Hash)]
@@ -94,6 +95,9 @@ pub mod web_app {
 
 pub mod state_machine {
     use crate::snapshot::{Identifier, Player, Toolcupboard};
+
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub struct Init;
 
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub struct NotRunning;

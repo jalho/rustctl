@@ -1,5 +1,5 @@
 use crate::core::CrossTasksSharedState;
-use rustctl_common::snapshot::Game;
+use rustctl_common::{snapshot::Game, state_machine::NotRunning};
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
@@ -27,34 +27,40 @@ pub async fn read_state(
 }
 
 pub trait GameStateMachineCommand {
+    async fn determine_initial_state(&mut self);
     async fn handle_client_message(self, client_msg: String) -> Self;
 }
 
 impl GameStateMachineCommand for Game {
+    async fn determine_initial_state(&mut self) {
+        // TODO: Check if SteamCMD or RustDedicated is already running
+        *self = Game::B(NotRunning);
+    }
+
     async fn handle_client_message(self, client_msg: String) -> Self {
         // TODO: Check if a command is even expected at this time
         // TODO: Check if the received command matches the current state
         // TODO: Get args from command if necessary
         // TODO: Make a state transition: return new state
         match self {
-            Game::A(state) => state.launch().await,
-            Game::B(state) => todo!(),
+            Game::A(state) => todo!(),
+            Game::B(state) => state.launch().await,
             Game::C(state) => todo!(),
             Game::D(state) => todo!(),
+            Game::E(state) => todo!(),
         }
     }
 }
 
 pub mod transitions {
-    use rustctl_common::{snapshot::Game, state_machine::StartupInProgress};
+    use rustctl_common::snapshot::Game;
 
     pub trait Launch {
         async fn launch(self) -> Game;
     }
     impl Launch for rustctl_common::state_machine::NotRunning {
         async fn launch(self) -> Game {
-            // TODO!
-            return Game::B(StartupInProgress);
+            todo!("install updates and launch game");
         }
     }
 }

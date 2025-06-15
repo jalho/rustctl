@@ -1,6 +1,6 @@
 mod handlers;
 
-use crate::core::CrossTasksSharedState;
+use crate::{core::CrossTasksSharedState, game::GameStateMachineCommand};
 use axum::{Router, routing};
 use axum_server::tls_rustls::RustlsConfig;
 use rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH;
@@ -19,6 +19,11 @@ pub async fn start(
 ) {
     let ip_hash_salt: String = generate_random_salt_not_secure();
     let app_state = WebServerState::init(client_sync_interval, shared, ip_hash_salt);
+
+    {
+        let mut lock = app_state.shared_state.lock().await;
+        lock.game_state.determine_initial_state().await;
+    }
 
     let cors: CorsLayer = CorsLayer::new()
         .allow_origin(axum::http::HeaderValue::from_str(&cors_allow_origin).unwrap())
