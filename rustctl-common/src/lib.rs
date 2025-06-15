@@ -34,7 +34,7 @@ pub mod snapshot {
         ShutdownInProgress(state_machine::ShutdownInProgress),
     }
 
-    #[derive(Clone, serde::Serialize, serde::Deserialize, Eq, PartialEq, Hash)]
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Eq, PartialEq, Hash)]
     pub struct Identifier(String);
 
     impl Identifier {
@@ -47,7 +47,7 @@ pub mod snapshot {
         }
     }
 
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     pub struct Location {
         /*
          * TODO: What's the resolution? Meters? Centimeters? Define as some
@@ -61,7 +61,7 @@ pub mod snapshot {
         pub z: (),
     }
 
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     pub struct Player {
         /// Steam ID.
         pub id: Identifier,
@@ -72,7 +72,7 @@ pub mod snapshot {
          */
     }
 
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     pub struct Toolcupboard {
         /// In-game identifier of the game world object.
         pub id: Identifier,
@@ -96,22 +96,22 @@ pub mod web_app {
 pub mod state_machine {
     use crate::snapshot::{Identifier, Player, Toolcupboard};
 
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     pub struct Init;
 
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     pub struct NotRunning;
 
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     pub struct StartupInProgress;
 
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     pub struct Shutoff;
 
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     pub struct ShutdownInProgress;
 
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     pub struct RunningHealthy {
         players: std::collections::HashMap<Identifier, Player>,
         toolcupboards: std::collections::HashMap<Identifier, Toolcupboard>,

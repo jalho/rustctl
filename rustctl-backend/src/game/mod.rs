@@ -1,5 +1,8 @@
 use crate::core::CrossTasksSharedState;
-use rustctl_common::{snapshot::Game, state_machine::NotRunning};
+use rustctl_common::{
+    snapshot::Game,
+    state_machine::{NotRunning, ShutdownInProgress, StartupInProgress},
+};
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
@@ -32,7 +35,7 @@ pub trait GameStateMachine {
 
 impl GameStateMachine for Game {
     async fn determine_initial_state(&mut self) {
-        // TODO: Check if SteamCMD or RustDedicated is already running
+        log::debug!("TODO: Check if SteamCMD or RustDedicated is already running");
         *self = Game::NotRunning(NotRunning);
     }
 
@@ -42,15 +45,36 @@ impl GameStateMachine for Game {
         // TODO: Get args from command if necessary
         // TODO: Make a state transition: return new state
         match self {
-            Game::Init(state) => {
+            Game::Init(_state) => {
                 /*
-                 * Nothing to do!
+                 * Nothing to do: Transition from Init should happen
+                 * automatically, and not per client message.
                  */
             }
-            Game::NotRunning(state) => todo!(),
-            Game::StartupInProgress(state) => todo!(),
-            Game::RunningHealthy(state) => todo!(),
-            Game::ShutdownInProgress(state) => todo!(),
+            Game::NotRunning(state) => {
+                log::debug!(
+                    "TODO: Launch game with args: '{client_msg}' -- Current state: {state:?}"
+                );
+                *self = Game::StartupInProgress(StartupInProgress);
+            }
+            Game::StartupInProgress(state) => {
+                log::debug!(
+                    "TODO: Abort game startup with args: '{client_msg}' -- Current state: {state:?}"
+                );
+                *self = Game::NotRunning(NotRunning);
+            }
+            Game::RunningHealthy(state) => {
+                log::debug!(
+                    "TODO: Save game state and close with args: '{client_msg}' -- Current state: {state:?}"
+                );
+                *self = Game::ShutdownInProgress(ShutdownInProgress);
+            }
+            Game::ShutdownInProgress(_state) => {
+                /*
+                 * Nothing to do: Initiated game shutdown sequence cannot be
+                 * canceled.
+                 */
+            }
         }
     }
 }
