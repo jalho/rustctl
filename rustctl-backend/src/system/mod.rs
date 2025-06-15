@@ -26,7 +26,7 @@ pub async fn monitor_usage(
              */
         }
     }
-    log::info!("Cancelled coroutine {coroutine_identity}");
+    log::info!("Coroutine done: {coroutine_identity}");
     Ok(())
 }
 

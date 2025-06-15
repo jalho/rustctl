@@ -32,7 +32,7 @@ pub async fn read_state(
              */
         }
     }
-    log::info!("Cancelled coroutine {coroutine_identity}");
+    log::info!("Coroutine done: {coroutine_identity}");
     Ok(())
 }
 

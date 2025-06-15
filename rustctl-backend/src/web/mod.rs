@@ -69,7 +69,7 @@ pub async fn start(
     match done {
         Some(Err(err)) => todo!("{err}"),
         Some(Ok(_)) => todo!(),
-        None => log::info!("Cancelled"),
+        None => log::info!("Coroutine done: {coroutine_identity}"),
     }
     Ok(())
 }
