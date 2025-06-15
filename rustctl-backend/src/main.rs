@@ -20,7 +20,13 @@ fn main() -> std::process::ExitCode {
 
     let _handle: log4rs::Handle = core::init_logging(log::LevelFilter::Debug);
 
+    /*
+     * Graceful shutdown mechanism: CancellationToken driven by:
+     * - standard signals SIGINT, SIGTERM etc.
+     * - shutdown channel that peer coroutines can use
+     */
     let cancel = tokio_util::sync::CancellationToken::new();
+    let (shutdown_tx, shutdown_rx) = tokio::sync::mpsc::channel::<()>(1);
 
     let state = core::CrossTasksSharedState::init();
 
@@ -51,6 +57,7 @@ fn main() -> std::process::ExitCode {
             .name("monitor_usage")
             .spawn(system::monitor_usage(
                 cancel.child_token(),
+                shutdown_tx.clone(),
                 constants::INTERVAL_MONITOR_SYSTEM,
                 state.clone(),
             ))
@@ -63,6 +70,7 @@ fn main() -> std::process::ExitCode {
             .name("read_state")
             .spawn(game::read_state(
                 cancel.child_token(),
+                shutdown_tx.clone(),
                 constants::INTERVAL_FETCH_GAME_STATE,
                 state.clone(),
             ))
@@ -75,6 +83,7 @@ fn main() -> std::process::ExitCode {
             .name("web_server")
             .spawn(web::start(
                 cancel.child_token(),
+                shutdown_tx.clone(),
                 constants::INTERVAL_SYNC_CLIENT,
                 listen_addr,
                 tls_config,
@@ -89,21 +98,29 @@ fn main() -> std::process::ExitCode {
          */
         let jh_signal = tokio::task::Builder::new()
             .name("wait_signal")
-            .spawn(system::wait_signal(cancel))
+            .spawn(system::wait_signal(cancel, shutdown_rx))
             .unwrap();
 
-        /*
-         * TODO: Don't cancel the tasks with "select!" -- Instead, toggle the
-         *       CancellationToken shared between the tasks?
-         */
-        let done = tokio::select! {
-            result = jh_monitor => result,
-            result = jh_state => result,
-            result = jh_web => result,
-            result = jh_signal => result,
-        };
-        let done: Result<(), core::error::NonRecoverableError> = done.unwrap();
-        done
+        // coroutine results in terms of the runtime
+        let tt_result_monitor = jh_monitor.await;
+        let tt_result_state = jh_state.await;
+        let tt_result_web = jh_web.await;
+        let tt_result_signal = jh_signal.await;
+
+        // results in terms of the application
+        let res_monitor: Result<(), core::error::NonRecoverableError> = tt_result_monitor.unwrap();
+        let res_state: Result<(), core::error::NonRecoverableError> = tt_result_state.unwrap();
+        let res_web: Result<(), core::error::NonRecoverableError> = tt_result_web.unwrap();
+        let res_signal: Result<(), core::error::NonRecoverableError> = tt_result_signal.unwrap();
+
+        // return the NonRecoverableError if any of the tasks yielded it...
+        for result in [res_monitor, res_state, res_web, res_signal] {
+            if let Err(e) = result {
+                return Err(e);
+            }
+        }
+        // ...or else OK
+        Ok(())
     });
 
     match done {

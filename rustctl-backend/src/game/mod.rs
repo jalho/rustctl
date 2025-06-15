@@ -13,6 +13,7 @@ use tokio_util::sync::CancellationToken;
 
 pub async fn read_state(
     cancel: CancellationToken,
+    _shutdown_tx: tokio::sync::mpsc::Sender<()>,
     interval: Duration,
     _shared: Arc<Mutex<CrossTasksSharedState>>,
 ) -> Result<(), NonRecoverableError> {

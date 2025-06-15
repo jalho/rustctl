@@ -14,6 +14,7 @@ use tower_http::cors::CorsLayer;
 
 pub async fn start(
     cancel: CancellationToken,
+    shutdown_tx: tokio::sync::mpsc::Sender<()>,
     client_sync_interval: Duration,
     listen_addr: SocketAddr,
     tls_config: Option<RustlsConfig>,
@@ -23,11 +24,17 @@ pub async fn start(
     let ip_hash_salt: String = generate_random_salt_not_secure();
     let app_state = WebServerState::init(client_sync_interval, shared, ip_hash_salt);
 
+    let result: Result<(), NonRecoverableError>;
     {
         let mut lock = app_state.shared_state.lock().await;
-        lock.game_state
+        result = lock
+            .game_state
             .update_and_launch(StateTransitionInitiator::AutomaticBySytem)
-            .await?;
+            .await;
+    }
+    if let Err(err) = result {
+        shutdown_tx.send(()).await.unwrap();
+        return Err(err);
     }
 
     let cors: CorsLayer = CorsLayer::new()

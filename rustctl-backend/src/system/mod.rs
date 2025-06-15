@@ -8,6 +8,7 @@ use tokio_util::sync::CancellationToken;
 
 pub async fn monitor_usage(
     cancel: CancellationToken,
+    _shutdown_tx: tokio::sync::mpsc::Sender<()>,
     interval: Duration,
     _shared: Arc<Mutex<CrossTasksSharedState>>,
 ) -> Result<(), NonRecoverableError> {
@@ -28,12 +29,16 @@ pub async fn monitor_usage(
     Ok(())
 }
 
-pub async fn wait_signal(cancel: CancellationToken) -> Result<(), NonRecoverableError> {
+pub async fn wait_signal(
+    cancel: CancellationToken,
+    mut shutdown_rx: tokio::sync::mpsc::Receiver<()>,
+) -> Result<(), NonRecoverableError> {
     let mut sigint = signal(SignalKind::interrupt()).unwrap();
     let mut sigterm = signal(SignalKind::terminate()).unwrap();
     tokio::select! {
         _ = sigint.recv() => log::info!("SIGINT"),
         _ = sigterm.recv() => log::info!("SIGTERM"),
+        Some(_) = shutdown_rx.recv() => log::info!("Shutdown requested by some task"),
     }
     cancel.cancel();
     Ok(())
