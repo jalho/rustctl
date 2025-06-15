@@ -202,7 +202,7 @@ fn make_snapshot_for_client(
 ) -> Snapshot {
     let (client_id, ip_hash_salted) = for_client;
     let (captured_at, state) = from_state;
-    
+
     Snapshot {
         captured_at,
 
@@ -324,5 +324,27 @@ pub mod error {
             current = src.source();
         }
         buffer
+    }
+}
+
+pub mod coroutines {
+    use std::fmt::Display;
+
+    pub enum Coroutine {
+        MonitorUsage,
+        ReadState,
+        WebServer,
+        WaitSignal,
+    }
+
+    impl Display for Coroutine {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Coroutine::MonitorUsage => write!(f, "MonitorUsage"),
+                Coroutine::ReadState => write!(f, "ReadState"),
+                Coroutine::WebServer => write!(f, "WebServer"),
+                Coroutine::WaitSignal => write!(f, "WaitSignal"),
+            }
+        }
     }
 }

@@ -26,7 +26,7 @@ fn main() -> std::process::ExitCode {
      * - shutdown channel that peer coroutines can use
      */
     let cancel = tokio_util::sync::CancellationToken::new();
-    let (shutdown_tx, shutdown_rx) = tokio::sync::mpsc::channel::<()>(1);
+    let (shutdown_tx, shutdown_rx) = tokio::sync::mpsc::channel::<core::coroutines::Coroutine>(1);
 
     let state = core::CrossTasksSharedState::init();
 
@@ -54,8 +54,9 @@ fn main() -> std::process::ExitCode {
          * Monitor system resources's usage such as CPU and memory.
          */
         let jh_monitor = tokio::task::Builder::new()
-            .name("monitor_usage")
+            .name(&core::coroutines::Coroutine::MonitorUsage.to_string())
             .spawn(system::monitor_usage(
+                core::coroutines::Coroutine::MonitorUsage,
                 cancel.child_token(),
                 shutdown_tx.clone(),
                 constants::INTERVAL_MONITOR_SYSTEM,
@@ -67,8 +68,9 @@ fn main() -> std::process::ExitCode {
          * Read game state such as players's locations.
          */
         let jh_state = tokio::task::Builder::new()
-            .name("read_state")
+            .name(&core::coroutines::Coroutine::ReadState.to_string())
             .spawn(game::read_state(
+                core::coroutines::Coroutine::ReadState,
                 cancel.child_token(),
                 shutdown_tx.clone(),
                 constants::INTERVAL_FETCH_GAME_STATE,
@@ -80,8 +82,9 @@ fn main() -> std::process::ExitCode {
          * Serve a web app for observing and managing the system.
          */
         let jh_web = tokio::task::Builder::new()
-            .name("web_server")
+            .name(&core::coroutines::Coroutine::WebServer.to_string())
             .spawn(web::start(
+                core::coroutines::Coroutine::WebServer,
                 cancel.child_token(),
                 shutdown_tx.clone(),
                 constants::INTERVAL_SYNC_CLIENT,
@@ -97,8 +100,12 @@ fn main() -> std::process::ExitCode {
          * Activate cancellation sequences on SIGINT, SIGTERM etc.
          */
         let jh_signal = tokio::task::Builder::new()
-            .name("wait_signal")
-            .spawn(system::wait_signal(cancel, shutdown_rx))
+            .name(&core::coroutines::Coroutine::WaitSignal.to_string())
+            .spawn(system::wait_signal(
+                core::coroutines::Coroutine::WaitSignal,
+                cancel,
+                shutdown_rx,
+            ))
             .unwrap();
 
         // coroutine results in terms of the runtime

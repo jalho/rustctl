@@ -1,5 +1,6 @@
 use crate::core::{
     CrossTasksSharedState,
+    coroutines::Coroutine,
     error::{NonRecoverableError, format_error_source_tree},
 };
 use proc::Dependency;
@@ -12,8 +13,9 @@ use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
 pub async fn read_state(
+    coroutine_identity: Coroutine,
     cancel: CancellationToken,
-    _shutdown_tx: tokio::sync::mpsc::Sender<()>,
+    _shutdown_tx: tokio::sync::mpsc::Sender<Coroutine>,
     interval: Duration,
     _shared: Arc<Mutex<CrossTasksSharedState>>,
 ) -> Result<(), NonRecoverableError> {
@@ -30,7 +32,7 @@ pub async fn read_state(
              */
         }
     }
-    log::info!("Cancelled");
+    log::info!("Cancelled coroutine {coroutine_identity}");
     Ok(())
 }
 

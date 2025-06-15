@@ -1,7 +1,7 @@
 mod handlers;
 
 use crate::{
-    core::{CrossTasksSharedState, error::NonRecoverableError},
+    core::{CrossTasksSharedState, coroutines::Coroutine, error::NonRecoverableError},
     game::GameStateMachine,
 };
 use axum::{Router, routing};
@@ -13,8 +13,9 @@ use tokio_util::sync::CancellationToken;
 use tower_http::cors::CorsLayer;
 
 pub async fn start(
+    coroutine_identity: Coroutine,
     cancel: CancellationToken,
-    shutdown_tx: tokio::sync::mpsc::Sender<()>,
+    shutdown_tx: tokio::sync::mpsc::Sender<Coroutine>,
     client_sync_interval: Duration,
     listen_addr: SocketAddr,
     tls_config: Option<RustlsConfig>,
@@ -33,7 +34,8 @@ pub async fn start(
             .await;
     }
     if let Err(err) = result {
-        shutdown_tx.send(()).await.unwrap();
+        log::info!("Requesting shutdown from coroutine {coroutine_identity}");
+        shutdown_tx.send(coroutine_identity).await.unwrap();
         return Err(err);
     }
 
