@@ -169,7 +169,7 @@ pub mod proc {
         pub fn get_executable_name(&self) -> String {
             let absolute_path: std::path::PathBuf = self.get_absolute_path();
             let executable_name: &std::ffi::OsStr = absolute_path.file_name().unwrap();
-            executable_name.to_string_lossy().to_owned().to_string()
+            executable_name.to_string_lossy().into_owned()
         }
     }
 
