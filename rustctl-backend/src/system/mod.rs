@@ -1,4 +1,4 @@
-use crate::core::CrossTasksSharedState;
+use crate::core::{CrossTasksSharedState, error::NonRecoverableError};
 use std::{sync::Arc, time::Duration};
 use tokio::{
     signal::unix::{SignalKind, signal},
@@ -10,7 +10,7 @@ pub async fn monitor_usage(
     cancel: CancellationToken,
     interval: Duration,
     _shared: Arc<Mutex<CrossTasksSharedState>>,
-) {
+) -> Result<(), NonRecoverableError> {
     let mut interval = tokio::time::interval(interval);
     loop {
         let is_cancelled: bool = cancel.is_cancelled();
@@ -25,9 +25,10 @@ pub async fn monitor_usage(
         }
     }
     log::info!("Cancelled");
+    return Ok(());
 }
 
-pub async fn wait_signal(cancel: CancellationToken) {
+pub async fn wait_signal(cancel: CancellationToken) -> Result<(), NonRecoverableError> {
     let mut sigint = signal(SignalKind::interrupt()).unwrap();
     let mut sigterm = signal(SignalKind::terminate()).unwrap();
     tokio::select! {
@@ -35,4 +36,5 @@ pub async fn wait_signal(cancel: CancellationToken) {
         _ = sigterm.recv() => log::info!("SIGTERM"),
     }
     cancel.cancel();
+    return Ok(());
 }

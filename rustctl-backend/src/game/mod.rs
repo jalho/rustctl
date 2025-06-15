@@ -12,7 +12,7 @@ pub async fn read_state(
     cancel: CancellationToken,
     interval: Duration,
     _shared: Arc<Mutex<CrossTasksSharedState>>,
-) {
+) -> Result<(), NonRecoverableError> {
     let mut interval = tokio::time::interval(interval);
     loop {
         let is_cancelled: bool = cancel.is_cancelled();
@@ -27,6 +27,7 @@ pub async fn read_state(
         }
     }
     log::info!("Cancelled");
+    return Ok(());
 }
 
 pub trait GameStateMachine {

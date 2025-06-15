@@ -4,7 +4,7 @@ mod game;
 mod system;
 mod web;
 
-fn main() {
+fn main() -> std::process::ExitCode {
     console_subscriber::init();
 
     let args = core::Cli::get_args();
@@ -30,7 +30,7 @@ fn main() {
         .build()
         .unwrap();
 
-    runtime.block_on(async {
+    let done: Result<(), NonRecoverableError> = runtime.block_on(async {
         let tls_config: Option<axum_server::tls_rustls::RustlsConfig> =
             match (tls_key_pem, tls_cert_pem) {
                 (Some(key), Some(cert)) => {
@@ -92,11 +92,28 @@ fn main() {
             .spawn(system::wait_signal(cancel))
             .unwrap();
 
-        jh_monitor.await.unwrap();
-        jh_state.await.unwrap();
-        jh_web.await.unwrap();
-        jh_signal.await.unwrap();
+        let done = tokio::select! {
+            result = jh_monitor => result,
+            result = jh_state => result,
+            result = jh_web => result,
+            result = jh_signal => result,
+        };
+        let done: Result<(), core::error::NonRecoverableError> = done.unwrap();
+        return done;
     });
 
-    log::info!("Done");
+    match done {
+        Err(err) => {
+            /*
+             * Logging of the error should be done near where it occurred.
+             */
+            let error: core::error::NonRecoverableError = err;
+            let status: std::process::ExitCode = error.into();
+            return status;
+        }
+        Ok(_) => {
+            log::info!("Done");
+            return std::process::ExitCode::SUCCESS;
+        }
+    }
 }

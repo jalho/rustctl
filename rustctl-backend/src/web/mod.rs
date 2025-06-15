@@ -1,6 +1,9 @@
 mod handlers;
 
-use crate::{core::CrossTasksSharedState, game::GameStateMachine};
+use crate::{
+    core::{CrossTasksSharedState, error::NonRecoverableError},
+    game::GameStateMachine,
+};
 use axum::{Router, routing};
 use axum_server::tls_rustls::RustlsConfig;
 use rustctl_common::{snapshot::StateTransitionInitiator, web_app::WEBSOCKET_CONNECT_URL_PATH};
@@ -16,7 +19,7 @@ pub async fn start(
     tls_config: Option<RustlsConfig>,
     cors_allow_origin: String,
     shared: Arc<Mutex<CrossTasksSharedState>>,
-) {
+) -> Result<(), NonRecoverableError> {
     let ip_hash_salt: String = generate_random_salt_not_secure();
     let app_state = WebServerState::init(client_sync_interval, shared, ip_hash_salt);
 
@@ -24,7 +27,7 @@ pub async fn start(
         let mut lock = app_state.shared_state.lock().await;
         lock.game_state
             .update_and_launch(StateTransitionInitiator::AutomaticBySytem)
-            .await;
+            .await?;
     }
 
     let cors: CorsLayer = CorsLayer::new()
@@ -59,6 +62,7 @@ pub async fn start(
         Some(Ok(_)) => todo!(),
         None => log::info!("Cancelled"),
     }
+    return Ok(());
 }
 
 #[derive(Clone)]
