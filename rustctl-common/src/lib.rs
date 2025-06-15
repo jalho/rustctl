@@ -96,7 +96,7 @@ pub mod snapshot {
         pub location: Location,
     }
 
-    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(serde::Serialize, serde::Deserialize, PartialEq, dioxus::prelude::Props, Clone)]
     pub struct System {
         /*
          * TODO: Define units...

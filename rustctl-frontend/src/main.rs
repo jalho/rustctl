@@ -1,11 +1,11 @@
 use dioxus::prelude::*;
 use futures_util::StreamExt;
 use gloo_net::websocket::{Message, futures::WebSocket};
-use rustctl_common::{snapshot::Snapshot, web_app::WEBSOCKET_CONNECT_URL_PATH};
+use rustctl_common::{snapshot, web_app::WEBSOCKET_CONNECT_URL_PATH};
 use wasm_bindgen_futures::spawn_local;
 
-static GLOBAL_SIGNAL: GlobalSignal<Option<Snapshot>> =
-    GlobalSignal::<Option<Snapshot>>::new(|| None);
+static GLOBAL_SIGNAL: GlobalSignal<Option<snapshot::Snapshot>> =
+    GlobalSignal::<Option<snapshot::Snapshot>>::new(|| None);
 
 fn main() {
     dioxus::launch(App);
@@ -36,7 +36,7 @@ fn App() -> Element {
                     match msg_result {
                         Ok(Message::Text(serialized)) => {
                             GLOBAL_SIGNAL.with_mut(|state| {
-                                let deserialized: Snapshot =
+                                let deserialized: snapshot::Snapshot =
                                     serde_json::from_str(&serialized).unwrap();
                                 *state = Some(deserialized);
                             });
@@ -63,13 +63,14 @@ fn MessageView() -> Element {
     let value = GLOBAL_SIGNAL.read();
 
     match *value {
-        Some(ref n) => {
-            let snapshot: &Snapshot = n;
-            let serialized: String = serde_json::to_string_pretty(snapshot).unwrap();
+        Some(ref snapshot) => {
+            let snapshot: &snapshot::Snapshot = snapshot;
+            let serialized: String = serde_json::to_string_pretty(&snapshot).unwrap();
             rsx! {
                 div {
                     h2 { "Latest message:" }
                     pre { "{serialized}" }
+                    SystemResourcesUsage { stats: snapshot.system.clone() }
                 }
             }
         }
@@ -79,6 +80,23 @@ fn MessageView() -> Element {
                     p { "Waiting for messages..." }
                 }
             }
+        }
+    }
+}
+
+#[derive(PartialEq, Props, Clone)]
+struct SystemResourcesUsageProps {
+    stats: snapshot::System,
+}
+
+#[component]
+fn SystemResourcesUsage(props: SystemResourcesUsageProps) -> Element {
+    let serialized: String = serde_json::to_string_pretty(&props.stats).unwrap();
+
+    rsx! {
+        div {
+            h2 { "System resources usage:" }
+            pre { "{serialized}" }
         }
     }
 }
