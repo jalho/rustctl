@@ -221,7 +221,6 @@ fn make_snapshot_for_client(
 }
 
 #[derive(clap::Parser)]
-#[command(name = "rustctl")]
 #[command(version)]
 pub struct Cli {
     #[command(subcommand)]
