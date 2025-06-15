@@ -3,7 +3,7 @@ mod handlers;
 use crate::{core::CrossTasksSharedState, game::GameStateMachine};
 use axum::{Router, routing};
 use axum_server::tls_rustls::RustlsConfig;
-use rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH;
+use rustctl_common::{snapshot::StateTransitionInitiator, web_app::WEBSOCKET_CONNECT_URL_PATH};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
@@ -22,7 +22,9 @@ pub async fn start(
 
     {
         let mut lock = app_state.shared_state.lock().await;
-        lock.game_state.update_and_launch().await;
+        lock.game_state
+            .update_and_launch(StateTransitionInitiator::AutomaticBySytem)
+            .await;
     }
 
     let cors: CorsLayer = CorsLayer::new()

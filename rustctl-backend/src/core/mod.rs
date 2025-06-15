@@ -3,7 +3,7 @@ use axum::extract::ws::{Message, WebSocket};
 use futures::{SinkExt, StreamExt};
 use log4rs::{append::console::ConsoleAppender, config::Appender, encode::pattern::PatternEncoder};
 use rustctl_common::{
-    snapshot::{ClientExposed, Game, Snapshot},
+    snapshot::{ClientExposed, Game, GameState, Identifier, Snapshot, StateTransitionInitiator},
     state_machine::Init,
 };
 use std::{
@@ -20,16 +20,18 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct CrossTasksSharedState {
     pub clients_connected_all: HashMap<Uuid, ClientExposed>,
-    pub game_state: Game,
+    pub game_state: GameState,
 }
 
 impl CrossTasksSharedState {
     pub fn init() -> Arc<Mutex<Self>> {
         Arc::new(Mutex::new(Self {
             clients_connected_all: HashMap::new(),
-            game_state: Game::Init(Init {
-                state_transitioned_into_at: chrono::Utc::now(),
-            }),
+            game_state: GameState {
+                last_state_transition_at: chrono::Utc::now(),
+                last_state_transition_inititated_by: StateTransitionInitiator::AutomaticBySytem,
+                game: Game::Init(Init {}),
+            },
         }))
     }
 }
@@ -119,7 +121,20 @@ impl Client {
                     match recv {
                         Some(Ok(Message::Text(msg))) => {
                             let mut lock = shared_rx.lock().await;
-                            lock.game_state.handle_client_message(msg.to_string()).await;
+                            lock.game_state
+                                .handle_client_message(
+                                    msg.to_string(),
+                                    StateTransitionInitiator::CommandedByUser {
+                                        /*
+                                         * TODO: Use a "user ID" (instead of
+                                         *       WebSocket client ID) once it's
+                                         *       implemented (i.e. once there's
+                                         *       some kinda auth system)
+                                         */
+                                        user_id: Identifier::new(&self.id.to_string()).unwrap(),
+                                    },
+                                )
+                                .await;
                         }
                         _ => {
                             break;
@@ -146,7 +161,7 @@ impl Client {
                         snapshot = shared_locked.clone();
                     }
 
-                    let sendable: rustctl_common::snapshot::Snapshot = make_snapshot(
+                    let sendable: rustctl_common::snapshot::Snapshot = make_snapshot_for_client(
                         (self.id, self.ip_hash_salted.clone()),
                         (captured_at, snapshot),
                     );
@@ -187,7 +202,7 @@ fn hash_socket_ip_addr(addr: IpAddr, salt: &str) -> String {
     format!("{:x}", hash)[..8].to_string()
 }
 
-fn make_snapshot(
+fn make_snapshot_for_client(
     for_client: (Uuid, String),
     from_state: (chrono::DateTime<chrono::Utc>, CrossTasksSharedState),
 ) -> Snapshot {
@@ -200,7 +215,7 @@ fn make_snapshot(
         ip_hash_salted,
         clients_connected_all: state.clients_connected_all,
 
-        game: state.game_state,
+        game: state.game_state.game,
 
         // TODO: Pick system resources state from the snapshot
         system: rustctl_common::snapshot::System {

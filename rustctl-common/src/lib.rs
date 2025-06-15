@@ -26,6 +26,19 @@ pub mod snapshot {
     }
 
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub enum StateTransitionInitiator {
+        AutomaticBySytem,
+        CommandedByUser { user_id: Identifier },
+    }
+
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub struct GameState {
+        pub last_state_transition_at: chrono::DateTime<chrono::Utc>,
+        pub last_state_transition_inititated_by: StateTransitionInitiator,
+        pub game: Game,
+    }
+
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub enum Game {
         Init(state_machine::Init),
         NotRunning(state_machine::NotRunning),
@@ -97,33 +110,22 @@ pub mod state_machine {
     use crate::snapshot::{Identifier, Player, Toolcupboard};
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-    pub struct Init {
-        pub state_transitioned_into_at: chrono::DateTime<chrono::Utc>,
-    }
+    pub struct Init {}
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-    pub struct NotRunning {
-        pub state_transitioned_into_at: chrono::DateTime<chrono::Utc>,
-    }
+    pub struct NotRunning {}
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-    pub struct StartupInProgress {
-        pub state_transitioned_into_at: chrono::DateTime<chrono::Utc>,
-    }
+    pub struct StartupInProgress {}
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-    pub struct Shutoff {
-        pub state_transitioned_into_at: chrono::DateTime<chrono::Utc>,
-    }
+    pub struct Shutoff {}
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-    pub struct ShutdownInProgress {
-        pub state_transitioned_into_at: chrono::DateTime<chrono::Utc>,
-    }
+    pub struct ShutdownInProgress {}
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     pub struct RunningHealthy {
-        pub state_transitioned_into_at: chrono::DateTime<chrono::Utc>,
         players: std::collections::HashMap<Identifier, Player>,
         toolcupboards: std::collections::HashMap<Identifier, Toolcupboard>,
     }

@@ -1,6 +1,6 @@
 use crate::core::CrossTasksSharedState;
 use rustctl_common::{
-    snapshot::Game,
+    snapshot::{Game, GameState, StateTransitionInitiator},
     state_machine::{NotRunning, ShutdownInProgress, StartupInProgress},
 };
 use std::{sync::Arc, time::Duration};
@@ -30,23 +30,31 @@ pub async fn read_state(
 
 pub trait GameStateMachine {
     /// Update and launch game server.
-    async fn update_and_launch(&mut self);
+    async fn update_and_launch(&mut self, initiator: StateTransitionInitiator);
 
     /// Make a client message driven state transition in the game state.
-    async fn handle_client_message(&mut self, client_msg: String);
+    async fn handle_client_message(
+        &mut self,
+        client_msg: String,
+        initiator: StateTransitionInitiator,
+    );
 }
 
-impl GameStateMachine for Game {
-    async fn update_and_launch(&mut self) {
+impl GameStateMachine for GameState {
+    async fn update_and_launch(&mut self, initiator: StateTransitionInitiator) {
         log::debug!("TODO: Check if SteamCMD or RustDedicated is already running");
         log::debug!("TODO: Install or update RustDedicatedd using SteamCMD");
         log::debug!("TODO: Launch RustDedicated");
-        *self = Game::NotRunning(NotRunning {
-            state_transitioned_into_at: chrono::Utc::now(),
-        });
+        self.game = Game::NotRunning(NotRunning {});
+        self.last_state_transition_at = chrono::Utc::now();
+        self.last_state_transition_inititated_by = initiator;
     }
 
-    async fn handle_client_message(&mut self, client_msg: String) {
+    async fn handle_client_message(
+        &mut self,
+        client_msg: String,
+        initiator: StateTransitionInitiator,
+    ) {
         /*
          * TODO: Take into consideration:
          *
@@ -57,38 +65,38 @@ impl GameStateMachine for Game {
          *
          * - Make the state transition: Mutate self
          */
-        match self {
-            Game::Init(_state) => {
+        match self.game {
+            Game::Init(ref _state) => {
                 /*
                  * Nothing to do: Transition from Init should happen
                  * automatically, and not per client message.
                  */
             }
-            Game::NotRunning(state) => {
+            Game::NotRunning(ref state) => {
                 log::debug!(
                     "TODO: Launch game with args: '{client_msg}' -- Current state: {state:?}"
                 );
-                *self = Game::StartupInProgress(StartupInProgress {
-                    state_transitioned_into_at: chrono::Utc::now(),
-                });
+                self.game = Game::StartupInProgress(StartupInProgress {});
+                self.last_state_transition_at = chrono::Utc::now();
+                self.last_state_transition_inititated_by = initiator;
             }
-            Game::StartupInProgress(state) => {
+            Game::StartupInProgress(ref state) => {
                 log::debug!(
                     "TODO: Abort game startup with args: '{client_msg}' -- Current state: {state:?}"
                 );
-                *self = Game::NotRunning(NotRunning {
-                    state_transitioned_into_at: chrono::Utc::now(),
-                });
+                self.game = Game::NotRunning(NotRunning {});
+                self.last_state_transition_at = chrono::Utc::now();
+                self.last_state_transition_inititated_by = initiator;
             }
-            Game::RunningHealthy(state) => {
+            Game::RunningHealthy(ref state) => {
                 log::debug!(
                     "TODO: Save game state and close with args: '{client_msg}' -- Current state: {state:?}"
                 );
-                *self = Game::ShutdownInProgress(ShutdownInProgress {
-                    state_transitioned_into_at: chrono::Utc::now(),
-                });
+                self.game = Game::ShutdownInProgress(ShutdownInProgress {});
+                self.last_state_transition_at = chrono::Utc::now();
+                self.last_state_transition_inititated_by = initiator;
             }
-            Game::ShutdownInProgress(_state) => {
+            Game::ShutdownInProgress(ref _state) => {
                 /*
                  * Nothing to do: Initiated game shutdown sequence cannot be
                  * canceled.
