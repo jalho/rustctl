@@ -314,4 +314,15 @@ pub mod error {
             }
         }
     }
+
+    pub fn format_error_source_tree(error: &impl Error) -> String {
+        let mut buffer: String = error.to_string();
+        let mut current: Option<&dyn Error> = error.source();
+        while let Some(src) = current {
+            buffer.push_str(": ");
+            buffer.push_str(&src.to_string());
+            current = src.source();
+        }
+        buffer
+    }
 }

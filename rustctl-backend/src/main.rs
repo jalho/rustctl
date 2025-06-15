@@ -30,7 +30,7 @@ fn main() -> std::process::ExitCode {
         .build()
         .unwrap();
 
-    let done: Result<(), NonRecoverableError> = runtime.block_on(async {
+    let done: Result<(), core::error::NonRecoverableError> = runtime.block_on(async {
         let tls_config: Option<axum_server::tls_rustls::RustlsConfig> =
             match (tls_key_pem, tls_cert_pem) {
                 (Some(key), Some(cert)) => {

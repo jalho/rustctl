@@ -1,4 +1,7 @@
-use crate::core::{CrossTasksSharedState, error::NonRecoverableError};
+use crate::core::{
+    CrossTasksSharedState,
+    error::{NonRecoverableError, format_error_source_tree},
+};
 use proc::Dependency;
 use rustctl_common::{
     snapshot::{Game, GameState, StateTransitionInitiator},
@@ -61,11 +64,16 @@ impl GameStateMachine for GameState {
             let stdout: String = String::from_utf8(output.stdout).unwrap();
             let stdout = stdout.trim();
             let pid: u32 = stdout.parse().unwrap();
-            return Err(NonRecoverableError::ConcurrentDependency {
+            let err = NonRecoverableError::ConcurrentDependency {
                 cannot_display: String::from("cannot update and launch game"),
                 dependency: Dependency::steamcmd,
                 pid,
-            });
+            };
+            log::error!(
+                "Non-recoverable error: {source_tree}",
+                source_tree = format_error_source_tree(&err)
+            );
+            return Err(err);
         }
 
         log::debug!("TODO: Install or update RustDedicatedd using SteamCMD");
