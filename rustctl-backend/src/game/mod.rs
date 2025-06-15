@@ -39,6 +39,7 @@ impl GameStateMachine for Game {
         *self = Game::NotRunning(NotRunning);
     }
 
+    /// Make a client message driven state transition in the game state.
     async fn handle_client_message(&mut self, client_msg: String) {
         // TODO: Check if a command is even expected at this time
         // TODO: Check if the received command matches the current state
