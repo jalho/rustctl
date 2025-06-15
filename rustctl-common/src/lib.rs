@@ -32,8 +32,8 @@ pub mod snapshot {
     }
 
     /*
-     * TODO: Collect at size-restricted state transition log, instead of just
-     *       that last transition's metadata!
+     * TODO: Send a size-restrcited state transition log to clients, instead of
+     *       only sending the latest transition's information.
      */
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub struct GameState {
