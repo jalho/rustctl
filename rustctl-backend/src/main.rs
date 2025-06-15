@@ -19,6 +19,11 @@ fn main() -> std::process::ExitCode {
     };
 
     let _handle: log4rs::Handle = core::init_logging(log::LevelFilter::Debug);
+    log::info!(
+        "{name} {version}",
+        name = env!("CARGO_PKG_NAME"),
+        version = env!("CARGO_PKG_VERSION")
+    );
 
     /*
      * Graceful shutdown mechanism: CancellationToken driven by:
