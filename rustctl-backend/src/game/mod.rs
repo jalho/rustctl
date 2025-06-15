@@ -7,7 +7,7 @@ use rustctl_common::{
     snapshot::{Game, GameState, StateTransitionInitiator},
     state_machine::{NotRunning, ShutdownInProgress, StartupInProgress},
 };
-use std::{process::Stdio, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
@@ -54,16 +54,7 @@ impl GameStateMachine for GameState {
         initiator: StateTransitionInitiator,
     ) -> Result<(), NonRecoverableError> {
         log::debug!("Checking if SteamCMD or RustDedicated is already running...");
-        let mut command = tokio::process::Command::new(Dependency::pgrep.get_absolute_path());
-        let command = command.current_dir("/");
-        let command = command.args(vec![Dependency::steamcmd.get_executable_name()]);
-        let command = command.stdout(Stdio::piped());
-        let command = command.stderr(Stdio::piped());
-        let output = command.spawn().unwrap().wait_with_output().await.unwrap();
-        if output.status.success() {
-            let stdout: String = String::from_utf8(output.stdout).unwrap();
-            let stdout = stdout.trim();
-            let pid: u32 = stdout.parse().unwrap();
+        if let Some(pid) = proc::is_running(Dependency::steamcmd).await {
             let err = NonRecoverableError::ConcurrentDependency {
                 cannot_display: String::from("cannot update and launch game"),
                 dependency: Dependency::steamcmd,
@@ -76,7 +67,7 @@ impl GameStateMachine for GameState {
             return Err(err);
         }
 
-        log::debug!("TODO: Install or update RustDedicatedd using SteamCMD");
+        log::debug!("TODO: Install or update RustDedicated using SteamCMD");
 
         log::debug!("TODO: Launch RustDedicated");
 
@@ -143,6 +134,7 @@ impl GameStateMachine for GameState {
 }
 
 pub mod proc {
+    use std::process::Stdio;
 
     #[derive(Debug)]
     #[allow(non_camel_case_types)]
@@ -185,4 +177,22 @@ pub mod proc {
     const EXEC_ABS_RDS: &'static str = "/home/jka/probe/mock-rustdedicated";
     /// Absolute path of the `pgrep` executable.
     const EXEC_ABS_PGREP: &'static str = "/usr/bin/pgrep";
+
+    /// Returns the PID of the running dependency, if it's running.
+    pub async fn is_running(dependency: Dependency) -> Option<u32> {
+        let mut command = tokio::process::Command::new(Dependency::pgrep.get_absolute_path());
+        let command = command.current_dir("/");
+        let command = command.args(vec![dependency.get_executable_name()]);
+        let command = command.stdout(Stdio::piped());
+        let command = command.stderr(Stdio::piped());
+        let output = command.spawn().unwrap().wait_with_output().await.unwrap();
+        if output.status.success() {
+            let stdout: String = String::from_utf8(output.stdout).unwrap();
+            let stdout = stdout.trim();
+            let pid: u32 = stdout.parse().unwrap();
+            return Some(pid);
+        } else {
+            return None;
+        }
+    }
 }
