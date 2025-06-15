@@ -25,7 +25,7 @@ pub async fn monitor_usage(
         }
     }
     log::info!("Cancelled");
-    return Ok(());
+    Ok(())
 }
 
 pub async fn wait_signal(cancel: CancellationToken) -> Result<(), NonRecoverableError> {
@@ -36,5 +36,5 @@ pub async fn wait_signal(cancel: CancellationToken) -> Result<(), NonRecoverable
         _ = sigterm.recv() => log::info!("SIGTERM"),
     }
     cancel.cancel();
-    return Ok(());
+    Ok(())
 }

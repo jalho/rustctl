@@ -99,7 +99,7 @@ fn main() -> std::process::ExitCode {
             result = jh_signal => result,
         };
         let done: Result<(), core::error::NonRecoverableError> = done.unwrap();
-        return done;
+        done
     });
 
     match done {
@@ -109,11 +109,11 @@ fn main() -> std::process::ExitCode {
              */
             let error: core::error::NonRecoverableError = err;
             let status: std::process::ExitCode = error.into();
-            return status;
+            status
         }
         Ok(_) => {
             log::info!("Done");
-            return std::process::ExitCode::SUCCESS;
+            std::process::ExitCode::SUCCESS
         }
     }
 }

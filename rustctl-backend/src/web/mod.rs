@@ -62,7 +62,7 @@ pub async fn start(
         Some(Ok(_)) => todo!(),
         None => log::info!("Cancelled"),
     }
-    return Ok(());
+    Ok(())
 }
 
 #[derive(Clone)]

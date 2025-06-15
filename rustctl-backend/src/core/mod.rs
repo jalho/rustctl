@@ -64,12 +64,12 @@ impl std::fmt::Display for Client {
     }
 }
 
-impl Into<ClientExposed> for &Client {
-    fn into(self) -> ClientExposed {
+impl From<&Client> for ClientExposed {
+    fn from(val: &Client) -> Self {
         ClientExposed {
-            id: self.id,
-            connected_at: self.connected_at,
-            ip_hash_salted: self.ip_hash_salted.clone(),
+            id: val.id,
+            connected_at: val.connected_at,
+            ip_hash_salted: val.ip_hash_salted.clone(),
         }
     }
 }
@@ -104,7 +104,7 @@ impl Client {
         }
         log::info!("Client registered: {client} -- Total count: {clients_total}");
 
-        return client;
+        client
     }
 
     pub async fn send_and_receive_messages(self, interval: Duration) {
@@ -202,7 +202,8 @@ fn make_snapshot_for_client(
 ) -> Snapshot {
     let (client_id, ip_hash_salted) = for_client;
     let (captured_at, state) = from_state;
-    let snapshot = Snapshot {
+    
+    Snapshot {
         captured_at,
 
         client_id,
@@ -216,8 +217,7 @@ fn make_snapshot_for_client(
             cpu: (),
             memory: (),
         },
-    };
-    return snapshot;
+    }
 }
 
 #[derive(clap::Parser)]

@@ -56,7 +56,7 @@ pub mod snapshot {
 
     impl Identifier {
         pub fn new(id: &str) -> Option<Self> {
-            if id.len() > 0 {
+            if !id.is_empty() {
                 Some(Self(id.to_owned()))
             } else {
                 None
@@ -107,7 +107,7 @@ pub mod snapshot {
 }
 
 pub mod web_app {
-    pub const WEBSOCKET_CONNECT_URL_PATH: &'static str = "/api/websocket";
+    pub const WEBSOCKET_CONNECT_URL_PATH: &str = "/api/websocket";
 }
 
 pub mod state_machine {

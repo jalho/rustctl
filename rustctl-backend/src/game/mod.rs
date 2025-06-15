@@ -30,7 +30,7 @@ pub async fn read_state(
         }
     }
     log::info!("Cancelled");
-    return Ok(());
+    Ok(())
 }
 
 pub trait GameStateMachine {
@@ -87,7 +87,7 @@ impl GameStateMachine for GameState {
         self.game = Game::NotRunning(NotRunning {});
         self.last_state_transition_at = chrono::Utc::now();
         self.last_state_transition_inititated_by = initiator;
-        return Ok(());
+        Ok(())
     }
 
     async fn handle_client_message(
@@ -169,7 +169,7 @@ pub mod proc {
         pub fn get_executable_name(&self) -> String {
             let absolute_path: std::path::PathBuf = self.get_absolute_path();
             let executable_name: &std::ffi::OsStr = absolute_path.file_name().unwrap();
-            return executable_name.to_string_lossy().to_owned().to_string();
+            executable_name.to_string_lossy().to_owned().to_string()
         }
     }
 
@@ -185,11 +185,11 @@ pub mod proc {
     }
 
     /// Absolute path of the `steamcmd` executable, i.e. the game server installer.
-    const EXEC_ABS_STEAMCMD: &'static str = "/home/jka/probe/mock-steamcmd";
+    const EXEC_ABS_STEAMCMD: &str = "/home/jka/probe/mock-steamcmd";
     /// Absolute path of the `RustDedicated` executable, i.e. the game server.
-    const EXEC_ABS_RDS: &'static str = "/home/jka/probe/mock-rustdedicated";
+    const EXEC_ABS_RDS: &str = "/home/jka/probe/mock-rustdedicated";
     /// Absolute path of the `pgrep` executable.
-    const EXEC_ABS_PGREP: &'static str = "/usr/bin/pgrep";
+    const EXEC_ABS_PGREP: &str = "/usr/bin/pgrep";
 
     /// Returns the PID of the running dependency, if it's running.
     pub async fn is_running(dependency: Dependency) -> Option<u32> {
@@ -203,9 +203,9 @@ pub mod proc {
             let stdout: String = String::from_utf8(output.stdout).unwrap();
             let stdout = stdout.trim();
             let pid: u32 = stdout.parse().unwrap();
-            return Some(pid);
+            Some(pid)
         } else {
-            return None;
+            None
         }
     }
 }
