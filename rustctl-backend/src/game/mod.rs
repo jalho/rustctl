@@ -45,10 +45,16 @@ impl GameStateMachine for Game {
     }
 
     async fn handle_client_message(&mut self, client_msg: String) {
-        // TODO: Check if a command is even expected at this time
-        // TODO: Check if the received command matches the current state
-        // TODO: Get args from command if necessary
-        // TODO: Make a state transition: return new state
+        /*
+         * TODO: Take into consideration:
+         *
+         * - Check if a command is even expected at this time: Check if the
+         *   received command matches the current state
+         *
+         * - Extract args from commanding client message if necessary
+         *
+         * - Make the state transition: Mutate self
+         */
         match self {
             Game::Init(_state) => {
                 /*
