@@ -3,7 +3,7 @@ use axum::extract::ws::{Message, WebSocket};
 use futures::{SinkExt, StreamExt};
 use log4rs::{append::console::ConsoleAppender, config::Appender, encode::pattern::PatternEncoder};
 use rustctl_common::{
-    snapshot::{ClientExposed, Game, GameState, Identifier, Snapshot, StateTransitionInitiator},
+    snapshot::{ClientExposed, Game, GameState, Snapshot, StateTransitionInitiator},
     state_machine::Init,
 };
 use std::{
@@ -266,4 +266,52 @@ pub fn init_logging(level: log::LevelFilter) -> log4rs::Handle {
         .unwrap();
 
     log4rs::init_config(config).unwrap()
+}
+
+pub mod error {
+    use std::{error::Error, fmt::Display, process::ExitCode};
+
+    #[derive(Debug)]
+    pub enum NonRecoverableError {
+        /// Attempted to run a dependency that is already running and that
+        /// cannot be run concurrently.
+        ConcurrentDependency {
+            cannot_display: String,
+            dependency: crate::game::proc::Dependency,
+            pid: u32,
+        },
+    }
+
+    impl Error for NonRecoverableError {
+        fn source(&self) -> Option<&(dyn Error + 'static)> {
+            match self {
+                NonRecoverableError::ConcurrentDependency { .. } => None,
+            }
+        }
+    }
+
+    impl Display for NonRecoverableError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                NonRecoverableError::ConcurrentDependency {
+                    cannot_display,
+                    dependency,
+                    pid,
+                } => {
+                    write!(
+                        f,
+                        "{cannot_display}: dependency already running as PID {pid}: {dependency}"
+                    )
+                }
+            }
+        }
+    }
+
+    impl From<NonRecoverableError> for ExitCode {
+        fn from(value: NonRecoverableError) -> Self {
+            match value {
+                NonRecoverableError::ConcurrentDependency { .. } => ExitCode::from(42),
+            }
+        }
+    }
 }

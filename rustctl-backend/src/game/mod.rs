@@ -123,8 +123,9 @@ impl GameStateMachine for GameState {
     }
 }
 
-mod proc {
+pub mod proc {
 
+    #[derive(Debug)]
     #[allow(non_camel_case_types)]
     pub enum Dependency {
         pgrep,
