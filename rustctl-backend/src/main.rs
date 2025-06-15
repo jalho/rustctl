@@ -36,7 +36,7 @@ fn main() -> std::process::ExitCode {
     let state = core::CrossTasksSharedState::init();
 
     let runtime = tokio::runtime::Builder::new_current_thread()
-        .worker_threads(1)
+        .worker_threads(1) // aiming for small footprint to leave maximal resources for the game
         .enable_all()
         .build()
         .unwrap();
