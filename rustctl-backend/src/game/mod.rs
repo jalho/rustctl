@@ -3,7 +3,6 @@ use crate::core::{
     coroutines::Coroutine,
     error::{NonRecoverableError, format_error_source_tree},
 };
-use proc::Dependency;
 use rustctl_common::{
     snapshot::{Game, GameState, StateTransitionInitiator},
     state_machine::{NotRunning, ShutdownInProgress, StartupInProgress},
@@ -41,6 +40,7 @@ pub trait GameStateMachine {
     async fn update_and_launch(
         &mut self,
         initiator: StateTransitionInitiator,
+        dependencies: &proc::Dependencies,
     ) -> Result<(), NonRecoverableError>;
 
     /// Make a client message driven state transition in the game state.
@@ -55,11 +55,12 @@ impl GameStateMachine for GameState {
     async fn update_and_launch(
         &mut self,
         initiator: StateTransitionInitiator,
+        dependencies: &proc::Dependencies,
     ) -> Result<(), NonRecoverableError> {
-        if let Some(pid) = proc::is_running(Dependency::steamcmd).await {
+        if let Some(pid) = proc::is_running(dependencies, &dependencies.steamcmd).await {
             let err = NonRecoverableError::ConcurrentDependency {
                 cannot_display: String::from("cannot update and launch game"),
-                dependency: Dependency::steamcmd,
+                dependency: dependencies.steamcmd.clone(),
                 pid,
             };
             log::error!(
@@ -69,10 +70,10 @@ impl GameStateMachine for GameState {
             return Err(err);
         }
 
-        if let Some(pid) = proc::is_running(Dependency::RustDedicated).await {
+        if let Some(pid) = proc::is_running(dependencies, &dependencies.RustDedicated).await {
             let err = NonRecoverableError::ConcurrentDependency {
                 cannot_display: String::from("cannot update and launch game"),
-                dependency: Dependency::RustDedicated,
+                dependency: dependencies.RustDedicated.clone(),
                 pid,
             };
             log::error!(
@@ -150,56 +151,52 @@ impl GameStateMachine for GameState {
 }
 
 pub mod proc {
-    use std::process::Stdio;
+    use std::{fmt::Display, process::Stdio};
 
-    #[derive(Debug)]
-    #[allow(non_camel_case_types)]
-    pub enum Dependency {
-        pgrep,
-        RustDedicated,
-        steamcmd,
+    use crate::core::error::NonRecoverableError;
+
+    #[allow(non_snake_case)]
+    pub struct Dependencies {
+        pub pgrep: Dependency,
+        pub steamcmd: Dependency,
+        pub RustDedicated: Dependency,
+    }
+
+    impl Dependencies {
+        pub async fn check() -> Result<Self, NonRecoverableError> {
+            todo!("check if the dependencies exist");
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct Dependency {
+        pub executable_path_absolute: std::path::PathBuf,
     }
 
     impl Dependency {
-        pub fn get_absolute_path(&self) -> std::path::PathBuf {
-            match self {
-                Dependency::pgrep => std::path::Path::new(EXEC_ABS_PGREP).to_path_buf(),
-                Dependency::RustDedicated => std::path::Path::new(EXEC_ABS_RDS).to_path_buf(),
-                Dependency::steamcmd => std::path::Path::new(EXEC_ABS_STEAMCMD).to_path_buf(),
-            }
-        }
-
         pub fn get_executable_name(&self) -> String {
-            let absolute_path: std::path::PathBuf = self.get_absolute_path();
-            let executable_name: &std::ffi::OsStr = absolute_path.file_name().unwrap();
-            executable_name.to_string_lossy().into_owned()
+            self.executable_path_absolute
+                .to_owned()
+                .to_string_lossy()
+                .to_string()
         }
     }
 
-    impl std::fmt::Display for Dependency {
+    impl Display for Dependency {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(
                 f,
-                "\"{}\" (\"{}\")",
-                self.get_executable_name(),
-                self.get_absolute_path().to_string_lossy(),
+                r#""{name}" ("{absolute_path}")"#,
+                name = self.get_executable_name(),
+                absolute_path = self.executable_path_absolute.to_string_lossy(),
             )
         }
     }
 
-    /*
-     * TODO: Determine the dependencies's paths during bootstrap...
-     */
-    /// Absolute path of the `steamcmd` executable, i.e. the game server installer.
-    const EXEC_ABS_STEAMCMD: &str = "/home/jka/probe/mock-steamcmd";
-    /// Absolute path of the `RustDedicated` executable, i.e. the game server.
-    const EXEC_ABS_RDS: &str = "/home/jka/probe/mock-rustdedicated";
-    /// Absolute path of the `pgrep` executable.
-    const EXEC_ABS_PGREP: &str = "/usr/bin/pgrep";
-
     /// Returns the PID of the running dependency, if it's running.
-    pub async fn is_running(dependency: Dependency) -> Option<u32> {
-        let mut command = tokio::process::Command::new(Dependency::pgrep.get_absolute_path());
+    pub async fn is_running(dependencies: &Dependencies, dependency: &Dependency) -> Option<u32> {
+        let mut command =
+            tokio::process::Command::new(&dependencies.pgrep.executable_path_absolute);
         let command = command.current_dir("/");
         let command = command.args(vec![dependency.get_executable_name()]);
         let command = command.stdout(Stdio::piped());
