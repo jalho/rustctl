@@ -3,6 +3,7 @@ use crate::core::{
     coroutines::Coroutine,
     error::{NonRecoverableError, format_error_source_tree},
 };
+use proc::DependencyChecked;
 use rustctl_common::{
     snapshot::{Game, GameState, StateTransitionInitiator},
     state_machine::{NotRunning, ShutdownInProgress, StartupInProgress},
@@ -40,7 +41,7 @@ pub trait GameStateMachine {
     async fn update_and_launch(
         &mut self,
         initiator: StateTransitionInitiator,
-        dependencies: &proc::Dependencies,
+        dependencies: &proc::DependenciesDeclared,
     ) -> Result<(), NonRecoverableError>;
 
     /// Make a client message driven state transition in the game state.
@@ -55,7 +56,7 @@ impl GameStateMachine for GameState {
     async fn update_and_launch(
         &mut self,
         initiator: StateTransitionInitiator,
-        dependencies: &proc::Dependencies,
+        decl_deps: &proc::DependenciesDeclared,
     ) -> Result<(), NonRecoverableError> {
         /*
          * TODO: Check whether a dependency is already running regardless of
@@ -63,9 +64,14 @@ impl GameStateMachine for GameState {
          *       not necessarily expected to ever join `PATH`...)
          */
 
-        if let Some(pid) = proc::is_running(dependencies, &dependencies.steamcmd).await {
+        let pgrep = match DependencyChecked::check(&decl_deps.pgrep) {
+            Some(n) => n,
+            None => todo!(),
+        };
+
+        if let Some(pid) = proc::is_running(&pgrep, &decl_deps.steamcmd).await {
             let err = NonRecoverableError::ConcurrentDependency {
-                dependency: dependencies.steamcmd.clone(),
+                dependency: decl_deps.steamcmd.clone(),
                 pid,
             };
             log::error!(
@@ -75,18 +81,16 @@ impl GameStateMachine for GameState {
             return Err(err);
         }
 
-        if let Some(ref game_server_installation) = dependencies.RustDedicated {
-            if let Some(pid) = proc::is_running(dependencies, &game_server_installation).await {
-                let err = NonRecoverableError::ConcurrentDependency {
-                    dependency: game_server_installation.clone(),
-                    pid,
-                };
-                log::error!(
-                    "Non-recoverable error: {source_tree}",
-                    source_tree = format_error_source_tree(&err)
-                );
-                return Err(err);
-            }
+        if let Some(pid) = proc::is_running(&pgrep, &decl_deps.RustDedicated).await {
+            let err = NonRecoverableError::ConcurrentDependency {
+                dependency: decl_deps.RustDedicated.clone(),
+                pid,
+            };
+            log::error!(
+                "Non-recoverable error: {source_tree}",
+                source_tree = format_error_source_tree(&err)
+            );
+            return Err(err);
         }
 
         log::debug!("TODO: Install or update RustDedicated using SteamCMD");
@@ -164,76 +168,46 @@ pub mod proc {
     use std::{fmt::Display, process::Stdio};
 
     #[allow(non_snake_case)]
-    pub struct Dependencies {
+    pub struct DependenciesDeclared {
         /// A common Linux utility.
-        pub pgrep: Dependency,
+        pub pgrep: DependencyDeclared,
 
         /// The game server installer.
-        pub steamcmd: Dependency,
+        pub steamcmd: DependencyDeclared,
 
         /// The game server executable. May be `None` if not yet installed.
-        pub RustDedicated: Option<Dependency>,
+        pub RustDedicated: DependencyDeclared,
     }
 
-    impl Dependencies {
-        pub async fn check() -> Result<Self, NonRecoverableError> {
-            let pgrep_name = "pgrep";
-            let pgrep_found: std::path::PathBuf = match find_absolute_path(pgrep_name).await {
-                Some(n) => n,
-                None => {
-                    let err = NonRecoverableError::MissingDependency {
-                        executable_name_seeked: pgrep_name.to_owned(),
-                    };
-                    log::error!(
-                        "Non-recoverable error: {source_tree}",
-                        source_tree = format_error_source_tree(&err)
-                    );
-                    return Err(err);
-                }
-            };
+    #[derive(Clone, Debug)]
+    pub struct DependencyDeclared {
+        pub expected_executable_name: String,
+    }
 
-            let steamcmd_name = "steamcmd";
-            let steamcmd_found: std::path::PathBuf = match find_absolute_path(steamcmd_name).await {
-                Some(n) => n,
-                None => {
-                    let err = NonRecoverableError::MissingDependency {
-                        executable_name_seeked: steamcmd_name.to_owned(),
-                    };
-                    log::error!(
-                        "Non-recoverable error: {source_tree}",
-                        source_tree = format_error_source_tree(&err)
-                    );
-                    return Err(err);
-                }
-            };
+    impl DependencyDeclared {
+        pub fn declare(expected_executable_name: &str) -> Self {
+            Self {
+                expected_executable_name: expected_executable_name.to_owned(),
+            }
+        }
+    }
 
-            let rust_dedicated_name = "RustDedicated";
-            let rust_dedicated_found: Option<std::path::PathBuf> =
-                find_absolute_path(rust_dedicated_name).await;
-
-            Ok(Self {
-                pgrep: Dependency {
-                    executable_path_absolute: pgrep_found,
-                },
-                steamcmd: Dependency {
-                    executable_path_absolute: steamcmd_found,
-                },
-                RustDedicated: match rust_dedicated_found {
-                    Some(executable_path_absolute) => Some(Dependency {
-                        executable_path_absolute,
-                    }),
-                    None => None,
-                },
-            })
+    impl Display for DependencyDeclared {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}", self.expected_executable_name)
         }
     }
 
     #[derive(Clone, Debug)]
-    pub struct Dependency {
+    pub struct DependencyChecked {
         pub executable_path_absolute: std::path::PathBuf,
     }
 
-    impl Dependency {
+    impl DependencyChecked {
+        pub fn check(declared: &DependencyDeclared) -> Option<Self> {
+            todo!()
+        }
+
         pub fn get_executable_name(&self) -> String {
             self.executable_path_absolute
                 .to_owned()
@@ -242,7 +216,7 @@ pub mod proc {
         }
     }
 
-    impl Display for Dependency {
+    impl Display for DependencyChecked {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(
                 f,
@@ -254,11 +228,13 @@ pub mod proc {
     }
 
     /// Returns the PID of the running dependency, if it's running.
-    pub async fn is_running(dependencies: &Dependencies, dependency: &Dependency) -> Option<u32> {
-        let mut command =
-            tokio::process::Command::new(&dependencies.pgrep.executable_path_absolute);
+    pub async fn is_running(
+        pgrep: &DependencyChecked,
+        dependency: &DependencyDeclared,
+    ) -> Option<u32> {
+        let mut command = tokio::process::Command::new(&pgrep.executable_path_absolute);
         let command = command.current_dir("/");
-        let command = command.args(vec![dependency.get_executable_name()]);
+        let command = command.args(vec![&dependency.expected_executable_name]);
         let command = command.stdout(Stdio::piped());
         let command = command.stderr(Stdio::piped());
         let output = command.spawn().unwrap().wait_with_output().await.unwrap();

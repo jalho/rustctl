@@ -278,7 +278,7 @@ pub mod error {
         /// Attempted to run a dependency that is already running and that
         /// cannot be run concurrently.
         ConcurrentDependency {
-            dependency: crate::game::proc::Dependency,
+            dependency: crate::game::proc::DependencyDeclared,
             pid: u32,
         },
     }

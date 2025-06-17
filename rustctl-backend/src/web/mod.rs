@@ -2,7 +2,10 @@ mod handlers;
 
 use crate::{
     core::{CrossTasksSharedState, coroutines::Coroutine, error::NonRecoverableError},
-    game::{GameStateMachine, proc::Dependencies},
+    game::{
+        GameStateMachine,
+        proc::{DependenciesDeclared, DependencyDeclared},
+    },
 };
 use axum::{Router, routing};
 use axum_server::tls_rustls::RustlsConfig;
@@ -24,13 +27,10 @@ pub async fn start(
 ) -> Result<(), NonRecoverableError> {
     let ip_hash_salt: String = generate_random_salt_not_secure();
     let app_state = WebServerState::init(client_sync_interval, shared, ip_hash_salt);
-    let dependencies: Dependencies = match Dependencies::check().await {
-        Ok(n) => n,
-        Err(err) => {
-            log::info!("Requesting shutdown from coroutine {coroutine_identity}");
-            shutdown_tx.send(coroutine_identity).await.unwrap();
-            return Err(err);
-        }
+    let dependencies: DependenciesDeclared = DependenciesDeclared {
+        pgrep: DependencyDeclared::declare("pgrep"),
+        steamcmd: DependencyDeclared::declare("steamcmd"),
+        RustDedicated: DependencyDeclared::declare("RustDedicated"),
     };
 
     let result: Result<(), NonRecoverableError>;
