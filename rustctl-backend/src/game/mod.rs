@@ -58,13 +58,7 @@ impl GameStateMachine for GameState {
         initiator: StateTransitionInitiator,
         decl_deps: &proc::DependenciesDeclared,
     ) -> Result<(), NonRecoverableError> {
-        /*
-         * TODO: Check whether a dependency is already running regardless of
-         *       whether it could be found from the `PATH`! (`RustDedicated` is
-         *       not necessarily expected to ever join `PATH`...)
-         */
-
-        let pgrep = match DependencyChecked::check(&decl_deps.pgrep) {
+        let pgrep: DependencyChecked = match DependencyChecked::check(&decl_deps.pgrep).await {
             Some(n) => n,
             None => todo!(),
         };
@@ -161,11 +155,12 @@ impl GameStateMachine for GameState {
 }
 
 pub mod proc {
-    use crate::{
-        core::error::{NonRecoverableError, format_error_source_tree},
-        system::fs::find_absolute_path,
+    use std::{
+        fmt::Display,
+        path::{Path, PathBuf},
+        process::Stdio,
     };
-    use std::{fmt::Display, process::Stdio};
+    use tokio::fs;
 
     #[allow(non_snake_case)]
     pub struct DependenciesDeclared {
@@ -204,8 +199,46 @@ pub mod proc {
     }
 
     impl DependencyChecked {
-        pub fn check(declared: &DependencyDeclared) -> Option<Self> {
-            todo!()
+        pub async fn check(declared: &DependencyDeclared) -> Option<Self> {
+            let executable_name = &declared.expected_executable_name;
+            let path = Path::new(executable_name);
+            if path.components().count() > 1 {
+                if fs::metadata(path).await.ok()?.is_file() {
+                    return Some(Self {
+                        executable_path_absolute: path.canonicalize().ok()?,
+                    });
+                } else {
+                    return None;
+                }
+            }
+
+            let raw_path = std::env::var_os("PATH")?;
+            let path_str = raw_path.to_string_lossy();
+
+            let dirs = if path_str.contains(':') {
+                std::env::split_paths(&raw_path).collect::<Vec<_>>()
+            } else {
+                path_str
+                    .split_whitespace()
+                    .map(PathBuf::from)
+                    .collect::<Vec<_>>()
+            };
+
+            'paths: for dir in dirs {
+                let full_path = dir.join(executable_name);
+                let found_path = match fs::metadata(&full_path).await {
+                    Ok(n) => n,
+                    Err(_) => continue 'paths,
+                };
+                if found_path.is_file() {
+                    return Some(Self {
+                        executable_path_absolute: full_path,
+                    });
+                } else {
+                    continue 'paths;
+                }
+            }
+            None
         }
 
         pub fn get_executable_name(&self) -> String {
