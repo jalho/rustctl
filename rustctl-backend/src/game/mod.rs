@@ -69,16 +69,18 @@ impl GameStateMachine for GameState {
             return Err(err);
         }
 
-        if let Some(pid) = proc::is_running(dependencies, &dependencies.RustDedicated).await {
-            let err = NonRecoverableError::ConcurrentDependency {
-                dependency: dependencies.RustDedicated.clone(),
-                pid,
-            };
-            log::error!(
-                "Non-recoverable error: {source_tree}",
-                source_tree = format_error_source_tree(&err)
-            );
-            return Err(err);
+        if let Some(ref game_server_installation) = dependencies.RustDedicated {
+            if let Some(pid) = proc::is_running(dependencies, &game_server_installation).await {
+                let err = NonRecoverableError::ConcurrentDependency {
+                    dependency: game_server_installation.clone(),
+                    pid,
+                };
+                log::error!(
+                    "Non-recoverable error: {source_tree}",
+                    source_tree = format_error_source_tree(&err)
+                );
+                return Err(err);
+            }
         }
 
         log::debug!("TODO: Install or update RustDedicated using SteamCMD");
@@ -157,9 +159,14 @@ pub mod proc {
 
     #[allow(non_snake_case)]
     pub struct Dependencies {
+        /// A common Linux utility.
         pub pgrep: Dependency,
+
+        /// The game server installer.
         pub steamcmd: Dependency,
-        pub RustDedicated: Dependency,
+
+        /// The game server executable. May be `None` if not yet installed.
+        pub RustDedicated: Option<Dependency>,
     }
 
     impl Dependencies {
@@ -178,7 +185,40 @@ pub mod proc {
                     return Err(err);
                 }
             };
-            todo!();
+
+            let steamcmd_name = "steamcmd";
+            let steamcmd_found: std::path::PathBuf = match find_absolute_path(steamcmd_name).await {
+                Some(n) => n,
+                None => {
+                    let err = NonRecoverableError::MissingDependency {
+                        executable_name_seeked: steamcmd_name.to_owned(),
+                    };
+                    log::error!(
+                        "Non-recoverable error: {source_tree}",
+                        source_tree = format_error_source_tree(&err)
+                    );
+                    return Err(err);
+                }
+            };
+
+            let rust_dedicated_name = "RustDedicated";
+            let rust_dedicated_found: Option<std::path::PathBuf> =
+                find_absolute_path(rust_dedicated_name).await;
+
+            Ok(Self {
+                pgrep: Dependency {
+                    executable_path_absolute: pgrep_found,
+                },
+                steamcmd: Dependency {
+                    executable_path_absolute: steamcmd_found,
+                },
+                RustDedicated: match rust_dedicated_found {
+                    Some(executable_path_absolute) => Some(Dependency {
+                        executable_path_absolute,
+                    }),
+                    None => None,
+                },
+            })
         }
     }
 
