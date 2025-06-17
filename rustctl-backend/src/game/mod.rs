@@ -59,7 +59,6 @@ impl GameStateMachine for GameState {
     ) -> Result<(), NonRecoverableError> {
         if let Some(pid) = proc::is_running(dependencies, &dependencies.steamcmd).await {
             let err = NonRecoverableError::ConcurrentDependency {
-                cannot_display: String::from("cannot update and launch game"),
                 dependency: dependencies.steamcmd.clone(),
                 pid,
             };
@@ -72,7 +71,6 @@ impl GameStateMachine for GameState {
 
         if let Some(pid) = proc::is_running(dependencies, &dependencies.RustDedicated).await {
             let err = NonRecoverableError::ConcurrentDependency {
-                cannot_display: String::from("cannot update and launch game"),
                 dependency: dependencies.RustDedicated.clone(),
                 pid,
             };
@@ -151,9 +149,11 @@ impl GameStateMachine for GameState {
 }
 
 pub mod proc {
+    use crate::{
+        core::error::{NonRecoverableError, format_error_source_tree},
+        system::fs::find_absolute_path,
+    };
     use std::{fmt::Display, process::Stdio};
-
-    use crate::core::error::NonRecoverableError;
 
     #[allow(non_snake_case)]
     pub struct Dependencies {
@@ -164,7 +164,21 @@ pub mod proc {
 
     impl Dependencies {
         pub async fn check() -> Result<Self, NonRecoverableError> {
-            todo!("check if the dependencies exist");
+            let pgrep_name = "pgrep";
+            let pgrep_found: std::path::PathBuf = match find_absolute_path(pgrep_name).await {
+                Some(n) => n,
+                None => {
+                    let err = NonRecoverableError::MissingDependency {
+                        executable_name_seeked: pgrep_name.to_owned(),
+                    };
+                    log::error!(
+                        "Non-recoverable error: {source_tree}",
+                        source_tree = format_error_source_tree(&err)
+                    );
+                    return Err(err);
+                }
+            };
+            todo!();
         }
     }
 

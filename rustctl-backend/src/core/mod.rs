@@ -272,10 +272,12 @@ pub mod error {
 
     #[derive(Debug)]
     pub enum NonRecoverableError {
+        /// A required dependency is missing.
+        MissingDependency { executable_name_seeked: String },
+
         /// Attempted to run a dependency that is already running and that
         /// cannot be run concurrently.
         ConcurrentDependency {
-            cannot_display: String,
             dependency: crate::game::proc::Dependency,
             pid: u32,
         },
@@ -285,6 +287,7 @@ pub mod error {
         fn source(&self) -> Option<&(dyn Error + 'static)> {
             match self {
                 NonRecoverableError::ConcurrentDependency { .. } => None,
+                NonRecoverableError::MissingDependency { .. } => None,
             }
         }
     }
@@ -292,15 +295,13 @@ pub mod error {
     impl Display for NonRecoverableError {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
-                NonRecoverableError::ConcurrentDependency {
-                    cannot_display,
-                    dependency,
-                    pid,
+                NonRecoverableError::ConcurrentDependency { dependency, pid } => {
+                    write!(f, "dependency already running as PID {pid}: {dependency}")
+                }
+                NonRecoverableError::MissingDependency {
+                    executable_name_seeked,
                 } => {
-                    write!(
-                        f,
-                        "{cannot_display}: dependency already running as PID {pid}: {dependency}"
-                    )
+                    write!(f, "missing required dependency: {executable_name_seeked}")
                 }
             }
         }
@@ -310,6 +311,7 @@ pub mod error {
         fn from(value: NonRecoverableError) -> Self {
             match value {
                 NonRecoverableError::ConcurrentDependency { .. } => ExitCode::from(42),
+                NonRecoverableError::MissingDependency { .. } => ExitCode::from(43),
             }
         }
     }
