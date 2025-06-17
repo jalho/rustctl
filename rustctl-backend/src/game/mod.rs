@@ -57,6 +57,12 @@ impl GameStateMachine for GameState {
         initiator: StateTransitionInitiator,
         dependencies: &proc::Dependencies,
     ) -> Result<(), NonRecoverableError> {
+        /*
+         * TODO: Check whether a dependency is already running regardless of
+         *       whether it could be found from the `PATH`! (`RustDedicated` is
+         *       not necessarily expected to ever join `PATH`...)
+         */
+
         if let Some(pid) = proc::is_running(dependencies, &dependencies.steamcmd).await {
             let err = NonRecoverableError::ConcurrentDependency {
                 dependency: dependencies.steamcmd.clone(),
