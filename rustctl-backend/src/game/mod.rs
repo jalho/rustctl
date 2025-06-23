@@ -88,7 +88,29 @@ impl GameStateMachine for GameState {
             return Err(err);
         }
 
-        log::debug!("TODO: Install or update RustDedicated using SteamCMD");
+        let steamcmd: DependencyLocated =
+            match DependencyLocated::locate_installation(&decl_deps.steamcmd).await {
+                Some(n) => n,
+                None => todo!(),
+            };
+        let install: tokio::process::Child = steamcmd
+            .execute(
+                std::path::Path::new("/"),
+                None,
+                vec![
+                    "+login".into(),
+                    "anonymous".into(),
+                    "+force_install_dir".into(),
+                    "/home/rust".into(),
+                    "+app_update".into(),
+                    "258550".into(),
+                    "validate".into(),
+                    "+quit".into(),
+                ],
+            )
+            .await;
+        let output: std::process::Output = install.wait_with_output().await.unwrap();
+        log::debug!("TODO: {output:?}");
 
         log::debug!("TODO: Launch RustDedicated");
 
@@ -157,6 +179,7 @@ impl GameStateMachine for GameState {
 
 pub mod proc {
     use std::{
+        collections::HashMap,
         fmt::Display,
         path::{Path, PathBuf},
         process::Stdio,
@@ -240,6 +263,24 @@ pub mod proc {
                 }
             }
             None
+        }
+
+        pub async fn execute(
+            &self,
+            work_dir: &std::path::Path,
+            env: Option<HashMap<String, String>>,
+            argv: Vec<String>,
+        ) -> tokio::process::Child {
+            let mut cmd = tokio::process::Command::new(&self.executable_path_absolute);
+            cmd.args(argv);
+            cmd.current_dir(work_dir);
+            if let Some(env) = env {
+                cmd.envs(env);
+            }
+            cmd.stdout(Stdio::piped());
+            cmd.stderr(Stdio::piped());
+            let child_process: tokio::process::Child = cmd.spawn().unwrap();
+            return child_process;
         }
 
         pub fn get_executable_name(&self) -> String {
