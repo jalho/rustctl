@@ -7,6 +7,11 @@ fn main() -> std::process::ExitCode {
         .build()
         .unwrap();
 
+    /*
+     * TODO: Define coroutine for receiving events from game server via a Unix
+     *       domain socket (i.e. those sent from a custom made Carbon framework
+     *       plugin)
+     */
     let coroutines_done = runtime.block_on(async {
         tokio::join!(
             coordinator.clone().start_sl(),
