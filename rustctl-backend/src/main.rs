@@ -23,17 +23,17 @@ fn main() -> std::process::ExitCode {
 
 mod coord {
     pub struct CoroutinesTerminated {
-        results: Vec<Result<Result<(), crate::temp::NRE>, tokio::task::JoinError>>,
+        results: Vec<Result<Result<(), crate::error::NRE>, tokio::task::JoinError>>,
     }
 
     impl CoroutinesTerminated {
         pub fn capture(
             results: (
-                Result<Result<(), crate::temp::NRE>, tokio::task::JoinError>,
-                Result<Result<(), crate::temp::NRE>, tokio::task::JoinError>,
-                Result<Result<(), crate::temp::NRE>, tokio::task::JoinError>,
-                Result<Result<(), crate::temp::NRE>, tokio::task::JoinError>,
-                Result<Result<(), crate::temp::NRE>, tokio::task::JoinError>,
+                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
+                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
+                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
+                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
+                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
             ),
         ) -> Self {
             let (a, b, c, d, e) = results;
@@ -52,7 +52,7 @@ mod coord {
                         continue 'results;
                     }
                     Ok(Err(err)) => {
-                        let _err: crate::temp::NRE = err;
+                        let _err: crate::error::NRE = err;
                         return std::process::ExitCode::FAILURE;
                     }
                     Err(err) => {
@@ -66,13 +66,15 @@ mod coord {
     }
 }
 
-mod temp {
+mod error {
     /// A _non-recoverable error_ (NRE).
     #[derive(Debug)]
     pub enum NRE {
         MissingRequiredDependency,
     }
+}
 
+mod temp {
     struct SystemResourcesUsage;
 
     impl SystemResourcesUsage {
@@ -129,7 +131,9 @@ mod temp {
         /// Start _signal listener_ ("sl"): Activate the CancellationToken in
         /// `self` on SIGINT, SIGTERM, or whenever any of the peer coroutines
         /// use the `mpsc::channel` in `self` to signal to terminate.
-        pub fn start_sl(self: std::sync::Arc<Self>) -> tokio::task::JoinHandle<Result<(), NRE>> {
+        pub fn start_sl(
+            self: std::sync::Arc<Self>,
+        ) -> tokio::task::JoinHandle<Result<(), crate::error::NRE>> {
             let join_handle = tokio::task::spawn(async {
                 todo!();
             });
@@ -139,7 +143,9 @@ mod temp {
         /// Start a _web server_ ("ws"): Accept WebSocket clients. Handle
         /// inbound command messages from authorized clients. Send state updates
         /// to authorized clients.
-        pub fn start_ws(self: std::sync::Arc<Self>) -> tokio::task::JoinHandle<Result<(), NRE>> {
+        pub fn start_ws(
+            self: std::sync::Arc<Self>,
+        ) -> tokio::task::JoinHandle<Result<(), crate::error::NRE>> {
             let join_handle = tokio::task::spawn(async {
                 todo!();
             });
@@ -155,7 +161,9 @@ mod temp {
         /// should be automatically initiated at e.g. program startup, whereas
         /// some of the transitions should only happen upon received command
         /// from some authorized client (like RunningHealthy -> Stopping)
-        pub fn start_gssm(self: std::sync::Arc<Self>) -> tokio::task::JoinHandle<Result<(), NRE>> {
+        pub fn start_gssm(
+            self: std::sync::Arc<Self>,
+        ) -> tokio::task::JoinHandle<Result<(), crate::error::NRE>> {
             let join_handle = tokio::task::spawn(async {
                 todo!();
             });
@@ -164,7 +172,9 @@ mod temp {
 
         /// Start a _system resources's usage monitor_ ("srum"): Read CPU,
         /// memory, networking usage etc., on a regular interval.
-        pub fn start_srum(self: std::sync::Arc<Self>) -> tokio::task::JoinHandle<Result<(), NRE>> {
+        pub fn start_srum(
+            self: std::sync::Arc<Self>,
+        ) -> tokio::task::JoinHandle<Result<(), crate::error::NRE>> {
             let join_handle = tokio::task::spawn(async {
                 todo!();
             });
@@ -173,7 +183,9 @@ mod temp {
 
         /// Start _game world snapshotting_ ("gws"): Query game world state via
         /// RCON, on a regular interval.
-        pub fn start_gws(self: std::sync::Arc<Self>) -> tokio::task::JoinHandle<Result<(), NRE>> {
+        pub fn start_gws(
+            self: std::sync::Arc<Self>,
+        ) -> tokio::task::JoinHandle<Result<(), crate::error::NRE>> {
             let join_handle = tokio::task::spawn(async {
                 todo!();
             });
