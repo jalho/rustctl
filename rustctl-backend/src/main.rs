@@ -1,5 +1,5 @@
 fn main() -> std::process::ExitCode {
-    let coordinator: std::sync::Arc<temp::Coordinator> = temp::Coordinator::init();
+    let coordinator: std::sync::Arc<coord::Coordinator> = coord::Coordinator::init();
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .worker_threads(1)
@@ -22,109 +22,37 @@ fn main() -> std::process::ExitCode {
 }
 
 mod coord {
-    pub struct CoroutinesTerminated {
-        results: Vec<Result<Result<(), crate::error::NRE>, tokio::task::JoinError>>,
-    }
-
-    impl CoroutinesTerminated {
-        pub fn capture(
-            results: (
-                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
-                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
-                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
-                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
-                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
-            ),
-        ) -> Self {
-            let (a, b, c, d, e) = results;
-            Self {
-                results: vec![a, b, c, d, e],
-            }
-        }
-    }
-
-    impl From<CoroutinesTerminated> for std::process::ExitCode {
-        fn from(value: CoroutinesTerminated) -> Self {
-            'results: for result in value.results {
-                match result {
-                    Ok(Ok(ok)) => {
-                        let _coroutine_ok: () = ok;
-                        continue 'results;
-                    }
-                    Ok(Err(err)) => {
-                        let _err: crate::error::NRE = err;
-                        return std::process::ExitCode::FAILURE;
-                    }
-                    Err(err) => {
-                        let _err: tokio::task::JoinError = err;
-                        return std::process::ExitCode::FAILURE;
-                    }
-                }
-            }
-            return std::process::ExitCode::SUCCESS;
-        }
-    }
-}
-
-mod error {
-    /// A _non-recoverable error_ (NRE).
-    #[derive(Debug)]
-    pub enum NRE {
-        MissingRequiredDependency,
-    }
-}
-
-mod temp {
-    struct SystemResourcesUsage;
-
-    impl SystemResourcesUsage {
-        pub fn init() -> Self {
-            todo!()
-        }
-    }
-
-    struct WebClientsConnected;
-
-    impl WebClientsConnected {
-        pub fn init() -> Self {
-            todo!()
-        }
-    }
-
-    enum GameServerStateMachine {}
-
-    impl GameServerStateMachine {
-        pub fn init() -> Self {
-            todo!()
-        }
-    }
-
-    struct GameWorldSnapshot;
-
-    impl GameWorldSnapshot {
-        pub fn init() -> Self {
-            todo!()
-        }
-    }
-
     // TODO: Disallow dead_code
     #[allow(dead_code)]
     pub struct Coordinator {
         cancellation_token: tokio_util::sync::CancellationToken,
-        system_resources_usage: tokio::sync::Mutex<SystemResourcesUsage>,
-        web_clients_connected: tokio::sync::Mutex<WebClientsConnected>,
-        game_server_state_machine: tokio::sync::Mutex<GameServerStateMachine>,
-        game_world_snapshot: tokio::sync::Mutex<GameWorldSnapshot>,
+        system_resources_usage:
+            tokio::sync::Mutex<crate::coroutines::system_resources_usage::SystemResourcesUsage>,
+        web_clients_connected:
+            tokio::sync::Mutex<crate::coroutines::web_server::WebClientsConnected>,
+        game_server_state_machine: tokio::sync::Mutex<
+            crate::coroutines::game_server_state_machine::GameServerStateMachine,
+        >,
+        game_world_snapshot:
+            tokio::sync::Mutex<crate::coroutines::game_world_snapshotting::GameWorldSnapshot>,
     }
 
     impl Coordinator {
         pub fn init() -> std::sync::Arc<Self> {
             std::sync::Arc::new(Self {
                 cancellation_token: tokio_util::sync::CancellationToken::new(),
-                system_resources_usage: tokio::sync::Mutex::new(SystemResourcesUsage::init()),
-                web_clients_connected: tokio::sync::Mutex::new(WebClientsConnected::init()),
-                game_server_state_machine: tokio::sync::Mutex::new(GameServerStateMachine::init()),
-                game_world_snapshot: tokio::sync::Mutex::new(GameWorldSnapshot::init()),
+                system_resources_usage: tokio::sync::Mutex::new(
+                    crate::coroutines::system_resources_usage::SystemResourcesUsage::init(),
+                ),
+                web_clients_connected: tokio::sync::Mutex::new(
+                    crate::coroutines::web_server::WebClientsConnected::init(),
+                ),
+                game_server_state_machine: tokio::sync::Mutex::new(
+                    crate::coroutines::game_server_state_machine::GameServerStateMachine::init(),
+                ),
+                game_world_snapshot: tokio::sync::Mutex::new(
+                    crate::coroutines::game_world_snapshotting::GameWorldSnapshot::init(),
+                ),
             })
         }
 
@@ -190,6 +118,99 @@ mod temp {
                 todo!();
             });
             join_handle
+        }
+    }
+
+    pub struct CoroutinesTerminated {
+        results: Vec<Result<Result<(), crate::error::NRE>, tokio::task::JoinError>>,
+    }
+
+    impl CoroutinesTerminated {
+        pub fn capture(
+            results: (
+                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
+                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
+                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
+                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
+                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
+            ),
+        ) -> Self {
+            let (a, b, c, d, e) = results;
+            Self {
+                results: vec![a, b, c, d, e],
+            }
+        }
+    }
+
+    impl From<CoroutinesTerminated> for std::process::ExitCode {
+        fn from(value: CoroutinesTerminated) -> Self {
+            'results: for result in value.results {
+                match result {
+                    Ok(Ok(ok)) => {
+                        let _coroutine_ok: () = ok;
+                        continue 'results;
+                    }
+                    Ok(Err(err)) => {
+                        let _err: crate::error::NRE = err;
+                        return std::process::ExitCode::FAILURE;
+                    }
+                    Err(err) => {
+                        let _err: tokio::task::JoinError = err;
+                        return std::process::ExitCode::FAILURE;
+                    }
+                }
+            }
+            return std::process::ExitCode::SUCCESS;
+        }
+    }
+}
+
+mod error {
+    /// A _non-recoverable error_ (NRE).
+    #[derive(Debug)]
+    pub enum NRE {
+        MissingRequiredDependency,
+    }
+}
+
+mod coroutines {
+    pub mod system_resources_usage {
+        pub struct SystemResourcesUsage;
+
+        impl SystemResourcesUsage {
+            pub fn init() -> Self {
+                todo!()
+            }
+        }
+    }
+
+    pub mod web_server {
+        pub struct WebClientsConnected;
+
+        impl WebClientsConnected {
+            pub fn init() -> Self {
+                todo!()
+            }
+        }
+    }
+
+    pub mod game_server_state_machine {
+        pub enum GameServerStateMachine {}
+
+        impl GameServerStateMachine {
+            pub fn init() -> Self {
+                todo!()
+            }
+        }
+    }
+
+    pub mod game_world_snapshotting {
+        pub struct GameWorldSnapshot;
+
+        impl GameWorldSnapshot {
+            pub fn init() -> Self {
+                todo!()
+            }
         }
     }
 }
