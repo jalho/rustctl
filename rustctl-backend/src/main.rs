@@ -26,6 +26,11 @@ mod coord {
     #[allow(dead_code)]
     pub struct Coordinator {
         cancellation_token: tokio_util::sync::CancellationToken,
+        cancellation_channel: (
+            tokio::sync::mpsc::Sender<crate::coroutines::Coroutine>,
+            tokio::sync::mpsc::Receiver<crate::coroutines::Coroutine>,
+        ),
+
         system_resources_usage:
             tokio::sync::Mutex<crate::coroutines::system_resources_usage::SystemResourcesUsage>,
         web_clients_connected:
@@ -41,6 +46,8 @@ mod coord {
         pub fn init() -> std::sync::Arc<Self> {
             std::sync::Arc::new(Self {
                 cancellation_token: tokio_util::sync::CancellationToken::new(),
+                cancellation_channel: tokio::sync::mpsc::channel::<crate::coroutines::Coroutine>(1),
+
                 system_resources_usage: tokio::sync::Mutex::new(
                     crate::coroutines::system_resources_usage::SystemResourcesUsage::init(),
                 ),
@@ -181,6 +188,16 @@ mod error {
 }
 
 mod coroutines {
+
+    // TODO: Disallow dead_code
+    #[allow(dead_code)]
+    pub enum Coroutine {
+        SystemResourcesUsage(system_resources_usage::SystemResourcesUsage),
+        WebClientsConnected(web_server::WebClientsConnected),
+        GameServerStateMachine(game_server_state_machine::GameServerStateMachine),
+        GameWorldSnapshot(game_world_snapshotting::GameWorldSnapshot),
+    }
+
     pub mod system_resources_usage {
         pub struct SystemResourcesUsage;
 
