@@ -35,7 +35,8 @@ pub async fn start(
 
     /*
      * TODO: Accept web clients already while the initial automatic startup is
-     *       still in progress!
+     *       still in progress! Maybe define another "Tokio task": "Loop game
+     *       state machine"?
      */
     let launched: Result<(), NonRecoverableError>;
     {
