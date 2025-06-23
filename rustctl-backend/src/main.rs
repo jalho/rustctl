@@ -1,163 +1,186 @@
-mod constants;
-mod core;
-mod game;
-mod system;
-mod web;
-
 fn main() -> std::process::ExitCode {
-    console_subscriber::init();
-
-    let args = core::Cli::get_args();
-
-    let (listen_addr, cors_allow_origin, tls_key_pem, tls_cert_pem) = match args.command {
-        core::CliCommand::Start {
-            listen_addr,
-            cors_allow_origin,
-            tls_key_pem,
-            tls_cert_pem,
-        } => (listen_addr, cors_allow_origin, tls_key_pem, tls_cert_pem),
-    };
-
-    let _handle: log4rs::Handle = core::init_logging(log::LevelFilter::Debug);
-    log::info!(
-        "{name} {version}",
-        name = env!("CARGO_PKG_NAME"),
-        version = env!("CARGO_PKG_VERSION")
-    );
-
-    /*
-     * Graceful shutdown mechanism: CancellationToken driven by:
-     * - standard signals SIGINT, SIGTERM etc.
-     * - shutdown channel that peer coroutines can use
-     */
-    let cancel = tokio_util::sync::CancellationToken::new();
-    let (shutdown_tx, shutdown_rx) = tokio::sync::mpsc::channel::<core::coroutines::Coroutine>(1);
-
-    let state: std::sync::Arc<tokio::sync::Mutex<core::CrossTasksSharedState>> =
-        match core::CrossTasksSharedState::init() {
-            Ok(n) => n,
-            Err(err) => {
-                /*
-                 * Logging of the error should be done near where it occurred.
-                 */
-                let err: core::error::NonRecoverableError = err;
-                let code = std::process::ExitCode::from(err);
-                return code;
-            }
-        };
+    let coordinator: std::sync::Arc<temp::Coordinator> = temp::Coordinator::init();
 
     let runtime = tokio::runtime::Builder::new_current_thread()
-        .worker_threads(1) // aiming for small footprint to leave maximal resources for the game
+        .worker_threads(1)
         .enable_all()
         .build()
         .unwrap();
 
-    let done: Result<(), core::error::NonRecoverableError> = runtime.block_on(async {
-        let tls_config: Option<axum_server::tls_rustls::RustlsConfig> =
-            match (tls_key_pem, tls_cert_pem) {
-                (Some(key), Some(cert)) => {
-                    let cert: std::vec::Vec<u8> = std::fs::read(cert).unwrap();
-                    let key: std::vec::Vec<u8> = std::fs::read(key).unwrap();
-                    let cfg = axum_server::tls_rustls::RustlsConfig::from_pem(cert, key)
-                        .await
-                        .unwrap();
-                    Some(cfg)
-                }
-                _ => None,
-            };
-
-        /*
-         * Monitor system resources's usage such as CPU and memory.
-         */
-        let jh_monitor = tokio::task::Builder::new()
-            .name(&core::coroutines::Coroutine::MonitorUsage.to_string())
-            .spawn(system::monitor_usage(
-                core::coroutines::Coroutine::MonitorUsage,
-                cancel.child_token(),
-                shutdown_tx.clone(),
-                constants::INTERVAL_MONITOR_SYSTEM,
-                state.clone(),
-            ))
-            .unwrap();
-
-        /*
-         * Read game state such as players's locations.
-         */
-        let jh_state = tokio::task::Builder::new()
-            .name(&core::coroutines::Coroutine::ReadState.to_string())
-            .spawn(game::read_state(
-                core::coroutines::Coroutine::ReadState,
-                cancel.child_token(),
-                shutdown_tx.clone(),
-                constants::INTERVAL_FETCH_GAME_STATE,
-                state.clone(),
-            ))
-            .unwrap();
-
-        /*
-         * Serve a web app for observing and managing the system.
-         */
-        let jh_web = tokio::task::Builder::new()
-            .name(&core::coroutines::Coroutine::WebServer.to_string())
-            .spawn(web::start(
-                core::coroutines::Coroutine::WebServer,
-                cancel.child_token(),
-                shutdown_tx.clone(),
-                constants::INTERVAL_SYNC_CLIENT,
-                listen_addr,
-                tls_config,
-                cors_allow_origin,
-                state,
-            ))
-            .unwrap();
-        log::info!("Web server started: {listen_addr}");
-
-        /*
-         * Activate cancellation sequences on SIGINT, SIGTERM etc.
-         */
-        let jh_signal = tokio::task::Builder::new()
-            .name(&core::coroutines::Coroutine::WaitSignal.to_string())
-            .spawn(system::wait_signal(
-                core::coroutines::Coroutine::WaitSignal,
-                cancel,
-                shutdown_rx,
-            ))
-            .unwrap();
-
-        // coroutine results in terms of the runtime
-        let tt_result_monitor = jh_monitor.await;
-        let tt_result_state = jh_state.await;
-        let tt_result_web = jh_web.await;
-        let tt_result_signal = jh_signal.await;
-
-        // results in terms of the application
-        let res_monitor: Result<(), core::error::NonRecoverableError> = tt_result_monitor.unwrap();
-        let res_state: Result<(), core::error::NonRecoverableError> = tt_result_state.unwrap();
-        let res_web: Result<(), core::error::NonRecoverableError> = tt_result_web.unwrap();
-        let res_signal: Result<(), core::error::NonRecoverableError> = tt_result_signal.unwrap();
-
-        // return the NonRecoverableError if any of the tasks yielded it...
-        for result in [res_monitor, res_state, res_web, res_signal] {
-            if let Err(e) = result {
-                return Err(e);
-            }
-        }
-        // ...or else OK
-        Ok(())
+    let coroutines_done = runtime.block_on(async {
+        tokio::join!(
+            coordinator.clone().start_sl(),
+            coordinator.clone().start_srum(),
+            coordinator.clone().start_gssm(),
+            coordinator.clone().start_gws(),
+            coordinator.clone().start_ws(),
+        )
     });
 
-    match done {
-        Err(err) => {
-            /*
-             * Logging of the error should be done near where it occurred.
-             */
-            let error: core::error::NonRecoverableError = err;
-            let status: std::process::ExitCode = error.into();
-            status
+    let code: std::process::ExitCode = temp::CoroutinesTerminated::capture(coroutines_done).into();
+    return code;
+}
+
+mod temp {
+    use std::{process::ExitCode, sync::Arc};
+    use tokio::{
+        sync::Mutex,
+        task::{JoinError, JoinHandle},
+    };
+    use tokio_util::sync::CancellationToken;
+
+    pub struct CoroutinesTerminated {
+        results: Vec<Result<Result<(), NRE>, JoinError>>,
+    }
+
+    impl CoroutinesTerminated {
+        pub fn capture(
+            results: (
+                Result<Result<(), NRE>, JoinError>,
+                Result<Result<(), NRE>, JoinError>,
+                Result<Result<(), NRE>, JoinError>,
+                Result<Result<(), NRE>, JoinError>,
+                Result<Result<(), NRE>, JoinError>,
+            ),
+        ) -> Self {
+            let (a, b, c, d, e) = results;
+            Self {
+                results: vec![a, b, c, d, e],
+            }
         }
-        Ok(_) => {
-            log::info!("Done");
-            std::process::ExitCode::SUCCESS
+    }
+
+    impl From<CoroutinesTerminated> for ExitCode {
+        fn from(value: CoroutinesTerminated) -> Self {
+            'results: for result in value.results {
+                match result {
+                    Ok(Ok(ok)) => {
+                        let _coroutine_ok: () = ok;
+                        continue 'results;
+                    }
+                    Ok(Err(err)) => {
+                        let _err: NRE = err;
+                        return ExitCode::FAILURE;
+                    }
+                    Err(err) => {
+                        let _err: JoinError = err;
+                        return ExitCode::FAILURE;
+                    }
+                }
+            }
+            return ExitCode::SUCCESS;
+        }
+    }
+
+    /// A _non-recoverable error_ (NRE).
+    #[derive(Debug)]
+    pub enum NRE {
+        MissingRequiredDependency,
+    }
+
+    struct SystemResourcesUsage;
+
+    impl SystemResourcesUsage {
+        pub fn init() -> Self {
+            todo!()
+        }
+    }
+
+    struct WebClientsConnected;
+
+    impl WebClientsConnected {
+        pub fn init() -> Self {
+            todo!()
+        }
+    }
+
+    enum GameServerStateMachine {}
+
+    impl GameServerStateMachine {
+        pub fn init() -> Self {
+            todo!()
+        }
+    }
+
+    struct GameWorldSnapshot;
+
+    impl GameWorldSnapshot {
+        pub fn init() -> Self {
+            todo!()
+        }
+    }
+
+    pub struct Coordinator {
+        cancellation_token: CancellationToken,
+        system_resources_usage: Mutex<SystemResourcesUsage>,
+        web_clients_connected: Mutex<WebClientsConnected>,
+        game_server_state_machine: Mutex<GameServerStateMachine>,
+        game_world_snapshot: Mutex<GameWorldSnapshot>,
+    }
+
+    impl Coordinator {
+        pub fn init() -> Arc<Self> {
+            Arc::new(Self {
+                cancellation_token: CancellationToken::new(),
+                system_resources_usage: Mutex::new(SystemResourcesUsage::init()),
+                web_clients_connected: Mutex::new(WebClientsConnected::init()),
+                game_server_state_machine: Mutex::new(GameServerStateMachine::init()),
+                game_world_snapshot: Mutex::new(GameWorldSnapshot::init()),
+            })
+        }
+
+        /// Start _signal listener_ ("sl"): Activate the CancellationToken in
+        /// `self` on SIGINT, SIGTERM, or whenever any of the peer coroutines
+        /// use the `mpsc::channel` in `self` to signal to terminate.
+        pub fn start_sl(self: Arc<Self>) -> JoinHandle<Result<(), NRE>> {
+            let join_handle = tokio::task::spawn(async {
+                todo!();
+            });
+            join_handle
+        }
+
+        /// Start a _web server_ ("ws"): Accept WebSocket clients. Handle
+        /// inbound command messages from authorized clients. Send state updates
+        /// to authorized clients.
+        pub fn start_ws(self: Arc<Self>) -> JoinHandle<Result<(), NRE>> {
+            let join_handle = tokio::task::spawn(async {
+                todo!();
+            });
+            join_handle
+        }
+
+        /// Start a _game server state machine_ ("gssm"): Loop game server
+        /// state machine: Init -> Installing -> Launching -> RunningHealthy ->
+        /// Stopping -> NotRunning -> Updating -> Launching -> RunningHealthy
+        /// etc.
+        ///
+        /// Some of the transitions (like Init -> Installing -> Launching)
+        /// should be automatically initiated at e.g. program startup, whereas
+        /// some of the transitions should only happen upon received command
+        /// from some authorized client (like RunningHealthy -> Stopping)
+        pub fn start_gssm(self: Arc<Self>) -> JoinHandle<Result<(), NRE>> {
+            let join_handle = tokio::task::spawn(async {
+                todo!();
+            });
+            join_handle
+        }
+
+        /// Start a _system resources's usage monitor_ ("srum"): Read CPU,
+        /// memory, networking usage etc., on a regular interval.
+        pub fn start_srum(self: Arc<Self>) -> JoinHandle<Result<(), NRE>> {
+            let join_handle = tokio::task::spawn(async {
+                todo!();
+            });
+            join_handle
+        }
+
+        /// Start _game world snapshotting_ ("gws"): Query game world state via
+        /// RCON, on a regular interval.
+        pub fn start_gws(self: Arc<Self>) -> JoinHandle<Result<(), NRE>> {
+            let join_handle = tokio::task::spawn(async {
+                todo!();
+            });
+            join_handle
         }
     }
 }
