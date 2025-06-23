@@ -22,25 +22,18 @@ fn main() -> std::process::ExitCode {
 }
 
 mod temp {
-    use std::{process::ExitCode, sync::Arc};
-    use tokio::{
-        sync::Mutex,
-        task::{JoinError, JoinHandle},
-    };
-    use tokio_util::sync::CancellationToken;
-
     pub struct CoroutinesTerminated {
-        results: Vec<Result<Result<(), NRE>, JoinError>>,
+        results: Vec<Result<Result<(), NRE>, tokio::task::JoinError>>,
     }
 
     impl CoroutinesTerminated {
         pub fn capture(
             results: (
-                Result<Result<(), NRE>, JoinError>,
-                Result<Result<(), NRE>, JoinError>,
-                Result<Result<(), NRE>, JoinError>,
-                Result<Result<(), NRE>, JoinError>,
-                Result<Result<(), NRE>, JoinError>,
+                Result<Result<(), NRE>, tokio::task::JoinError>,
+                Result<Result<(), NRE>, tokio::task::JoinError>,
+                Result<Result<(), NRE>, tokio::task::JoinError>,
+                Result<Result<(), NRE>, tokio::task::JoinError>,
+                Result<Result<(), NRE>, tokio::task::JoinError>,
             ),
         ) -> Self {
             let (a, b, c, d, e) = results;
@@ -50,7 +43,7 @@ mod temp {
         }
     }
 
-    impl From<CoroutinesTerminated> for ExitCode {
+    impl From<CoroutinesTerminated> for std::process::ExitCode {
         fn from(value: CoroutinesTerminated) -> Self {
             'results: for result in value.results {
                 match result {
@@ -60,15 +53,15 @@ mod temp {
                     }
                     Ok(Err(err)) => {
                         let _err: NRE = err;
-                        return ExitCode::FAILURE;
+                        return std::process::ExitCode::FAILURE;
                     }
                     Err(err) => {
-                        let _err: JoinError = err;
-                        return ExitCode::FAILURE;
+                        let _err: tokio::task::JoinError = err;
+                        return std::process::ExitCode::FAILURE;
                     }
                 }
             }
-            return ExitCode::SUCCESS;
+            return std::process::ExitCode::SUCCESS;
         }
     }
 
@@ -110,29 +103,31 @@ mod temp {
         }
     }
 
+    // TODO: Disallow dead_code
+    #[allow(dead_code)]
     pub struct Coordinator {
-        cancellation_token: CancellationToken,
-        system_resources_usage: Mutex<SystemResourcesUsage>,
-        web_clients_connected: Mutex<WebClientsConnected>,
-        game_server_state_machine: Mutex<GameServerStateMachine>,
-        game_world_snapshot: Mutex<GameWorldSnapshot>,
+        cancellation_token: tokio_util::sync::CancellationToken,
+        system_resources_usage: tokio::sync::Mutex<SystemResourcesUsage>,
+        web_clients_connected: tokio::sync::Mutex<WebClientsConnected>,
+        game_server_state_machine: tokio::sync::Mutex<GameServerStateMachine>,
+        game_world_snapshot: tokio::sync::Mutex<GameWorldSnapshot>,
     }
 
     impl Coordinator {
-        pub fn init() -> Arc<Self> {
-            Arc::new(Self {
-                cancellation_token: CancellationToken::new(),
-                system_resources_usage: Mutex::new(SystemResourcesUsage::init()),
-                web_clients_connected: Mutex::new(WebClientsConnected::init()),
-                game_server_state_machine: Mutex::new(GameServerStateMachine::init()),
-                game_world_snapshot: Mutex::new(GameWorldSnapshot::init()),
+        pub fn init() -> std::sync::Arc<Self> {
+            std::sync::Arc::new(Self {
+                cancellation_token: tokio_util::sync::CancellationToken::new(),
+                system_resources_usage: tokio::sync::Mutex::new(SystemResourcesUsage::init()),
+                web_clients_connected: tokio::sync::Mutex::new(WebClientsConnected::init()),
+                game_server_state_machine: tokio::sync::Mutex::new(GameServerStateMachine::init()),
+                game_world_snapshot: tokio::sync::Mutex::new(GameWorldSnapshot::init()),
             })
         }
 
         /// Start _signal listener_ ("sl"): Activate the CancellationToken in
         /// `self` on SIGINT, SIGTERM, or whenever any of the peer coroutines
         /// use the `mpsc::channel` in `self` to signal to terminate.
-        pub fn start_sl(self: Arc<Self>) -> JoinHandle<Result<(), NRE>> {
+        pub fn start_sl(self: std::sync::Arc<Self>) -> tokio::task::JoinHandle<Result<(), NRE>> {
             let join_handle = tokio::task::spawn(async {
                 todo!();
             });
@@ -142,7 +137,7 @@ mod temp {
         /// Start a _web server_ ("ws"): Accept WebSocket clients. Handle
         /// inbound command messages from authorized clients. Send state updates
         /// to authorized clients.
-        pub fn start_ws(self: Arc<Self>) -> JoinHandle<Result<(), NRE>> {
+        pub fn start_ws(self: std::sync::Arc<Self>) -> tokio::task::JoinHandle<Result<(), NRE>> {
             let join_handle = tokio::task::spawn(async {
                 todo!();
             });
@@ -158,7 +153,7 @@ mod temp {
         /// should be automatically initiated at e.g. program startup, whereas
         /// some of the transitions should only happen upon received command
         /// from some authorized client (like RunningHealthy -> Stopping)
-        pub fn start_gssm(self: Arc<Self>) -> JoinHandle<Result<(), NRE>> {
+        pub fn start_gssm(self: std::sync::Arc<Self>) -> tokio::task::JoinHandle<Result<(), NRE>> {
             let join_handle = tokio::task::spawn(async {
                 todo!();
             });
@@ -167,7 +162,7 @@ mod temp {
 
         /// Start a _system resources's usage monitor_ ("srum"): Read CPU,
         /// memory, networking usage etc., on a regular interval.
-        pub fn start_srum(self: Arc<Self>) -> JoinHandle<Result<(), NRE>> {
+        pub fn start_srum(self: std::sync::Arc<Self>) -> tokio::task::JoinHandle<Result<(), NRE>> {
             let join_handle = tokio::task::spawn(async {
                 todo!();
             });
@@ -176,7 +171,7 @@ mod temp {
 
         /// Start _game world snapshotting_ ("gws"): Query game world state via
         /// RCON, on a regular interval.
-        pub fn start_gws(self: Arc<Self>) -> JoinHandle<Result<(), NRE>> {
+        pub fn start_gws(self: std::sync::Arc<Self>) -> tokio::task::JoinHandle<Result<(), NRE>> {
             let join_handle = tokio::task::spawn(async {
                 todo!();
             });
