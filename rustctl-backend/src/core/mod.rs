@@ -2,9 +2,8 @@ use crate::game::GameStateMachine;
 use axum::extract::ws::{Message, WebSocket};
 use futures::{SinkExt, StreamExt};
 use log4rs::{append::console::ConsoleAppender, config::Appender, encode::pattern::PatternEncoder};
-use rustctl_common::{
-    snapshot::{ClientExposed, Game, GameStateExposed, Snapshot, StateTransitionInitiator},
-    state_machine::Init,
+use rustctl_common::snapshot::{
+    ClientExposed, GameStateExposed, Snapshot, StateTransitionInitiator,
 };
 use std::{
     collections::HashMap,
@@ -27,11 +26,7 @@ impl CrossTasksSharedState {
     pub fn init() -> Arc<Mutex<Self>> {
         Arc::new(Mutex::new(Self {
             clients_connected_all: HashMap::new(),
-            game_state: crate::game::GameState {
-                last_state_transition_at: chrono::Utc::now(),
-                last_state_transition_inititated_by: StateTransitionInitiator::AutomaticBySytem,
-                game: Game::Init(Init {}),
-            },
+            game_state: crate::game::GameState::init(),
         }))
     }
 }

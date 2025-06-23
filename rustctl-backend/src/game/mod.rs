@@ -93,15 +93,16 @@ impl GameStateMachine for GameState {
                 Some(n) => n,
                 None => todo!(),
             };
+        let game_install_dir: &std::path::Path = self.get_install_dir();
         let install: tokio::process::Child = steamcmd
             .execute(
-                std::path::Path::new("/"),
+                game_install_dir,
                 None,
                 vec![
                     "+login".into(),
                     "anonymous".into(),
                     "+force_install_dir".into(),
-                    "/home/rust".into(),
+                    game_install_dir.to_string_lossy().into(),
                     "+app_update".into(),
                     "258550".into(),
                     "validate".into(),
@@ -179,9 +180,26 @@ impl GameStateMachine for GameState {
 
 #[derive(Clone)]
 pub struct GameState {
+    expected_installation_absolute_path: std::path::PathBuf,
     pub last_state_transition_at: chrono::DateTime<chrono::Utc>,
     pub last_state_transition_inititated_by: StateTransitionInitiator,
     pub game: Game,
+}
+
+impl GameState {
+    pub fn init() -> Self {
+        Self {
+            expected_installation_absolute_path: std::path::Path::new("/home/rust/RustDedicated")
+                .to_path_buf(),
+            last_state_transition_at: chrono::Utc::now(),
+            last_state_transition_inititated_by: StateTransitionInitiator::AutomaticBySytem,
+            game: Game::Init(rustctl_common::state_machine::Init {}),
+        }
+    }
+
+    fn get_install_dir(&self) -> &std::path::Path {
+        self.expected_installation_absolute_path.parent().unwrap()
+    }
 }
 
 pub mod proc {
