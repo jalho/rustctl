@@ -3,7 +3,7 @@ use crate::core::{
     coroutines::Coroutine,
     error::{NonRecoverableError, format_error_source_tree},
 };
-use proc::DependencyChecked;
+use proc::DependencyLocated;
 use rustctl_common::{
     snapshot::{Game, GameState, StateTransitionInitiator},
     state_machine::{NotRunning, ShutdownInProgress, StartupInProgress},
@@ -58,10 +58,11 @@ impl GameStateMachine for GameState {
         initiator: StateTransitionInitiator,
         decl_deps: &proc::DependenciesDeclared,
     ) -> Result<(), NonRecoverableError> {
-        let pgrep: DependencyChecked = match DependencyChecked::check(&decl_deps.pgrep).await {
-            Some(n) => n,
-            None => todo!(),
-        };
+        let pgrep: DependencyLocated =
+            match DependencyLocated::locate_installation(&decl_deps.pgrep).await {
+                Some(n) => n,
+                None => todo!(),
+            };
 
         if let Some(pid) = proc::is_running(&pgrep, &decl_deps.steamcmd).await {
             let err = NonRecoverableError::ConcurrentDependency {
@@ -194,12 +195,12 @@ pub mod proc {
     }
 
     #[derive(Clone, Debug)]
-    pub struct DependencyChecked {
+    pub struct DependencyLocated {
         pub executable_path_absolute: std::path::PathBuf,
     }
 
-    impl DependencyChecked {
-        pub async fn check(declared: &DependencyDeclared) -> Option<Self> {
+    impl DependencyLocated {
+        pub async fn locate_installation(declared: &DependencyDeclared) -> Option<Self> {
             let executable_name = &declared.expected_executable_name;
             let path = Path::new(executable_name);
             if path.components().count() > 1 {
@@ -249,7 +250,7 @@ pub mod proc {
         }
     }
 
-    impl Display for DependencyChecked {
+    impl Display for DependencyLocated {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(
                 f,
@@ -262,7 +263,7 @@ pub mod proc {
 
     /// Returns the PID of the running dependency, if it's running.
     pub async fn is_running(
-        pgrep: &DependencyChecked,
+        pgrep: &DependencyLocated,
         dependency: &DependencyDeclared,
     ) -> Option<u32> {
         let mut command = tokio::process::Command::new(&pgrep.executable_path_absolute);

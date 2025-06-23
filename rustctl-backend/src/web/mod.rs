@@ -33,15 +33,15 @@ pub async fn start(
         RustDedicated: DependencyDeclared::declare("RustDedicated"),
     };
 
-    let result: Result<(), NonRecoverableError>;
+    let launched: Result<(), NonRecoverableError>;
     {
         let mut lock = app_state.shared_state.lock().await;
-        result = lock
+        launched = lock
             .game_state
             .update_and_launch(StateTransitionInitiator::AutomaticBySytem, &dependencies)
             .await;
     }
-    if let Err(err) = result {
+    if let Err(err) = launched {
         log::info!("Requesting shutdown from coroutine {coroutine_identity}");
         shutdown_tx.send(coroutine_identity).await.unwrap();
         return Err(err);
