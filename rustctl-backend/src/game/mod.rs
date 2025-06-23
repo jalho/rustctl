@@ -104,7 +104,7 @@ impl GameStateMachine for GameState {
                     "+force_install_dir".into(),
                     game_install_dir.to_string_lossy().into(),
                     "+app_update".into(),
-                    "258550".into(),
+                    self.steam_app_id.to_string(),
                     "validate".into(),
                     "+quit".into(),
                 ],
@@ -180,7 +180,13 @@ impl GameStateMachine for GameState {
 
 #[derive(Clone)]
 pub struct GameState {
+    /// Absolute path to the game server executable named `RustDedicated`
+    /// expected to be installed with SteamCMD (`steamcmd`).
     expected_installation_absolute_path: std::path::PathBuf,
+
+    /// Application ID of the Rust game server (`RustDedicated`) in Steam.
+    steam_app_id: u32,
+
     pub last_state_transition_at: chrono::DateTime<chrono::Utc>,
     pub last_state_transition_inititated_by: StateTransitionInitiator,
     pub game: Game,
@@ -191,6 +197,8 @@ impl GameState {
         Self {
             expected_installation_absolute_path: std::path::Path::new("/home/rust/RustDedicated")
                 .to_path_buf(),
+            steam_app_id: 258550,
+
             last_state_transition_at: chrono::Utc::now(),
             last_state_transition_inititated_by: StateTransitionInitiator::AutomaticBySytem,
             game: Game::Init(rustctl_common::state_machine::Init {}),
