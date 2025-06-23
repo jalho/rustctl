@@ -33,6 +33,10 @@ pub async fn start(
         RustDedicated: DependencyDeclared::declare("RustDedicated"),
     };
 
+    /*
+     * TODO: Accept web clients already while the initial automatic startup is
+     *       still in progress!
+     */
     let launched: Result<(), NonRecoverableError>;
     {
         let mut lock = app_state.shared_state.lock().await;
