@@ -1,5 +1,6 @@
 use crate::game::GameStateMachine;
 use axum::extract::ws::{Message, WebSocket};
+use error::NonRecoverableError;
 use futures::{SinkExt, StreamExt};
 use log4rs::{append::console::ConsoleAppender, config::Appender, encode::pattern::PatternEncoder};
 use rustctl_common::snapshot::{
@@ -23,11 +24,11 @@ pub struct CrossTasksSharedState {
 }
 
 impl CrossTasksSharedState {
-    pub fn init() -> Arc<Mutex<Self>> {
-        Arc::new(Mutex::new(Self {
+    pub fn init() -> Result<Arc<Mutex<Self>>, NonRecoverableError> {
+        Ok(Arc::new(Mutex::new(Self {
             clients_connected_all: HashMap::new(),
-            game_state: crate::game::GameState::init(),
-        }))
+            game_state: crate::game::GameState::init()?,
+        })))
     }
 }
 
@@ -282,6 +283,12 @@ pub mod error {
             dependency: crate::game::proc::DependencyDeclared,
             pid: u32,
         },
+
+        /// The working directory for game server expected to pre-exist does
+        /// not exist.
+        MissingWorkDirGame {
+            expected_dir_path_abs: std::path::PathBuf,
+        },
     }
 
     impl Error for NonRecoverableError {
@@ -289,6 +296,7 @@ pub mod error {
             match self {
                 NonRecoverableError::ConcurrentDependency { .. } => None,
                 NonRecoverableError::MissingDependency { .. } => None,
+                NonRecoverableError::MissingWorkDirGame { .. } => None,
             }
         }
     }
@@ -304,6 +312,15 @@ pub mod error {
                 } => {
                     write!(f, "missing required dependency: {executable_name_seeked}")
                 }
+                NonRecoverableError::MissingWorkDirGame {
+                    expected_dir_path_abs,
+                } => {
+                    write!(
+                        f,
+                        "missing expected working directory: {path}",
+                        path = expected_dir_path_abs.to_string_lossy(),
+                    )
+                }
             }
         }
     }
@@ -313,6 +330,7 @@ pub mod error {
             match value {
                 NonRecoverableError::ConcurrentDependency { .. } => ExitCode::from(42),
                 NonRecoverableError::MissingDependency { .. } => ExitCode::from(43),
+                NonRecoverableError::MissingWorkDirGame { .. } => ExitCode::from(44),
             }
         }
     }

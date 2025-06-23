@@ -182,7 +182,7 @@ impl GameStateMachine for GameState {
 pub struct GameState {
     /// Absolute path to the game server executable named `RustDedicated`
     /// expected to be installed with SteamCMD (`steamcmd`).
-    expected_installation_absolute_path: std::path::PathBuf,
+    expected_installation_path_absolute: std::path::PathBuf,
 
     /// Application ID of the Rust game server (`RustDedicated`) in Steam.
     steam_app_id: u32,
@@ -193,20 +193,33 @@ pub struct GameState {
 }
 
 impl GameState {
-    pub fn init() -> Self {
-        Self {
-            expected_installation_absolute_path: std::path::Path::new("/home/rust/RustDedicated")
-                .to_path_buf(),
+    pub fn init() -> Result<Self, NonRecoverableError> {
+        let expected_installation_path_absolute: std::path::PathBuf =
+            std::path::Path::new("/home/rust/RustDedicated").to_path_buf();
+        let dir: &std::path::Path = expected_installation_path_absolute.parent().unwrap();
+        if !dir.is_dir() {
+            let err = NonRecoverableError::MissingWorkDirGame {
+                expected_dir_path_abs: dir.to_path_buf(),
+            };
+            log::error!(
+                "Non-recoverable error: {source_tree}",
+                source_tree = format_error_source_tree(&err)
+            );
+            return Err(err);
+        }
+
+        Ok(Self {
+            expected_installation_path_absolute,
             steam_app_id: 258550,
 
             last_state_transition_at: chrono::Utc::now(),
             last_state_transition_inititated_by: StateTransitionInitiator::AutomaticBySytem,
             game: Game::Init(rustctl_common::state_machine::Init {}),
-        }
+        })
     }
 
     fn get_install_dir(&self) -> &std::path::Path {
-        self.expected_installation_absolute_path.parent().unwrap()
+        self.expected_installation_path_absolute.parent().unwrap()
     }
 }
 

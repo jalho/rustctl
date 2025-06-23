@@ -33,7 +33,18 @@ fn main() -> std::process::ExitCode {
     let cancel = tokio_util::sync::CancellationToken::new();
     let (shutdown_tx, shutdown_rx) = tokio::sync::mpsc::channel::<core::coroutines::Coroutine>(1);
 
-    let state = core::CrossTasksSharedState::init();
+    let state: std::sync::Arc<tokio::sync::Mutex<core::CrossTasksSharedState>> =
+        match core::CrossTasksSharedState::init() {
+            Ok(n) => n,
+            Err(err) => {
+                /*
+                 * Logging of the error should be done near where it occurred.
+                 */
+                let err: core::error::NonRecoverableError = err;
+                let code = std::process::ExitCode::from(err);
+                return code;
+            }
+        };
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .worker_threads(1) // aiming for small footprint to leave maximal resources for the game
