@@ -93,6 +93,13 @@ mod coord {
             self: std::sync::Arc<Self>,
         ) -> tokio::task::JoinHandle<Result<(), crate::error::NRE>> {
             let join_handle = tokio::task::spawn(async {
+                /*
+                 * TODO: Maybe `start_gssm` is redundant? The automatic
+                 *       transition (i.e. Init -> Installing -> Launching etc.)
+                 *       could initiate at Coordinator::init, and any subsequent
+                 *       transitions could be initiated upon received commands
+                 *       from authorized clients, i.e. in `start_ws`?
+                 */
                 todo!();
             });
             join_handle
