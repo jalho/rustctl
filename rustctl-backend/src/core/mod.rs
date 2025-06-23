@@ -3,7 +3,7 @@ use axum::extract::ws::{Message, WebSocket};
 use futures::{SinkExt, StreamExt};
 use log4rs::{append::console::ConsoleAppender, config::Appender, encode::pattern::PatternEncoder};
 use rustctl_common::{
-    snapshot::{ClientExposed, Game, GameState, Snapshot, StateTransitionInitiator},
+    snapshot::{ClientExposed, Game, GameStateExposed, Snapshot, StateTransitionInitiator},
     state_machine::Init,
 };
 use std::{
@@ -20,14 +20,14 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct CrossTasksSharedState {
     pub clients_connected_all: HashMap<Uuid, ClientExposed>,
-    pub game_state: GameState,
+    pub game_state: crate::game::GameState,
 }
 
 impl CrossTasksSharedState {
     pub fn init() -> Arc<Mutex<Self>> {
         Arc::new(Mutex::new(Self {
             clients_connected_all: HashMap::new(),
-            game_state: GameState {
+            game_state: crate::game::GameState {
                 last_state_transition_at: chrono::Utc::now(),
                 last_state_transition_inititated_by: StateTransitionInitiator::AutomaticBySytem,
                 game: Game::Init(Init {}),
@@ -210,7 +210,13 @@ fn make_snapshot_for_client(
         ip_hash_salted,
         clients_connected_all: state.clients_connected_all,
 
-        game_state: state.game_state,
+        game_state: GameStateExposed {
+            last_state_transition_at: state.game_state.last_state_transition_at,
+            last_state_transition_inititated_by: state
+                .game_state
+                .last_state_transition_inititated_by,
+            game: state.game_state.game,
+        },
 
         // TODO: Pick system resources state from the snapshot
         system: rustctl_common::snapshot::System {

@@ -14,7 +14,7 @@ pub mod snapshot {
 
         pub clients_connected_all: std::collections::HashMap<uuid::Uuid, ClientExposed>,
 
-        pub game_state: GameState,
+        pub game_state: GameStateExposed,
         pub system: System,
     }
 
@@ -36,7 +36,7 @@ pub mod snapshot {
      *       only sending the latest transition's information.
      */
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
-    pub struct GameState {
+    pub struct GameStateExposed {
         pub last_state_transition_at: chrono::DateTime<chrono::Utc>,
         pub last_state_transition_inititated_by: StateTransitionInitiator,
         pub game: Game,

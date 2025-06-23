@@ -5,7 +5,7 @@ use crate::core::{
 };
 use proc::DependencyLocated;
 use rustctl_common::{
-    snapshot::{Game, GameState, StateTransitionInitiator},
+    snapshot::{Game, StateTransitionInitiator},
     state_machine::{NotRunning, ShutdownInProgress, StartupInProgress},
 };
 use std::{sync::Arc, time::Duration};
@@ -175,6 +175,13 @@ impl GameStateMachine for GameState {
             }
         }
     }
+}
+
+#[derive(Clone)]
+pub struct GameState {
+    pub last_state_transition_at: chrono::DateTime<chrono::Utc>,
+    pub last_state_transition_inititated_by: StateTransitionInitiator,
+    pub game: Game,
 }
 
 pub mod proc {
