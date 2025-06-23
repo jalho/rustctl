@@ -17,23 +17,23 @@ fn main() -> std::process::ExitCode {
         )
     });
 
-    let code: std::process::ExitCode = temp::CoroutinesTerminated::capture(coroutines_done).into();
+    let code: std::process::ExitCode = coord::CoroutinesTerminated::capture(coroutines_done).into();
     return code;
 }
 
-mod temp {
+mod coord {
     pub struct CoroutinesTerminated {
-        results: Vec<Result<Result<(), NRE>, tokio::task::JoinError>>,
+        results: Vec<Result<Result<(), crate::temp::NRE>, tokio::task::JoinError>>,
     }
 
     impl CoroutinesTerminated {
         pub fn capture(
             results: (
-                Result<Result<(), NRE>, tokio::task::JoinError>,
-                Result<Result<(), NRE>, tokio::task::JoinError>,
-                Result<Result<(), NRE>, tokio::task::JoinError>,
-                Result<Result<(), NRE>, tokio::task::JoinError>,
-                Result<Result<(), NRE>, tokio::task::JoinError>,
+                Result<Result<(), crate::temp::NRE>, tokio::task::JoinError>,
+                Result<Result<(), crate::temp::NRE>, tokio::task::JoinError>,
+                Result<Result<(), crate::temp::NRE>, tokio::task::JoinError>,
+                Result<Result<(), crate::temp::NRE>, tokio::task::JoinError>,
+                Result<Result<(), crate::temp::NRE>, tokio::task::JoinError>,
             ),
         ) -> Self {
             let (a, b, c, d, e) = results;
@@ -52,7 +52,7 @@ mod temp {
                         continue 'results;
                     }
                     Ok(Err(err)) => {
-                        let _err: NRE = err;
+                        let _err: crate::temp::NRE = err;
                         return std::process::ExitCode::FAILURE;
                     }
                     Err(err) => {
@@ -64,7 +64,9 @@ mod temp {
             return std::process::ExitCode::SUCCESS;
         }
     }
+}
 
+mod temp {
     /// A _non-recoverable error_ (NRE).
     #[derive(Debug)]
     pub enum NRE {
