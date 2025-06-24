@@ -204,41 +204,59 @@ mod coroutines {
     }
 
     pub mod system_resources_usage {
-        pub struct SystemResourcesUsage;
+        pub struct SystemResourcesUsage {
+            cpu_usage: u8,
+            memory_usage: u8,
+        }
 
         impl SystemResourcesUsage {
             pub fn init() -> Self {
-                todo!()
+                Self {
+                    cpu_usage: 0,
+                    memory_usage: 0,
+                }
             }
         }
     }
 
     pub mod web_server {
-        pub struct WebClientsConnected;
+        pub struct WebClientsConnected {
+            clients_connected: std::collections::HashMap<std::net::SocketAddr, ()>,
+        }
 
         impl WebClientsConnected {
             pub fn init() -> Self {
-                todo!()
+                Self {
+                    clients_connected: std::collections::HashMap::new(),
+                }
             }
         }
     }
 
     pub mod game_server_state_machine {
-        pub enum GameServerStateMachine {}
+        pub struct NotRunning;
+
+        pub enum GameServerStateMachine {
+            NotRunning(NotRunning),
+        }
 
         impl GameServerStateMachine {
             pub fn init() -> Self {
-                todo!()
+                Self::NotRunning(NotRunning {})
             }
         }
     }
 
     pub mod game_world_snapshotting {
-        pub struct GameWorldSnapshot;
+        pub struct GameWorldSnapshot {
+            players: std::collections::HashMap<String, ()>,
+        }
 
         impl GameWorldSnapshot {
             pub fn init() -> Self {
-                todo!()
+                Self {
+                    players: std::collections::HashMap::new(),
+                }
             }
         }
     }
