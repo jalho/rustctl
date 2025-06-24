@@ -1,4 +1,11 @@
 fn main() -> std::process::ExitCode {
+    let _handle = logging::init_logging(log::LevelFilter::Trace);
+    log::info!(
+        "{name} {version}",
+        name = env!("CARGO_PKG_NAME"),
+        version = env!("CARGO_PKG_VERSION")
+    );
+
     let coordinator: std::sync::Arc<coord::Coordinator> = coord::Coordinator::init();
 
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -24,6 +31,25 @@ fn main() -> std::process::ExitCode {
 
     let code: std::process::ExitCode = coord::CoroutinesTerminated::capture(coroutines_done).into();
     return code;
+}
+
+mod logging {
+    pub fn init_logging(level: log::LevelFilter) -> log4rs::Handle {
+        let stdout = log4rs::append::console::ConsoleAppender::builder()
+            .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
+                "{h({d(%Y-%m-%dT%H:%M:%SZ)(utc)} {l} - {m})} [{f}:{L}] [{T}]\n",
+            )))
+            .build();
+
+        let name = "stdout";
+
+        let config = log4rs::Config::builder()
+            .appender(log4rs::config::Appender::builder().build(name, Box::new(stdout)))
+            .build(log4rs::config::Root::builder().appender(name).build(level))
+            .unwrap();
+
+        log4rs::init_config(config).unwrap()
+    }
 }
 
 mod coord {
