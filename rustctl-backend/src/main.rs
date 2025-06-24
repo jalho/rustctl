@@ -25,7 +25,6 @@ fn main() -> std::process::ExitCode {
         tokio::join!(
             coordinator.clone().start_sl(cancellation_token, cancel_rx),
             coordinator.clone().start_srum(),
-            coordinator.clone().start_gssm(),
             coordinator.clone().start_gws(),
             coordinator.clone().start_ws(),
         )
@@ -125,31 +124,6 @@ mod coord {
             join_handle
         }
 
-        /// Start a _game server state machine_ ("gssm"): Loop game server
-        /// state machine: Init -> Installing -> Launching -> RunningHealthy ->
-        /// Stopping -> NotRunning -> Updating -> Launching -> RunningHealthy
-        /// etc.
-        ///
-        /// Some of the transitions (like Init -> Installing -> Launching)
-        /// should be automatically initiated at e.g. program startup, whereas
-        /// some of the transitions should only happen upon received command
-        /// from some authorized client (like RunningHealthy -> Stopping)
-        pub fn start_gssm(
-            self: std::sync::Arc<Self>,
-        ) -> tokio::task::JoinHandle<Result<(), crate::error::NRE>> {
-            let join_handle = tokio::task::spawn(async {
-                /*
-                 * TODO: Maybe `start_gssm` is redundant? The automatic
-                 *       transition (i.e. Init -> Installing -> Launching etc.)
-                 *       could initiate at Coordinator::init, and any subsequent
-                 *       transitions could be initiated upon received commands
-                 *       from authorized clients, i.e. in `start_ws`?
-                 */
-                todo!();
-            });
-            join_handle
-        }
-
         /// Start a _system resources's usage monitor_ ("srum"): Read CPU,
         /// memory, networking usage etc., on a regular interval.
         pub fn start_srum(
@@ -184,12 +158,11 @@ mod coord {
                 Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
                 Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
                 Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
-                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
             ),
         ) -> Self {
-            let (a, b, c, d, e) = results;
+            let (a, b, c, d) = results;
             Self {
-                results: vec![a, b, c, d, e],
+                results: vec![a, b, c, d],
             }
         }
     }
