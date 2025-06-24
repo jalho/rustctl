@@ -23,10 +23,16 @@ fn main() -> std::process::ExitCode {
      */
     let coroutines_done = runtime.block_on(async {
         tokio::join!(
+            coordinator
+                .clone()
+                .start_srum(cancellation_token.child_token(), cancel_tx.clone()),
+            coordinator
+                .clone()
+                .start_gws(cancellation_token.child_token(), cancel_tx.clone()),
+            coordinator
+                .clone()
+                .start_ws(cancellation_token.child_token(), cancel_tx.clone()),
             coordinator.clone().start_sl(cancellation_token, cancel_rx),
-            coordinator.clone().start_srum(),
-            coordinator.clone().start_gws(),
-            coordinator.clone().start_ws(),
         )
     });
 
@@ -117,6 +123,8 @@ mod coord {
         /// to authorized clients.
         pub fn start_ws(
             self: std::sync::Arc<Self>,
+            _cancellation_token: tokio_util::sync::CancellationToken,
+            _cancel_tx: tokio::sync::mpsc::Sender<()>,
         ) -> tokio::task::JoinHandle<Result<(), crate::error::NRE>> {
             let join_handle = tokio::task::spawn(async {
                 todo!();
@@ -128,9 +136,20 @@ mod coord {
         /// memory, networking usage etc., on a regular interval.
         pub fn start_srum(
             self: std::sync::Arc<Self>,
+            cancellation_token: tokio_util::sync::CancellationToken,
+            _cancel_tx: tokio::sync::mpsc::Sender<()>,
         ) -> tokio::task::JoinHandle<Result<(), crate::error::NRE>> {
-            let join_handle = tokio::task::spawn(async {
-                todo!();
+            let join_handle = tokio::task::spawn(async move {
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+                loop {
+                    interval.tick().await;
+                    let mut srum = self.system_resources_usage.lock().await;
+                    srum.read_cpu().await;
+                    if cancellation_token.is_cancelled() {
+                        break;
+                    }
+                }
+                Ok(())
             });
             join_handle
         }
@@ -139,6 +158,8 @@ mod coord {
         /// RCON, on a regular interval.
         pub fn start_gws(
             self: std::sync::Arc<Self>,
+            _cancellation_token: tokio_util::sync::CancellationToken,
+            _cancel_tx: tokio::sync::mpsc::Sender<()>,
         ) -> tokio::task::JoinHandle<Result<(), crate::error::NRE>> {
             let join_handle = tokio::task::spawn(async {
                 todo!();
@@ -211,6 +232,10 @@ mod coroutines {
                     cpu_usage: 0,
                     memory_usage: 0,
                 }
+            }
+
+            pub async fn read_cpu(&mut self) {
+                self.cpu_usage = self.cpu_usage + 1;
             }
         }
     }
