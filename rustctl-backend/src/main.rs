@@ -7,6 +7,8 @@ fn main() -> std::process::ExitCode {
     );
 
     let coordinator: std::sync::Arc<coord::Coordinator> = coord::Coordinator::init();
+    let cancellation_token = tokio_util::sync::CancellationToken::new();
+    let (cancel_tx, cancel_rx) = tokio::sync::mpsc::channel::<()>(1);
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .worker_threads(1)
@@ -21,7 +23,7 @@ fn main() -> std::process::ExitCode {
      */
     let coroutines_done = runtime.block_on(async {
         tokio::join!(
-            coordinator.clone().start_sl(),
+            coordinator.clone().start_sl(cancellation_token, cancel_rx),
             coordinator.clone().start_srum(),
             coordinator.clone().start_gssm(),
             coordinator.clone().start_gws(),
@@ -56,12 +58,6 @@ mod coord {
     // TODO: Disallow dead_code
     #[allow(dead_code)]
     pub struct Coordinator {
-        cancellation_token: tokio_util::sync::CancellationToken,
-        cancellation_channel: (
-            tokio::sync::mpsc::Sender<()>,
-            tokio::sync::mpsc::Receiver<()>,
-        ),
-
         system_resources_usage:
             tokio::sync::Mutex<crate::coroutines::system_resources_usage::SystemResourcesUsage>,
         web_clients_connected:
@@ -76,9 +72,6 @@ mod coord {
     impl Coordinator {
         pub fn init() -> std::sync::Arc<Self> {
             std::sync::Arc::new(Self {
-                cancellation_token: tokio_util::sync::CancellationToken::new(),
-                cancellation_channel: tokio::sync::mpsc::channel::<()>(1),
-
                 system_resources_usage: tokio::sync::Mutex::new(
                     crate::coroutines::system_resources_usage::SystemResourcesUsage::init(),
                 ),
@@ -94,14 +87,28 @@ mod coord {
             })
         }
 
-        /// Start _signal listener_ ("sl"): Activate the CancellationToken in
-        /// `self` on SIGINT, SIGTERM, or whenever any of the peer coroutines
-        /// use the `mpsc::channel` in `self` to signal to terminate.
+        /// Start _signal listener_ ("sl"): Activate the CancellationToken on
+        /// SIGINT, SIGTERM, or whenever any of the peer coroutines use the
+        /// `mpsc::channel` to signal to terminate.
         pub fn start_sl(
             self: std::sync::Arc<Self>,
+            cancellation_token: tokio_util::sync::CancellationToken,
+            mut cancel_rx: tokio::sync::mpsc::Receiver<()>,
         ) -> tokio::task::JoinHandle<Result<(), crate::error::NRE>> {
-            let join_handle = tokio::task::spawn(async {
-                todo!();
+            let join_handle = tokio::task::spawn(async move {
+                let mut sigint =
+                    tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
+                        .unwrap();
+                let mut sigterm =
+                    tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                        .unwrap();
+                tokio::select! {
+                    _ = sigint.recv() => log::info!("SIGINT"),
+                    _ = sigterm.recv() => log::info!("SIGTERM"),
+                    _ = cancel_rx.recv() => log::info!("Shutdown requested by coroutine"),
+                }
+                cancellation_token.cancel();
+                Ok(())
             });
             join_handle
         }
