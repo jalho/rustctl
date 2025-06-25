@@ -90,6 +90,26 @@ mod web {
         }
     }
 
+    #[allow(dead_code)]
+    struct WebSocketClient {
+        addr: std::os::unix::net::SocketAddr,
+        tx: futures::stream::SplitSink<axum::extract::ws::WebSocket, axum::extract::ws::Message>,
+        rx: futures::stream::SplitStream<axum::extract::ws::WebSocket>,
+    }
+
+    impl WebSocketClient {
+        pub fn new(
+            addr: std::os::unix::net::SocketAddr,
+            tx: futures::stream::SplitSink<
+                axum::extract::ws::WebSocket,
+                axum::extract::ws::Message,
+            >,
+            rx: futures::stream::SplitStream<axum::extract::ws::WebSocket>,
+        ) -> Self {
+            Self { addr, tx, rx }
+        }
+    }
+
     mod handlers {
         pub async fn ws_upgrade(
             ws: axum::extract::WebSocketUpgrade,
@@ -98,14 +118,10 @@ mod web {
         ) -> impl axum::response::IntoResponse {
             ws.on_upgrade(async move |websocket| {
                 let websocket: axum::extract::ws::WebSocket = websocket;
-                log::debug!("WebSocket client connected from {connect_info:?}: {websocket:?}");
-
+                let (tx, rx) = futures::StreamExt::split(websocket);
+                let _client = crate::web::WebSocketClient::new(connect_info.0, tx, rx);
                 /*
-                 * TODO: Split the WebSocket for I/O, and then read inbound
-                 *       messages ("commands"), and send outbound messages
-                 *       (current state, on a regular interval).
-                 *
-                 *       Use `GameServerStateMachine::handle_command`
+                 * TODO: Use `GameServerStateMachine::handle_command`
                  *       to handle the inbound commands, and
                  *       `GameServerStateMachine::read_state` to get the
                  *       sendable state update.
