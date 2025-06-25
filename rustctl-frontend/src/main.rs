@@ -35,8 +35,6 @@ fn App() -> Element {
                     match msg_result {
                         Ok(Message::Text(serialized)) => {
                             GLOBAL_SIGNAL.with_mut(|state| {
-                                // let deserialized: snapshot::Snapshot =
-                                //     serde_json::from_str(&serialized).unwrap();
                                 *state = Some(serialized);
                             });
                         }
@@ -63,14 +61,11 @@ fn MessageView() -> Element {
 
     match *value {
         Some(ref snapshot) => {
-            // let snapshot: &snapshot::Snapshot = snapshot;
-            // let serialized: String = serde_json::to_string_pretty(&snapshot).unwrap();
             let serialized = snapshot;
             rsx! {
                 div {
                     h2 { "Latest message:" }
                     pre { "{serialized}" }
-                    // SystemResourcesUsage { stats: snapshot.system.clone() }
                 }
             }
         }
