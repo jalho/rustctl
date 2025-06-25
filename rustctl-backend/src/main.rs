@@ -27,20 +27,6 @@ fn main() -> std::process::ExitCode {
             tokio::spawn(web_service),
             tokio::spawn(lifecycle::wait_signal(cancellation_token, cancel_rx)),
         );
-        /*
-         * TODO: Add an axum WebSocket server that accepts WebSocket clients.
-         *       For each accepted WebSocket client, spawn a tokio Task in which
-         *       two things are done repeateadly in a loop:
-         *
-         *         1. Receive messages from the client: These messages are
-         *            considered "commands".
-         *
-         *         2. Send the current game server state to the client
-         *            regularly. Use the tokio "interval".
-         */
-
-        // TODO: Use game_server::GameServerStateMachine::handle_command(gssm.clone()).await;
-        // TODO: Use game_server::GameServerStateMachine::read_state(gssm.clone()).await;
     });
 
     let code: std::process::ExitCode = std::process::ExitCode::SUCCESS;
@@ -107,12 +93,33 @@ mod web {
     mod handlers {
         pub async fn ws_upgrade(
             ws: axum::extract::WebSocketUpgrade,
-            _connect_info: axum::extract::ConnectInfo<std::os::unix::net::SocketAddr>,
-            _state: axum::extract::State<super::WebServerState>,
+            connect_info: axum::extract::ConnectInfo<std::os::unix::net::SocketAddr>,
+            state: axum::extract::State<super::WebServerState>,
         ) -> impl axum::response::IntoResponse {
             ws.on_upgrade(async move |websocket| {
                 let websocket: axum::extract::ws::WebSocket = websocket;
-                log::debug!("Do stuff with WebSocket: {websocket:?}");
+                log::debug!("WebSocket client connected from {connect_info:?}: {websocket:?}");
+
+                /*
+                 * TODO: Split the WebSocket for I/O, and then read inbound
+                 *       messages ("commands"), and send outbound messages
+                 *       (current state, on a regular interval).
+                 *
+                 *       Use `GameServerStateMachine::handle_command`
+                 *       to handle the inbound commands, and
+                 *       `GameServerStateMachine::read_state` to get the
+                 *       sendable state update.
+                 */
+
+                crate::game_server::GameServerStateMachine::handle_command(
+                    state.0.game_server_state_machine.clone(),
+                )
+                .await;
+
+                crate::game_server::GameServerStateMachine::read_state(
+                    state.0.game_server_state_machine.clone(),
+                )
+                .await;
             })
         }
     }
