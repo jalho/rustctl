@@ -82,7 +82,7 @@ mod game_server {
             self.state = match self.state {
                 GameServerState::NotRunning(_) => {
                     let next = Self::new_state(());
-                    println!(
+                    log::debug!(
                         "Transition: NotRunning -> Wiping @ {}",
                         next.transitioned_into_at
                     );
@@ -90,7 +90,7 @@ mod game_server {
                 }
                 GameServerState::Wiping(_) => {
                     let next = Self::new_state(());
-                    println!(
+                    log::debug!(
                         "Transition: Wiping -> Updating @ {}",
                         next.transitioned_into_at
                     );
@@ -98,7 +98,7 @@ mod game_server {
                 }
                 GameServerState::Updating(_) => {
                     let next = Self::new_state(());
-                    println!(
+                    log::debug!(
                         "Transition: Updating -> Launching @ {}",
                         next.transitioned_into_at
                     );
@@ -106,7 +106,7 @@ mod game_server {
                 }
                 GameServerState::Launching(_) => {
                     let next = Self::new_state(());
-                    println!(
+                    log::debug!(
                         "Transition: Launching -> RunningHealthy @ {}",
                         next.transitioned_into_at
                     );
@@ -114,7 +114,7 @@ mod game_server {
                 }
                 GameServerState::RunningHealthy(_) => {
                     let next = Self::new_state(());
-                    println!(
+                    log::debug!(
                         "Transition: RunningHealthy -> Stopping @ {}",
                         next.transitioned_into_at
                     );
@@ -122,7 +122,7 @@ mod game_server {
                 }
                 GameServerState::Stopping(_) => {
                     let next = Self::new_state(());
-                    println!(
+                    log::debug!(
                         "Transition: Stopping -> NotRunning @ {}",
                         next.transitioned_into_at
                     );
@@ -153,7 +153,7 @@ mod game_server {
             loop {
                 {
                     let locked = state_machine.read().await;
-                    println!("Current state: {:?}", locked.current_state());
+                    log::debug!("Current state: {:?}", locked.current_state());
                 }
 
                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
