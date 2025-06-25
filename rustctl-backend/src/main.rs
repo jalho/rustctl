@@ -229,7 +229,13 @@ mod game_server {
                     );
                     GameServerState::Wiping(next)
                 }
+
                 GameServerState::Wiping(ref _state) => {
+                    /*
+                     * TODO: Remove old game state: Blueprints, map etc...
+                     */
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
                     let next = Self::new_state(());
                     log::debug!(
                         "Transitioned: Wiping -> Updating @ {}",
@@ -237,7 +243,13 @@ mod game_server {
                     );
                     GameServerState::Updating(next)
                 }
+
                 GameServerState::Updating(ref _state) => {
+                    /*
+                     * TODO: Install or update the game server using SteamCMD...
+                     */
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
                     let next = Self::new_state(());
                     log::debug!(
                         "Transitioned: Updating -> Launching @ {}",
@@ -245,7 +257,13 @@ mod game_server {
                     );
                     GameServerState::Launching(next)
                 }
+
                 GameServerState::Launching(ref _state) => {
+                    /*
+                     * TODO: Launch the updated game server...
+                     */
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
                     let next = Self::new_state(());
                     log::debug!(
                         "Transitioned: Launching -> RunningHealthy @ {}",
@@ -253,7 +271,13 @@ mod game_server {
                     );
                     GameServerState::RunningHealthy(next)
                 }
+
                 GameServerState::RunningHealthy(ref _state) => {
+                    /*
+                     * TODO: Stop the game server...
+                     */
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
                     let next = Self::new_state(());
                     log::debug!(
                         "Transitioned: RunningHealthy -> Stopping @ {}",
@@ -261,6 +285,7 @@ mod game_server {
                     );
                     GameServerState::Stopping(next)
                 }
+
                 GameServerState::Stopping(ref _state) => {
                     let next = Self::new_state(());
                     log::debug!(
