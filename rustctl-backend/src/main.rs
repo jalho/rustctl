@@ -17,19 +17,17 @@ fn main() -> std::process::ExitCode {
 
     let _runtime_done = runtime.block_on(async {
         let gssm = game_server::GameServerStateMachine::init().await;
-        /*
-         * TODO: Initiate the initial state transition: NotRunning -> Updating -> Launching -> RunningHealthy...
-         */
 
         let web_service = web::WebServer::listen(
             cancellation_token.child_token(),
             "127.0.0.1:8081".parse().unwrap(),
-            gssm,
+            gssm.clone(),
         );
 
         let _coroutines_done = tokio::join!(
-            tokio::spawn(web_service),
             tokio::spawn(lifecycle::wait_signal(cancellation_token, cancel_rx)),
+            tokio::spawn(game_server::GameServerStateMachine::start(gssm.clone())),
+            tokio::spawn(web_service),
         );
     });
 
@@ -291,6 +289,16 @@ mod game_server {
         ) -> GameServerState {
             let locked = state_machine.read().await;
             locked.state.clone()
+        }
+
+        pub async fn start(
+            _state_machine: std::sync::Arc<tokio::sync::RwLock<Self>>,
+        ) -> GameServerState {
+            /*
+             * TODO: Initiate the initial state transition: NotRunning ->
+             *       Updating -> Launching -> RunningHealthy...
+             */
+            todo!();
         }
     }
 }
