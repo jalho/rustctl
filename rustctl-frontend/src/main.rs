@@ -4,8 +4,7 @@ use gloo_net::websocket::{Message, futures::WebSocket};
 use rustctl_common::{snapshot, web_app::WEBSOCKET_CONNECT_URL_PATH};
 use wasm_bindgen_futures::spawn_local;
 
-static GLOBAL_SIGNAL: GlobalSignal<Option<snapshot::Snapshot>> =
-    GlobalSignal::<Option<snapshot::Snapshot>>::new(|| None);
+static GLOBAL_SIGNAL: GlobalSignal<Option<String>> = GlobalSignal::<Option<String>>::new(|| None);
 
 fn main() {
     dioxus::launch(App);
@@ -36,9 +35,9 @@ fn App() -> Element {
                     match msg_result {
                         Ok(Message::Text(serialized)) => {
                             GLOBAL_SIGNAL.with_mut(|state| {
-                                let deserialized: snapshot::Snapshot =
-                                    serde_json::from_str(&serialized).unwrap();
-                                *state = Some(deserialized);
+                                // let deserialized: snapshot::Snapshot =
+                                //     serde_json::from_str(&serialized).unwrap();
+                                *state = Some(serialized);
                             });
                         }
                         Ok(_) => {}
@@ -64,13 +63,14 @@ fn MessageView() -> Element {
 
     match *value {
         Some(ref snapshot) => {
-            let snapshot: &snapshot::Snapshot = snapshot;
-            let serialized: String = serde_json::to_string_pretty(&snapshot).unwrap();
+            // let snapshot: &snapshot::Snapshot = snapshot;
+            // let serialized: String = serde_json::to_string_pretty(&snapshot).unwrap();
+            let serialized = snapshot;
             rsx! {
                 div {
                     h2 { "Latest message:" }
                     pre { "{serialized}" }
-                    SystemResourcesUsage { stats: snapshot.system.clone() }
+                    // SystemResourcesUsage { stats: snapshot.system.clone() }
                 }
             }
         }
