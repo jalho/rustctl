@@ -95,6 +95,7 @@ mod web {
         addr: std::os::unix::net::SocketAddr,
         tx: futures::stream::SplitSink<axum::extract::ws::WebSocket, axum::extract::ws::Message>,
         rx: futures::stream::SplitStream<axum::extract::ws::WebSocket>,
+        gssm: std::sync::Arc<tokio::sync::RwLock<crate::game_server::GameServerStateMachine>>,
     }
 
     impl WebSocketClient {
@@ -105,8 +106,9 @@ mod web {
                 axum::extract::ws::Message,
             >,
             rx: futures::stream::SplitStream<axum::extract::ws::WebSocket>,
+            gssm: std::sync::Arc<tokio::sync::RwLock<crate::game_server::GameServerStateMachine>>,
         ) -> Self {
-            Self { addr, tx, rx }
+            Self { addr, tx, rx, gssm }
         }
     }
 
@@ -119,7 +121,12 @@ mod web {
             ws.on_upgrade(async move |websocket| {
                 let websocket: axum::extract::ws::WebSocket = websocket;
                 let (tx, rx) = futures::StreamExt::split(websocket);
-                let _client = crate::web::WebSocketClient::new(connect_info.0, tx, rx);
+                let _client = crate::web::WebSocketClient::new(
+                    connect_info.0,
+                    tx,
+                    rx,
+                    state.0.game_server_state_machine.clone(),
+                );
                 /*
                  * TODO: Use `GameServerStateMachine::handle_command`
                  *       to handle the inbound commands, and
