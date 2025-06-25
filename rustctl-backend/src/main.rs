@@ -17,6 +17,10 @@ fn main() -> std::process::ExitCode {
 
     let _runtime_done = runtime.block_on(async {
         let gssm = game_server::GameServerStateMachine::init().await;
+        /*
+         * TODO: Initiate the initial state transition: NotRunning -> Updating -> Launching -> RunningHealthy...
+         */
+
         let web_service = web::WebServer::listen(
             cancellation_token.child_token(),
             "127.0.0.1:8081".parse().unwrap(),
