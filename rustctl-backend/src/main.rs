@@ -6,8 +6,8 @@ fn main() -> std::process::ExitCode {
         version = env!("CARGO_PKG_VERSION")
     );
 
-    let cancellation_token = tokio_util::sync::CancellationToken::new();
-    let (cancel_tx, cancel_rx) = tokio::sync::mpsc::channel::<()>(1);
+    let _cancellation_token = tokio_util::sync::CancellationToken::new();
+    let (_cancel_tx, _cancel_rxx) = tokio::sync::mpsc::channel::<()>(1);
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .worker_threads(1)
@@ -15,8 +15,8 @@ fn main() -> std::process::ExitCode {
         .build()
         .unwrap();
 
-    let coroutines_done = runtime.block_on(async {
-        let game_server_state_machine = game_server::GameServerStateMachine::init().await;
+    let _coroutines_done = runtime.block_on(async {
+        let _game_server_state_machine = game_server::GameServerStateMachine::init().await;
     });
 
     let code: std::process::ExitCode = std::process::ExitCode::SUCCESS;
@@ -45,14 +45,14 @@ mod logging {
 mod game_server {
     #[allow(dead_code)]
     #[derive(Clone, Debug)]
-    struct TrackedState<T> {
+    pub struct TrackedState<T> {
         transitioned_into_at: chrono::DateTime<chrono::Utc>,
         value: T,
     }
 
     #[allow(dead_code)]
     #[derive(Clone, Debug)]
-    enum GameServerState {
+    pub enum GameServerState {
         NotRunning(TrackedState<()>),
         Wiping(TrackedState<()>),
         Updating(TrackedState<()>),
@@ -61,15 +61,17 @@ mod game_server {
         Stopping(TrackedState<()>),
     }
 
+    #[allow(dead_code)]
     pub struct GameServerStateMachine {
         state: GameServerState,
     }
 
+    #[allow(dead_code)]
     impl GameServerStateMachine {
-        pub async fn init() -> Self {
-            Self {
+        pub async fn init() -> std::sync::Arc<tokio::sync::RwLock<Self>> {
+            std::sync::Arc::new(tokio::sync::RwLock::new(Self {
                 state: GameServerState::NotRunning(Self::new_state(())),
-            }
+            }))
         }
 
         pub fn current_state(&self) -> GameServerState {
@@ -135,57 +137,27 @@ mod game_server {
                 value,
             }
         }
-    }
 
-    async fn handle_commands(
-        state_machine: std::sync::Arc<tokio::sync::RwLock<GameServerStateMachine>>,
-    ) {
-        loop {
-            let _some_inbound_command = ();
-            {
-                let mut locked = state_machine.write().await;
-                match locked.state {
-                    GameServerState::NotRunning(ref _state) => {
-                        // TODO: Check if the inbound command is compatible with the current state, and only call transition if compatible!
-                        locked.transition().await;
-                    }
-                    GameServerState::Wiping(ref _state) => {
-                        // TODO: Check if the inbound command is compatible with the current state, and only call transition if compatible!
-                        locked.transition().await;
-                    }
-                    GameServerState::Updating(ref _state) => {
-                        // TODO: Check if the inbound command is compatible with the current state, and only call transition if compatible!
-                        locked.transition().await;
-                    }
-                    GameServerState::Launching(ref _state) => {
-                        // TODO: Check if the inbound command is compatible with the current state, and only call transition if compatible!
-                        locked.transition().await;
-                    }
-                    GameServerState::RunningHealthy(ref _state) => {
-                        // TODO: Check if the inbound command is compatible with the current state, and only call transition if compatible!
-                        locked.transition().await;
-                    }
-                    GameServerState::Stopping(ref _state) => {
-                        // TODO: Check if the inbound command is compatible with the current state, and only call transition if compatible!
-                        locked.transition().await;
-                    }
+        pub async fn handle_commands(state_machine: std::sync::Arc<tokio::sync::RwLock<Self>>) {
+            loop {
+                {
+                    let mut locked = state_machine.write().await;
+                    locked.transition().await;
                 }
-            }
 
-            tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+            }
         }
-    }
 
-    async fn read_state(
-        state_machine: std::sync::Arc<tokio::sync::RwLock<GameServerStateMachine>>,
-    ) {
-        loop {
-            {
-                let locked = state_machine.read().await;
-                println!("Current state: {:?}", locked.current_state());
+        pub async fn read_state(state_machine: std::sync::Arc<tokio::sync::RwLock<Self>>) {
+            loop {
+                {
+                    let locked = state_machine.read().await;
+                    println!("Current state: {:?}", locked.current_state());
+                }
+
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
             }
-
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         }
     }
 }
