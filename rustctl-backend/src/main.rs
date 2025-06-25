@@ -6,8 +6,8 @@ fn main() -> std::process::ExitCode {
         version = env!("CARGO_PKG_VERSION")
     );
 
-    let _cancellation_token = tokio_util::sync::CancellationToken::new();
-    let (_cancel_tx, _cancel_rxx) = tokio::sync::mpsc::channel::<()>(1);
+    let cancellation_token = tokio_util::sync::CancellationToken::new();
+    let (_cancel_tx, _cancel_rx) = tokio::sync::mpsc::channel::<()>(1);
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .worker_threads(1)
@@ -17,7 +17,12 @@ fn main() -> std::process::ExitCode {
 
     let _coroutines_done = runtime.block_on(async {
         let gssm = game_server::GameServerStateMachine::init().await;
-        let web_server = web::WebServer::init(gssm);
+        let web_service = web::WebServer::listen(
+            cancellation_token.child_token(),
+            "127.0.0.1:8080".parse().unwrap(),
+            gssm,
+        );
+        web_service.await.unwrap();
         /*
          * TODO: Add an axum WebSocket server that accepts WebSocket clients.
          *       For each accepted WebSocket client, spawn a tokio Task in which
@@ -39,22 +44,23 @@ fn main() -> std::process::ExitCode {
 }
 
 mod web {
+    #[allow(dead_code)]
     #[derive(Clone)]
     struct WebServerState {
         game_server_state_machine:
             std::sync::Arc<tokio::sync::RwLock<crate::game_server::GameServerStateMachine>>,
     }
 
-    pub struct WebServer {
-        router: axum::Router,
-    }
+    pub struct WebServer;
 
     impl WebServer {
-        pub fn init(
+        pub async fn listen(
+            cancellation_token: tokio_util::sync::CancellationToken,
+            listen_addr: std::net::SocketAddr,
             game_server_state_machine: std::sync::Arc<
                 tokio::sync::RwLock<crate::game_server::GameServerStateMachine>,
             >,
-        ) -> Self {
+        ) -> Result<(), std::io::Error> {
             let state = WebServerState {
                 game_server_state_machine,
             };
@@ -64,7 +70,15 @@ mod web {
                     axum::routing::get(handlers::ws_upgrade),
                 )
                 .with_state(state);
-            Self { router }
+            let server: axum_server::Server = axum_server::bind(listen_addr);
+            let service = router.into_make_service_with_connect_info::<std::net::SocketAddr>();
+            let done: Option<Result<(), std::io::Error>> = cancellation_token
+                .run_until_cancelled(server.serve(service))
+                .await;
+            match done {
+                Some(done) => done,
+                None => Ok(()),
+            }
         }
     }
 
