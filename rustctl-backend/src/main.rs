@@ -6,7 +6,6 @@ fn main() -> std::process::ExitCode {
         version = env!("CARGO_PKG_VERSION")
     );
 
-    let coordinator: std::sync::Arc<coord::Coordinator> = coord::Coordinator::init();
     let cancellation_token = tokio_util::sync::CancellationToken::new();
     let (cancel_tx, cancel_rx) = tokio::sync::mpsc::channel::<()>(1);
 
@@ -16,27 +15,11 @@ fn main() -> std::process::ExitCode {
         .build()
         .unwrap();
 
-    /*
-     * TODO: Define coroutine for receiving events from game server via a Unix
-     *       domain socket (i.e. those sent from a custom made Carbon framework
-     *       plugin)
-     */
     let coroutines_done = runtime.block_on(async {
-        tokio::join!(
-            coordinator
-                .clone()
-                .start_srum(cancellation_token.child_token(), cancel_tx.clone()),
-            coordinator
-                .clone()
-                .start_gws(cancellation_token.child_token(), cancel_tx.clone()),
-            coordinator
-                .clone()
-                .start_ws(cancellation_token.child_token(), cancel_tx.clone()),
-            coordinator.clone().start_sl(cancellation_token, cancel_rx),
-        )
+        let game_server_state_machine = game_server::GameServerStateMachine::init().await;
     });
 
-    let code: std::process::ExitCode = coord::CoroutinesTerminated::capture(coroutines_done).into();
+    let code: std::process::ExitCode = std::process::ExitCode::SUCCESS;
     return code;
 }
 
@@ -59,226 +42,155 @@ mod logging {
     }
 }
 
-mod coord {
-    // TODO: Disallow dead_code
+mod game_server {
     #[allow(dead_code)]
-    pub struct Coordinator {
-        system_resources_usage:
-            tokio::sync::Mutex<crate::coroutines::system_resources_usage::SystemResourcesUsage>,
-        web_clients_connected:
-            tokio::sync::Mutex<crate::coroutines::web_server::WebClientsConnected>,
-        game_server_state_machine: tokio::sync::Mutex<
-            crate::coroutines::game_server_state_machine::GameServerStateMachine,
-        >,
-        game_world_snapshot:
-            tokio::sync::Mutex<crate::coroutines::game_world_snapshotting::GameWorldSnapshot>,
+    #[derive(Clone, Debug)]
+    struct TrackedState<T> {
+        transitioned_into_at: i64,
+        value: T,
     }
 
-    impl Coordinator {
-        pub fn init() -> std::sync::Arc<Self> {
-            std::sync::Arc::new(Self {
-                system_resources_usage: tokio::sync::Mutex::new(
-                    crate::coroutines::system_resources_usage::SystemResourcesUsage::init(),
-                ),
-                web_clients_connected: tokio::sync::Mutex::new(
-                    crate::coroutines::web_server::WebClientsConnected::init(),
-                ),
-                game_server_state_machine: tokio::sync::Mutex::new(
-                    crate::coroutines::game_server_state_machine::GameServerStateMachine::init(),
-                ),
-                game_world_snapshot: tokio::sync::Mutex::new(
-                    crate::coroutines::game_world_snapshotting::GameWorldSnapshot::init(),
-                ),
-            })
-        }
-
-        /// Start _signal listener_ ("sl"): Activate the CancellationToken on
-        /// SIGINT, SIGTERM, or whenever any of the peer coroutines use the
-        /// `mpsc::channel` to signal to terminate.
-        pub fn start_sl(
-            self: std::sync::Arc<Self>,
-            cancellation_token: tokio_util::sync::CancellationToken,
-            mut cancel_rx: tokio::sync::mpsc::Receiver<()>,
-        ) -> tokio::task::JoinHandle<Result<(), crate::error::NRE>> {
-            let join_handle = tokio::task::spawn(async move {
-                let mut sigint =
-                    tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
-                        .unwrap();
-                let mut sigterm =
-                    tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                        .unwrap();
-                tokio::select! {
-                    _ = sigint.recv() => log::info!("SIGINT"),
-                    _ = sigterm.recv() => log::info!("SIGTERM"),
-                    _ = cancel_rx.recv() => log::info!("Shutdown requested by coroutine"),
-                }
-                cancellation_token.cancel();
-                Ok(())
-            });
-            join_handle
-        }
-
-        /// Start a _web server_ ("ws"): Accept WebSocket clients. Handle
-        /// inbound command messages from authorized clients. Send state updates
-        /// to authorized clients.
-        pub fn start_ws(
-            self: std::sync::Arc<Self>,
-            _cancellation_token: tokio_util::sync::CancellationToken,
-            _cancel_tx: tokio::sync::mpsc::Sender<()>,
-        ) -> tokio::task::JoinHandle<Result<(), crate::error::NRE>> {
-            let join_handle = tokio::task::spawn(async {
-                todo!();
-            });
-            join_handle
-        }
-
-        /// Start a _system resources's usage monitor_ ("srum"): Read CPU,
-        /// memory, networking usage etc., on a regular interval.
-        pub fn start_srum(
-            self: std::sync::Arc<Self>,
-            cancellation_token: tokio_util::sync::CancellationToken,
-            _cancel_tx: tokio::sync::mpsc::Sender<()>,
-        ) -> tokio::task::JoinHandle<Result<(), crate::error::NRE>> {
-            let join_handle = tokio::task::spawn(async move {
-                let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
-                loop {
-                    interval.tick().await;
-                    let mut srum = self.system_resources_usage.lock().await;
-                    srum.read_cpu().await;
-                    if cancellation_token.is_cancelled() {
-                        break;
-                    }
-                }
-                Ok(())
-            });
-            join_handle
-        }
-
-        /// Start _game world snapshotting_ ("gws"): Query game world state via
-        /// RCON, on a regular interval.
-        pub fn start_gws(
-            self: std::sync::Arc<Self>,
-            _cancellation_token: tokio_util::sync::CancellationToken,
-            _cancel_tx: tokio::sync::mpsc::Sender<()>,
-        ) -> tokio::task::JoinHandle<Result<(), crate::error::NRE>> {
-            let join_handle = tokio::task::spawn(async {
-                todo!();
-            });
-            join_handle
-        }
+    #[allow(dead_code)]
+    #[derive(Clone, Debug)]
+    enum GameServerState {
+        NotRunning(TrackedState<()>),
+        Wiping(TrackedState<()>),
+        Updating(TrackedState<()>),
+        Launching(TrackedState<()>),
+        RunningHealthy(TrackedState<()>),
+        Stopping(TrackedState<()>),
     }
 
-    pub struct CoroutinesTerminated {
-        results: Vec<Result<Result<(), crate::error::NRE>, tokio::task::JoinError>>,
+    pub struct GameServerStateMachine {
+        state: GameServerState,
     }
 
-    impl CoroutinesTerminated {
-        pub fn capture(
-            results: (
-                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
-                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
-                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
-                Result<Result<(), crate::error::NRE>, tokio::task::JoinError>,
-            ),
-        ) -> Self {
-            let (a, b, c, d) = results;
+    impl GameServerStateMachine {
+        pub async fn init() -> Self {
             Self {
-                results: vec![a, b, c, d],
+                state: GameServerState::NotRunning(Self::new_state(())),
+            }
+        }
+
+        pub fn current_state(&self) -> GameServerState {
+            self.state.clone()
+        }
+
+        pub async fn transition(&mut self) {
+            self.state = match self.state {
+                GameServerState::NotRunning(_) => {
+                    let next = Self::new_state(());
+                    println!(
+                        "Transition: NotRunning -> Wiping @ {}",
+                        next.transitioned_into_at
+                    );
+                    GameServerState::Wiping(next)
+                }
+                GameServerState::Wiping(_) => {
+                    let next = Self::new_state(());
+                    println!(
+                        "Transition: Wiping -> Updating @ {}",
+                        next.transitioned_into_at
+                    );
+                    GameServerState::Updating(next)
+                }
+                GameServerState::Updating(_) => {
+                    let next = Self::new_state(());
+                    println!(
+                        "Transition: Updating -> Launching @ {}",
+                        next.transitioned_into_at
+                    );
+                    GameServerState::Launching(next)
+                }
+                GameServerState::Launching(_) => {
+                    let next = Self::new_state(());
+                    println!(
+                        "Transition: Launching -> RunningHealthy @ {}",
+                        next.transitioned_into_at
+                    );
+                    GameServerState::RunningHealthy(next)
+                }
+                GameServerState::RunningHealthy(_) => {
+                    let next = Self::new_state(());
+                    println!(
+                        "Transition: RunningHealthy -> Stopping @ {}",
+                        next.transitioned_into_at
+                    );
+                    GameServerState::Stopping(next)
+                }
+                GameServerState::Stopping(_) => {
+                    let next = Self::new_state(());
+                    println!(
+                        "Transition: Stopping -> NotRunning @ {}",
+                        next.transitioned_into_at
+                    );
+                    GameServerState::NotRunning(next)
+                }
+            };
+        }
+
+        fn new_state<T>(value: T) -> TrackedState<T> {
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64;
+
+            TrackedState {
+                transitioned_into_at: timestamp,
+                value,
             }
         }
     }
 
-    impl From<CoroutinesTerminated> for std::process::ExitCode {
-        fn from(value: CoroutinesTerminated) -> Self {
-            'results: for result in value.results {
-                match result {
-                    Ok(Ok(ok)) => {
-                        let _coroutine_ok: () = ok;
-                        continue 'results;
+    async fn handle_commands(
+        state_machine: std::sync::Arc<tokio::sync::RwLock<GameServerStateMachine>>,
+    ) {
+        loop {
+            let _some_inbound_command = ();
+            {
+                let mut locked = state_machine.write().await;
+                match locked.state {
+                    GameServerState::NotRunning(ref _state) => {
+                        // TODO: Check if the inbound command is compatible with the current state, and only call transition if compatible!
+                        locked.transition().await;
                     }
-                    Ok(Err(err)) => {
-                        let _err: crate::error::NRE = err;
-                        return std::process::ExitCode::FAILURE;
+                    GameServerState::Wiping(ref _state) => {
+                        // TODO: Check if the inbound command is compatible with the current state, and only call transition if compatible!
+                        locked.transition().await;
                     }
-                    Err(err) => {
-                        let _err: tokio::task::JoinError = err;
-                        return std::process::ExitCode::FAILURE;
+                    GameServerState::Updating(ref _state) => {
+                        // TODO: Check if the inbound command is compatible with the current state, and only call transition if compatible!
+                        locked.transition().await;
+                    }
+                    GameServerState::Launching(ref _state) => {
+                        // TODO: Check if the inbound command is compatible with the current state, and only call transition if compatible!
+                        locked.transition().await;
+                    }
+                    GameServerState::RunningHealthy(ref _state) => {
+                        // TODO: Check if the inbound command is compatible with the current state, and only call transition if compatible!
+                        locked.transition().await;
+                    }
+                    GameServerState::Stopping(ref _state) => {
+                        // TODO: Check if the inbound command is compatible with the current state, and only call transition if compatible!
+                        locked.transition().await;
                     }
                 }
             }
-            return std::process::ExitCode::SUCCESS;
-        }
-    }
-}
 
-mod error {
-    /// A _non-recoverable error_ (NRE).
-    #[derive(Debug)]
-    pub enum NRE {
-        MissingRequiredDependency,
-    }
-}
-
-mod coroutines {
-    pub mod system_resources_usage {
-        pub struct SystemResourcesUsage {
-            cpu_usage: u8,
-            memory_usage: u8,
-        }
-
-        impl SystemResourcesUsage {
-            pub fn init() -> Self {
-                Self {
-                    cpu_usage: 0,
-                    memory_usage: 0,
-                }
-            }
-
-            pub async fn read_cpu(&mut self) {
-                self.cpu_usage = self.cpu_usage + 1;
-            }
+            tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
         }
     }
 
-    pub mod web_server {
-        pub struct WebClientsConnected {
-            clients_connected: std::collections::HashMap<std::net::SocketAddr, ()>,
-        }
-
-        impl WebClientsConnected {
-            pub fn init() -> Self {
-                Self {
-                    clients_connected: std::collections::HashMap::new(),
-                }
+    async fn read_state(
+        state_machine: std::sync::Arc<tokio::sync::RwLock<GameServerStateMachine>>,
+    ) {
+        loop {
+            {
+                let locked = state_machine.read().await;
+                println!("Current state: {:?}", locked.current_state());
             }
-        }
-    }
 
-    pub mod game_server_state_machine {
-        pub struct NotRunning;
-
-        pub enum GameServerStateMachine {
-            NotRunning(NotRunning),
-        }
-
-        impl GameServerStateMachine {
-            pub fn init() -> Self {
-                Self::NotRunning(NotRunning {})
-            }
-        }
-    }
-
-    pub mod game_world_snapshotting {
-        pub struct GameWorldSnapshot {
-            players: std::collections::HashMap<String, ()>,
-        }
-
-        impl GameWorldSnapshot {
-            pub fn init() -> Self {
-                Self {
-                    players: std::collections::HashMap::new(),
-                }
-            }
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         }
     }
 }
