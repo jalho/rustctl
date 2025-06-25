@@ -119,9 +119,9 @@ mod web {
             let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
             loop {
                 interval.tick().await;
-                let snapshot: crate::game_server::GameServerState =
+                let game_server_state: crate::game_server::GameServerState =
                     crate::game_server::GameServerStateMachine::read_state(self.gssm.clone()).await;
-                futures::SinkExt::send(&mut self.tx, format!("{snapshot:?}").into())
+                futures::SinkExt::send(&mut self.tx, format!("{game_server_state:?}").into())
                     .await
                     .unwrap();
             }
