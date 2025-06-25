@@ -52,9 +52,6 @@ mod lifecycle {
 }
 
 mod web {
-    use crate::game_server::GameServerStateMachine;
-    use futures::SinkExt;
-
     #[allow(dead_code)]
     #[derive(Clone)]
     struct WebServerState {
@@ -123,8 +120,10 @@ mod web {
             loop {
                 interval.tick().await;
                 let snapshot: crate::game_server::GameServerState =
-                    GameServerStateMachine::read_state(self.gssm.clone()).await;
-                self.tx.send(format!("{snapshot:?}").into()).await.unwrap();
+                    crate::game_server::GameServerStateMachine::read_state(self.gssm.clone()).await;
+                futures::SinkExt::send(&mut self.tx, format!("{snapshot:?}").into())
+                    .await
+                    .unwrap();
             }
         }
     }
