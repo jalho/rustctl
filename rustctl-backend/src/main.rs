@@ -16,7 +16,22 @@ fn main() -> std::process::ExitCode {
         .unwrap();
 
     let _coroutines_done = runtime.block_on(async {
-        let _game_server_state_machine = game_server::GameServerStateMachine::init().await;
+        let gssm = game_server::GameServerStateMachine::init().await;
+
+        /*
+         * TODO: Add an axum WebSocket server that accepts WebSocket clients.
+         *       For each accepted WebSocket client, spawn a tokio Task in which
+         *       two things are done repeateadly in a loop:
+         *
+         *         1. Receive messages from the client: These messages are
+         *            considered "commands".
+         *
+         *         2. Send the current game server state to the client
+         *            regularly. Use the tokio "interval".
+         */
+
+        // TODO: Use game_server::GameServerStateMachine::handle_command(gssm.clone()).await;
+        // TODO: Use game_server::GameServerStateMachine::read_state(gssm.clone()).await;
     });
 
     let code: std::process::ExitCode = std::process::ExitCode::SUCCESS;
@@ -72,10 +87,6 @@ mod game_server {
             std::sync::Arc::new(tokio::sync::RwLock::new(Self {
                 state: GameServerState::NotRunning(Self::new_state(())),
             }))
-        }
-
-        pub fn current_state(&self) -> GameServerState {
-            self.state.clone()
         }
 
         pub async fn transition(&mut self) {
@@ -138,26 +149,16 @@ mod game_server {
             }
         }
 
-        pub async fn handle_commands(state_machine: std::sync::Arc<tokio::sync::RwLock<Self>>) {
-            loop {
-                {
-                    let mut locked = state_machine.write().await;
-                    locked.transition().await;
-                }
-
-                tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
-            }
+        pub async fn handle_command(state_machine: std::sync::Arc<tokio::sync::RwLock<Self>>) {
+            let mut locked = state_machine.write().await;
+            locked.transition().await;
         }
 
-        pub async fn read_state(state_machine: std::sync::Arc<tokio::sync::RwLock<Self>>) {
-            loop {
-                {
-                    let locked = state_machine.read().await;
-                    log::debug!("Current state: {:?}", locked.current_state());
-                }
-
-                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-            }
+        pub async fn read_state(
+            state_machine: std::sync::Arc<tokio::sync::RwLock<Self>>,
+        ) -> GameServerState {
+            let locked = state_machine.read().await;
+            locked.state.clone()
         }
     }
 }
