@@ -17,7 +17,7 @@ fn main() -> std::process::ExitCode {
 
     let _coroutines_done = runtime.block_on(async {
         let gssm = game_server::GameServerStateMachine::init().await;
-
+        let web_server = web::WebServer::init(gssm);
         /*
          * TODO: Add an axum WebSocket server that accepts WebSocket clients.
          *       For each accepted WebSocket client, spawn a tokio Task in which
@@ -36,6 +36,37 @@ fn main() -> std::process::ExitCode {
 
     let code: std::process::ExitCode = std::process::ExitCode::SUCCESS;
     return code;
+}
+
+mod web {
+    #[derive(Clone)]
+    struct WebServerState {
+        game_server_state_machine:
+            std::sync::Arc<tokio::sync::RwLock<crate::game_server::GameServerStateMachine>>,
+    }
+
+    pub struct WebServer {
+        router: axum::Router,
+    }
+
+    impl WebServer {
+        pub fn init(
+            game_server_state_machine: std::sync::Arc<
+                tokio::sync::RwLock<crate::game_server::GameServerStateMachine>,
+            >,
+        ) -> Self {
+            let state = WebServerState {
+                game_server_state_machine,
+            };
+            let router = axum::Router::new()
+                .route(
+                    rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH,
+                    axum::routing::get(handlers::ws_upgrade),
+                )
+                .with_state(state);
+            Self { router }
+        }
+    }
 }
 
 mod logging {
