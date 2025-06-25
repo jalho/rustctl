@@ -92,7 +92,7 @@ mod web {
 
     #[allow(dead_code)]
     struct WebSocketClient {
-        addr: std::os::unix::net::SocketAddr,
+        addr: std::net::SocketAddr,
         tx: futures::stream::SplitSink<axum::extract::ws::WebSocket, axum::extract::ws::Message>,
         rx: futures::stream::SplitStream<axum::extract::ws::WebSocket>,
         gssm: std::sync::Arc<tokio::sync::RwLock<crate::game_server::GameServerStateMachine>>,
@@ -100,7 +100,7 @@ mod web {
 
     impl WebSocketClient {
         pub fn new(
-            addr: std::os::unix::net::SocketAddr,
+            addr: std::net::SocketAddr,
             tx: futures::stream::SplitSink<
                 axum::extract::ws::WebSocket,
                 axum::extract::ws::Message,
@@ -131,7 +131,7 @@ mod web {
     mod handlers {
         pub async fn ws_upgrade(
             ws: axum::extract::WebSocketUpgrade,
-            connect_info: axum::extract::ConnectInfo<std::os::unix::net::SocketAddr>,
+            connect_info: axum::extract::ConnectInfo<std::net::SocketAddr>,
             state: axum::extract::State<super::WebServerState>,
         ) -> impl axum::response::IntoResponse {
             ws.on_upgrade(async move |websocket| {
