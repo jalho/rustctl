@@ -119,11 +119,28 @@ mod web {
             let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
             loop {
                 interval.tick().await;
+
                 let game_server_state: crate::game_server::GameServerState =
                     crate::game_server::GameServerStateMachine::read_state(self.gssm.clone()).await;
-                futures::SinkExt::send(&mut self.tx, format!("{game_server_state:?}").into())
+                let captured_at: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+
+                let sendable_snapshot: rustctl_common::snapshot::Snapshot =
+                    self.make_sendable_snapshot(captured_at, game_server_state);
+                let serialized: String = serde_json::to_string_pretty(&sendable_snapshot).unwrap();
+                futures::SinkExt::send(&mut self.tx, serialized.into())
                     .await
                     .unwrap();
+            }
+        }
+
+        fn make_sendable_snapshot(
+            &self,
+            captured_at: chrono::DateTime<chrono::Utc>,
+            game_server_state: crate::game_server::GameServerState,
+        ) -> rustctl_common::snapshot::Snapshot {
+            rustctl_common::snapshot::Snapshot {
+                captured_at,
+                game_server_state: format!("{game_server_state:?}"),
             }
         }
     }

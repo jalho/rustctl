@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use futures_util::StreamExt;
 use gloo_net::websocket::{Message, futures::WebSocket};
-use rustctl_common::{snapshot, web_app::WEBSOCKET_CONNECT_URL_PATH};
+use rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH;
 use wasm_bindgen_futures::spawn_local;
 
 static GLOBAL_SIGNAL: GlobalSignal<Option<String>> = GlobalSignal::<Option<String>>::new(|| None);
@@ -80,23 +80,6 @@ fn MessageView() -> Element {
                     p { "Waiting for messages..." }
                 }
             }
-        }
-    }
-}
-
-#[derive(PartialEq, Props, Clone)]
-struct SystemResourcesUsageProps {
-    stats: snapshot::System,
-}
-
-#[component]
-fn SystemResourcesUsage(props: SystemResourcesUsageProps) -> Element {
-    let serialized: String = serde_json::to_string_pretty(&props.stats).unwrap();
-
-    rsx! {
-        div {
-            h2 { "System resources usage:" }
-            pre { "{serialized}" }
         }
     }
 }
