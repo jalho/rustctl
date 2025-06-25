@@ -291,14 +291,16 @@ mod game_server {
             locked.state.clone()
         }
 
-        pub async fn start(
-            _state_machine: std::sync::Arc<tokio::sync::RwLock<Self>>,
-        ) -> GameServerState {
-            /*
-             * TODO: Initiate the initial state transition: NotRunning ->
-             *       Updating -> Launching -> RunningHealthy...
-             */
-            todo!();
+        /// Start the initial startup sequence of the _game server state
+        /// machine_: Install the game server or any available updates and then
+        /// launch the game.
+        pub async fn start(state_machine: std::sync::Arc<tokio::sync::RwLock<Self>>) {
+            let locked = state_machine.write().await;
+            if let GameServerState::NotRunning(_) = locked.state {
+                log::debug!("TODO: Initiate the initial startup sequence...");
+            } else {
+                unreachable!("unexpected initial state");
+            }
         }
     }
 }
