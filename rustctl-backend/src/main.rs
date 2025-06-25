@@ -1,5 +1,5 @@
 fn main() -> std::process::ExitCode {
-    let _handle = logging::init_logging(log::LevelFilter::Trace);
+    let _handle = logging::init_logging(log::LevelFilter::Debug);
     log::info!(
         "{name} {version}",
         name = env!("CARGO_PKG_NAME"),
@@ -19,7 +19,7 @@ fn main() -> std::process::ExitCode {
         let gssm = game_server::GameServerStateMachine::init().await;
         let web_service = web::WebServer::listen(
             cancellation_token.child_token(),
-            "127.0.0.1:8080".parse().unwrap(),
+            "127.0.0.1:8081".parse().unwrap(),
             gssm,
         );
 
