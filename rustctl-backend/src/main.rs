@@ -67,6 +67,19 @@ mod web {
             Self { router }
         }
     }
+
+    mod handlers {
+        pub async fn ws_upgrade(
+            ws: axum::extract::WebSocketUpgrade,
+            _connect_info: axum::extract::ConnectInfo<std::os::unix::net::SocketAddr>,
+            _state: axum::extract::State<super::WebServerState>,
+        ) -> impl axum::response::IntoResponse {
+            ws.on_upgrade(async move |websocket| {
+                let websocket: axum::extract::ws::WebSocket = websocket;
+                log::debug!("Do stuff with WebSocket: {websocket:?}");
+            })
+        }
+    }
 }
 
 mod logging {
