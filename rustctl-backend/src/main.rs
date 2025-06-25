@@ -221,50 +221,50 @@ mod game_server {
 
         pub async fn transition(&mut self) {
             self.state = match self.state {
-                GameServerState::NotRunning(_) => {
+                GameServerState::NotRunning(ref _state) => {
                     let next = Self::new_state(());
                     log::debug!(
-                        "Transition: NotRunning -> Wiping @ {}",
+                        "Transitioned: NotRunning -> Wiping @ {}",
                         next.transitioned_into_at
                     );
                     GameServerState::Wiping(next)
                 }
-                GameServerState::Wiping(_) => {
+                GameServerState::Wiping(ref _state) => {
                     let next = Self::new_state(());
                     log::debug!(
-                        "Transition: Wiping -> Updating @ {}",
+                        "Transitioned: Wiping -> Updating @ {}",
                         next.transitioned_into_at
                     );
                     GameServerState::Updating(next)
                 }
-                GameServerState::Updating(_) => {
+                GameServerState::Updating(ref _state) => {
                     let next = Self::new_state(());
                     log::debug!(
-                        "Transition: Updating -> Launching @ {}",
+                        "Transitioned: Updating -> Launching @ {}",
                         next.transitioned_into_at
                     );
                     GameServerState::Launching(next)
                 }
-                GameServerState::Launching(_) => {
+                GameServerState::Launching(ref _state) => {
                     let next = Self::new_state(());
                     log::debug!(
-                        "Transition: Launching -> RunningHealthy @ {}",
+                        "Transitioned: Launching -> RunningHealthy @ {}",
                         next.transitioned_into_at
                     );
                     GameServerState::RunningHealthy(next)
                 }
-                GameServerState::RunningHealthy(_) => {
+                GameServerState::RunningHealthy(ref _state) => {
                     let next = Self::new_state(());
                     log::debug!(
-                        "Transition: RunningHealthy -> Stopping @ {}",
+                        "Transitioned: RunningHealthy -> Stopping @ {}",
                         next.transitioned_into_at
                     );
                     GameServerState::Stopping(next)
                 }
-                GameServerState::Stopping(_) => {
+                GameServerState::Stopping(ref _state) => {
                     let next = Self::new_state(());
                     log::debug!(
-                        "Transition: Stopping -> NotRunning @ {}",
+                        "Transitioned: Stopping -> NotRunning @ {}",
                         next.transitioned_into_at
                     );
                     GameServerState::NotRunning(next)
@@ -295,11 +295,13 @@ mod game_server {
         /// machine_: Install the game server or any available updates and then
         /// launch the game.
         pub async fn start(state_machine: std::sync::Arc<tokio::sync::RwLock<Self>>) {
-            let locked = state_machine.write().await;
-            if let GameServerState::NotRunning(_) = locked.state {
-                log::debug!("TODO: Initiate the initial startup sequence...");
-            } else {
-                unreachable!("unexpected initial state");
+            loop {
+                let mut locked = state_machine.write().await;
+                if let GameServerState::RunningHealthy(_) = locked.state {
+                    break;
+                } else {
+                    locked.transition().await;
+                }
             }
         }
     }
