@@ -7,7 +7,7 @@ fn main() -> std::process::ExitCode {
     );
 
     let cancellation_token = tokio_util::sync::CancellationToken::new();
-    let (_cancel_tx, _cancel_rx) = tokio::sync::mpsc::channel::<()>(1);
+    let (_cancel_tx, cancel_rx) = tokio::sync::mpsc::channel::<()>(1);
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .worker_threads(1)
@@ -15,14 +15,18 @@ fn main() -> std::process::ExitCode {
         .build()
         .unwrap();
 
-    let _coroutines_done = runtime.block_on(async {
+    let _runtime_done = runtime.block_on(async {
         let gssm = game_server::GameServerStateMachine::init().await;
         let web_service = web::WebServer::listen(
             cancellation_token.child_token(),
             "127.0.0.1:8080".parse().unwrap(),
             gssm,
         );
-        web_service.await.unwrap();
+
+        let _coroutines_done = tokio::join!(
+            tokio::spawn(web_service),
+            tokio::spawn(lifecycle::wait_signal(cancellation_token, cancel_rx)),
+        );
         /*
          * TODO: Add an axum WebSocket server that accepts WebSocket clients.
          *       For each accepted WebSocket client, spawn a tokio Task in which
@@ -41,6 +45,24 @@ fn main() -> std::process::ExitCode {
 
     let code: std::process::ExitCode = std::process::ExitCode::SUCCESS;
     return code;
+}
+
+mod lifecycle {
+    pub async fn wait_signal(
+        cancel: tokio_util::sync::CancellationToken,
+        mut shutdown_rx: tokio::sync::mpsc::Receiver<()>,
+    ) {
+        let mut sigint =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()).unwrap();
+        let mut sigterm =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).unwrap();
+        tokio::select! {
+            _ = sigint.recv() => log::info!("SIGINT"),
+            _ = sigterm.recv() => log::info!("SIGTERM"),
+            _ = shutdown_rx.recv() => log::info!("Shutdown requested by coroutine"),
+        }
+        cancel.cancel();
+    }
 }
 
 mod web {
