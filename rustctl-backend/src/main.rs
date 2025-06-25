@@ -52,6 +52,9 @@ mod lifecycle {
 }
 
 mod web {
+    use crate::game_server::GameServerStateMachine;
+    use futures::SinkExt;
+
     #[allow(dead_code)]
     #[derive(Clone)]
     struct WebServerState {
@@ -110,6 +113,20 @@ mod web {
         ) -> Self {
             Self { addr, tx, rx, gssm }
         }
+
+        pub async fn send_and_receive_messages(&mut self) {
+            /*
+             * TODO: GameServerStateMachine::handle_command
+             */
+
+            let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
+            loop {
+                interval.tick().await;
+                let snapshot: crate::game_server::GameServerState =
+                    GameServerStateMachine::read_state(self.gssm.clone()).await;
+                self.tx.send(format!("{snapshot:?}").into()).await.unwrap();
+            }
+        }
     }
 
     mod handlers {
@@ -121,28 +138,13 @@ mod web {
             ws.on_upgrade(async move |websocket| {
                 let websocket: axum::extract::ws::WebSocket = websocket;
                 let (tx, rx) = futures::StreamExt::split(websocket);
-                let _client = crate::web::WebSocketClient::new(
+                let mut client = crate::web::WebSocketClient::new(
                     connect_info.0,
                     tx,
                     rx,
                     state.0.game_server_state_machine.clone(),
                 );
-                /*
-                 * TODO: Use `GameServerStateMachine::handle_command`
-                 *       to handle the inbound commands, and
-                 *       `GameServerStateMachine::read_state` to get the
-                 *       sendable state update.
-                 */
-
-                crate::game_server::GameServerStateMachine::handle_command(
-                    state.0.game_server_state_machine.clone(),
-                )
-                .await;
-
-                crate::game_server::GameServerStateMachine::read_state(
-                    state.0.game_server_state_machine.clone(),
-                )
-                .await;
+                client.send_and_receive_messages().await;
             })
         }
     }
