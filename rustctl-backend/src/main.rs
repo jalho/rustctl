@@ -46,7 +46,7 @@ mod game_server {
     #[allow(dead_code)]
     #[derive(Clone, Debug)]
     struct TrackedState<T> {
-        transitioned_into_at: i64,
+        transitioned_into_at: chrono::DateTime<chrono::Utc>,
         value: T,
     }
 
@@ -130,13 +130,8 @@ mod game_server {
         }
 
         fn new_state<T>(value: T) -> TrackedState<T> {
-            let timestamp = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as i64;
-
             TrackedState {
-                transitioned_into_at: timestamp,
+                transitioned_into_at: chrono::Utc::now(),
                 value,
             }
         }
