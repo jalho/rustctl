@@ -75,33 +75,36 @@ fn App() -> Element {
         });
     });
 
+    let transition_available: Option<Command> = match *REMOTE_STATE_SNAPSHOT.read() {
+        Some(ref state) => {
+            let state: &Snapshot = state;
+            match state.game_server_state {
+                rustctl_common::snapshot::GameServerStateExposed::Wiping(_)
+                | rustctl_common::snapshot::GameServerStateExposed::Updating(_)
+                | rustctl_common::snapshot::GameServerStateExposed::Stopping(_)
+                | rustctl_common::snapshot::GameServerStateExposed::Launching(_) => None,
+                rustctl_common::snapshot::GameServerStateExposed::NotRunning(_) => {
+                    Some(Command::TransitionFromNotRunning)
+                }
+                rustctl_common::snapshot::GameServerStateExposed::RunningHealthy(_) => {
+                    Some(Command::TransitionFromRunningHealthy)
+                }
+            }
+        }
+        None => None,
+    };
+
     rsx! {
         div {
             button {
+                disabled: match transition_available {
+                    Some(_) => false,
+                    None => true,
+                },
                 onclick: move |event| {
                     event.stop_propagation();
-                    let command: Option<Command> = match *REMOTE_STATE_SNAPSHOT.read() {
-                        Some(ref state) => {
-                            let state: &Snapshot = state;
-                            match state.game_server_state {
-                                rustctl_common::snapshot::GameServerStateExposed::Wiping(_)
-                                | rustctl_common::snapshot::GameServerStateExposed::Updating(_)
-                                | rustctl_common::snapshot::GameServerStateExposed::Stopping(_)
-                                | rustctl_common::snapshot::GameServerStateExposed::Launching(_) => {
-                                    None
-                                }
-                                rustctl_common::snapshot::GameServerStateExposed::NotRunning(_) => {
-                                    Some(Command::TransitionFromNotRunning)
-                                }
-                                rustctl_common::snapshot::GameServerStateExposed::RunningHealthy(
-                                    _,
-                                ) => Some(Command::TransitionFromRunningHealthy),
-                            }
-                        }
-                        None => todo!(),
-                    };
-                    let command: Command = match command {
-                        Some(n) => n,
+                    let command: &Command = match transition_available {
+                        Some(ref n) => n,
                         None => return,
                     };
                     let serialized: String = serde_json::to_string(&command).unwrap();
