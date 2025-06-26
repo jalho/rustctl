@@ -43,9 +43,9 @@ fn App() -> Element {
                     *locked = Some(tx);
                 }
 
-                let _coroutine_tx = spawn_local(async move {
+                spawn_local(async move {
                     while let Some(message) = futures::StreamExt::next(&mut rx).await {
-                        if let Err(_) = sock_tx.send(Message::Text(message)).await {
+                        if (sock_tx.send(Message::Text(message)).await).is_err() {
                             break;
                         }
                     }
@@ -110,8 +110,8 @@ fn App() -> Element {
                         locked.clone()
                     };
                     if let Some(sender) = sender {
-                        if let Err(_) = sender
-                            .unbounded_send(serialized)
+                        if sender
+                            .unbounded_send(serialized).is_err()
                         {
                             gloo_console::log!("Failed to send message - channel closed");
                         }
