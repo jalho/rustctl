@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use futures_util::{
-    StreamExt,
+    SinkExt, StreamExt,
     stream::{SplitSink, SplitStream},
 };
 use gloo_net::websocket::{Message, futures::WebSocket};
@@ -16,17 +16,13 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    let mut poc_signal: Signal<u32> = use_signal::<u32>(|| 0);
+    let mut poc_signal: Signal<Option<SplitSink<WebSocket, Message>>> =
+        use_signal::<Option<SplitSink<WebSocket, Message>>>(|| None);
 
     let interval = std::time::Duration::from_secs(1);
     use_effect(move || {
         spawn_local(async move {
             'connect_websocket: loop {
-                {
-                    let mut locked = poc_signal.write();
-                    *locked = *locked + 1;
-                }
-
                 let ws_result = WebSocket::open(&format!(
                     "ws://localhost:8081{path}",
                     path = WEBSOCKET_CONNECT_URL_PATH
@@ -41,8 +37,13 @@ fn App() -> Element {
                 };
 
                 let (tx, rx) = ws.split();
-                let _tx: SplitSink<WebSocket, Message> = tx;
+                let tx: SplitSink<WebSocket, Message> = tx;
                 let mut rx: SplitStream<WebSocket> = rx;
+
+                {
+                    let mut locked = poc_signal.write();
+                    *locked = Some(tx);
+                }
 
                 'recv_messages: while let Some(msg_result) = rx.next().await {
                     match msg_result {
@@ -62,7 +63,18 @@ fn App() -> Element {
 
     rsx! {
         div {
-            p { "POC signal: {poc_signal}" }
+            button {
+                onclick: move |event| {
+                    event.stop_propagation();
+                    let locked = poc_signal.write();
+                    if let Some(mut tx) = *locked {
+                        spawn_local(async move {
+                            let _ = tx.send(Message::Text("ping".to_string())).await;
+                        });
+                    }
+                },
+                "Send"
+            }
             h1 { "WebSocket Message Viewer" }
             MessageView {}
         }
