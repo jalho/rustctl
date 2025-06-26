@@ -102,7 +102,7 @@ fn App() -> Element {
                     };
                     let command: Command = match command {
                         Some(n) => n,
-                        None => todo!(),
+                        None => return,
                     };
                     let serialized: String = serde_json::to_string(&command).unwrap();
                     let sender = {
@@ -119,7 +119,7 @@ fn App() -> Element {
                         gloo_console::log!("WebSocket not connected");
                     }
                 },
-                "Send"
+                "Try transition"
             }
             h1 { "WebSocket Message Viewer" }
             MessageView {}
