@@ -153,7 +153,11 @@ mod web {
                                     let command: rustctl_common::command::Command =
                                         serde_json::from_str(&text).unwrap();
                                     let mut locked = gssm.write().await;
-                                    if locked.state.accepts_command(&command) {
+                                    if let Some(_backboard) = locked.state.accepts_command(&command)
+                                    {
+                                        /*
+                                         * TODO: Do transitions until `backboard`
+                                         */
                                         log::debug!("Accepted command: {command:?}");
                                         locked.transition().await;
                                     } else {
@@ -299,18 +303,55 @@ mod game_server {
     }
 
     impl GameServerState {
-        pub fn accepts_command(&self, command: &rustctl_common::command::Command) -> bool {
+        /// Returns `None` if the given command is not applicable as a
+        /// transition from the current state. Otherwise if the command is
+        /// applicable as a transition or as a series of transitions, then the
+        /// state until which transitions should be taken is returned.
+        pub fn accepts_command(
+            &self,
+            command: &rustctl_common::command::Command,
+        ) -> Option<GameServerStateBackboard> {
             match self {
                 GameServerState::Wiping(_)
                 | GameServerState::Updating(_)
                 | GameServerState::Launching(_)
-                | GameServerState::Stopping(_) => false,
+                | GameServerState::Stopping(_) => None,
                 GameServerState::RunningHealthy(_) => {
-                    command == &rustctl_common::command::Command::TransitionFromRunningHealthy
+                    if command == &rustctl_common::command::Command::TransitionFromRunningHealthy {
+                        Some(GameServerStateBackboard::NotRunning)
+                    } else {
+                        None
+                    }
                 }
                 GameServerState::NotRunning(_) => {
-                    command == &rustctl_common::command::Command::TransitionFromNotRunning
+                    if command == &rustctl_common::command::Command::TransitionFromNotRunning {
+                        Some(GameServerStateBackboard::RunningHealthy)
+                    } else {
+                        None
+                    }
                 }
+            }
+        }
+    }
+
+    pub enum GameServerStateBackboard {
+        NotRunning,
+        Wiping,
+        Updating,
+        Launching,
+        RunningHealthy,
+        Stopping,
+    }
+
+    impl From<GameServerState> for GameServerStateBackboard {
+        fn from(value: GameServerState) -> Self {
+            match value {
+                GameServerState::NotRunning(_) => GameServerStateBackboard::NotRunning,
+                GameServerState::Wiping(_) => GameServerStateBackboard::Wiping,
+                GameServerState::Updating(_) => GameServerStateBackboard::Updating,
+                GameServerState::Launching(_) => GameServerStateBackboard::Launching,
+                GameServerState::RunningHealthy(_) => GameServerStateBackboard::RunningHealthy,
+                GameServerState::Stopping(_) => GameServerStateBackboard::Stopping,
             }
         }
     }
