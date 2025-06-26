@@ -343,8 +343,8 @@ mod game_server {
         Stopping,
     }
 
-    impl From<GameServerState> for GameServerStateBackboard {
-        fn from(value: GameServerState) -> Self {
+    impl From<&GameServerState> for GameServerStateBackboard {
+        fn from(value: &GameServerState) -> Self {
             match value {
                 GameServerState::NotRunning(_) => GameServerStateBackboard::NotRunning,
                 GameServerState::Wiping(_) => GameServerStateBackboard::Wiping,
@@ -472,7 +472,7 @@ mod game_server {
         pub async fn start(state_machine: std::sync::Arc<tokio::sync::RwLock<Self>>) {
             loop {
                 let mut locked = state_machine.write().await;
-                if let GameServerState::RunningHealthy(_) = locked.state {
+                if let GameServerStateBackboard::RunningHealthy = (&locked.state).into() {
                     break;
                 } else {
                     locked.transition().await;
