@@ -18,8 +18,8 @@ fn main() {
 fn App() -> Element {
     let mut poc_signal: Signal<Option<SplitSink<WebSocket, Message>>> =
         use_signal::<Option<SplitSink<WebSocket, Message>>>(|| None);
-
     let interval = std::time::Duration::from_secs(1);
+
     use_effect(move || {
         spawn_local(async move {
             'connect_websocket: loop {
@@ -27,7 +27,6 @@ fn App() -> Element {
                     "ws://localhost:8081{path}",
                     path = WEBSOCKET_CONNECT_URL_PATH
                 ));
-
                 let ws: WebSocket = match ws_result {
                     Ok(ws) => ws,
                     Err(_) => {
@@ -35,16 +34,13 @@ fn App() -> Element {
                         continue 'connect_websocket;
                     }
                 };
-
                 let (tx, rx) = ws.split();
                 let tx: SplitSink<WebSocket, Message> = tx;
                 let mut rx: SplitStream<WebSocket> = rx;
-
                 {
                     let mut locked = poc_signal.write();
                     *locked = Some(tx);
                 }
-
                 'recv_messages: while let Some(msg_result) = rx.next().await {
                     match msg_result {
                         Ok(Message::Text(serialized)) => {
@@ -66,10 +62,10 @@ fn App() -> Element {
             button {
                 onclick: move |event| {
                     event.stop_propagation();
-                    let locked = poc_signal.write();
-                    if let Some(mut tx) = *locked {
+                    let mut locked = poc_signal.write();
+                    if let Some(mut tx) = locked.take() {
                         spawn_local(async move {
-                            let _ = tx.send(Message::Text("ping".to_string())).await;
+                            let _ = tx.send(Message::Text("Hello from WebSocket client!".to_string())).await;
                         });
                     }
                 },
@@ -84,7 +80,6 @@ fn App() -> Element {
 #[component]
 fn MessageView() -> Element {
     let value = REMOTE_STATE_SNAPSHOT.read();
-
     match *value {
         Some(ref snapshot) => {
             let serialized = snapshot;
