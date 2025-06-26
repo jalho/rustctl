@@ -3,6 +3,10 @@ name = "rustctl-frontend"
 version = "0.1.0"
 edition = "2024"
 
+[dependencies.gloo-console]
+version = "0.3.0"
+default-features = false
+
 [dependencies.uuid]
 version = "1.17.0"
 default-features = false

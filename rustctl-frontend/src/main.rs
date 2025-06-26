@@ -62,6 +62,7 @@ fn App() -> Element {
             button {
                 onclick: move |event| {
                     event.stop_propagation();
+                    gloo_console::log!("Button clicked!");
                     let mut locked = poc_signal.write();
                     if let Some(mut tx) = locked.take() {
                         spawn_local(async move {
