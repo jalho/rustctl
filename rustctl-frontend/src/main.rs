@@ -16,10 +16,17 @@ fn main() {
 
 #[component]
 fn App() -> Element {
+    let mut poc_signal: Signal<u32> = use_signal::<u32>(|| 0);
+
     let interval = std::time::Duration::from_secs(1);
     use_effect(move || {
         spawn_local(async move {
             'connect_websocket: loop {
+                {
+                    let mut locked = poc_signal.write();
+                    *locked = *locked + 1;
+                }
+
                 let ws_result = WebSocket::open(&format!(
                     "ws://localhost:8081{path}",
                     path = WEBSOCKET_CONNECT_URL_PATH
@@ -55,6 +62,7 @@ fn App() -> Element {
 
     rsx! {
         div {
+            p { "POC signal: {poc_signal}" }
             h1 { "WebSocket Message Viewer" }
             MessageView {}
         }
