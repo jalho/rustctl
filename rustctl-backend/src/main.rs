@@ -146,31 +146,31 @@ mod web {
                 let gssm = self.gssm.clone();
 
                 tokio::spawn(async move {
-                    while let Some(msg_result) = futures::StreamExt::next(&mut rx).await {
+                    'recv_messages: while let Some(msg_result) =
+                        futures::StreamExt::next(&mut rx).await
+                    {
                         match msg_result {
                             Ok(msg) => match msg {
                                 axum::extract::ws::Message::Text(text) => {
                                     let command: rustctl_common::command::Command =
                                         serde_json::from_str(&text).unwrap();
 
-                                    /*
-                                     * TODO: Fix concurrency: Clients should be
-                                     *       receiving intermediary states while
-                                     *       transition series is in progress!
-                                     */
-                                    let mut locked = gssm.write().await;
-                                    if let Some(backboard) = locked.state.accepts_command(&command)
-                                    {
-                                        loop {
-                                            locked.transition().await;
-                                            let current: crate::game_server::GameServerStateBackboard =
-                                                (&locked.state).into();
-                                            if backboard == current {
-                                                break;
-                                            }
+                                    let backboard: crate::game_server::GameServerStateBackboard = {
+                                        let locked = gssm.read().await;
+                                        match locked.state.accepts_command(&command) {
+                                            Some(backboard) => backboard,
+                                            None => continue 'recv_messages,
                                         }
-                                    } else {
-                                        log::debug!("Ignored command: {command:?}");
+                                    };
+
+                                    loop {
+                                        let mut locked = gssm.write().await;
+                                        locked.transition().await;
+                                        let current: crate::game_server::GameServerStateBackboard =
+                                            (&locked.state).into();
+                                        if backboard == current {
+                                            break;
+                                        }
                                     }
                                 }
                                 _ => todo!(),
