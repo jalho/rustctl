@@ -65,9 +65,15 @@ fn App() -> Element {
                     }
                 }
 
+                /*
+                 * Reset state when disconnected.
+                 */
                 {
-                    let mut locked = sender.write();
-                    *locked = None;
+                    let mut locked_tx = sender.write();
+                    *locked_tx = None;
+
+                    let mut locked_remote_state = REMOTE_STATE_SNAPSHOT.write();
+                    *locked_remote_state = None;
                 }
 
                 gloo_timers::future::sleep(interval).await;
