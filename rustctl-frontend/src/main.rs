@@ -1,5 +1,8 @@
 use dioxus::prelude::*;
-use futures_util::StreamExt;
+use futures_util::{
+    StreamExt,
+    stream::{SplitSink, SplitStream},
+};
 use gloo_net::websocket::{Message, futures::WebSocket};
 use rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH;
 use wasm_bindgen_futures::spawn_local;
@@ -30,9 +33,11 @@ fn App() -> Element {
                     }
                 };
 
-                let (_write, mut read) = ws.split();
+                let (tx, rx) = ws.split();
+                let _tx: SplitSink<WebSocket, Message> = tx;
+                let mut rx: SplitStream<WebSocket> = rx;
 
-                'recv_messages: while let Some(msg_result) = read.next().await {
+                'recv_messages: while let Some(msg_result) = rx.next().await {
                     match msg_result {
                         Ok(Message::Text(serialized)) => {
                             REMOTE_STATE_SNAPSHOT.with_mut(|state| {
