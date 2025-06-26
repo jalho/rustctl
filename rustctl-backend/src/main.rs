@@ -15,7 +15,7 @@ fn main() -> std::process::ExitCode {
         .build()
         .unwrap();
 
-    let _runtime_done = runtime.block_on(async {
+    runtime.block_on(async {
         let gssm = game_server::GameServerStateMachine::init().await;
 
         let web_service = web::WebServer::listen(
@@ -32,7 +32,7 @@ fn main() -> std::process::ExitCode {
     });
 
     let code: std::process::ExitCode = std::process::ExitCode::SUCCESS;
-    return code;
+    code
 }
 
 mod lifecycle {
