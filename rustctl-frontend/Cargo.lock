@@ -1287,6 +1287,7 @@ name = "rustctl-frontend"
 version = "0.1.0"
 dependencies = [
  "dioxus",
+ "futures",
  "futures-util",
  "gloo-console",
  "gloo-net",

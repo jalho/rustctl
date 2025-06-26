@@ -1,8 +1,6 @@
 use dioxus::prelude::*;
-use futures_util::{
-    SinkExt, StreamExt,
-    stream::{SplitSink, SplitStream},
-};
+use futures::stream::{SplitSink, SplitStream};
+use futures_util::{SinkExt, StreamExt};
 use gloo_net::websocket::{Message, futures::WebSocket};
 use rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH;
 use wasm_bindgen_futures::spawn_local;
@@ -16,8 +14,8 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    let mut poc_signal: Signal<Option<SplitSink<WebSocket, Message>>> =
-        use_signal::<Option<SplitSink<WebSocket, Message>>>(|| None);
+    let mut sender: Signal<Option<futures::channel::mpsc::UnboundedSender<String>>> =
+        use_signal(|| None);
     let interval = std::time::Duration::from_secs(1);
 
     use_effect(move || {
@@ -34,14 +32,26 @@ fn App() -> Element {
                         continue 'connect_websocket;
                     }
                 };
-                let (tx, rx) = ws.split();
-                let tx: SplitSink<WebSocket, Message> = tx;
-                let mut rx: SplitStream<WebSocket> = rx;
+
+                let (sock_tx, sock_rx) = ws.split();
+                let mut sock_tx: SplitSink<WebSocket, Message> = sock_tx;
+                let mut sock_rx: SplitStream<WebSocket> = sock_rx;
+
+                let (tx, mut rx) = futures::channel::mpsc::unbounded::<String>();
                 {
-                    let mut locked = poc_signal.write();
+                    let mut locked = sender.write();
                     *locked = Some(tx);
                 }
-                'recv_messages: while let Some(msg_result) = rx.next().await {
+
+                let _coroutine_tx = spawn_local(async move {
+                    while let Some(message) = futures::StreamExt::next(&mut rx).await {
+                        if let Err(_) = sock_tx.send(Message::Text(message)).await {
+                            break;
+                        }
+                    }
+                });
+
+                'recv_messages: while let Some(msg_result) = sock_rx.next().await {
                     match msg_result {
                         Ok(Message::Text(serialized)) => {
                             REMOTE_STATE_SNAPSHOT.with_mut(|state| {
@@ -52,6 +62,12 @@ fn App() -> Element {
                         Err(_) => break 'recv_messages,
                     }
                 }
+
+                {
+                    let mut locked = sender.write();
+                    *locked = None;
+                }
+
                 gloo_timers::future::sleep(interval).await;
             }
         });
@@ -63,11 +79,16 @@ fn App() -> Element {
                 onclick: move |event| {
                     event.stop_propagation();
                     gloo_console::log!("Button clicked!");
-                    let mut locked = poc_signal.write();
-                    if let Some(mut tx) = locked.take() {
-                        spawn_local(async move {
-                            let _ = tx.send(Message::Text("Hello from WebSocket client!".to_string())).await;
-                        });
+                    let sender = {
+                        let locked = sender.read();
+                        locked.clone()
+                    };
+                    if let Some(sender) = sender {
+                        if let Err(_) = sender.unbounded_send("Hello from WebSocket client!".to_string()) {
+                            gloo_console::log!("Failed to send message - channel closed");
+                        }
+                    } else {
+                        gloo_console::log!("WebSocket not connected");
                     }
                 },
                 "Send"
