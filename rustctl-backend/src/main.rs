@@ -169,7 +169,64 @@ mod web {
         ) -> rustctl_common::snapshot::Snapshot {
             rustctl_common::snapshot::Snapshot {
                 captured_at,
-                game_server_state: format!("{game_server_state:?}"),
+                game_server_state: game_server_state.into(),
+            }
+        }
+    }
+
+    impl From<crate::game_server::GameServerState>
+        for rustctl_common::snapshot::GameServerStateExposed
+    {
+        fn from(value: crate::game_server::GameServerState) -> Self {
+            match value {
+                crate::game_server::GameServerState::NotRunning(s) => {
+                    rustctl_common::snapshot::GameServerStateExposed::NotRunning(
+                        rustctl_common::snapshot::TrackedState {
+                            transitioned_into_at: s.transitioned_into_at,
+                            value: s.value,
+                        },
+                    )
+                }
+                crate::game_server::GameServerState::Wiping(s) => {
+                    rustctl_common::snapshot::GameServerStateExposed::Wiping(
+                        rustctl_common::snapshot::TrackedState {
+                            transitioned_into_at: s.transitioned_into_at,
+                            value: s.value,
+                        },
+                    )
+                }
+                crate::game_server::GameServerState::Updating(s) => {
+                    rustctl_common::snapshot::GameServerStateExposed::Updating(
+                        rustctl_common::snapshot::TrackedState {
+                            transitioned_into_at: s.transitioned_into_at,
+                            value: s.value,
+                        },
+                    )
+                }
+                crate::game_server::GameServerState::Launching(s) => {
+                    rustctl_common::snapshot::GameServerStateExposed::Launching(
+                        rustctl_common::snapshot::TrackedState {
+                            transitioned_into_at: s.transitioned_into_at,
+                            value: s.value,
+                        },
+                    )
+                }
+                crate::game_server::GameServerState::RunningHealthy(s) => {
+                    rustctl_common::snapshot::GameServerStateExposed::RunningHealthy(
+                        rustctl_common::snapshot::TrackedState {
+                            transitioned_into_at: s.transitioned_into_at,
+                            value: s.value,
+                        },
+                    )
+                }
+                crate::game_server::GameServerState::Stopping(s) => {
+                    rustctl_common::snapshot::GameServerStateExposed::Stopping(
+                        rustctl_common::snapshot::TrackedState {
+                            transitioned_into_at: s.transitioned_into_at,
+                            value: s.value,
+                        },
+                    )
+                }
             }
         }
     }
@@ -218,8 +275,8 @@ mod game_server {
     #[allow(dead_code)]
     #[derive(Clone, Debug)]
     pub struct TrackedState<T> {
-        transitioned_into_at: chrono::DateTime<chrono::Utc>,
-        value: T,
+        pub transitioned_into_at: chrono::DateTime<chrono::Utc>,
+        pub value: T,
     }
 
     #[allow(dead_code)]

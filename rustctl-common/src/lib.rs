@@ -4,7 +4,23 @@ pub mod snapshot {
     #[derive(serde::Serialize, serde::Deserialize)]
     pub struct Snapshot {
         pub captured_at: chrono::DateTime<chrono::Utc>,
-        pub game_server_state: String,
+        pub game_server_state: GameServerStateExposed,
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct TrackedState<T> {
+        pub transitioned_into_at: chrono::DateTime<chrono::Utc>,
+        pub value: T,
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub enum GameServerStateExposed {
+        NotRunning(TrackedState<()>),
+        Wiping(TrackedState<()>),
+        Updating(TrackedState<()>),
+        Launching(TrackedState<()>),
+        RunningHealthy(TrackedState<()>),
+        Stopping(TrackedState<()>),
     }
 }
 

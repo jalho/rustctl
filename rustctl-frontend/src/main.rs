@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use futures::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use gloo_net::websocket::{Message, futures::WebSocket};
-use rustctl_common::{snapshot::Snapshot, web_app::WEBSOCKET_CONNECT_URL_PATH};
+use rustctl_common::{command::Command, snapshot::Snapshot, web_app::WEBSOCKET_CONNECT_URL_PATH};
 use wasm_bindgen_futures::spawn_local;
 
 static REMOTE_STATE_SNAPSHOT: GlobalSignal<Option<Snapshot>> =
@@ -80,13 +80,39 @@ fn App() -> Element {
             button {
                 onclick: move |event| {
                     event.stop_propagation();
-                    gloo_console::log!("Button clicked!");
+                    let command: Option<Command> = match *REMOTE_STATE_SNAPSHOT.read() {
+                        Some(ref state) => {
+                            let state: &Snapshot = state;
+                            match state.game_server_state {
+                                rustctl_common::snapshot::GameServerStateExposed::Wiping(_)
+                                | rustctl_common::snapshot::GameServerStateExposed::Updating(_)
+                                | rustctl_common::snapshot::GameServerStateExposed::Stopping(_)
+                                | rustctl_common::snapshot::GameServerStateExposed::Launching(_) => {
+                                    None
+                                }
+                                rustctl_common::snapshot::GameServerStateExposed::NotRunning(_) => {
+                                    Some(Command::TransitionFromNotRunning)
+                                }
+                                rustctl_common::snapshot::GameServerStateExposed::RunningHealthy(
+                                    _,
+                                ) => Some(Command::TransitionFromRunningHealthy),
+                            }
+                        }
+                        None => todo!(),
+                    };
+                    let command: Command = match command {
+                        Some(n) => n,
+                        None => todo!(),
+                    };
+                    let serialized: String = serde_json::to_string(&command).unwrap();
                     let sender = {
                         let locked = sender.read();
                         locked.clone()
                     };
                     if let Some(sender) = sender {
-                        if let Err(_) = sender.unbounded_send("Hello from WebSocket client!".to_string()) {
+                        if let Err(_) = sender
+                            .unbounded_send(serialized)
+                        {
                             gloo_console::log!("Failed to send message - channel closed");
                         }
                     } else {
