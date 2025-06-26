@@ -143,14 +143,22 @@ mod web {
 
             let coroutine_rx = {
                 let mut rx = self.rx;
-                let addr = self.addr;
+                let gssm = self.gssm.clone();
 
                 tokio::spawn(async move {
                     while let Some(msg_result) = futures::StreamExt::next(&mut rx).await {
                         match msg_result {
                             Ok(msg) => match msg {
                                 axum::extract::ws::Message::Text(text) => {
-                                    log::debug!("Received from {addr}: {text}");
+                                    let command: rustctl_common::command::Command =
+                                        serde_json::from_str(&text).unwrap();
+                                    let mut locked = gssm.write().await;
+                                    if locked.state.accepts_command(&command) {
+                                        log::debug!("Accepted command: {command:?}");
+                                        locked.transition().await;
+                                    } else {
+                                        log::debug!("Ignored command: {command:?}");
+                                    }
                                 }
                                 _ => todo!(),
                             },
@@ -290,9 +298,26 @@ mod game_server {
         Stopping(TrackedState<()>),
     }
 
+    impl GameServerState {
+        pub fn accepts_command(&self, command: &rustctl_common::command::Command) -> bool {
+            match self {
+                GameServerState::Wiping(_)
+                | GameServerState::Updating(_)
+                | GameServerState::Launching(_)
+                | GameServerState::Stopping(_) => false,
+                GameServerState::RunningHealthy(_) => {
+                    command == &rustctl_common::command::Command::TransitionFromRunningHealthy
+                }
+                GameServerState::NotRunning(_) => {
+                    command == &rustctl_common::command::Command::TransitionFromNotRunning
+                }
+            }
+        }
+    }
+
     #[allow(dead_code)]
     pub struct GameServerStateMachine {
-        state: GameServerState,
+        pub state: GameServerState,
     }
 
     #[allow(dead_code)]

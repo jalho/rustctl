@@ -29,7 +29,7 @@ pub mod web_app {
 }
 
 pub mod command {
-    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
     pub enum Command {
         TransitionFromNotRunning,
         TransitionFromRunningHealthy,
