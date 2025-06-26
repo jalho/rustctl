@@ -116,9 +116,7 @@ fn App() -> Element {
                         locked.clone()
                     };
                     if let Some(sender) = sender {
-                        if sender
-                            .unbounded_send(serialized).is_err()
-                        {
+                        if sender.unbounded_send(serialized).is_err() {
                             gloo_console::log!("Failed to send message - channel closed");
                         }
                     } else {
