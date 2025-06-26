@@ -113,34 +113,57 @@ mod web {
             Self { addr, tx, rx, gssm }
         }
 
-        /*
-         * TODO: Refactor fn send_and_receive_messages so that it spawns
-         *       2 coroutines ("Tokio tasks"): One for sending messages to
-         *       self.tx on a regular interval (i.e. keep what the current
-         *       implementation is already doing), and another one that uses
-         *       self.rx to continuously log::debug!() inbound messages. I.e.
-         *       add the latter functionality!
-         */
-        pub async fn send_and_receive_messages(&mut self) {
-            let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
-            loop {
-                interval.tick().await;
+        pub async fn send_and_receive_messages(self) {
+            let coroutine_tx = {
+                let mut tx = self.tx;
+                let gssm = self.gssm.clone();
 
-                let game_server_state: crate::game_server::GameServerState =
-                    crate::game_server::GameServerStateMachine::read_state(self.gssm.clone()).await;
-                let captured_at: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+                tokio::spawn(async move {
+                    let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
+                    loop {
+                        interval.tick().await;
 
-                let sendable_snapshot: rustctl_common::snapshot::Snapshot =
-                    self.make_sendable_snapshot(captured_at, game_server_state);
-                let serialized: String = serde_json::to_string_pretty(&sendable_snapshot).unwrap();
-                futures::SinkExt::send(&mut self.tx, serialized.into())
-                    .await
-                    .unwrap();
-            }
+                        let game_server_state: crate::game_server::GameServerState =
+                            crate::game_server::GameServerStateMachine::read_state(gssm.clone())
+                                .await;
+                        let captured_at: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+
+                        let sendable_snapshot: rustctl_common::snapshot::Snapshot =
+                            Self::make_sendable_snapshot(captured_at, game_server_state);
+                        let serialized: String =
+                            serde_json::to_string_pretty(&sendable_snapshot).unwrap();
+
+                        match futures::SinkExt::send(&mut tx, serialized.into()).await {
+                            Ok(_) => {}
+                            Err(_err) => todo!(),
+                        }
+                    }
+                })
+            };
+
+            let coroutine_rx = {
+                let mut rx = self.rx;
+                let addr = self.addr;
+
+                tokio::spawn(async move {
+                    while let Some(msg_result) = futures::StreamExt::next(&mut rx).await {
+                        match msg_result {
+                            Ok(msg) => match msg {
+                                axum::extract::ws::Message::Text(text) => {
+                                    log::debug!("Received from {addr}: {text}");
+                                }
+                                _ => todo!(),
+                            },
+                            Err(_err) => todo!(),
+                        }
+                    }
+                })
+            };
+
+            _ = tokio::join!(coroutine_tx, coroutine_rx)
         }
 
         fn make_sendable_snapshot(
-            &self,
             captured_at: chrono::DateTime<chrono::Utc>,
             game_server_state: crate::game_server::GameServerState,
         ) -> rustctl_common::snapshot::Snapshot {
@@ -160,7 +183,7 @@ mod web {
             ws.on_upgrade(async move |websocket| {
                 let websocket: axum::extract::ws::WebSocket = websocket;
                 let (tx, rx) = futures::StreamExt::split(websocket);
-                let mut client = crate::web::WebSocketClient::new(
+                let client = crate::web::WebSocketClient::new(
                     connect_info.0,
                     tx,
                     rx,
