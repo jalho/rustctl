@@ -4,7 +4,8 @@ use gloo_net::websocket::{Message, futures::WebSocket};
 use rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH;
 use wasm_bindgen_futures::spawn_local;
 
-static GLOBAL_SIGNAL: GlobalSignal<Option<String>> = GlobalSignal::<Option<String>>::new(|| None);
+static REMOTE_STATE_SNAPSHOT: GlobalSignal<Option<String>> =
+    GlobalSignal::<Option<String>>::new(|| None);
 
 fn main() {
     dioxus::launch(App);
@@ -21,7 +22,7 @@ fn App() -> Element {
                     path = WEBSOCKET_CONNECT_URL_PATH
                 ));
 
-                let ws = match ws_result {
+                let ws: WebSocket = match ws_result {
                     Ok(ws) => ws,
                     Err(_) => {
                         gloo_timers::future::sleep(interval).await;
@@ -34,7 +35,7 @@ fn App() -> Element {
                 'recv_messages: while let Some(msg_result) = read.next().await {
                     match msg_result {
                         Ok(Message::Text(serialized)) => {
-                            GLOBAL_SIGNAL.with_mut(|state| {
+                            REMOTE_STATE_SNAPSHOT.with_mut(|state| {
                                 *state = Some(serialized);
                             });
                         }
@@ -57,7 +58,7 @@ fn App() -> Element {
 
 #[component]
 fn MessageView() -> Element {
-    let value = GLOBAL_SIGNAL.read();
+    let value = REMOTE_STATE_SNAPSHOT.read();
 
     match *value {
         Some(ref snapshot) => {
