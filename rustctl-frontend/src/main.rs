@@ -2,11 +2,11 @@ use dioxus::prelude::*;
 use futures::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use gloo_net::websocket::{Message, futures::WebSocket};
-use rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH;
+use rustctl_common::{snapshot::Snapshot, web_app::WEBSOCKET_CONNECT_URL_PATH};
 use wasm_bindgen_futures::spawn_local;
 
-static REMOTE_STATE_SNAPSHOT: GlobalSignal<Option<String>> =
-    GlobalSignal::<Option<String>>::new(|| None);
+static REMOTE_STATE_SNAPSHOT: GlobalSignal<Option<Snapshot>> =
+    GlobalSignal::<Option<Snapshot>>::new(|| None);
 
 fn main() {
     dioxus::launch(App);
@@ -55,7 +55,9 @@ fn App() -> Element {
                     match msg_result {
                         Ok(Message::Text(serialized)) => {
                             REMOTE_STATE_SNAPSHOT.with_mut(|state| {
-                                *state = Some(serialized);
+                                let deserialized: Snapshot =
+                                    serde_json::from_str(&serialized).unwrap();
+                                *state = Some(deserialized);
                             });
                         }
                         Ok(_) => {}
@@ -104,7 +106,7 @@ fn MessageView() -> Element {
     let value = REMOTE_STATE_SNAPSHOT.read();
     match *value {
         Some(ref snapshot) => {
-            let serialized = snapshot;
+            let serialized = serde_json::to_string_pretty(snapshot).unwrap();
             rsx! {
                 div {
                     h2 { "Latest message:" }
