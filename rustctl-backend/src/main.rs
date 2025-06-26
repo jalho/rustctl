@@ -393,6 +393,10 @@ mod game_server {
                 GameServerState::Wiping(ref _state) => {
                     /*
                      * TODO: Remove old game state: Blueprints, map etc...
+                     *       (More specifically, we should issue the removal
+                     *       when transitioned into this state, and then here
+                     *       we should transition out of this state once the
+                     *       removal completes... Not too important, I guess!)
                      */
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
@@ -406,7 +410,7 @@ mod game_server {
 
                 GameServerState::Updating(ref _state) => {
                     /*
-                     * TODO: Install or update the game server using SteamCMD...
+                     * TODO: Install or update the game server using SteamCMD and then launch it...
                      */
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
@@ -420,7 +424,11 @@ mod game_server {
 
                 GameServerState::Launching(ref _state) => {
                     /*
-                     * TODO: Launch the updated game server...
+                     * TODO: Wait for the game to become playable...
+                     *       - Wait for Bradley to spawn or use some Carbon
+                     *         plugin to receive readiness signal via e.g. Unix
+                     *         domain socket?
+                     *       - Render game world map and await the .PNG to appear?
                      */
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
@@ -435,6 +443,7 @@ mod game_server {
                 GameServerState::RunningHealthy(ref _state) => {
                     /*
                      * TODO: Stop the game server...
+                     *       - Issue SIGINT to the tracked game server child process
                      */
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
@@ -447,6 +456,13 @@ mod game_server {
                 }
 
                 GameServerState::Stopping(ref _state) => {
+                    /*
+                     * TODO: Wait for the game server process to exit...
+                     *       - Reap and whatnot...
+                     *       - Archive game state as backup .tgz?
+                     */
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
                     let next = Self::new_state(());
                     log::debug!(
                         "Transitioned: Stopping -> NotRunning @ {}",
