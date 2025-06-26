@@ -152,14 +152,23 @@ mod web {
                                 axum::extract::ws::Message::Text(text) => {
                                     let command: rustctl_common::command::Command =
                                         serde_json::from_str(&text).unwrap();
+
+                                    /*
+                                     * TODO: Fix concurrency: Clients should be
+                                     *       receiving intermediary states while
+                                     *       transition series is in progress!
+                                     */
                                     let mut locked = gssm.write().await;
-                                    if let Some(_backboard) = locked.state.accepts_command(&command)
+                                    if let Some(backboard) = locked.state.accepts_command(&command)
                                     {
-                                        /*
-                                         * TODO: Do transitions until `backboard`
-                                         */
-                                        log::debug!("Accepted command: {command:?}");
-                                        locked.transition().await;
+                                        loop {
+                                            locked.transition().await;
+                                            let current: crate::game_server::GameServerStateBackboard =
+                                                (&locked.state).into();
+                                            if backboard == current {
+                                                break;
+                                            }
+                                        }
                                     } else {
                                         log::debug!("Ignored command: {command:?}");
                                     }
@@ -334,6 +343,7 @@ mod game_server {
         }
     }
 
+    #[derive(PartialEq, Eq)]
     pub enum GameServerStateBackboard {
         NotRunning,
         Wiping,
