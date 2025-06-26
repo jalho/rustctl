@@ -113,11 +113,15 @@ mod web {
             Self { addr, tx, rx, gssm }
         }
 
+        /*
+         * TODO: Refactor fn send_and_receive_messages so that it spawns
+         *       2 coroutines ("Tokio tasks"): One for sending messages to
+         *       self.tx on a regular interval (i.e. keep what the current
+         *       implementation is already doing), and another one that uses
+         *       self.rx to continuously log::debug!() inbound messages. I.e.
+         *       add the latter functionality!
+         */
         pub async fn send_and_receive_messages(&mut self) {
-            /*
-             * TODO: GameServerStateMachine::handle_command
-             */
-
             let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
             loop {
                 interval.tick().await;
