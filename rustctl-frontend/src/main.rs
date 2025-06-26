@@ -122,7 +122,10 @@ fn App() -> Element {
                         gloo_console::log!("WebSocket not connected");
                     }
                 },
-                "Try transition"
+                match transition_available {
+                    Some(ref n) => format!("{n:?}"),
+                    None => "N/A".to_string(),
+                }
             }
             h1 { "WebSocket Message Viewer" }
             MessageView {}
