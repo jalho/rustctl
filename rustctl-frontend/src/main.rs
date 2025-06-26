@@ -103,10 +103,7 @@ fn App() -> Element {
     rsx! {
         div {
             button {
-                disabled: match transition_available {
-                    Some(_) => false,
-                    None => true,
-                },
+                disabled: transition_available.is_none(),
                 onclick: move |event| {
                     event.stop_propagation();
                     let command: &Command = match transition_available {
