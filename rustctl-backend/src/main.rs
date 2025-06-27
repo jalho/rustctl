@@ -14,8 +14,8 @@ enum GameState {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum ClientCommand {
-    StartInstallation,
-    TerminateGame,
+    InitiateGameLaunchSequence,
+    CloseGameGracefully,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -106,7 +106,7 @@ impl GameManager {
 
     async fn handle_command(&mut self, command: ClientCommand) {
         match command {
-            ClientCommand::StartInstallation => {
+            ClientCommand::InitiateGameLaunchSequence => {
                 if matches!(
                     self.state,
                     GameState::GameTerminatedManually | GameState::GameTerminatedUnexpectedly
@@ -114,7 +114,7 @@ impl GameManager {
                     self.start_game_launch_sequence().await;
                 }
             }
-            ClientCommand::TerminateGame => {
+            ClientCommand::CloseGameGracefully => {
                 if matches!(self.state, GameState::GameRunningHealthy) {
                     self.transition_to(GameState::GameClosingGracefully).await;
                     self.process.terminate().await;
