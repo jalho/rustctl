@@ -3,70 +3,54 @@ name = "rustctl-backend"
 version = "0.1.0"
 edition = "2024"
 
-[dependencies.log]
-version = "0.4.27"
-default-features = false
-
-[dependencies.log4rs]
-version = "1.3.0"
-default-features = false
-features = ["console_appender"]
-
-[dependencies.tokio-util]
-version = "0.7.15"
-default-features = false
-
-[dependencies.rustctl-common]
-path = "../rustctl-common"
-
-[dependencies.axum-server]
-version = "0.7.2"
-default-features = false
-features = ["tls-rustls"]
-
-[dependencies.chrono]
-version = "0.4.41"
-default-features = false
-features = ["serde", "alloc", "now"]
-
-[dependencies.uuid]
-version = "1.17.0"
-default-features = false
-features = ["v4", "serde"]
-
-[dependencies.console-subscriber]
-version = "0.4.1"
-default-features = false
-
-[dependencies.tower-http]
-version = "0.6.4"
-default-features = false
-features = ["cors", "fs"]
-
-[dependencies.clap]
-version = "4.5.39"
-default-features = false
-features = ["derive", "std"]
-
-[dependencies.serde]
-version = "1.0.219"
-default-features = false
-features = ["derive"]
-
-[dependencies.serde_json]
-version = "1.0.140"
-default-features = false
-
-[dependencies.futures]
-version = "0.3.31"
-default-features = false
-
-[dependencies.axum]
-version = "0.8.4"
-default-features = false
-features = ["ws"]
+# Cheatsheet:
+#
+# - List enabled features:
+#   $ cargo tree -f "{p} {f}"
+#
+# - List exact versions:
+#   $ cargo tree --depth 1
+#
+# - List outdated:
+#   $ cargo outdated
+#
+# - Inspect indirect dependency named "sha1":
+#   $ cargo tree --invert sha1
 
 [dependencies.tokio]
-version = "1.45.1"
+version = "=1.45.1"
 default-features = false
-features = ["fs", "tracing", "rt", "signal", "process"]
+features = [
+  "process"
+]
+
+[dependencies.axum]
+version = "=0.8.4"
+default-features = false
+features = [
+  "ws",
+  "tokio",
+  "http1", # for proof-of-concept WebSocket CLI clients -- for actual web browser clients, "http2" (or later?) should perhaps be used
+]
+
+[dependencies.tower-http]
+version = "=0.6.6"
+default-features = false
+
+[dependencies.serde]
+version = "=1.0.219"
+default-features = false
+features = [
+  "derive",
+]
+
+[dependencies.serde_json]
+version = "=1.0.140"
+default-features = false
+features = [
+  "alloc",
+]
+
+[dependencies.futures-util]
+version = "=0.3.31"
+default-features = false
