@@ -135,13 +135,6 @@ impl GameExecutable {
             None => false,
         }
     }
-
-    async fn terminate(&mut self) {
-        if let Some(mut child) = self.process.take() {
-            child.kill().await.unwrap();
-            child.wait().await.unwrap();
-        }
-    }
 }
 
 struct GameManager {
@@ -184,10 +177,14 @@ impl GameManager {
                     self.start_game_launch_sequence().await;
                 }
             }
+
             ClientCommand::CloseGameGracefully => {
                 if matches!(self.state, GameState::GameRunningHealthy) {
                     self.transition_to(GameState::GameClosingGracefully).await;
-                    self.game_server_executable.terminate().await;
+                    if let Some(mut child) = self.game_server_executable.process.take() {
+                        child.kill().await.unwrap();
+                        child.wait().await.unwrap();
+                    }
                     self.transition_to(GameState::GameTerminatedManually).await;
                 }
             }
