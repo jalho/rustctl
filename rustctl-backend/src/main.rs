@@ -174,20 +174,18 @@ impl GameManager {
     }
 
     async fn transition_to(&mut self, new_state: GameState) {
-        if self.state != new_state {
-            log::debug!("State transition: {:?} -> {:?}", self.state, new_state);
-            self.state = new_state.clone();
+        log::debug!("State transition: {:?} -> {:?}", self.state, new_state);
+        self.state = new_state.clone();
 
-            let update = StateUpdate {
-                state: new_state,
-                timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs(),
-            };
+        let update = StateUpdate {
+            state: new_state,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        };
 
-            let _ = self.broadcaster.send(update);
-        }
+        let _ = self.broadcaster.send(update);
     }
 
     async fn handle_command(&mut self, command: ClientCommand) {
