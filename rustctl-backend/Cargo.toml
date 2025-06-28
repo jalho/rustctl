@@ -21,7 +21,8 @@ edition = "2024"
 version = "=1.45.1"
 default-features = false
 features = [
-  "process"
+  "process",
+  "signal",
 ]
 
 [dependencies.axum]
@@ -63,3 +64,7 @@ default-features = false
 version = "1.3.0"
 default-features = false
 features = ["console_appender"]
+
+[dependencies.tokio-util]
+version = "0.7.15"
+default-features = false
