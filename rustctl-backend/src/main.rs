@@ -1,4 +1,11 @@
 fn main() {
+    let _handle = logging::init_logging(log::LevelFilter::Debug);
+    log::info!(
+        "{name} {version}",
+        name = env!("CARGO_PKG_NAME"),
+        version = env!("CARGO_PKG_VERSION")
+    );
+
     // for sending state updates to clients
     let (broadcast_tx, _) = tokio::sync::broadcast::channel(100);
 
@@ -139,7 +146,7 @@ impl GameManager {
 
     async fn transition_to(&mut self, new_state: GameState) {
         if self.state != new_state {
-            println!("State transition: {:?} -> {:?}", self.state, new_state);
+            log::debug!("State transition: {:?} -> {:?}", self.state, new_state);
             self.state = new_state.clone();
 
             let update = StateUpdate {
@@ -271,5 +278,24 @@ async fn handle_socket(socket: axum::extract::ws::WebSocket, manager: SharedMana
                 }
             }
         }
+    }
+}
+
+mod logging {
+    pub fn init_logging(level: log::LevelFilter) -> log4rs::Handle {
+        let stdout = log4rs::append::console::ConsoleAppender::builder()
+            .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
+                "{h({d(%Y-%m-%dT%H:%M:%SZ)(utc)} {l} - {m})} [{f}:{L}] [{T}]\n",
+            )))
+            .build();
+
+        let name = "stdout";
+
+        let config = log4rs::Config::builder()
+            .appender(log4rs::config::Appender::builder().build(name, Box::new(stdout)))
+            .build(log4rs::config::Root::builder().appender(name).build(level))
+            .unwrap();
+
+        log4rs::init_config(config).unwrap()
     }
 }
