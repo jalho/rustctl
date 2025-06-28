@@ -13,7 +13,7 @@ fn main() {
     // for sending state updates to clients
     let (broadcast_tx, _) = tokio::sync::broadcast::channel(100);
 
-    let game_server_mgr = std::sync::Arc::new(tokio::sync::RwLock::new(GameManager::new(
+    let game_server_mgr = std::sync::Arc::new(tokio::sync::RwLock::new(GameManager::init(
         broadcast_tx.clone(),
     )));
     let mgr_startup = game_server_mgr.clone();
@@ -110,39 +110,25 @@ struct StateUpdate {
     timestamp: u64,
 }
 
-struct GameProcess {
-    child: Option<tokio::process::Child>,
+struct GameExecutable {
+    process: Option<tokio::process::Child>,
 }
 
-impl GameProcess {
-    fn new() -> Self {
-        Self { child: None }
-    }
-
-    async fn spawn_game(&mut self) {
-        if self.child.is_some() {
-            todo!("game process already running");
-        }
-
-        // TODO: Spawn actual `RustDedicated` executable
-        let child = tokio::process::Command::new("sleep")
-            .arg("30")
-            .spawn()
-            .unwrap();
-
-        self.child = Some(child);
+impl GameExecutable {
+    fn init() -> Self {
+        Self { process: None }
     }
 
     async fn is_running(&mut self) -> bool {
-        match &mut self.child {
+        match &mut self.process {
             Some(child) => match child.try_wait() {
                 Ok(Some(_)) => {
-                    self.child = None;
+                    self.process = None;
                     false
                 }
                 Ok(None) => true,
                 Err(_) => {
-                    self.child = None;
+                    self.process = None;
                     false
                 }
             },
@@ -151,7 +137,7 @@ impl GameProcess {
     }
 
     async fn terminate(&mut self) {
-        if let Some(mut child) = self.child.take() {
+        if let Some(mut child) = self.process.take() {
             child.kill().await.unwrap();
             child.wait().await.unwrap();
         }
@@ -160,15 +146,15 @@ impl GameProcess {
 
 struct GameManager {
     state: GameState,
-    process: GameProcess,
+    game_server_executable: GameExecutable,
     broadcaster: tokio::sync::broadcast::Sender<StateUpdate>,
 }
 
 impl GameManager {
-    fn new(broadcaster: tokio::sync::broadcast::Sender<StateUpdate>) -> Self {
+    fn init(broadcaster: tokio::sync::broadcast::Sender<StateUpdate>) -> Self {
         Self {
             state: GameState::Initial,
-            process: GameProcess::new(),
+            game_server_executable: GameExecutable::init(),
             broadcaster,
         }
     }
@@ -201,31 +187,60 @@ impl GameManager {
             ClientCommand::CloseGameGracefully => {
                 if matches!(self.state, GameState::GameRunningHealthy) {
                     self.transition_to(GameState::GameClosingGracefully).await;
-                    self.process.terminate().await;
+                    self.game_server_executable.terminate().await;
                     self.transition_to(GameState::GameTerminatedManually).await;
                 }
             }
         }
     }
 
-    // TODO: Remove demo sleep: Implement actual transitions
     async fn start_game_launch_sequence(&mut self) {
         self.transition_to(GameState::InstallingOrUpdating).await;
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        self.install_game_server().await;
 
         self.transition_to(GameState::ConfiguringGame).await;
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        self.install_carbon_mod_framework().await;
+        self.install_carbon_mod_plugin().await;
 
         self.transition_to(GameState::LaunchingGame).await;
-        self.process.spawn_game().await;
+        self.launch_game().await;
 
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         self.transition_to(GameState::GameRunningHealthy).await;
+    }
+
+    /// Install (or update) the game server (executable named `RustDedicated`)
+    /// using _SteamCMD_ (executable named `steamcmd`).
+    async fn install_game_server(&self) {
+        // TODO: Implement!
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+
+    /// Install (or update) _CarbonModding Framework_ from some HTTP repository.
+    async fn install_carbon_mod_framework(&self) {
+        // TODO: Implement!
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+
+    /// Install a plugin for _CarbonModding Framework_ from some HTTP
+    /// repository.
+    async fn install_carbon_mod_plugin(&self) {
+        // TODO: Implement!
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+
+    /// Launch the installed game server (executable named `RustDedicated`).
+    async fn launch_game(&mut self) {
+        let process = tokio::process::Command::new("sleep")
+            .current_dir("/home/rust/")
+            .args(vec!["5s"])
+            .spawn()
+            .unwrap();
+        self.game_server_executable.process = Some(process);
     }
 
     async fn check_process_health(&mut self) {
         if matches!(self.state, GameState::GameRunningHealthy) {
-            if !self.process.is_running().await {
+            if !self.game_server_executable.is_running().await {
                 self.transition_to(GameState::GameTerminatedUnexpectedly)
                     .await;
             }
