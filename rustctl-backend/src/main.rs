@@ -1,41 +1,51 @@
-#[tokio::main(flavor = "current_thread")]
-async fn main() {
+fn main() {
     // for sending state updates to clients
     let (broadcast_tx, _) = tokio::sync::broadcast::channel(100);
 
     let game_server_mgr = std::sync::Arc::new(tokio::sync::RwLock::new(GameManager::new(
         broadcast_tx.clone(),
     )));
-
-    // initial game server startup sequence
     let mgr_autostart = game_server_mgr.clone();
-    tokio::spawn(async move {
-        let mut mgr = mgr_autostart.write().await;
-        mgr.start_game_launch_sequence().await;
-    });
-
     let mgr_health = game_server_mgr.clone();
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
-        loop {
-            interval.tick().await;
-            let mut mgr = mgr_health.write().await;
-            mgr.check_process_health().await;
-            mgr.handle_automatic_restart().await;
-        }
-    });
 
     let router = axum::Router::new()
         .route("/ws", axum::routing::get(websocket_handler))
         .with_state(game_server_mgr);
 
-    let tcp_listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-        .await
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .worker_threads(1)
+        .enable_all()
+        .build()
         .unwrap();
 
-    println!("WebSocket endpoint: ws://127.0.0.1:3000/ws");
+    runtime.block_on(async {
+        // initial game server startup sequence
+        let coroutine_startup = tokio::spawn(async move {
+            let mut mgr = mgr_autostart.write().await;
+            mgr.start_game_launch_sequence().await;
+        });
 
-    axum::serve(tcp_listener, router).await.unwrap();
+        // healthcheck: restart on crash
+        let coroutine_health = tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+            loop {
+                interval.tick().await;
+                let mut mgr = mgr_health.write().await;
+                mgr.check_process_health().await;
+                mgr.handle_automatic_restart().await;
+            }
+        });
+
+        // server for WebSocket clients
+        let coroutine_web = tokio::spawn(async {
+            let tcp_listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+                .await
+                .unwrap();
+            axum::serve(tcp_listener, router).await.unwrap();
+        });
+
+        _ = tokio::join!(coroutine_startup, coroutine_health, coroutine_web);
+    });
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
