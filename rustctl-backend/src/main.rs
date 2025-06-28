@@ -219,6 +219,13 @@ impl GameManager {
         command.args(vec![
             "+login",
             "anonymous",
+            /*
+             * TODO: "force_install_dir" doesn't really "force" anything:
+             *       Instead, SteamCMD seems to just create a new directory tree
+             *       in "~/.local/share/Steam/" if it cannot access the given
+             *       "force_install_dir"... Therefore, we must add some checks
+             *       to actually know where the installation ends up at...
+             */
             "+force_install_dir",
             constants::GAME_SERVER_ROOT,
             "+app_update",
