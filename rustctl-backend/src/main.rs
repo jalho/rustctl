@@ -207,9 +207,32 @@ impl GameManager {
 
     /// Install (or update) the game server (executable named `RustDedicated`)
     /// using _SteamCMD_ (executable named `steamcmd`).
+    ///
+    /// Tested with the following `apt` distribution of SteamCMD on Debian 12:
+    /// - Package: steamcmd:i386
+    /// - Version: 0~20180105-5
+    /// - Section: non-free/games
+    /// - Maintainer: Debian Games Team
     async fn install_game_server(&self) {
-        // TODO: Implement!
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        let mut command = tokio::process::Command::new(constants::EXECUTABLE_GAME_SERVER_INSTALLER);
+        command.current_dir(constants::GAME_SERVER_ROOT);
+        command.args(vec![
+            "+login",
+            "anonymous",
+            "+force_install_dir",
+            constants::GAME_SERVER_ROOT,
+            "+app_update",
+            constants::EXECUTABLE_GAME_SERVER_STEAM_APP_ID,
+            "validate",
+            "+quit",
+        ]);
+        command.stdout(std::process::Stdio::piped());
+        command.stderr(std::process::Stdio::piped());
+
+        log::debug!("Spawning command: {command:?}");
+        let output: std::process::Output =
+            command.spawn().unwrap().wait_with_output().await.unwrap();
+        log::debug!("Output: {output:?}");
     }
 
     /// Install (or update) _CarbonModding Framework_ from some HTTP repository.
@@ -337,4 +360,11 @@ mod logging {
 
         log4rs::init_config(config).unwrap()
     }
+}
+
+mod constants {
+    pub const GAME_SERVER_ROOT: &'static str = "/home/rust/";
+    pub const EXECUTABLE_GAME_SERVER: &'static str = "RustDedicated";
+    pub const EXECUTABLE_GAME_SERVER_STEAM_APP_ID: &'static str = "258550";
+    pub const EXECUTABLE_GAME_SERVER_INSTALLER: &'static str = "steamcmd";
 }
