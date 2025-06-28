@@ -1,3 +1,43 @@
+#[tokio::main(flavor = "current_thread")]
+async fn main() {
+    // for sending state updates to clients
+    let (broadcast_tx, _) = tokio::sync::broadcast::channel(100);
+
+    let game_server_mgr = std::sync::Arc::new(tokio::sync::RwLock::new(GameManager::new(
+        broadcast_tx.clone(),
+    )));
+
+    // initial game server startup sequence
+    let mgr_autostart = game_server_mgr.clone();
+    tokio::spawn(async move {
+        let mut mgr = mgr_autostart.write().await;
+        mgr.start_game_launch_sequence().await;
+    });
+
+    let mgr_health = game_server_mgr.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+        loop {
+            interval.tick().await;
+            let mut mgr = mgr_health.write().await;
+            mgr.check_process_health().await;
+            mgr.handle_automatic_restart().await;
+        }
+    });
+
+    let router = axum::Router::new()
+        .route("/ws", axum::routing::get(websocket_handler))
+        .with_state(game_server_mgr);
+
+    let tcp_listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+        .await
+        .unwrap();
+
+    println!("WebSocket endpoint: ws://127.0.0.1:3000/ws");
+
+    axum::serve(tcp_listener, router).await.unwrap();
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum GameState {
@@ -222,44 +262,4 @@ async fn handle_socket(socket: axum::extract::ws::WebSocket, manager: SharedMana
             }
         }
     }
-}
-
-#[tokio::main(flavor = "current_thread")]
-async fn main() {
-    // for sending state updates to clients
-    let (broadcast_tx, _) = tokio::sync::broadcast::channel(100);
-
-    let game_server_mgr = std::sync::Arc::new(tokio::sync::RwLock::new(GameManager::new(
-        broadcast_tx.clone(),
-    )));
-
-    // initial game server startup sequence
-    let mgr_autostart = game_server_mgr.clone();
-    tokio::spawn(async move {
-        let mut mgr = mgr_autostart.write().await;
-        mgr.start_game_launch_sequence().await;
-    });
-
-    let mgr_health = game_server_mgr.clone();
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
-        loop {
-            interval.tick().await;
-            let mut mgr = mgr_health.write().await;
-            mgr.check_process_health().await;
-            mgr.handle_automatic_restart().await;
-        }
-    });
-
-    let router = axum::Router::new()
-        .route("/ws", axum::routing::get(websocket_handler))
-        .with_state(game_server_mgr);
-
-    let tcp_listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-        .await
-        .unwrap();
-
-    println!("WebSocket endpoint: ws://127.0.0.1:3000/ws");
-
-    axum::serve(tcp_listener, router).await.unwrap();
 }
