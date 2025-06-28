@@ -88,8 +88,8 @@ fn main() {
 #[serde(rename_all = "snake_case")]
 enum GameState {
     Initial,
-    InstallingOrUpdating,
-    ConfiguringGame,
+    InstallingGame,
+    InstallingMods,
     LaunchingGame,
     GameRunningHealthy,
     GameTerminatedUnexpectedly,
@@ -195,10 +195,10 @@ impl GameManager {
     }
 
     async fn start_game_launch_sequence(&mut self) {
-        self.transition_to(GameState::InstallingOrUpdating).await;
+        self.transition_to(GameState::InstallingGame).await;
         self.install_game_server().await;
 
-        self.transition_to(GameState::ConfiguringGame).await;
+        self.transition_to(GameState::InstallingMods).await;
         self.install_carbon_mod_framework().await;
         self.install_carbon_mod_plugin().await;
 
