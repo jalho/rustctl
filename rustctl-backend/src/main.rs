@@ -214,6 +214,23 @@ impl GameManager {
     /// - Section: non-free/games
     /// - Maintainer: Debian Games Team
     async fn install_game_server(&self) {
+        let mut app_manifest: std::path::PathBuf =
+            std::path::Path::new(constants::GAME_SERVER_ROOT).to_path_buf();
+        app_manifest.push(constants::GAME_SERVER_STEAM_APP_MANIFEST);
+        if let Ok(metadata) = tokio::fs::metadata(&app_manifest).await {
+            if let Ok(modified) = metadata.modified() {
+                if let Ok(elapsed) = std::time::SystemTime::now().duration_since(modified) {
+                    if elapsed < std::time::Duration::from_secs(60 * 60 * 3) {
+                        log::warn!(
+                            "Skipping game server install: last update was within 3 hours: {}",
+                            app_manifest.to_string_lossy()
+                        );
+                        return;
+                    }
+                }
+            }
+        }
+
         let mut command = tokio::process::Command::new(constants::EXECUTABLE_GAME_SERVER_INSTALLER);
         command.current_dir(constants::GAME_SERVER_ROOT);
         command.args(vec![
@@ -229,7 +246,7 @@ impl GameManager {
             "+force_install_dir",
             constants::GAME_SERVER_ROOT,
             "+app_update",
-            constants::EXECUTABLE_GAME_SERVER_STEAM_APP_ID,
+            constants::GAME_SERVER_STEAM_APP_ID,
             "validate",
             "+quit",
         ]);
@@ -321,7 +338,13 @@ impl GameManager {
 
         self.game_server_executable.process = Some(process);
 
-        // todo!("await the game to become healthy i.e. playable");
+        /*
+         * TODO: Only return once the game server has indicated to be ready, by emitting:
+         *       ```
+         *       SteamServer Connected
+         *       ```
+         *       ...in STDOUT.
+         */
     }
 
     async fn check_process_health(&mut self) {
@@ -429,8 +452,16 @@ mod logging {
 }
 
 mod constants {
+    /// Absolute path to the directory where the game server should be installed..
     pub const GAME_SERVER_ROOT: &'static str = "/home/rust/";
+
+    /// File name only, not full path.
     pub const EXECUTABLE_GAME_SERVER: &'static str = "RustDedicated";
-    pub const EXECUTABLE_GAME_SERVER_STEAM_APP_ID: &'static str = "258550";
+
+    /// File name only, not full path.
     pub const EXECUTABLE_GAME_SERVER_INSTALLER: &'static str = "steamcmd";
+
+    pub const GAME_SERVER_STEAM_APP_ID: &'static str = "258550";
+    /// Path relative to the location of the game server executable.
+    pub const GAME_SERVER_STEAM_APP_MANIFEST: &'static str = "steamapps/appmanifest_258550.acf";
 }
