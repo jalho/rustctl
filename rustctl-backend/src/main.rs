@@ -257,12 +257,34 @@ impl GameManager {
 
     /// Launch the installed game server (executable named `RustDedicated`).
     async fn launch_game(&mut self) {
-        let process = tokio::process::Command::new("sleep")
-            .current_dir("/home/rust/")
-            .args(vec!["5s"])
-            .spawn()
-            .unwrap();
+        let mut executable: std::path::PathBuf =
+            std::path::Path::new(constants::GAME_SERVER_ROOT).to_path_buf();
+        executable.push(constants::EXECUTABLE_GAME_SERVER);
+
+        let mut command = tokio::process::Command::new(executable);
+        command.current_dir(constants::GAME_SERVER_ROOT);
+        command.args(vec![
+            "-batchmode",
+            "+server.port",
+            "28015",
+            "+server.level",
+            "Procedural Map",
+            "+server.worldsize",
+            "1000",
+            "+rcon.port",
+            "28016",
+            "+rcon.password",
+            "foobar",
+            "+rcon.web",
+            "1",
+        ]);
+        command.stdout(std::process::Stdio::piped());
+        command.stderr(std::process::Stdio::piped());
+
+        log::debug!("Spawning command: {command:?}");
+        let process: tokio::process::Child = command.spawn().unwrap();
         self.game_server_executable.process = Some(process);
+        todo!("await the game to become healthy i.e. playable");
     }
 
     async fn check_process_health(&mut self) {
