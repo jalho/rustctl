@@ -404,7 +404,7 @@ impl GameManager {
     }
 
     async fn render_map_image_file(&self) {
-        rcon::send_command(
+        let rcon_response: rcon::RconResponse = rcon::send_command(
             self.game_configuration.rcon_port,
             &self.game_configuration.rcon_password,
             "rendermap",
@@ -412,7 +412,13 @@ impl GameManager {
         )
         .await
         .unwrap();
-        // TODO: Return once a new .PNG file appears in a specific directory
+        let (path, metadata): (std::path::PathBuf, std::fs::Metadata) =
+            rcon::verify_rendered_map(&rcon_response).await;
+        log::debug!(
+            "Game world map rendered as {}: {:?}",
+            path.to_string_lossy(),
+            metadata,
+        );
     }
 
     async fn check_process_health(&mut self) {
@@ -568,12 +574,20 @@ mod misc {
 mod rcon {
     static RCON_CMD_COUNTER: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(1);
 
+    #[derive(Debug, serde::Deserialize)]
+    pub struct RconResponse {
+        #[serde(rename = "Message")]
+        pub message: String,
+        #[serde(rename = "Identifier")]
+        pub identifier: i64,
+    }
+
     pub async fn send_command(
         rcon_port: u16,
         rcon_password: &str,
         rcon_command: &str,
         timeout: &std::time::Duration,
-    ) -> Result<(), ()> {
+    ) -> Result<RconResponse, ()> {
         let ws_url = format!("ws://127.0.0.1:{}/{}", rcon_port, rcon_password);
         log::debug!(
             "Connecting to RCON WebSocket at ws://127.0.0.1:{}/[password]",
@@ -631,36 +645,23 @@ mod rcon {
                 Ok(Some(Ok(tokio_tungstenite::tungstenite::Message::Text(response)))) => {
                     log::debug!("Received RCON message: {}", response);
 
-                    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&response) {
-                        if let Some(identifier) = parsed.get("Identifier") {
-                            if let Some(id_value) = identifier.as_i64() {
-                                if id_value == command_identifier {
-                                    log::debug!(
-                                        "Found matching identifier {}, command completed",
-                                        id_value
-                                    );
-                                    return Ok(());
-                                } else {
-                                    log::debug!(
-                                        "Received message with identifier {}, expecting {}, continuing to wait",
-                                        id_value,
-                                        command_identifier
-                                    );
-                                    continue 'recv_response;
-                                }
-                            } else {
-                                log::debug!(
-                                    "Identifier field is not a number: {:?}, continuing to wait",
-                                    identifier
-                                );
-                                continue 'recv_response;
-                            }
+                    if let Ok(parsed) = serde_json::from_str::<RconResponse>(&response) {
+                        if parsed.identifier == command_identifier {
+                            log::debug!(
+                                "Found matching identifier {}, command completed",
+                                parsed.identifier
+                            );
+                            return Ok(parsed);
                         } else {
-                            log::debug!("Message missing Identifier field, continuing to wait");
+                            log::debug!(
+                                "Received message with identifier {}, expecting {}, continuing to wait",
+                                parsed.identifier,
+                                command_identifier
+                            );
                             continue 'recv_response;
                         }
                     } else {
-                        log::debug!("Failed to parse message as JSON, continuing to wait");
+                        log::debug!("Failed to parse message as RconResponse, continuing to wait");
                         continue 'recv_response;
                     }
                 }
@@ -682,5 +683,15 @@ mod rcon {
                 }
             }
         }
+    }
+
+    pub async fn verify_rendered_map(
+        rcon_response: &RconResponse,
+    ) -> (std::path::PathBuf, std::fs::Metadata) {
+        let msg: &String = &rcon_response.message;
+        let path: &str = msg.strip_prefix("Saved map render to: ").unwrap();
+        let path: std::path::PathBuf = tokio::fs::canonicalize(path).await.unwrap();
+        let metadata: std::fs::Metadata = tokio::fs::metadata(&path).await.unwrap();
+        return (path, metadata);
     }
 }
