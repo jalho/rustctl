@@ -566,6 +566,8 @@ mod misc {
 }
 
 mod rcon {
+    static RCON_CMD_COUNTER: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(1);
+
     pub async fn send_command(
         rcon_port: u16,
         rcon_password: &str,
@@ -592,9 +594,11 @@ mod rcon {
 
         let (mut write, mut read) = futures_util::StreamExt::split(ws_stream);
 
+        let command_identifier = RCON_CMD_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
         let command_message: String = serde_json::json!({
             "Message": rcon_command,
-            "Identifier": 1 // TODO: Use a new ID for each message, i.e. use an incrementing counter
+            "Identifier": command_identifier
         })
         .to_string();
 
@@ -608,44 +612,74 @@ mod rcon {
             todo!("failed to send command: {err}");
         }
 
-        let command_response =
-            tokio::time::timeout(*timeout, futures_util::StreamExt::next(&mut read)).await;
+        let start_time = std::time::Instant::now();
+        'recv_response: loop {
+            let elapsed = start_time.elapsed();
+            if elapsed >= *timeout {
+                todo!(
+                    "timeout waiting for command response with identifier {}",
+                    command_identifier
+                );
+            }
 
-        /*
-         * TODO: Receive possbily multiple RCON messages until one with expected
-         *       Identifier is received or until a timeout is reached.
-         */
-        match command_response {
-            Ok(Some(Ok(tokio_tungstenite::tungstenite::Message::Text(response)))) => {
-                log::debug!("Received RCON command response: {}", response);
-                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&response) {
-                    if let Some(identifier) = parsed.get("Identifier") {
-                        if identifier.as_i64() == Some(1) {
-                            Ok(())
+            let remaining_timeout = *timeout - elapsed;
+            let message_result =
+                tokio::time::timeout(remaining_timeout, futures_util::StreamExt::next(&mut read))
+                    .await;
+
+            match message_result {
+                Ok(Some(Ok(tokio_tungstenite::tungstenite::Message::Text(response)))) => {
+                    log::debug!("Received RCON message: {}", response);
+
+                    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&response) {
+                        if let Some(identifier) = parsed.get("Identifier") {
+                            if let Some(id_value) = identifier.as_i64() {
+                                if id_value == command_identifier {
+                                    log::debug!(
+                                        "Found matching identifier {}, command completed",
+                                        id_value
+                                    );
+                                    return Ok(());
+                                } else {
+                                    log::debug!(
+                                        "Received message with identifier {}, expecting {}, continuing to wait",
+                                        id_value,
+                                        command_identifier
+                                    );
+                                    continue 'recv_response;
+                                }
+                            } else {
+                                log::debug!(
+                                    "Identifier field is not a number: {:?}, continuing to wait",
+                                    identifier
+                                );
+                                continue 'recv_response;
+                            }
                         } else {
-                            todo!(
-                                "response identifier mismatch: expected 1, got {:?}",
-                                identifier
-                            );
+                            log::debug!("Message missing Identifier field, continuing to wait");
+                            continue 'recv_response;
                         }
                     } else {
-                        todo!("response missing Identifier field");
+                        log::debug!("Failed to parse message as JSON, continuing to wait");
+                        continue 'recv_response;
                     }
-                } else {
-                    todo!("failed to parse response JSON");
                 }
-            }
-            Ok(Some(Ok(_))) => {
-                todo!("received non-text command response");
-            }
-            Ok(Some(Err(err))) => {
-                todo!("error receiving command response: {err}");
-            }
-            Ok(None) => {
-                todo!("connection closed while waiting for command response");
-            }
-            Err(err) => {
-                todo!("timeout waiting for command response: {err}");
+                Ok(Some(Ok(other_message))) => {
+                    log::debug!(
+                        "Received non-text RCON message: {:?}, continuing to wait",
+                        other_message
+                    );
+                    continue 'recv_response;
+                }
+                Ok(Some(Err(err))) => {
+                    todo!("error receiving RCON message: {err}");
+                }
+                Ok(None) => {
+                    todo!("RCON connection closed while waiting for response");
+                }
+                Err(_) => {
+                    continue 'recv_response;
+                }
             }
         }
     }
