@@ -313,16 +313,33 @@ impl GameManager {
         command.stdout(std::process::Stdio::piped());
         command.stderr(std::process::Stdio::piped());
 
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<()>();
+
         log::debug!("Spawning command: {command:?}");
         let mut process: tokio::process::Child = command.spawn().unwrap();
 
         let stdout = process.stdout.take().unwrap();
         tokio::spawn(async move {
             use tokio::io::{AsyncBufReadExt, BufReader};
+            let mut ready_tx = Some(ready_tx);
             let reader = BufReader::new(stdout);
             let mut lines = reader.lines();
             while let Ok(Some(line)) = lines.next_line().await {
                 log::debug!("[{}:STDOUT] {line}", constants::EXECUTABLE_GAME_SERVER);
+                /*
+                 * As of 2025-06-30, the latest version of the game server emits
+                 * to STDOUT e.g. the following lines when it seems ready:
+                 * ```
+                 * SteamServer Initialized
+                 * Server startup complete
+                 * SteamServer Connected
+                 * ```
+                 */
+                if line.contains("SteamServer Connected") {
+                    if let Some(tx) = ready_tx.take() {
+                        let _ = tx.send(());
+                    }
+                }
             }
         });
 
@@ -338,13 +355,8 @@ impl GameManager {
 
         self.game_server_executable.process = Some(process);
 
-        /*
-         * TODO: Only return once the game server has indicated to be ready, by emitting:
-         *       ```
-         *       SteamServer Connected
-         *       ```
-         *       ...in STDOUT.
-         */
+        let _ = ready_rx.await;
+        log::debug!("Game server is ready");
     }
 
     async fn check_process_health(&mut self) {
