@@ -201,6 +201,7 @@ impl GameManager {
 
         self.transition_to(GameState::LaunchingGame).await;
         self.launch_game().await;
+        // TODO: Render map
 
         self.transition_to(GameState::GameRunningHealthy).await;
     }
@@ -214,22 +215,13 @@ impl GameManager {
     /// - Section: non-free/games
     /// - Maintainer: Debian Games Team
     async fn install_game_server(&self) {
+        /*
+         * TODO: Read "buildid" value from app_manifest before and after
+         *       install/update and log::debug!() it.
+         */
         let mut app_manifest: std::path::PathBuf =
             std::path::Path::new(constants::GAME_SERVER_ROOT).to_path_buf();
         app_manifest.push(constants::GAME_SERVER_STEAM_APP_MANIFEST);
-        if let Ok(metadata) = tokio::fs::metadata(&app_manifest).await {
-            if let Ok(modified) = metadata.modified() {
-                if let Ok(elapsed) = std::time::SystemTime::now().duration_since(modified) {
-                    if elapsed < std::time::Duration::from_secs(60 * 60 * 3) {
-                        log::warn!(
-                            "Skipping game server install: last update was within 3 hours: {}",
-                            app_manifest.to_string_lossy()
-                        );
-                        return;
-                    }
-                }
-            }
-        }
 
         let mut command = tokio::process::Command::new(constants::EXECUTABLE_GAME_SERVER_INSTALLER);
         command.current_dir(constants::GAME_SERVER_ROOT);
