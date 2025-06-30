@@ -215,13 +215,25 @@ impl GameManager {
     /// - Section: non-free/games
     /// - Maintainer: Debian Games Team
     async fn install_game_server(&self) {
-        /*
-         * TODO: Read "buildid" value from app_manifest before and after
-         *       install/update and log::debug!() it.
-         */
         let mut app_manifest: std::path::PathBuf =
             std::path::Path::new(constants::GAME_SERVER_ROOT).to_path_buf();
         app_manifest.push(constants::GAME_SERVER_STEAM_APP_MANIFEST);
+
+        let steam_app_build_id_before: Option<u32>;
+        if let Ok(contents) = tokio::fs::read_to_string(&app_manifest).await {
+            match misc::extract_buildid_from_buf(&contents) {
+                Some(buildid) => {
+                    steam_app_build_id_before = Some(buildid);
+                }
+                None => todo!(
+                    "could not extract Steam app buildid from contents of {}: {}",
+                    app_manifest.to_string_lossy(),
+                    contents
+                ),
+            }
+        } else {
+            steam_app_build_id_before = None;
+        }
 
         let mut command = tokio::process::Command::new(constants::EXECUTABLE_GAME_SERVER_INSTALLER);
         command.current_dir(constants::GAME_SERVER_ROOT);
@@ -249,6 +261,36 @@ impl GameManager {
         let output: std::process::Output =
             command.spawn().unwrap().wait_with_output().await.unwrap();
         log::debug!("Output: {output:?}");
+
+        let steam_app_build_id_after: u32;
+        let contents: String = tokio::fs::read_to_string(&app_manifest)
+            .await
+            .expect("app manifest should exist after installation");
+        match misc::extract_buildid_from_buf(&contents) {
+            Some(buildid) => {
+                steam_app_build_id_after = buildid;
+            }
+            None => todo!(
+                "could not extract Steam app buildid from contents of {}: {}",
+                app_manifest.to_string_lossy(),
+                contents
+            ),
+        }
+
+        match steam_app_build_id_before {
+            Some(before) => {
+                if before != steam_app_build_id_after {
+                    log::info!(
+                        "Game server updated from buildid {before} to {steam_app_build_id_after}"
+                    );
+                } else {
+                    log::debug!(
+                        "Game server not updated: Already at latest version: buildid {before}"
+                    )
+                }
+            }
+            None => log::info!("Game server installed: buildid {steam_app_build_id_after}"),
+        }
     }
 
     /// Install (or update) _CarbonModding Framework_ from some HTTP repository.
@@ -468,4 +510,35 @@ mod constants {
     pub const GAME_SERVER_STEAM_APP_ID: &'static str = "258550";
     /// Path relative to the location of the game server executable.
     pub const GAME_SERVER_STEAM_APP_MANIFEST: &'static str = "steamapps/appmanifest_258550.acf";
+}
+
+mod misc {
+    pub fn extract_buildid_from_buf(buf: &str) -> Option<u32> {
+        let vdf: keyvalues_parser::Vdf = match keyvalues_parser::Vdf::parse(buf) {
+            Ok(v) => v,
+            Err(_) => return None,
+        };
+        let root: &keyvalues_parser::Obj = match vdf.value.get_obj() {
+            Some(n) => n,
+            None => return None,
+        };
+
+        let buildid_str: &str = match root.get("buildid") {
+            Some(values) => {
+                if values.len() != 1 {
+                    todo!("expected exactly one buildid value, found {}", values.len());
+                }
+                match values[0].get_str() {
+                    Some(s) => s,
+                    None => return None,
+                }
+            }
+            None => return None,
+        };
+
+        match buildid_str.parse::<u32>() {
+            Ok(n) => Some(n),
+            Err(_) => None,
+        }
+    }
 }
