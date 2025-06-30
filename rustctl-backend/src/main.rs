@@ -137,7 +137,13 @@ impl GameExecutable {
     }
 }
 
+struct GameConfiguration {
+    rcon_port: u16,
+    rcon_password: String,
+}
+
 struct GameManager {
+    game_configuration: GameConfiguration,
     state: GameState,
     game_server_executable: GameExecutable,
     broadcaster: tokio::sync::broadcast::Sender<StateUpdate>,
@@ -149,6 +155,10 @@ impl GameManager {
             state: GameState::Initial,
             game_server_executable: GameExecutable::init(),
             broadcaster,
+            game_configuration: GameConfiguration {
+                rcon_port: 28016,
+                rcon_password: uuid::Uuid::new_v4().to_string(),
+            },
         }
     }
 
@@ -201,7 +211,7 @@ impl GameManager {
 
         self.transition_to(GameState::LaunchingGame).await;
         self.launch_game().await;
-        // TODO: Render map
+        self.render_map_image_file().await;
 
         self.transition_to(GameState::GameRunningHealthy).await;
     }
@@ -338,9 +348,9 @@ impl GameManager {
             "+server.worldsize",
             "1000",
             "+rcon.port",
-            "28016",
+            &self.game_configuration.rcon_port.to_string(),
             "+rcon.password",
-            "foobar",
+            &self.game_configuration.rcon_password.to_string(),
             "+rcon.web",
             "1",
         ]);
@@ -391,6 +401,18 @@ impl GameManager {
 
         let _ = ready_rx.await;
         log::debug!("Game server is ready");
+    }
+
+    async fn render_map_image_file(&self) {
+        rcon::send_command(
+            self.game_configuration.rcon_port,
+            &self.game_configuration.rcon_password,
+            "rendermap",
+            &std::time::Duration::from_secs(10),
+        )
+        .await
+        .unwrap();
+        // TODO: Return once a new .PNG file appears in a specific directory
     }
 
     async fn check_process_health(&mut self) {
@@ -539,6 +561,92 @@ mod misc {
         match buildid_str.parse::<u32>() {
             Ok(n) => Some(n),
             Err(_) => None,
+        }
+    }
+}
+
+mod rcon {
+    pub async fn send_command(
+        rcon_port: u16,
+        rcon_password: &str,
+        rcon_command: &str,
+        timeout: &std::time::Duration,
+    ) -> Result<(), ()> {
+        let ws_url = format!("ws://127.0.0.1:{}/{}", rcon_port, rcon_password);
+        log::debug!(
+            "Connecting to RCON WebSocket at ws://127.0.0.1:{}/[password]",
+            rcon_port
+        );
+
+        let connect =
+            tokio::time::timeout(*timeout, tokio_tungstenite::connect_async(&ws_url)).await;
+
+        let (ws_stream, _) = match connect {
+            Ok(Ok((stream, response))) => {
+                log::debug!("Connected to RCON WebSocket");
+                (stream, response)
+            }
+            Ok(Err(err)) => todo!("failed to connect to RCON WebSocket: {err}"),
+            Err(err) => todo!("timeout connecting to RCON WebSocket: {err}"),
+        };
+
+        let (mut write, mut read) = futures_util::StreamExt::split(ws_stream);
+
+        let command_message: String = serde_json::json!({
+            "Message": rcon_command,
+            "Identifier": 1 // TODO: Use a new ID for each message, i.e. use an incrementing counter
+        })
+        .to_string();
+
+        log::debug!("Sending RCON command: {}", command_message);
+        if let Err(err) = futures_util::SinkExt::send(
+            &mut write,
+            tokio_tungstenite::tungstenite::Message::Text(command_message.into()),
+        )
+        .await
+        {
+            todo!("failed to send command: {err}");
+        }
+
+        let command_response =
+            tokio::time::timeout(*timeout, futures_util::StreamExt::next(&mut read)).await;
+
+        /*
+         * TODO: Receive possbily multiple RCON messages until one with expected
+         *       Identifier is received or until a timeout is reached.
+         */
+        match command_response {
+            Ok(Some(Ok(tokio_tungstenite::tungstenite::Message::Text(response)))) => {
+                log::debug!("Received RCON command response: {}", response);
+                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&response) {
+                    if let Some(identifier) = parsed.get("Identifier") {
+                        if identifier.as_i64() == Some(1) {
+                            Ok(())
+                        } else {
+                            todo!(
+                                "response identifier mismatch: expected 1, got {:?}",
+                                identifier
+                            );
+                        }
+                    } else {
+                        todo!("response missing Identifier field");
+                    }
+                } else {
+                    todo!("failed to parse response JSON");
+                }
+            }
+            Ok(Some(Ok(_))) => {
+                todo!("received non-text command response");
+            }
+            Ok(Some(Err(err))) => {
+                todo!("error receiving command response: {err}");
+            }
+            Ok(None) => {
+                todo!("connection closed while waiting for command response");
+            }
+            Err(err) => {
+                todo!("timeout waiting for command response: {err}");
+            }
         }
     }
 }

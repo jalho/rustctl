@@ -73,3 +73,13 @@ default-features = false
 [dependencies.keyvalues-parser]
 version = "0.2.0"
 default-features = false
+
+[dependencies.uuid]
+version = "1.17.0"
+default-features = false
+features = ["v4"]
+
+[dependencies.tokio-tungstenite]
+version = "0.27.0"
+default-features = false
+features = ["connect"]
