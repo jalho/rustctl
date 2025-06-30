@@ -282,8 +282,30 @@ impl GameManager {
         command.stderr(std::process::Stdio::piped());
 
         log::debug!("Spawning command: {command:?}");
-        let process: tokio::process::Child = command.spawn().unwrap();
+        let mut process: tokio::process::Child = command.spawn().unwrap();
+
+        let stdout = process.stdout.take().unwrap();
+        tokio::spawn(async move {
+            use tokio::io::{AsyncBufReadExt, BufReader};
+            let reader = BufReader::new(stdout);
+            let mut lines = reader.lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                log::debug!("[{}:STDOUT] {line}", constants::EXECUTABLE_GAME_SERVER);
+            }
+        });
+
+        let stderr = process.stderr.take().unwrap();
+        tokio::spawn(async move {
+            use tokio::io::{AsyncBufReadExt, BufReader};
+            let reader = BufReader::new(stderr);
+            let mut lines = reader.lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                log::debug!("[{}:STDERR] {line}", constants::EXECUTABLE_GAME_SERVER);
+            }
+        });
+
         self.game_server_executable.process = Some(process);
+
         todo!("await the game to become healthy i.e. playable");
     }
 
