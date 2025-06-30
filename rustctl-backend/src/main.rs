@@ -277,6 +277,7 @@ impl GameManager {
          */
         let mut command = tokio::process::Command::new(executable);
         command.current_dir(constants::GAME_SERVER_ROOT);
+        command.env("LD_LIBRARY_PATH", constants::GAME_SERVER_ROOT);
         command.args(vec![
             "-batchmode",
             "+server.port",
@@ -320,7 +321,7 @@ impl GameManager {
 
         self.game_server_executable.process = Some(process);
 
-        todo!("await the game to become healthy i.e. playable");
+        // todo!("await the game to become healthy i.e. playable");
     }
 
     async fn check_process_health(&mut self) {
