@@ -394,7 +394,7 @@ impl GameManager {
         self.game_server_executable.process = Some(process);
 
         let _ = ready_rx.await;
-        log::debug!("Game server is ready");
+        log::info!("Game server is ready");
     }
 
     async fn render_map_image_file(&self) {
@@ -406,12 +406,16 @@ impl GameManager {
         )
         .await
         .unwrap();
-        let (path, metadata): (std::path::PathBuf, std::fs::Metadata) =
+        let (path_from, _metadata): (std::path::PathBuf, std::fs::Metadata) =
             rcon::verify_rendered_map(&rcon_response).await;
-        log::debug!(
-            "Game world map rendered as {}: {:?}",
-            path.to_string_lossy(),
-            metadata,
+
+        let mut path_to = std::path::Path::new(constants::GAME_SERVER_ROOT).to_path_buf();
+        path_to.push(constants::GAME_WORLD_MAP_RENDERED_IMAGE);
+        tokio::fs::rename(&path_from, &path_to).await.unwrap();
+        log::info!(
+            "Game world map rendered as {} and then renamed as {}",
+            path_from.to_string_lossy(),
+            path_to.to_string_lossy(),
         );
     }
 
@@ -532,6 +536,9 @@ mod constants {
     pub const GAME_SERVER_STEAM_APP_ID: &'static str = "258550";
     /// Path relative to the location of the game server executable.
     pub const GAME_SERVER_STEAM_APP_MANIFEST: &'static str = "steamapps/appmanifest_258550.acf";
+
+    /// File name only, not full path.
+    pub const GAME_WORLD_MAP_RENDERED_IMAGE: &'static str = "map-current.png";
 }
 
 mod misc {
