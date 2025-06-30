@@ -261,6 +261,20 @@ impl GameManager {
             std::path::Path::new(constants::GAME_SERVER_ROOT).to_path_buf();
         executable.push(constants::EXECUTABLE_GAME_SERVER);
 
+        /*
+         * TODO: Fix .so resolving: Log sample:
+         * ```
+         * dlopen failed trying to load:
+         * steamclient.so
+         * with error:
+         * steamclient.so: cannot open shared object file: No such file or directory
+         * dlopen failed trying to load:
+         * /home/jka/.steam/sdk64/steamclient.so
+         * with error:
+         * /home/jka/.steam/sdk64/steamclient.so: cannot open shared object file: No such file or directory
+         * [S_API] SteamAPI_Init(): Failed to load module '/home/jka/.steam/sdk64/steamclient.so'
+         * ```
+         */
         let mut command = tokio::process::Command::new(executable);
         command.current_dir(constants::GAME_SERVER_ROOT);
         command.args(vec![
