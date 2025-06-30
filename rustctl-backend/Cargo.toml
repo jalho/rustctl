@@ -83,3 +83,7 @@ features = ["v4"]
 version = "0.27.0"
 default-features = false
 features = ["connect"]
+
+[dependencies.rand]
+version = "0.9.1"
+default-features = false

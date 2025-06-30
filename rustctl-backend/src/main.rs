@@ -566,14 +566,12 @@ mod misc {
 }
 
 mod rcon {
-    static RCON_CMD_COUNTER: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(1);
-
     #[derive(Debug, serde::Deserialize)]
     pub struct RconResponse {
         #[serde(rename = "Message")]
         pub message: String,
         #[serde(rename = "Identifier")]
-        pub identifier: i64,
+        pub identifier: u16,
     }
 
     pub async fn send_command(
@@ -602,7 +600,7 @@ mod rcon {
 
         let (mut write, mut read) = futures_util::StreamExt::split(ws_stream);
 
-        let command_identifier = RCON_CMD_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let command_identifier: u16 = rand::Rng::random(&mut rand::rng());
 
         let command_message: String = serde_json::json!({
             "Message": rcon_command,

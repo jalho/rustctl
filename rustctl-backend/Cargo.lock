@@ -674,6 +674,7 @@ dependencies = [
  "keyvalues-parser",
  "log",
  "log4rs",
+ "rand",
  "serde",
  "serde_json",
  "tokio",
