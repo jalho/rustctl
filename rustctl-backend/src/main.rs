@@ -32,9 +32,7 @@ fn main() {
 
 async fn websocket_handler(
     ws: axum::extract::WebSocketUpgrade,
-    axum::extract::State(stage): axum::extract::State<
-        tokio::sync::mpsc::Sender<DownstreamClientMessage>,
-    >,
+    axum::extract::State(stage): axum::extract::State<ActorHandle<DownstreamClientMessage>>,
 ) -> axum::response::Response {
     ws.on_upgrade(async |socket| {
         let _socket: axum::extract::ws::WebSocket = socket;
@@ -42,6 +40,7 @@ async fn websocket_handler(
     })
 }
 
+#[derive(Clone)]
 struct DownstreamClientMessage;
 
 struct Actor<Resource, Message> {
@@ -59,9 +58,19 @@ impl<Resource, Message> Actor<Resource, Message> {
         }
     }
 
-    pub fn get_handle(&self) -> &tokio::sync::mpsc::Sender<Message> {
+    pub fn get_handle(&self) -> ActorHandle<Message> {
         let (tx, _rx) = &self.channel;
-        return tx;
+        return ActorHandle::new(tx.clone());
+    }
+}
+
+#[derive(Clone)]
+struct ActorHandle<Message> {
+    tx: tokio::sync::mpsc::Sender<Message>,
+}
+impl<Message> ActorHandle<Message> {
+    pub fn new(tx: tokio::sync::mpsc::Sender<Message>) -> Self {
+        Self { tx }
     }
 }
 
