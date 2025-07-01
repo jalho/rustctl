@@ -5,7 +5,11 @@ Work in progress!
 Tooling for running a _Rust_ (the game) server and an integrated web service
 on Linux.
 
-## State machine
+## Features
+
+Features are listed in the [`./CHANGELOG.md`](./CHANGELOG.md).
+
+## State machine for managing the game server
 
 <img src="./diagrams/rustctl-state-machine.svg">
 
