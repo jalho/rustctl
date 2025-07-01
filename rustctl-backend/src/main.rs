@@ -23,7 +23,7 @@ fn main() {
     /*
      * Stage on which downstream WebSocket client actors communicate.
      */
-    let stage = Actor::<DownstreamClientMessage>::new();
+    let stage = Stage::new();
     let router = axum::Router::new()
         .route("/ws", axum::routing::get(websocket_handler))
         .with_state(stage.get_handle());
@@ -75,21 +75,17 @@ async fn websocket_handler(
 
 #[derive(Clone, Debug, serde::Deserialize)]
 enum DownstreamClientMessage {
-    A(GameServerControl),
-    B(GameWorldControl),
+    ServerSaveAndClose,
+    ServerConfigure {
+        configuration: GameServerConfigurationPatch,
+    },
+    ServerInstallOrUpdateAndStart,
+    GameWorldKillPlayer {
+        steam_id: String,
+    },
 }
 #[derive(Clone, Debug, serde::Deserialize)]
-enum GameServerControl {
-    SaveAndClose,
-    Configure { configuration: ConfigurationPayload },
-    InstallOrUpdateAndStart,
-}
-#[derive(Clone, Debug, serde::Deserialize)]
-enum GameWorldControl {
-    KillPlayer,
-}
-#[derive(Clone, Debug, serde::Deserialize)]
-struct ConfigurationPayload {}
+struct GameServerConfigurationPatch {}
 
 impl TryFrom<&axum::extract::ws::Message> for DownstreamClientMessage {
     type Error = ();
@@ -110,39 +106,56 @@ impl TryFrom<&axum::extract::ws::Message> for DownstreamClientMessage {
     }
 }
 
-struct Actor<Message> {
+trait Actor<Message> {
+    fn get_handle(&self) -> ActorHandle<Message>;
+}
+
+struct Stage {
     channel: (
-        tokio::sync::mpsc::Sender<Message>,
-        tokio::sync::mpsc::Receiver<Message>,
+        tokio::sync::mpsc::Sender<DownstreamClientMessage>,
+        tokio::sync::mpsc::Receiver<DownstreamClientMessage>,
     ),
 }
-impl<Message> Actor<Message>
-where
-    Message: std::fmt::Debug + std::marker::Send + 'static,
-{
+impl Stage {
     pub fn new() -> Self {
         Self {
             channel: tokio::sync::mpsc::channel(1),
         }
     }
 
-    pub fn get_handle(&self) -> ActorHandle<Message> {
-        let (tx, _rx) = &self.channel;
-        return ActorHandle::new(tx.clone());
-    }
-
     pub async fn work(self, cancel: tokio_util::sync::CancellationToken) {
         let (_tx, mut rx) = self.channel;
         let coroutine = tokio::spawn(async move {
             while let Some(msg) = rx.recv().await {
-                let msg: Message = msg;
-                println!("TODO: Actor::work working on message: {msg:?}");
+                let msg: DownstreamClientMessage = msg;
+                match msg {
+                    DownstreamClientMessage::ServerSaveAndClose => {
+                        println!("TODO: DownstreamClientMessage::ServerSaveAndClose")
+                    }
+                    DownstreamClientMessage::ServerConfigure { configuration } => {
+                        println!(
+                            "TODO: DownstreamClientMessage::ServerConfigure: {configuration:?}"
+                        )
+                    }
+                    DownstreamClientMessage::ServerInstallOrUpdateAndStart => {
+                        println!("TODO: DownstreamClientMessage::ServerInstallOrUpdateAndStart")
+                    }
+                    DownstreamClientMessage::GameWorldKillPlayer { steam_id } => {
+                        println!("TODO: DownstreamClientMessage::GameWorldKillPlayer: {steam_id:?}")
+                    }
+                }
             }
         });
         let coroutine_done = cancel.run_until_cancelled(coroutine).await;
         if let Some(Err(err)) = coroutine_done {
             eprintln!("coroutine failed: {err}");
         }
+    }
+}
+impl Actor<DownstreamClientMessage> for Stage {
+    fn get_handle(&self) -> ActorHandle<DownstreamClientMessage> {
+        let (tx, _rx) = &self.channel;
+        return ActorHandle::new(tx.clone());
     }
 }
 
