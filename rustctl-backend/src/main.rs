@@ -131,19 +131,23 @@ impl Stage {
             while let Some(msg) = rx.recv().await {
                 let msg: DownstreamClientMessage = msg;
                 match msg {
+                    /*
+                     * TODO: Send commands to yet another actor(s) that control
+                     *       the game server and/or the RCON socket.
+                     */
                     DownstreamClientMessage::ServerSaveAndClose => {
-                        println!("TODO: DownstreamClientMessage::ServerSaveAndClose")
+                        println!("NOTE: DownstreamClientMessage::ServerSaveAndClose")
                     }
                     DownstreamClientMessage::ServerConfigure { configuration } => {
                         println!(
-                            "TODO: DownstreamClientMessage::ServerConfigure: {configuration:?}"
+                            "NOTE: DownstreamClientMessage::ServerConfigure: {configuration:?}"
                         )
                     }
                     DownstreamClientMessage::ServerInstallOrUpdateAndStart => {
-                        println!("TODO: DownstreamClientMessage::ServerInstallOrUpdateAndStart")
+                        println!("NOTE: DownstreamClientMessage::ServerInstallOrUpdateAndStart")
                     }
                     DownstreamClientMessage::GameWorldKillPlayer { steam_id } => {
-                        println!("TODO: DownstreamClientMessage::GameWorldKillPlayer: {steam_id:?}")
+                        println!("NOTE: DownstreamClientMessage::GameWorldKillPlayer: {steam_id:?}")
                     }
                 }
             }
