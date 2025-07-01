@@ -430,6 +430,7 @@ impl GameManager {
         self.render_map_image_file().await;
 
         self.transition_to(GameState::GameRunningHealthy).await;
+        self.read_game_state().await;
     }
 
     /// Install (or update) the game server (executable named `RustDedicated`)
@@ -669,6 +670,24 @@ impl GameManager {
         if matches!(self.state, GameState::GameTerminatedUnexpectedly) {
             self.start_game_launch_sequence().await;
         }
+    }
+
+    async fn read_game_state(&mut self) {
+        let mut rcon_client: RconClient = self.rcon_client.take().unwrap();
+        let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            interval.tick().await;
+            let response: rcon::RconResponse = rcon_client
+                .send_command("env.time", &std::time::Duration::from_millis(200))
+                .await
+                .unwrap();
+            log::debug!("{response:?}");
+        }
+        /*
+         * TODO: Publish state updates to clients! Perhaps use similar mechanism
+         *       as in publishing the game server's state transitions?
+         */
     }
 }
 
