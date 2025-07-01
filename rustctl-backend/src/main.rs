@@ -16,7 +16,7 @@
  * - "upstream RCON WebSocket client": Command interface of the managed game
  *   server.
  */
-fn main() {
+fn main() -> std::process::ExitCode {
     let cancel = tokio_util::sync::CancellationToken::new();
 
     /*
@@ -35,22 +35,42 @@ fn main() {
         .route("/ws", axum::routing::get(websocket_handler))
         .with_state(stage.get_handle());
 
-    let runtime = tokio::runtime::Builder::new_current_thread()
+    let runtime = match tokio::runtime::Builder::new_current_thread()
         .worker_threads(1)
         .enable_all()
         .build()
-        .unwrap();
+    {
+        Ok(n) => n,
+        Err(err) => {
+            eprintln!("failed to build async runtime: {err}");
+            return std::process::ExitCode::FAILURE;
+        }
+    };
 
-    runtime.block_on(async {
-        let coroutine_web = tokio::spawn(async move {
-            let tcp_listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
-                .await
-                .unwrap();
-            axum::serve(tcp_listener, router).await.unwrap();
-        });
+    let runtime_done = runtime.block_on(async {
+        let tcp_listener = match tokio::net::TcpListener::bind("127.0.0.1:8080").await {
+            Ok(n) => n,
+            Err(err) => {
+                eprintln!("failed to bind TCP listener: {err}");
+                return Err(err);
+            }
+        };
 
-        _ = tokio::join!(coroutine_web, stage.work());
+        /*
+         * TODO: Make the web server an actor with cancel token?
+         */
+        _ = tokio::join!(axum::serve(tcp_listener, router), stage.work());
+
+        return Ok(());
     });
+
+    match runtime_done {
+        Ok(_) => std::process::ExitCode::SUCCESS,
+        Err(err) => {
+            eprintln!("something went wrong in async runtime: {err}");
+            std::process::ExitCode::FAILURE
+        }
+    }
 }
 
 async fn websocket_handler(
