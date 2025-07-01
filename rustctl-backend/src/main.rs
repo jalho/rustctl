@@ -5,8 +5,21 @@
  * with other actors via various _channels_. The main components of the
  * program should all be actors, and the program's main functionality should be
  * implemented by arranging channels between actors.
+ *
+ * More terminology:
+ *
+ * - "downstream WebSocket client": External web clients that connect to this
+ *   program to e.g. receive state updates of the managed game server and to
+ *   send command messages to be passed through via "upstream RCON WebSocket
+ *   client"
+ *
+ * - "upstream RCON WebSocket client": Command interface of the managed game
+ *   server.
  */
 fn main() {
+    /*
+     * Stage on which downstream WebSocket client actors communicate.
+     */
     let stage = Actor::<Stage, DownstreamClientMessage>::new(Stage::new());
     let router = axum::Router::new()
         .route("/ws", axum::routing::get(websocket_handler))
