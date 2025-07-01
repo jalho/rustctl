@@ -110,10 +110,6 @@ impl TryFrom<&axum::extract::ws::Message> for DownstreamClientMessage {
     }
 }
 
-trait ReceiverHolder<Message> {
-    fn get_receiver(self) -> tokio::sync::mpsc::Receiver<Message>;
-}
-
 struct Actor<Message> {
     channel: (
         tokio::sync::mpsc::Sender<Message>,
