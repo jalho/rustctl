@@ -25,7 +25,7 @@ Initial version. Planned features:
     - Game world state (e.g., in-game player positions)
     - Game events (e.g., in-game resource collection)
   - Command reception for:
-    - Managing game server (save & close, update & relaunch)
+    - Managing game server (save & close, configure, update & relaunch)
     - Managing game world (_RCON commands_ like banning players, spawning items)
 
 #### Frontend
@@ -37,5 +37,5 @@ Initial version. Planned features:
   - In-game events (e.g., resource collection)
   - System resource usage over time (CPU, memory)
 - Controls for:
-  - Server management (save & close, update & relaunch)
+  - Server management (save & close, configure, update & relaunch)
   - Game world management (_RCON commands_)
