@@ -671,25 +671,35 @@ impl GameManager {
         }
     }
 
+    /*
+     * TODO: Add RCON command passing!
+     *
+     *       This function currently _takes_ RCON client from self (leaving
+     *       `None` in place). In addition to just reading game world state, the
+     *       RCON client should also be used to pass commands from clients to
+     *       the game server. For that, since the RCON client is _taken_ here,
+     *       we're gonna need to do the command passing here too, I think.
+     */
     async fn read_game_world_state(&mut self) {
         let mut rcon_client: RconClient = self.rcon_client.take().unwrap();
-        let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        loop {
-            interval.tick().await;
-            let response: rcon::RconResponse = rcon_client
-                .send_command("env.time", &std::time::Duration::from_millis(200))
-                .await
-                .unwrap();
-            /*
-             * TODO: Parse game world state from the RCON response, and send
-             *       that to clients via self.broadcaster.send()...
-             */
-            log::debug!("{response:?}");
-            _ = self
-                .broadcaster
-                .send(StateUpdate::GameWorldStateUpdate { time: 0.0 });
-        }
+        let broadcaster = self.broadcaster.clone();
+        _ = tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop {
+                interval.tick().await;
+                let response: rcon::RconResponse = rcon_client
+                    .send_command("env.time", &std::time::Duration::from_millis(200))
+                    .await
+                    .unwrap();
+                /*
+                 * TODO: Parse game world state from the RCON response, and send
+                 *       that to clients via self.broadcaster.send()...
+                 */
+                log::debug!("{response:?}");
+                _ = broadcaster.send(StateUpdate::GameWorldStateUpdate { time: 0.0 });
+            }
+        })
     }
 }
 
