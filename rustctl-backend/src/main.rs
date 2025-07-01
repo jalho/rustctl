@@ -268,10 +268,17 @@ impl GameManager {
         command.stdout(std::process::Stdio::piped());
         command.stderr(std::process::Stdio::piped());
 
-        log::debug!("Spawning command: {command:?}");
+        match steam_app_build_id_before {
+            Some(buildid) => log::info!(
+                "Currently installed game server buildid: {buildid} -- Checking for updates..."
+            ),
+            None => log::info!("Installing game server..."),
+        }
         let output: std::process::Output =
             command.spawn().unwrap().wait_with_output().await.unwrap();
-        log::debug!("Output: {output:?}");
+        if !output.status.success() {
+            todo!("{output:?}");
+        }
 
         let steam_app_build_id_after: u32;
         let contents: String = tokio::fs::read_to_string(&app_manifest)
@@ -354,7 +361,7 @@ impl GameManager {
 
         let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<()>();
 
-        log::debug!("Spawning command: {command:?}");
+        log::info!("Launching game server...");
         let mut process: tokio::process::Child = command.spawn().unwrap();
 
         let stdout = process.stdout.take().unwrap();
