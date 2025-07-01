@@ -122,7 +122,7 @@ struct Actor<Message> {
 }
 impl<Message> Actor<Message>
 where
-    Message: std::fmt::Debug,
+    Message: std::fmt::Debug + std::marker::Send + 'static,
 {
     pub fn new() -> Self {
         Self {
@@ -136,7 +136,7 @@ where
     }
 
     pub async fn work(self, cancel: tokio_util::sync::CancellationToken) {
-        let (tx, rx) = self.channel;
+        let (_tx, mut rx) = self.channel;
         let coroutine = tokio::spawn(async move {
             while let Some(msg) = rx.recv().await {
                 let msg: Message = msg;
