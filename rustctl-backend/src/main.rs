@@ -17,13 +17,13 @@
  *   server.
  */
 fn main() {
-    // TODO: Should cancel.child_token() be given to Stage::new()?
     let cancel = tokio_util::sync::CancellationToken::new();
 
     /*
-     * Stage on which downstream WebSocket client actors communicate.
+     * Stage (an actor) on which downstream WebSocket clients communicate (who
+     * are also actors).
      */
-    let stage = Stage::new();
+    let stage = Stage::new(cancel.child_token());
     let router = axum::Router::new()
         .route("/ws", axum::routing::get(websocket_handler))
         .with_state(stage.get_handle());
@@ -42,7 +42,7 @@ fn main() {
             axum::serve(tcp_listener, router).await.unwrap();
         });
 
-        _ = tokio::join!(coroutine_web, stage.work(cancel.child_token()));
+        _ = tokio::join!(coroutine_web, stage.work());
     });
 }
 
@@ -111,19 +111,21 @@ trait Actor<Message> {
 }
 
 struct Stage {
+    cancel: tokio_util::sync::CancellationToken,
     channel: (
         tokio::sync::mpsc::Sender<DownstreamClientMessage>,
         tokio::sync::mpsc::Receiver<DownstreamClientMessage>,
     ),
 }
 impl Stage {
-    pub fn new() -> Self {
+    pub fn new(cancel: tokio_util::sync::CancellationToken) -> Self {
         Self {
             channel: tokio::sync::mpsc::channel(1),
+            cancel,
         }
     }
 
-    pub async fn work(self, cancel: tokio_util::sync::CancellationToken) {
+    pub async fn work(self) {
         let (_tx, mut rx) = self.channel;
         let coroutine = tokio::spawn(async move {
             while let Some(msg) = rx.recv().await {
@@ -146,7 +148,7 @@ impl Stage {
                 }
             }
         });
-        let coroutine_done = cancel.run_until_cancelled(coroutine).await;
+        let coroutine_done = self.cancel.run_until_cancelled(coroutine).await;
         if let Some(Err(err)) = coroutine_done {
             eprintln!("coroutine failed: {err}");
         }
