@@ -42,9 +42,7 @@ fn main() {
             axum::serve(tcp_listener, router).await.unwrap();
         });
 
-        let coroutine_stage = tokio::spawn(stage.work(cancel.child_token()));
-
-        _ = tokio::join!(coroutine_web, coroutine_stage);
+        _ = tokio::join!(coroutine_web, stage.work(cancel.child_token()));
     });
 }
 
