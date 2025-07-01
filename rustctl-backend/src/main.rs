@@ -83,11 +83,14 @@ fn main() {
         // cleanup
         let coroutine_cleanup = tokio::spawn(async move {
             cancel_cleanup.cancelled().await;
-            log::info!("Shutting down game server...");
 
-            let mut mgr = mgr_cleanup.write().await;
-            mgr.shutdown_game_server().await;
-            log::info!("Game server shutdown complete");
+            {
+                log::info!("Shutting down game server...");
+                let mut mgr = mgr_cleanup.write().await;
+                mgr.shutdown_game_server().await;
+            }
+
+            log::info!("Cleanup completed");
         });
 
         _ = tokio::join!(
