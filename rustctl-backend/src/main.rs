@@ -17,6 +17,9 @@
  *   server.
  */
 fn main() {
+    // TODO: Should cancel.child_token() be given to Stage::new()?
+    let cancel = tokio_util::sync::CancellationToken::new();
+
     /*
      * Stage on which downstream WebSocket client actors communicate.
      */
@@ -38,7 +41,10 @@ fn main() {
                 .unwrap();
             axum::serve(tcp_listener, router).await.unwrap();
         });
-        _ = tokio::join!(coroutine_web);
+
+        let coroutine_stage = tokio::spawn(stage.work(cancel.child_token()));
+
+        _ = tokio::join!(coroutine_web, coroutine_stage);
     });
 }
 
@@ -69,13 +75,40 @@ async fn websocket_handler(
     })
 }
 
-#[derive(Clone, Debug)]
-enum DownstreamClientMessage {}
+#[derive(Clone, Debug, serde::Deserialize)]
+enum DownstreamClientMessage {
+    A(GameServerControl),
+    B(GameWorldControl),
+}
+#[derive(Clone, Debug, serde::Deserialize)]
+enum GameServerControl {
+    SaveAndClose,
+    Configure { configuration: ConfigurationPayload },
+    InstallOrUpdateAndStart,
+}
+#[derive(Clone, Debug, serde::Deserialize)]
+enum GameWorldControl {
+    KillPlayer,
+}
+#[derive(Clone, Debug, serde::Deserialize)]
+struct ConfigurationPayload {}
+
 impl TryFrom<&axum::extract::ws::Message> for DownstreamClientMessage {
     type Error = ();
 
     fn try_from(value: &axum::extract::ws::Message) -> Result<Self, Self::Error> {
-        todo!()
+        let utf8: String = match value {
+            axum::extract::ws::Message::Text(utf8_bytes) => utf8_bytes.to_string(),
+            axum::extract::ws::Message::Binary(_)
+            | axum::extract::ws::Message::Ping(_)
+            | axum::extract::ws::Message::Pong(_)
+            | axum::extract::ws::Message::Close(_) => return Err(()),
+        };
+        let message: DownstreamClientMessage = match serde_json::from_str(&utf8) {
+            Ok(n) => n,
+            Err(_) => return Err(()),
+        };
+        return Ok(message);
     }
 }
 
@@ -97,6 +130,17 @@ impl<Resource, Message> Actor<Resource, Message> {
     pub fn get_handle(&self) -> ActorHandle<Message> {
         let (tx, _rx) = &self.channel;
         return ActorHandle::new(tx.clone());
+    }
+
+    pub async fn work(self, cancel: tokio_util::sync::CancellationToken) {
+        let coroutine = tokio::spawn(async {
+            // TODO: Receive messages sent to this actor and do stuff about them maybe...
+            ()
+        });
+        let coroutine_done = cancel.run_until_cancelled(coroutine).await;
+        if let Some(Err(err)) = coroutine_done {
+            eprintln!("coroutine failed: {err}");
+        }
     }
 }
 
