@@ -631,7 +631,6 @@ impl GameManager {
         self.rcon_client = Some(rcon_client);
     }
 
-    // TODO: Use actual Mutex instead of Option::take & re-assign?
     async fn render_map_image_file(&mut self) {
         let rcon_response: rcon::RconResponse;
         {
