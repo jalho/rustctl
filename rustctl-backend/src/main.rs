@@ -8,7 +8,7 @@
  *       actors.
  */
 fn main() {
-    let stage = Actor::new(Stage::new());
+    let stage = Actor::<Stage, DownstreamClientMessage>::new(Stage::new());
     let router = axum::Router::new()
         .route("/ws", axum::routing::get(websocket_handler))
         .with_state(stage.get_handle());
@@ -32,28 +32,36 @@ fn main() {
 
 async fn websocket_handler(
     ws: axum::extract::WebSocketUpgrade,
-    axum::extract::State(stage): axum::extract::State<Stage>,
+    axum::extract::State(stage): axum::extract::State<
+        tokio::sync::mpsc::Sender<DownstreamClientMessage>,
+    >,
 ) -> axum::response::Response {
     ws.on_upgrade(async |socket| {
         let _socket: axum::extract::ws::WebSocket = socket;
-        let _stage: Stage = stage;
+        let _stage = stage;
     })
 }
 
-struct Actor<R, M> {
-    managed_resource: R,
-    channel: (tokio::sync::mpsc::Sender<M>, tokio::sync::mpsc::Receiver<M>),
+struct DownstreamClientMessage;
+
+struct Actor<Resource, Message> {
+    managed_resource: Resource,
+    channel: (
+        tokio::sync::mpsc::Sender<Message>,
+        tokio::sync::mpsc::Receiver<Message>,
+    ),
 }
-impl<R, M> Actor<R, M> {
-    pub fn new(managed_resource: R) -> Self {
+impl<Resource, Message> Actor<Resource, Message> {
+    pub fn new(managed_resource: Resource) -> Self {
         Self {
             managed_resource,
             channel: tokio::sync::mpsc::channel(1),
         }
     }
 
-    pub fn get_handle(&self) -> &tokio::sync::mpsc::Sender<M> {
-        return &self.channel.0;
+    pub fn get_handle(&self) -> &tokio::sync::mpsc::Sender<Message> {
+        let (tx, _rx) = &self.channel;
+        return tx;
     }
 }
 
