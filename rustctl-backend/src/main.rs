@@ -23,7 +23,7 @@ fn main() {
     /*
      * Stage on which downstream WebSocket client actors communicate.
      */
-    let stage = Actor::<Stage, DownstreamClientMessage>::new(Stage::new());
+    let stage = Actor::<DownstreamClientMessage>::new();
     let router = axum::Router::new()
         .route("/ws", axum::routing::get(websocket_handler))
         .with_state(stage.get_handle());
@@ -116,21 +116,18 @@ trait ReceiverHolder<Message> {
     fn get_receiver(self) -> tokio::sync::mpsc::Receiver<Message>;
 }
 
-struct Actor<Resource, Message> {
-    managed_resource: Resource,
+struct Actor<Message> {
     channel: (
         tokio::sync::mpsc::Sender<Message>,
         tokio::sync::mpsc::Receiver<Message>,
     ),
 }
-impl<Resource, Message> Actor<Resource, Message>
+impl<Message> Actor<Message>
 where
-    Resource: ReceiverHolder<Message>,
     Message: std::fmt::Debug,
 {
-    pub fn new(managed_resource: Resource) -> Self {
+    pub fn new() -> Self {
         Self {
-            managed_resource,
             channel: tokio::sync::mpsc::channel(1),
         }
     }
@@ -141,7 +138,7 @@ where
     }
 
     pub async fn work(self, cancel: tokio_util::sync::CancellationToken) {
-        let rx: tokio::sync::mpsc::Receiver<Message> = self.managed_resource.get_receiver();
+        let (tx, rx) = self.channel;
         let coroutine = tokio::spawn(async move {
             while let Some(msg) = rx.recv().await {
                 let msg: Message = msg;
@@ -169,19 +166,5 @@ impl<Message> ActorHandle<Message> {
         message: Message,
     ) -> Result<(), tokio::sync::mpsc::error::TrySendError<Message>> {
         self.tx.try_send(message)
-    }
-}
-
-/// _Stage_ is a thing on which _actors_ communicate :D Stage itself is also an
-/// actor, in the context of the concurrency pattern where _actors_ are a thing.
-struct Stage {}
-impl Stage {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-impl ReceiverHolder<DownstreamClientMessage> for Stage {
-    fn get_receiver(self) -> tokio::sync::mpsc::Receiver<DownstreamClientMessage> {
-        todo!()
     }
 }
