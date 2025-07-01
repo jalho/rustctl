@@ -2,7 +2,7 @@
 
 ## 1.0.0
 
-Initial version. Planned features:
+Initial version. **Work in progress! Below are planned features:**
 
 ### Added
 
