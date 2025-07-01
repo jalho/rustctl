@@ -135,6 +135,7 @@ impl TryFrom<&axum::extract::ws::Message> for DownstreamClientMessage {
 trait Actor<Message> {
     fn new(cancel: tokio_util::sync::CancellationToken) -> Self;
     fn get_handle(&self) -> ActorHandle<Message>;
+    async fn work(self) -> ();
 }
 
 struct Stage {
@@ -144,8 +145,20 @@ struct Stage {
         tokio::sync::mpsc::Receiver<DownstreamClientMessage>,
     ),
 }
-impl Stage {
-    pub async fn work(self) {
+impl Actor<DownstreamClientMessage> for Stage {
+    fn new(cancel: tokio_util::sync::CancellationToken) -> Self {
+        Self {
+            channel: tokio::sync::mpsc::channel(1),
+            cancel,
+        }
+    }
+
+    fn get_handle(&self) -> ActorHandle<DownstreamClientMessage> {
+        let (tx, _rx) = &self.channel;
+        return ActorHandle::new(tx.clone());
+    }
+
+    async fn work(self) -> () {
         let (_tx, mut rx) = self.channel;
         let coroutine = tokio::spawn(async move {
             while let Some(msg) = rx.recv().await {
@@ -174,19 +187,7 @@ impl Stage {
         if let Some(Err(err)) = coroutine_done {
             eprintln!("coroutine failed: {err}");
         }
-    }
-}
-impl Actor<DownstreamClientMessage> for Stage {
-    fn new(cancel: tokio_util::sync::CancellationToken) -> Self {
-        Self {
-            channel: tokio::sync::mpsc::channel(1),
-            cancel,
-        }
-    }
-
-    fn get_handle(&self) -> ActorHandle<DownstreamClientMessage> {
-        let (tx, _rx) = &self.channel;
-        return ActorHandle::new(tx.clone());
+        return ();
     }
 }
 
