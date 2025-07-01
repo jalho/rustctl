@@ -630,21 +630,25 @@ impl GameManager {
         self.rcon_client = Some(rcon_client);
     }
 
-    async fn render_map_image_file(&self) {
-        let rcon_client: &mut RconClient = match &self.rcon_client {
-            Some(n) => n,
-            None => todo!("RCON client should be connected by now"),
-        };
-        let rcon_response: rcon::RconResponse = rcon_client
-            .send_command("rendermap", &std::time::Duration::from_secs(10))
-            .await
-            .unwrap();
+    // TODO: Use actual Mutex instead of Option::take & re-assign?
+    async fn render_map_image_file(&mut self) {
+        let rcon_response: rcon::RconResponse;
+        {
+            let mut rcon_client: RconClient = self.rcon_client.take().unwrap();
+            rcon_response = rcon_client
+                .send_command("rendermap", &std::time::Duration::from_secs(10))
+                .await
+                .unwrap();
+            self.rcon_client = Some(rcon_client);
+        }
+
         let (path_from, _metadata): (std::path::PathBuf, std::fs::Metadata) =
             rcon::verify_rendered_map(&rcon_response).await;
 
         let mut path_to = std::path::Path::new(constants::GAME_SERVER_ROOT).to_path_buf();
         path_to.push(constants::GAME_WORLD_MAP_RENDERED_IMAGE);
         tokio::fs::rename(&path_from, &path_to).await.unwrap();
+
         log::info!(
             "Game world map rendered as {} and then renamed as {}",
             path_from.to_string_lossy(),
