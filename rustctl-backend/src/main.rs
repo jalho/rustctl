@@ -468,11 +468,14 @@ impl GameManager {
             "+login",
             "anonymous",
             /*
-             * TODO: "force_install_dir" doesn't really "force" anything:
-             *       Instead, SteamCMD seems to just create a new directory tree
-             *       in "~/.local/share/Steam/" if it cannot access the given
-             *       "force_install_dir"... Therefore, we must add some checks
-             *       to actually know where the installation ends up at...
+             * WONTFIX: "force_install_dir" doesn't really "force" anything:
+             *          Instead, SteamCMD seems to just create a new directory
+             *          tree in "~/.local/share/Steam/" if it cannot access
+             *          the given "force_install_dir". Therefore, we should
+             *          add some checks to actually know where the installation
+             *          ends up at. However, this is low priority as long as the
+             *          specified directory is owned by the current user and so
+             *          we can assume the command does what it's told to do.
              */
             "+force_install_dir",
             constants::GAME_SERVER_ROOT,
