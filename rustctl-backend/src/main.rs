@@ -52,6 +52,7 @@ fn main() {
         // healthcheck: restart on crash
         let coroutine_health = tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             'health_check: loop {
                 interval.tick().await;
                 if cancel_health.is_cancelled() {
