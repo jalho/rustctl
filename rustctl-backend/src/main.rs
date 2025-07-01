@@ -56,10 +56,13 @@ fn main() -> std::process::ExitCode {
             }
         };
 
-        /*
-         * TODO: Make the web server an actor with cancel token?
-         */
-        _ = tokio::join!(axum::serve(tcp_listener, router), stage.work());
+        _ = tokio::join!(
+            /*
+             * TODO: Make the web server an actor with cancel token?
+             */
+            axum::serve(tcp_listener, router),
+            stage.work(),
+        );
 
         return Ok(());
     });
