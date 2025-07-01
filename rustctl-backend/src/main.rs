@@ -202,18 +202,12 @@ struct GameConfiguration {
     rcon_password: String,
 }
 
+type Socket =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 struct RconClient {
-    tx: futures_util::stream::SplitSink<
-        tokio_tungstenite::WebSocketStream<
-            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
-        >,
-        tokio_tungstenite::tungstenite::Message,
-    >,
-    rx: futures_util::stream::SplitStream<
-        tokio_tungstenite::WebSocketStream<
-            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
-        >,
-    >,
+    rcon_socket_tx:
+        futures_util::stream::SplitSink<Socket, tokio_tungstenite::tungstenite::Message>,
+    rcon_socket_rx: futures_util::stream::SplitStream<Socket>,
 }
 
 impl RconClient {
@@ -253,7 +247,10 @@ impl RconClient {
                 >,
             >,
         ) = futures_util::StreamExt::split(ws_stream);
-        Self { tx, rx }
+        Self {
+            rcon_socket_tx: tx,
+            rcon_socket_rx: rx,
+        }
     }
 
     async fn send_command(
@@ -271,7 +268,7 @@ impl RconClient {
 
         log::debug!("Sending RCON command: {}", command_message);
         if let Err(err) = futures_util::SinkExt::send(
-            &mut self.tx,
+            &mut self.rcon_socket_tx,
             tokio_tungstenite::tungstenite::Message::Text(command_message.into()),
         )
         .await
@@ -292,7 +289,7 @@ impl RconClient {
             let remaining_timeout = *timeout - elapsed;
             let message_result = tokio::time::timeout(
                 remaining_timeout,
-                futures_util::StreamExt::next(&mut self.rx),
+                futures_util::StreamExt::next(&mut self.rcon_socket_rx),
             )
             .await;
 
