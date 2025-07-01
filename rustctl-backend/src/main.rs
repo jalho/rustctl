@@ -112,6 +112,10 @@ impl TryFrom<&axum::extract::ws::Message> for DownstreamClientMessage {
     }
 }
 
+trait ReceiverHolder<Message> {
+    fn get_receiver(self) -> tokio::sync::mpsc::Receiver<Message>;
+}
+
 struct Actor<Resource, Message> {
     managed_resource: Resource,
     channel: (
@@ -119,7 +123,11 @@ struct Actor<Resource, Message> {
         tokio::sync::mpsc::Receiver<Message>,
     ),
 }
-impl<Resource, Message> Actor<Resource, Message> {
+impl<Resource, Message> Actor<Resource, Message>
+where
+    Resource: ReceiverHolder<Message>,
+    Message: std::fmt::Debug,
+{
     pub fn new(managed_resource: Resource) -> Self {
         Self {
             managed_resource,
@@ -133,9 +141,12 @@ impl<Resource, Message> Actor<Resource, Message> {
     }
 
     pub async fn work(self, cancel: tokio_util::sync::CancellationToken) {
-        let coroutine = tokio::spawn(async {
-            // TODO: Receive messages sent to this actor and do stuff about them maybe...
-            ()
+        let rx: tokio::sync::mpsc::Receiver<Message> = self.managed_resource.get_receiver();
+        let coroutine = tokio::spawn(async move {
+            while let Some(msg) = rx.recv().await {
+                let msg: Message = msg;
+                println!("TODO: Actor::work working on message: {msg:?}");
+            }
         });
         let coroutine_done = cancel.run_until_cancelled(coroutine).await;
         if let Some(Err(err)) = coroutine_done {
@@ -167,5 +178,10 @@ struct Stage {}
 impl Stage {
     pub fn new() -> Self {
         Self {}
+    }
+}
+impl ReceiverHolder<DownstreamClientMessage> for Stage {
+    fn get_receiver(self) -> tokio::sync::mpsc::Receiver<DownstreamClientMessage> {
+        todo!()
     }
 }
