@@ -56,7 +56,7 @@ fn main() -> std::process::ExitCode {
             }
         };
 
-        _ = tokio::join!(
+        let (_a, _b): (Result<(), std::io::Error>, StageSummary) = tokio::join!(
             /*
              * TODO: Make the web server an actor with cancel token?
              */
@@ -133,12 +133,15 @@ impl TryFrom<&axum::extract::ws::Message> for DownstreamClientMessage {
 }
 
 trait Actor<Message> {
+    type Summary;
+
     fn new(cancel: tokio_util::sync::CancellationToken) -> Self;
     fn get_handle(&self) -> ActorHandle<Message>;
-    async fn work(self) -> ();
+    async fn work(self) -> Self::Summary;
 }
 
 struct Stage {
+    summary: StageSummary,
     cancel: tokio_util::sync::CancellationToken,
     channel: (
         tokio::sync::mpsc::Sender<DownstreamClientMessage>,
@@ -146,10 +149,13 @@ struct Stage {
     ),
 }
 impl Actor<DownstreamClientMessage> for Stage {
+    type Summary = StageSummary;
+
     fn new(cancel: tokio_util::sync::CancellationToken) -> Self {
         Self {
             channel: tokio::sync::mpsc::channel(1),
             cancel,
+            summary: StageSummary { messages_total: 0 },
         }
     }
 
@@ -158,10 +164,11 @@ impl Actor<DownstreamClientMessage> for Stage {
         return ActorHandle::new(tx.clone());
     }
 
-    async fn work(self) -> () {
+    async fn work(mut self) -> Self::Summary {
         let (_tx, mut rx) = self.channel;
         let coroutine = tokio::spawn(async move {
             while let Some(msg) = rx.recv().await {
+                self.summary.messages_total = self.summary.messages_total + 1;
                 let msg: DownstreamClientMessage = msg;
                 match msg {
                     /*
@@ -187,8 +194,11 @@ impl Actor<DownstreamClientMessage> for Stage {
         if let Some(Err(err)) = coroutine_done {
             eprintln!("coroutine failed: {err}");
         }
-        return ();
+        return self.summary;
     }
+}
+struct StageSummary {
+    messages_total: u128,
 }
 
 #[derive(Clone)]
