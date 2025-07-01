@@ -688,16 +688,20 @@ impl GameManager {
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
                 interval.tick().await;
+
+                /*
+                 * TODO: Query player's positions...
+                 */
+
                 let response: rcon::RconResponse = rcon_client
                     .send_command("env.time", &std::time::Duration::from_millis(200))
                     .await
                     .unwrap();
-                /*
-                 * TODO: Parse game world state from the RCON response, and send
-                 *       that to clients via self.broadcaster.send()...
-                 */
-                log::debug!("{response:?}");
-                _ = broadcaster.send(StateUpdate::GameWorldStateUpdate { time: 0.0 });
+                let env_time: rcon::EnvTime = response.try_into().unwrap();
+
+                _ = broadcaster.send(StateUpdate::GameWorldStateUpdate {
+                    time: env_time.time,
+                });
             }
         })
     }
@@ -864,5 +868,49 @@ mod rcon {
         let path: std::path::PathBuf = tokio::fs::canonicalize(path).await.unwrap();
         let metadata: std::fs::Metadata = tokio::fs::metadata(&path).await.unwrap();
         return (path, metadata);
+    }
+
+    /// Deserialized response of RCON command `env.time`. The `Message` value in
+    /// the serialized response may look like e.g.:
+    /// ```
+    /// env.time: "9.050781"
+    /// ````
+    /// (As of 2025-07-01, `RustDedicated` buildid `18796303`.)
+    pub struct EnvTime {
+        pub time: f64,
+    }
+
+    impl TryFrom<RconResponse> for EnvTime {
+        type Error = ();
+
+        fn try_from(value: RconResponse) -> Result<Self, Self::Error> {
+            let msg: &str = &value.message;
+            let expected_prefix: &'static str = "env.time: ";
+            if !msg.starts_with(expected_prefix) {
+                return Err(());
+            }
+            let time: &str = match msg.strip_prefix(expected_prefix) {
+                Some(n) => n,
+                None => return Err(()),
+            };
+
+            let delim: char = '"';
+            if time.starts_with(delim) && time.ends_with(delim) {
+                let time: &str = match time.strip_prefix(delim) {
+                    Some(n) => n,
+                    None => return Err(()),
+                };
+                let time: &str = match time.strip_suffix(delim) {
+                    Some(n) => n,
+                    None => return Err(()),
+                };
+                match time.parse() {
+                    Ok(time) => return Ok(Self { time }),
+                    Err(_) => Err(()),
+                }
+            } else {
+                return Err(());
+            }
+        }
     }
 }
