@@ -1,5 +1,7 @@
 fn main() {
-    let _handle = logging::init_logging(log::LevelFilter::Debug);
+    let args: misc::Args = <misc::Args as clap::Parser>::parse();
+
+    let _handle = logging::init_logging(args.log_level);
     log::info!(
         "{name} {version}",
         name = env!("CARGO_PKG_NAME"),
@@ -550,6 +552,13 @@ mod constants {
 }
 
 mod misc {
+    #[derive(clap::Parser, Debug)]
+    #[command(version)]
+    pub struct Args {
+        #[arg(short, long, default_value_t = log::LevelFilter::Debug)]
+        pub log_level: log::LevelFilter,
+    }
+
     pub fn extract_buildid_from_buf(buf: &str) -> Option<u32> {
         let vdf: keyvalues_parser::Vdf = match keyvalues_parser::Vdf::parse(buf) {
             Ok(v) => v,
