@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0] – Work in Progress
+## 1.0.0
 
 Initial version. Planned features:
 
