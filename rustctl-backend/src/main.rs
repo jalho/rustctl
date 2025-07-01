@@ -11,6 +11,7 @@ fn main() {
     let cancellation_token = tokio_util::sync::CancellationToken::new();
     let cancel_web = cancellation_token.child_token();
     let cancel_health = cancellation_token.child_token();
+    let cancel_cleanup = cancellation_token.child_token();
 
     // for sending state updates to clients
     let (broadcast_tx, _) = tokio::sync::broadcast::channel(100);
@@ -20,6 +21,7 @@ fn main() {
     )));
     let mgr_startup = game_server_mgr.clone();
     let mgr_health = game_server_mgr.clone();
+    let mgr_cleanup = game_server_mgr.clone();
 
     let router = axum::Router::new()
         .route("/ws", axum::routing::get(websocket_handler))
@@ -78,11 +80,22 @@ fn main() {
                 .await;
         });
 
+        // cleanup
+        let coroutine_cleanup = tokio::spawn(async move {
+            cancel_cleanup.cancelled().await;
+            log::info!("Shutting down game server...");
+
+            let mut mgr = mgr_cleanup.write().await;
+            mgr.shutdown_game_server().await;
+            log::info!("Game server shutdown complete");
+        });
+
         _ = tokio::join!(
             coroutine_signal,
             coroutine_startup,
             coroutine_health,
             coroutine_web,
+            coroutine_cleanup,
         );
     });
 }
@@ -136,6 +149,47 @@ impl GameExecutable {
                 }
             },
             None => false,
+        }
+    }
+
+    async fn shutdown(&mut self) {
+        if let Some(mut child) = self.process.take() {
+            log::debug!("Terminating game server process...");
+
+            if let Err(err) = child.start_kill() {
+                log::warn!("Failed to send SIGTERM to game server: {err}");
+            } else {
+                log::debug!("Sent SIGTERM to game server, waiting for graceful shutdown...");
+
+                match tokio::time::timeout(std::time::Duration::from_secs(10), child.wait()).await {
+                    Ok(Ok(exit_status)) => {
+                        log::info!("Game server exited gracefully with status: {}", exit_status);
+                        return;
+                    }
+                    Ok(Err(err)) => {
+                        log::warn!("Error waiting for game server to exit: {err}");
+                    }
+                    Err(_) => {
+                        log::warn!(
+                            "Game server did not exit within 10 seconds, forcing termination..."
+                        );
+                    }
+                }
+            }
+
+            if let Err(err) = child.kill().await {
+                log::warn!("Failed to force kill game server: {err}");
+            } else {
+                log::debug!("Force killed game server, waiting for process to be reaped...");
+                match child.wait().await {
+                    Ok(exit_status) => {
+                        log::info!("Game server process reaped with status: {}", exit_status);
+                    }
+                    Err(err) => {
+                        log::error!("Error waiting for game server process to be reaped: {err}");
+                    }
+                }
+            }
         }
     }
 }
@@ -194,12 +248,26 @@ impl GameManager {
             ClientCommand::CloseGameGracefully => {
                 if matches!(self.state, GameState::GameRunningHealthy) {
                     self.transition_to(GameState::GameClosingGracefully).await;
-                    if let Some(mut child) = self.game_server_executable.process.take() {
-                        child.kill().await.unwrap();
-                        child.wait().await.unwrap();
-                    }
+                    self.game_server_executable.shutdown().await;
                     self.transition_to(GameState::GameTerminatedManually).await;
                 }
+            }
+        }
+    }
+
+    async fn shutdown_game_server(&mut self) {
+        match self.state {
+            GameState::GameRunningHealthy => {
+                self.transition_to(GameState::GameClosingGracefully).await;
+                self.game_server_executable.shutdown().await;
+                self.transition_to(GameState::GameTerminatedManually).await;
+            }
+            GameState::LaunchingGame => {
+                self.game_server_executable.shutdown().await;
+                self.transition_to(GameState::GameTerminatedManually).await;
+            }
+            _ => {
+                self.game_server_executable.shutdown().await;
             }
         }
     }
