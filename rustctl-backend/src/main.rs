@@ -124,9 +124,9 @@ enum ClientCommand {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-struct StateUpdate {
-    state: GameState,
-    timestamp: u64,
+enum StateUpdate {
+    ServerStateUpdate { state: GameState, timestamp: u64 },
+    GameWorldStateUpdate { time: f64 },
 }
 
 struct GameExecutable {
@@ -367,7 +367,7 @@ impl GameManager {
         log::debug!("State transition: {:?} -> {:?}", self.state, new_state);
         self.state = new_state.clone();
 
-        let update = StateUpdate {
+        let update = StateUpdate::ServerStateUpdate {
             state: new_state,
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -430,7 +430,7 @@ impl GameManager {
         self.render_map_image_file().await;
 
         self.transition_to(GameState::GameRunningHealthy).await;
-        self.read_game_state().await;
+        self.read_game_world_state().await;
     }
 
     /// Install (or update) the game server (executable named `RustDedicated`)
@@ -671,7 +671,7 @@ impl GameManager {
         }
     }
 
-    async fn read_game_state(&mut self) {
+    async fn read_game_world_state(&mut self) {
         let mut rcon_client: RconClient = self.rcon_client.take().unwrap();
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -681,12 +681,15 @@ impl GameManager {
                 .send_command("env.time", &std::time::Duration::from_millis(200))
                 .await
                 .unwrap();
+            /*
+             * TODO: Parse game world state from the RCON response, and send
+             *       that to clients via self.broadcaster.send()...
+             */
             log::debug!("{response:?}");
+            _ = self
+                .broadcaster
+                .send(StateUpdate::GameWorldStateUpdate { time: 0.0 });
         }
-        /*
-         * TODO: Publish state updates to clients! Perhaps use similar mechanism
-         *       as in publishing the game server's state transitions?
-         */
     }
 }
 
@@ -711,7 +714,7 @@ async fn handle_socket(socket: axum::extract::ws::WebSocket, manager: SharedMana
     // send current state immediately
     {
         let mgr = manager.read().await;
-        let current_state = StateUpdate {
+        let current_state = StateUpdate::ServerStateUpdate {
             state: mgr.state.clone(),
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
