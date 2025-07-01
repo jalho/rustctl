@@ -76,13 +76,9 @@ async fn websocket_handler(
 #[derive(Clone, Debug, serde::Deserialize)]
 enum DownstreamClientMessage {
     ServerSaveAndClose,
-    ServerConfigure {
-        configuration: GameServerConfigurationPatch,
-    },
+    ServerConfigure { cfg: GameServerConfigurationPatch },
     ServerInstallOrUpdateAndStart,
-    GameWorldKillPlayer {
-        steam_id: String,
-    },
+    GameWorldKillPlayer { id: String },
 }
 #[derive(Clone, Debug, serde::Deserialize)]
 struct GameServerConfigurationPatch {}
@@ -136,18 +132,16 @@ impl Stage {
                      *       the game server and/or the RCON socket.
                      */
                     DownstreamClientMessage::ServerSaveAndClose => {
-                        println!("NOTE: DownstreamClientMessage::ServerSaveAndClose")
+                        println!("NOTE: ServerSaveAndClose")
                     }
-                    DownstreamClientMessage::ServerConfigure { configuration } => {
-                        println!(
-                            "NOTE: DownstreamClientMessage::ServerConfigure: {configuration:?}"
-                        )
+                    DownstreamClientMessage::ServerConfigure { cfg } => {
+                        println!("NOTE: ServerConfigure: {cfg:?}")
                     }
                     DownstreamClientMessage::ServerInstallOrUpdateAndStart => {
-                        println!("NOTE: DownstreamClientMessage::ServerInstallOrUpdateAndStart")
+                        println!("NOTE: ServerInstallOrUpdateAndStart")
                     }
-                    DownstreamClientMessage::GameWorldKillPlayer { steam_id } => {
-                        println!("NOTE: DownstreamClientMessage::GameWorldKillPlayer: {steam_id:?}")
+                    DownstreamClientMessage::GameWorldKillPlayer { id } => {
+                        println!("NOTE: GameWorldKillPlayer: {id:?}")
                     }
                 }
             }
