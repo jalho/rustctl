@@ -20,6 +20,13 @@ fn main() {
     let cancel = tokio_util::sync::CancellationToken::new();
 
     /*
+     * TODO: Define actors for "game server controller" and "RCON client", and
+     *       give handle (i.e. `Actor::get_handle()`) of each to `stage`, so
+     *       that `stage` can send downstream client messages to each actor
+     *       depending on the message variant.
+     */
+
+    /*
      * Stage (an actor) on which downstream WebSocket clients communicate (who
      * are also actors).
      */
