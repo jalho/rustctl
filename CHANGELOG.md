@@ -10,8 +10,7 @@ Initial version. Planned features:
 
 - Automatic installation and updating of `RustDedicated` (game server) via
   `steamcmd` (installer) at startup.
-- Graceful shutdown handling on `SIGINT`, `SIGTERM`, or on any identified
-  non-recoverable failure:
+- Graceful shutdown handling on OS signals `SIGINT`, `SIGTERM`:
   - Save in-game world state
   - Clean up resources: Terminate child processes such as the game server
 - Game world map rendering after startup; served over HTTP as a PNG file.
@@ -26,7 +25,7 @@ Initial version. Planned features:
     - Game world state (e.g., in-game player positions)
     - Game events (e.g., in-game resource collection)
   - Command reception for:
-    - Managing game server (terminate, update, relaunch)
+    - Managing game server (save & close, update & relaunch)
     - Managing game world (_RCON commands_ like banning players, spawning items)
 
 #### Frontend
@@ -38,5 +37,5 @@ Initial version. Planned features:
   - In-game events (e.g., resource collection)
   - System resource usage over time (CPU, memory)
 - Controls for:
-  - Server management (terminate, update, relaunch)
+  - Server management (save & close, update & relaunch)
   - Game world management (_RCON commands_)
