@@ -364,6 +364,17 @@ impl Configuration {
              *          ends up at. However, this is low priority as long as the
              *          specified directory is owned by the current user and so
              *          we can assume the command does what it's told to do.
+             *
+             *          Side note (opinionated): For SteamCMD, a more correct
+             *          API would be to exit with failure status if a location
+             *          that was requested "forced" cannot be used, and to NOT
+             *          try to silently use some other location.
+             *
+             *          Behavior observed in `apt` packaged version:
+             *          - Package: steamcmd:i386
+             *          - Version: 0~20180105-5 (latest as of July 2025)
+             *          - Section: non-free/games
+             *          - Maintainer: Debian Games Team
              */
             "+force_install_dir".into(),
             self.root_dir_absolute.to_string_lossy().to_string(),
