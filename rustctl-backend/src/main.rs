@@ -36,13 +36,6 @@ fn main() -> std::process::ExitCode {
     let game_ctl: GameServerController = GameServerController::new(&terminator);
 
     /*
-     * TODO: Define actors for "game server controller" and "RCON client", and
-     *       give handle (i.e. `Actor::get_handle()`) of each to `stage`, so
-     *       that `stage` can send downstream client messages to each actor
-     *       depending on the message variant.
-     */
-
-    /*
      * Stage on which downstream WebSocket clients communicate.
      */
     let stage = Stage::new(&terminator, game_ctl.get_handle()); // "actors", hence "stage" :D
