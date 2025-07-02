@@ -100,7 +100,7 @@ impl WebServer {
         self.summary
     }
 }
-struct WebServerSummary {}
+struct WebServerSummary;
 
 async fn websocket_handler(
     ws: axum::extract::WebSocketUpgrade,
