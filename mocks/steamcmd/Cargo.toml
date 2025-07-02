@@ -3,4 +3,11 @@ name = "steamcmd"
 version = "0.1.0"
 edition = "2024"
 
-[dependencies]
+[dependencies.tokio]
+version = "=1.45.1"
+default-features = false
+features = [
+  "rt",
+  "macros",
+  "time",
+]
