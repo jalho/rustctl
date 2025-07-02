@@ -26,7 +26,7 @@ fn main() -> std::process::ExitCode {
         version = env!("CARGO_PKG_VERSION")
     );
 
-    let cancel = tokio_util::sync::CancellationToken::new();
+    let terminator = Terminator::new();
 
     /*
      * TODO: Define actors for "game server controller" and "RCON client", and
@@ -39,13 +39,13 @@ fn main() -> std::process::ExitCode {
      * Stage (an actor) on which downstream WebSocket clients communicate (who
      * are also actors).
      */
-    let stage = Stage::new(cancel.child_token());
+    let stage = Stage::new(&terminator);
 
     /*
      * Kind of an actor as well, but the messages are coming from underlying
      * abstractions. Sends messages to the _stage_ actor.
      */
-    let web_server = WebServer::new(cancel.child_token(), &stage);
+    let web_server = WebServer::new(&terminator, &stage);
 
     let runtime = match tokio::runtime::Builder::new_current_thread()
         .worker_threads(1)
@@ -59,13 +59,48 @@ fn main() -> std::process::ExitCode {
         }
     };
 
-    let _runtime_done: (WebServerSummary, StageSummary) = runtime.block_on(async {
-        let summary = tokio::join!(web_server.work(), stage.work());
-        return summary;
-    });
+    let _runtime_done: (TerminatorSummary, WebServerSummary, StageSummary) =
+        runtime.block_on(async {
+            let summary = tokio::join!(terminator.work(), web_server.work(), stage.work());
+            return summary;
+        });
 
     std::process::ExitCode::SUCCESS
 }
+
+struct Terminator {
+    summary: TerminatorSummary,
+    cancel: tokio_util::sync::CancellationToken,
+}
+impl Terminator {
+    pub fn new() -> Self {
+        Self {
+            cancel: tokio_util::sync::CancellationToken::new(),
+            summary: TerminatorSummary {},
+        }
+    }
+
+    pub async fn work(self) -> TerminatorSummary {
+        let coroutine = tokio::spawn(async move {
+            let mut sigint =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()).unwrap();
+            let mut sigterm =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).unwrap();
+            tokio::select! {
+                _ = sigint.recv() => log::info!("SIGINT"),
+                _ = sigterm.recv() => log::info!("SIGTERM"),
+            }
+            self.cancel.cancel();
+        });
+        _ = coroutine.await;
+        self.summary
+    }
+
+    pub fn get_handle(&self) -> tokio_util::sync::CancellationToken {
+        return self.cancel.child_token();
+    }
+}
+struct TerminatorSummary;
 
 fn init_logging(level: log::LevelFilter) -> log4rs::Handle {
     let stdout = log4rs::append::console::ConsoleAppender::builder()
@@ -97,14 +132,14 @@ struct WebServer {
     router: axum::Router,
 }
 impl WebServer {
-    pub fn new(cancel: tokio_util::sync::CancellationToken, stage: &Stage) -> Self {
+    pub fn new(terminator: &Terminator, stage: &Stage) -> Self {
         let router: axum::Router = axum::Router::new()
             .route("/ws", axum::routing::get(websocket_handler))
             .with_state(stage.get_handle());
 
         Self {
             summary: WebServerSummary {},
-            cancel,
+            cancel: terminator.get_handle(),
             router,
         }
     }
@@ -196,7 +231,7 @@ impl TryFrom<&axum::extract::ws::Message> for DownstreamClientMessage {
 trait Actor<Message> {
     type Summary;
 
-    fn new(cancel: tokio_util::sync::CancellationToken) -> Self;
+    fn new(terminator: &Terminator) -> Self;
 
     /// Get a handle for sending messages to the actor.
     fn get_handle(&self) -> ActorHandle<Message>;
@@ -215,10 +250,10 @@ struct Stage {
 impl Actor<DownstreamClientMessage> for Stage {
     type Summary = StageSummary;
 
-    fn new(cancel: tokio_util::sync::CancellationToken) -> Self {
+    fn new(terminator: &Terminator) -> Self {
         Self {
             channel: tokio::sync::mpsc::channel(1),
-            cancel,
+            cancel: terminator.get_handle(),
             summary: StageSummary { messages_total: 0 },
         }
     }
@@ -256,10 +291,7 @@ impl Actor<DownstreamClientMessage> for Stage {
                 }
             }
         });
-        let coroutine_done = self.cancel.run_until_cancelled(coroutine).await;
-        if let Some(Err(err)) = coroutine_done {
-            log::error!("coroutine failed: {err}");
-        }
+        _ = self.cancel.run_until_cancelled(coroutine).await;
         return self.summary;
     }
 }
