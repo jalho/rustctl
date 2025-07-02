@@ -148,6 +148,16 @@ impl GameServerStateMachine {
                         cfg = lock.get_config().await;
                     }
 
+                    let buildid_before: Option<u32> = {
+                        if let Ok(contents) =
+                            tokio::fs::read_to_string(cfg.get_manifest_absolute()).await
+                        {
+                            extract_buildid_from_buf(&contents)
+                        } else {
+                            None
+                        }
+                    };
+
                     let mut command = tokio::process::Command::new(cfg.get_installer_absolute());
                     command.current_dir(&cfg.root_dir_absolute);
                     command.args(cfg.get_installer_args());
@@ -176,11 +186,38 @@ impl GameServerStateMachine {
                         }
                     };
 
-                    /*
-                     * TODO: Read game app manifest buildid before and after
-                     *       running steamcmd. Log whether and how the game
-                     *       server was updated!
-                     */
+                    let buildid_after: Option<u32> = {
+                        if let Ok(contents) =
+                            tokio::fs::read_to_string(cfg.get_manifest_absolute()).await
+                        {
+                            extract_buildid_from_buf(&contents)
+                        } else {
+                            None
+                        }
+                    };
+
+                    match (buildid_before, buildid_after) {
+                        (_, None) => {
+                            log::error!(
+                                "failed to extract buildid from game server app manifest after installation: {path}",
+                                path = cfg.get_manifest_absolute().to_string_lossy()
+                            );
+                        }
+                        (None, Some(buildid)) => {
+                            log::info!("game server installed: buildid {buildid}");
+                        }
+                        (Some(buildid_before), Some(buildid_after)) => {
+                            if buildid_before == buildid_after {
+                                log::info!(
+                                    "installed game server is up to date: buildid {buildid_after}"
+                                );
+                            } else {
+                                log::info!(
+                                    "game server updated from buildid {buildid_before} to buildid {buildid_after}"
+                                );
+                            }
+                        }
+                    }
 
                     self = Self::InstalledAndConfigured { cfg };
                 }
@@ -590,5 +627,34 @@ impl Store {
         } else {
             todo!()
         }
+    }
+}
+
+fn extract_buildid_from_buf(buf: &str) -> Option<u32> {
+    let vdf: keyvalues_parser::Vdf = match keyvalues_parser::Vdf::parse(buf) {
+        Ok(v) => v,
+        Err(_) => return None,
+    };
+    let root: &keyvalues_parser::Obj = match vdf.value.get_obj() {
+        Some(n) => n,
+        None => return None,
+    };
+
+    let buildid_str: &str = match root.get("buildid") {
+        Some(values) => {
+            if values.len() != 1 {
+                return None;
+            }
+            match values[0].get_str() {
+                Some(s) => s,
+                None => return None,
+            }
+        }
+        None => return None,
+    };
+
+    match buildid_str.parse::<u32>() {
+        Ok(n) => Some(n),
+        Err(_) => None,
     }
 }
