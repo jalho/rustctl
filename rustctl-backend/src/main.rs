@@ -105,17 +105,97 @@ impl Actor<DownstreamClientMessage> for GameServerController {
 
     async fn work(self) -> Self::Summary {
         let coroutine = tokio::spawn(async {
-            /*
-             * TODO: First, initiate initial startup sequence. Then, work on
-             *       incoming messages depending on whether the carried command
-             *       is compatible with current state.
-             */
+            GameServerStateMachine::init()
+                .loop_transitions(self.rx)
+                .await;
         });
         _ = self.cancel.run_until_cancelled(coroutine).await;
         return self.summary;
     }
 }
 struct GameServerControllerSummary;
+
+#[derive(Debug)]
+enum GameServerStateMachine {
+    Init,
+    InstallingOrUpdating,
+    UpdatedAndConfigured,
+    Launching,
+    RunningHealthy,
+    SavingAndClosing,
+    ClosedManually,
+    TerminatedUnexpectedly,
+}
+impl GameServerStateMachine {
+    pub fn init() -> Self {
+        Self::Init
+    }
+
+    pub async fn loop_transitions(
+        mut self,
+        command_rx: tokio::sync::mpsc::Receiver<DownstreamClientMessage>,
+    ) {
+        loop {
+            match self {
+                Self::Init => {
+                    /*
+                     * TODO: Transition automatically to "InstallingOrUpdating".
+                     */
+                    self = Self::InstallingOrUpdating;
+                }
+                Self::InstallingOrUpdating => {
+                    /*
+                     * TODO: Install or update `RustDedicated` using `steamcmd`.
+                     *       Read configuration from some store. Consider using
+                     *       some light, embedded database like "sled".
+                     */
+                    self = Self::UpdatedAndConfigured;
+                }
+                Self::UpdatedAndConfigured => {
+                    /*
+                     * TODO: Spawn the game server and track the spawned child
+                     *       process.
+                     */
+                    self = Self::Launching;
+                }
+                Self::Launching => {
+                    /*
+                     * TODO: Wait for the tracked child process to emit to
+                     *       stdout: "SteamServer Connected". Then, transition
+                     *       to "RunningHealthy".
+                     */
+                    self = Self::RunningHealthy;
+                }
+                Self::RunningHealthy => {
+                    /*
+                     * TODO: Wait for command to "save and close", or for the
+                     *       tracked child process to "terminate unexpectedly".
+                     *       Then, transition to either "SavingAndClosing" or
+                     *       "TerminatedUnexpectedly", respectively.
+                     */
+                }
+                Self::SavingAndClosing => {
+                    /*
+                     * TODO: Wait for the tracked child process to terminate and
+                     *       be cleaned up. Check savefile of game world state
+                     *       on disk. Then transition to "ClosedManually".
+                     */
+                }
+                Self::ClosedManually => {
+                    /*
+                     * TODO: Wait for command to "update and restart". Then
+                     *       transition to "InstallingOrUpdating".
+                     */
+                }
+                Self::TerminatedUnexpectedly => {
+                    /*
+                     * TODO: Transition automatically to "InstallingOrUpdating".
+                     */
+                }
+            }
+        }
+    }
+}
 
 struct Terminator {
     summary: TerminatorSummary,
