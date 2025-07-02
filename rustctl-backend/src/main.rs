@@ -310,7 +310,7 @@ impl Configuration {
              *          we can assume the command does what it's told to do.
              */
             "+force_install_dir".into(),
-            self.root_dir_absolute.to_string_lossy(),
+            self.root_dir_absolute.to_string_lossy().to_string(),
             "+app_update".into(),
             "258550".into(),
             "validate".into(),
@@ -568,6 +568,9 @@ impl Store {
     }
 
     pub async fn get_config(&self) -> Configuration {
+        let game_world_size = 1000;
+        let game_world_seed = 1337;
+
         if self.should_mock {
             let mut root_dir_absolute = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
             root_dir_absolute.push("../mocks");
@@ -580,6 +583,9 @@ impl Store {
                 game_relative: std::path::Path::new("RustDedicated/target/debug/RustDedicated")
                     .to_path_buf(),
                 manifest_relative: std::path::Path::new("dummy_manifest.acf").to_path_buf(),
+
+                game_world_size,
+                game_world_seed,
             };
         } else {
             todo!()
