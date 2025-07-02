@@ -45,7 +45,7 @@ fn main() -> std::process::ExitCode {
     /*
      * Stage on which downstream WebSocket clients communicate.
      */
-    let stage = Stage::new(&terminator); // "actors", hence "stage" :D
+    let stage = Stage::new(&terminator, game_ctl.get_handle()); // "actors", hence "stage" :D
 
     /*
      * Accepts the downstream WebSocket connections.
@@ -433,15 +433,15 @@ struct Stage {
         tokio::sync::mpsc::Sender<DownstreamClientMessage>,
         tokio::sync::mpsc::Receiver<DownstreamClientMessage>,
     ),
+    game_ctl: ActorHandle<DownstreamClientMessage>,
 }
-impl Actor<DownstreamClientMessage> for Stage {
-    type Summary = StageSummary;
-
-    fn new(terminator: &Terminator) -> Self {
+impl Stage {
+    fn new(terminator: &Terminator, game_ctl: ActorHandle<DownstreamClientMessage>) -> Self {
         Self {
             channel: tokio::sync::mpsc::channel(1),
             cancel: terminator.get_handle(),
             summary: StageSummary { messages_total: 0 },
+            game_ctl,
         }
     }
 
@@ -450,7 +450,7 @@ impl Actor<DownstreamClientMessage> for Stage {
         return ActorHandle::new(tx.clone());
     }
 
-    async fn work(mut self) -> Self::Summary {
+    async fn work(mut self) -> StageSummary {
         let (_tx, mut rx) = self.channel;
         let coroutine = tokio::spawn(async move {
             while let Some(msg) = rx.recv().await {
@@ -458,23 +458,10 @@ impl Actor<DownstreamClientMessage> for Stage {
                     self.summary.messages_total = no_overflow;
                 }
                 let msg: DownstreamClientMessage = msg;
-                match msg {
-                    /*
-                     * TODO: Send commands to yet another actor(s) that control
-                     *       the game server and/or the RCON socket.
-                     */
-                    DownstreamClientMessage::ServerSaveAndClose => {
-                        println!("NOTE: ServerSaveAndClose")
-                    }
-                    DownstreamClientMessage::ServerConfigure { cfg } => {
-                        println!("NOTE: ServerConfigure: {cfg:?}")
-                    }
-                    DownstreamClientMessage::ServerInstallOrUpdateAndStart => {
-                        println!("NOTE: ServerInstallOrUpdateAndStart")
-                    }
-                    DownstreamClientMessage::GameWorldKillPlayer { id } => {
-                        println!("NOTE: GameWorldKillPlayer: {id:?}")
-                    }
+                if let Err(err) = self.game_ctl.send(msg).await {
+                    log::error!(
+                        "failed to send downstream client message from stage to game server controller: {err}"
+                    );
                 }
             }
         });
