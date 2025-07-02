@@ -111,7 +111,6 @@ impl GameServerController {
 }
 struct GameServerControllerSummary;
 
-#[derive(Debug, Clone)]
 enum GameServerStateMachine {
     Init,
     Preparing,
@@ -133,7 +132,7 @@ impl GameServerStateMachine {
         store: std::sync::Arc<tokio::sync::Mutex<Store>>,
     ) -> std::io::Error {
         loop {
-            let state_before: GameServerStateMachine = self.clone();
+            let state_before: String = self.to_string();
             match self {
                 Self::Init => {
                     self = Self::Preparing;
@@ -264,7 +263,7 @@ impl GameServerStateMachine {
                             }
                             _ => {
                                 log::error!(
-                                    "ignoring unexpected command: {command:?} for current state: {self:?}"
+                                    "ignoring unexpected command: {command:?} for current state: {self}"
                                 );
                             }
                         }
@@ -289,7 +288,7 @@ impl GameServerStateMachine {
                             }
                             _ => {
                                 log::error!(
-                                    "ignoring unexpected command: {command:?} for current state: {self:?}"
+                                    "ignoring unexpected command: {command:?} for current state: {self}"
                                 );
                             }
                         }
@@ -300,9 +299,25 @@ impl GameServerStateMachine {
                     self = Self::Preparing;
                 }
             }
-            let state_after = self.clone();
+            let state_after: String = self.to_string();
 
-            log::info!("Transitioned from {state_before:?} to {state_after:?}");
+            log::info!("Transitioned from {state_before} to {state_after}");
+        }
+    }
+}
+impl std::fmt::Display for GameServerStateMachine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GameServerStateMachine::Init => write!(f, "Init"),
+            GameServerStateMachine::Preparing => write!(f, "Preparing"),
+            GameServerStateMachine::InstalledAndConfigured { .. } => {
+                write!(f, "InstalledAndConfigured")
+            }
+            GameServerStateMachine::Launching => write!(f, "Launching"),
+            GameServerStateMachine::RunningHealthy => write!(f, "RunningHealthy"),
+            GameServerStateMachine::SavingAndClosing => write!(f, "SavingAndClosing"),
+            GameServerStateMachine::ClosedManually => write!(f, "ClosedManually"),
+            GameServerStateMachine::TerminatedUnexpectedly => write!(f, "TerminatedUnexpectedly"),
         }
     }
 }
