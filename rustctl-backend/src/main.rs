@@ -111,7 +111,7 @@ impl GameServerController {
 }
 struct GameServerControllerSummary;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum GameServerStateMachine {
     Init,
     Preparing,
@@ -133,6 +133,7 @@ impl GameServerStateMachine {
         store: std::sync::Arc<tokio::sync::Mutex<Store>>,
     ) -> std::io::Error {
         loop {
+            let state_before: GameServerStateMachine = self.clone();
             match self {
                 Self::Init => {
                     self = Self::Preparing;
@@ -299,11 +300,14 @@ impl GameServerStateMachine {
                     self = Self::Preparing;
                 }
             }
+            let state_after = self.clone();
+
+            log::info!("Transitioned from {state_before:?} to {state_after:?}");
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Configuration {
     root_dir_absolute: std::path::PathBuf,
     installer_relative: std::path::PathBuf,
