@@ -131,23 +131,56 @@ impl GameServerStateMachine {
         mut self,
         mut command_rx: tokio::sync::mpsc::Receiver<DownstreamClientMessage>,
         store: std::sync::Arc<tokio::sync::Mutex<Store>>,
-    ) -> ! {
+    ) -> std::io::Error {
         loop {
             match self {
                 Self::Init => {
                     self = Self::Preparing;
                 }
 
+                /*
+                 * Install or update `RustDedicated` using `steamcmd`.
+                 */
                 Self::Preparing => {
-                    /*
-                     * TODO: Install or update `RustDedicated` using `steamcmd`.
-                     */
-
                     let cfg: Configuration;
                     {
                         let lock = store.lock().await;
                         cfg = lock.get_config().await;
                     }
+
+                    let mut command = tokio::process::Command::new(cfg.get_installer_absolute());
+                    command.current_dir(&cfg.root_dir_absolute);
+                    command.args(cfg.get_installer_args());
+                    command.stdout(std::process::Stdio::null());
+                    command.stderr(std::process::Stdio::null());
+
+                    let process: tokio::process::Child = match command.spawn() {
+                        Ok(n) => n,
+                        Err(err) => {
+                            log::error!(
+                                "failed to spawn game server installer ({path}): {err}",
+                                path = cfg.get_installer_absolute().to_string_lossy()
+                            );
+                            return err;
+                        }
+                    };
+
+                    let output: std::process::Output = match process.wait_with_output().await {
+                        Ok(n) => n,
+                        Err(err) => {
+                            log::error!(
+                                "game server installer ({path}) failed: {err}",
+                                path = cfg.get_installer_absolute().to_string_lossy()
+                            );
+                            return err;
+                        }
+                    };
+
+                    /*
+                     * TODO: Read game app manifest buildid before and after
+                     *       running steamcmd. Log whether and how the game
+                     *       server was updated!
+                     */
 
                     self = Self::InstalledAndConfigured { cfg };
                 }
@@ -239,6 +272,9 @@ struct Configuration {
     installer_relative: std::path::PathBuf,
     game_relative: std::path::PathBuf,
     manifest_relative: std::path::PathBuf,
+
+    game_world_size: u16,
+    game_world_seed: u32,
 }
 impl Configuration {
     pub fn get_installer_absolute(&self) -> std::path::PathBuf {
@@ -257,6 +293,29 @@ impl Configuration {
         let mut path = self.root_dir_absolute.clone();
         path.push(&self.manifest_relative);
         path
+    }
+
+    pub fn get_installer_args(&self) -> Vec<String> {
+        vec![
+            "+login".into(),
+            "anonymous".into(),
+            /*
+             * WONTFIX: "force_install_dir" doesn't really "force" anything:
+             *          Instead, SteamCMD seems to just create a new directory
+             *          tree in "~/.local/share/Steam/" if it cannot access
+             *          the given "force_install_dir". Therefore, we should
+             *          add some checks to actually know where the installation
+             *          ends up at. However, this is low priority as long as the
+             *          specified directory is owned by the current user and so
+             *          we can assume the command does what it's told to do.
+             */
+            "+force_install_dir".into(),
+            self.root_dir_absolute.to_string_lossy(),
+            "+app_update".into(),
+            "258550".into(),
+            "validate".into(),
+            "+quit".into(),
+        ]
     }
 }
 
