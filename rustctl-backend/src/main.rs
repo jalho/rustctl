@@ -136,9 +136,9 @@ impl GameServerStateMachine {
 
     pub async fn loop_transitions(
         mut self,
-        command_rx: tokio::sync::mpsc::Receiver<DownstreamClientMessage>,
+        mut command_rx: tokio::sync::mpsc::Receiver<DownstreamClientMessage>,
         store: std::sync::Arc<tokio::sync::Mutex<Store>>,
-    ) {
+    ) -> ! {
         loop {
             match self {
                 Self::Init => {
@@ -147,6 +147,7 @@ impl GameServerStateMachine {
                      */
                     self = Self::Preparing;
                 }
+
                 Self::Preparing => {
                     /*
                      * TODO: Install or update `RustDedicated` using `steamcmd`.
@@ -160,6 +161,7 @@ impl GameServerStateMachine {
 
                     self = Self::InstalledAndConfigured { cfg };
                 }
+
                 Self::InstalledAndConfigured { cfg } => {
                     let cfg: LaunchConfiguration = cfg;
                     /*
@@ -168,6 +170,7 @@ impl GameServerStateMachine {
                      */
                     self = Self::Launching;
                 }
+
                 Self::Launching => {
                     /*
                      * TODO: Wait for the tracked child process to emit to
@@ -176,14 +179,37 @@ impl GameServerStateMachine {
                      */
                     self = Self::RunningHealthy;
                 }
+
                 Self::RunningHealthy => {
-                    /*
-                     * TODO: Wait for command to "save and close", or for the
-                     *       tracked child process to "terminate unexpectedly".
-                     *       Then, transition to either "SavingAndClosing" or
-                     *       "TerminatedUnexpectedly", respectively.
-                     */
+                    let event = tokio::select! {
+                        cmd = command_rx.recv() => {
+                            cmd
+                        }
+                        /*
+                         * TODO: Add branch for case tracked child process
+                         *       terminated unexpectedly. From there, we should
+                         *       transition to "TerminatedUnexpectedly".
+                         */
+                    };
+                    if let Some(command) = event {
+                        let command: DownstreamClientMessage = command;
+                        match command {
+                            DownstreamClientMessage::ServerSaveAndClose => {
+                                /*
+                                 * TODO: Issue SIGINT for the tracked game
+                                 *       server child process, and transition to
+                                 *       "SavingAndClosing".
+                                 */
+                            }
+                            _ => {
+                                log::error!(
+                                    "ignoring unexpected command: {command:?} for current state: {self:?}"
+                                );
+                            }
+                        }
+                    }
                 }
+
                 Self::SavingAndClosing => {
                     /*
                      * TODO: Wait for the tracked child process to terminate and
@@ -191,12 +217,28 @@ impl GameServerStateMachine {
                      *       on disk. Then transition to "ClosedManually".
                      */
                 }
+
                 Self::ClosedManually => {
                     /*
                      * TODO: Wait for command to "update and restart". Then
                      *       transition to "Preparing".
                      */
+                    let msg = command_rx.recv().await;
+                    if let Some(command) = msg {
+                        let command: DownstreamClientMessage = command;
+                        match command {
+                            DownstreamClientMessage::ServerInstallOrUpdateAndStart => {
+                                self = Self::Preparing;
+                            }
+                            _ => {
+                                log::error!(
+                                    "ignoring unexpected command: {command:?} for current state: {self:?}"
+                                );
+                            }
+                        }
+                    }
                 }
+
                 Self::TerminatedUnexpectedly => {
                     /*
                      * TODO: Transition automatically to "Preparing".
@@ -468,6 +510,6 @@ impl Store {
     }
 
     pub async fn get_game_server_launch_configuration(&self) -> LaunchConfiguration {
-        todo!();
+        LaunchConfiguration {}
     }
 }
