@@ -50,19 +50,12 @@ fn main() -> std::process::ExitCode {
         }
     };
 
-    let runtime_done: Result<(), ()> = runtime.block_on(async {
-        let (_a, _b): (WebServerSummary, StageSummary) =
-            tokio::join!(web_server.work(), stage.work());
-        return Ok(());
+    let _runtime_done: (WebServerSummary, StageSummary) = runtime.block_on(async {
+        let summary = tokio::join!(web_server.work(), stage.work());
+        return summary;
     });
 
-    match runtime_done {
-        Ok(_) => std::process::ExitCode::SUCCESS,
-        Err(err) => {
-            eprintln!("something went wrong in async runtime: {err}");
-            std::process::ExitCode::FAILURE
-        }
-    }
+    std::process::ExitCode::SUCCESS
 }
 
 struct WebServer {
