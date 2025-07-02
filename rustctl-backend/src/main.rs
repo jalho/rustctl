@@ -135,9 +135,6 @@ impl GameServerStateMachine {
         loop {
             match self {
                 Self::Init => {
-                    /*
-                     * TODO: Transition automatically to "Preparing".
-                     */
                     self = Self::Preparing;
                 }
 
@@ -212,10 +209,6 @@ impl GameServerStateMachine {
                 }
 
                 Self::ClosedManually => {
-                    /*
-                     * TODO: Wait for command to "update and restart". Then
-                     *       transition to "Preparing".
-                     */
                     let msg = command_rx.recv().await;
                     if let Some(command) = msg {
                         let command: DownstreamClientMessage = command;
@@ -233,9 +226,7 @@ impl GameServerStateMachine {
                 }
 
                 Self::TerminatedUnexpectedly => {
-                    /*
-                     * TODO: Transition automatically to "Preparing".
-                     */
+                    self = Self::Preparing;
                 }
             }
         }
