@@ -31,6 +31,8 @@ fn main() -> std::process::ExitCode {
      */
     let terminator = Terminator::new();
 
+    let game_server_controller = GameServerController::new(&terminator);
+
     /*
      * TODO: Define actors for "game server controller" and "RCON client", and
      *       give handle (i.e. `Actor::get_handle()`) of each to `stage`, so
@@ -60,14 +62,60 @@ fn main() -> std::process::ExitCode {
         }
     };
 
-    let _runtime_done: (TerminatorSummary, WebServerSummary, StageSummary) =
-        runtime.block_on(async {
-            let summary = tokio::join!(terminator.work(), web_server.work(), stage.work());
-            return summary;
-        });
+    let _runtime_done: (
+        TerminatorSummary,
+        WebServerSummary,
+        StageSummary,
+        GameServerControllerSummary,
+    ) = runtime.block_on(async {
+        let summary = tokio::join!(
+            terminator.work(),
+            web_server.work(),
+            stage.work(),
+            game_server_controller.work()
+        );
+        return summary;
+    });
 
     std::process::ExitCode::SUCCESS
 }
+
+struct GameServerController {
+    tx: tokio::sync::mpsc::Sender<DownstreamClientMessage>,
+    rx: tokio::sync::mpsc::Receiver<DownstreamClientMessage>,
+    summary: GameServerControllerSummary,
+    cancel: tokio_util::sync::CancellationToken,
+}
+impl Actor<DownstreamClientMessage> for GameServerController {
+    type Summary = GameServerControllerSummary;
+
+    fn new(terminator: &Terminator) -> Self {
+        let (tx, rx) = tokio::sync::mpsc::channel::<DownstreamClientMessage>(1);
+        Self {
+            summary: GameServerControllerSummary,
+            cancel: terminator.get_handle(),
+            tx,
+            rx,
+        }
+    }
+
+    fn get_handle(&self) -> ActorHandle<DownstreamClientMessage> {
+        ActorHandle::new(self.tx.clone())
+    }
+
+    async fn work(self) -> Self::Summary {
+        let coroutine = tokio::spawn(async {
+            /*
+             * TODO: First, initiate initial startup sequence. Then, work on
+             *       incoming messages depending on whether the carried command
+             *       is compatible with current state.
+             */
+        });
+        _ = self.cancel.run_until_cancelled(coroutine).await;
+        return self.summary;
+    }
+}
+struct GameServerControllerSummary;
 
 struct Terminator {
     summary: TerminatorSummary,
