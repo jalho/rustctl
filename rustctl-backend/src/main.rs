@@ -84,8 +84,19 @@ impl WebServer {
                 return self.summary;
             }
         };
-        let service = axum::serve(tcp_listener, self.router);
-        self.cancel.run_until_cancelled(async { service }).await;
+        if let Some(Err(err)) = self
+            .cancel
+            .run_until_cancelled(async move {
+                /*
+                 * From docs (axum v0.8.4):
+                 *   "will never actually complete or return an error"
+                 */
+                axum::serve(tcp_listener, self.router).await
+            })
+            .await
+        {
+            unreachable!("{err}")
+        }
         self.summary
     }
 }
