@@ -168,7 +168,9 @@ impl Actor<DownstreamClientMessage> for Stage {
         let (_tx, mut rx) = self.channel;
         let coroutine = tokio::spawn(async move {
             while let Some(msg) = rx.recv().await {
-                self.summary.messages_total = self.summary.messages_total + 1;
+                if let Some(no_overflow) = self.summary.messages_total.checked_add(1) {
+                    self.summary.messages_total = no_overflow;
+                }
                 let msg: DownstreamClientMessage = msg;
                 match msg {
                     /*
