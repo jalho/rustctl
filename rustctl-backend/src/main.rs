@@ -125,6 +125,9 @@ fn init_logging(level: log::LevelFilter) -> log4rs::Handle {
 pub struct CliArgs {
     #[arg(short, long, default_value_t = log::LevelFilter::Debug)]
     pub log_level: log::LevelFilter,
+
+    #[arg(long, default_value_t = false)]
+    pub mock: bool,
 }
 
 struct WebServer {
