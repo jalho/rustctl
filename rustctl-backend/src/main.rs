@@ -29,9 +29,11 @@ fn main() -> std::process::ExitCode {
     /*
      * Drives (graceful) shutdown of the program upon specific signals.
      */
-    let terminator = Terminator::new();
+    let terminator: Terminator = Terminator::new();
 
-    let game_server_controller = GameServerController::new(&terminator);
+    let store: std::sync::Arc<tokio::sync::Mutex<Store>> = Store::new();
+
+    let game_ctl: GameServerController = GameServerController::new(&terminator);
 
     /*
      * TODO: Define actors for "game server controller" and "RCON client", and
@@ -72,7 +74,7 @@ fn main() -> std::process::ExitCode {
             terminator.work(),
             web_server.work(),
             stage.work(),
-            game_server_controller.work()
+            game_ctl.work(store.clone())
         );
         return summary;
     });
@@ -86,9 +88,7 @@ struct GameServerController {
     summary: GameServerControllerSummary,
     cancel: tokio_util::sync::CancellationToken,
 }
-impl Actor<DownstreamClientMessage> for GameServerController {
-    type Summary = GameServerControllerSummary;
-
+impl GameServerController {
     fn new(terminator: &Terminator) -> Self {
         let (tx, rx) = tokio::sync::mpsc::channel::<DownstreamClientMessage>(1);
         Self {
@@ -103,10 +103,13 @@ impl Actor<DownstreamClientMessage> for GameServerController {
         ActorHandle::new(self.tx.clone())
     }
 
-    async fn work(self) -> Self::Summary {
+    async fn work(
+        self,
+        store: std::sync::Arc<tokio::sync::Mutex<Store>>,
+    ) -> GameServerControllerSummary {
         let coroutine = tokio::spawn(async {
             GameServerStateMachine::init()
-                .loop_transitions(self.rx)
+                .loop_transitions(self.rx, store)
                 .await;
         });
         _ = self.cancel.run_until_cancelled(coroutine).await;
@@ -118,8 +121,8 @@ struct GameServerControllerSummary;
 #[derive(Debug)]
 enum GameServerStateMachine {
     Init,
-    InstallingOrUpdating,
-    UpdatedAndConfigured,
+    Preparing,
+    InstalledAndConfigured { cfg: LaunchConfiguration },
     Launching,
     RunningHealthy,
     SavingAndClosing,
@@ -134,24 +137,31 @@ impl GameServerStateMachine {
     pub async fn loop_transitions(
         mut self,
         command_rx: tokio::sync::mpsc::Receiver<DownstreamClientMessage>,
+        store: std::sync::Arc<tokio::sync::Mutex<Store>>,
     ) {
         loop {
             match self {
                 Self::Init => {
                     /*
-                     * TODO: Transition automatically to "InstallingOrUpdating".
+                     * TODO: Transition automatically to "Preparing".
                      */
-                    self = Self::InstallingOrUpdating;
+                    self = Self::Preparing;
                 }
-                Self::InstallingOrUpdating => {
+                Self::Preparing => {
                     /*
                      * TODO: Install or update `RustDedicated` using `steamcmd`.
-                     *       Read configuration from some store. Consider using
-                     *       some light, embedded database like "sled".
                      */
-                    self = Self::UpdatedAndConfigured;
+
+                    let cfg: LaunchConfiguration;
+                    {
+                        let lock = store.lock().await;
+                        cfg = lock.get_game_server_launch_configuration().await;
+                    }
+
+                    self = Self::InstalledAndConfigured { cfg };
                 }
-                Self::UpdatedAndConfigured => {
+                Self::InstalledAndConfigured { cfg } => {
+                    let cfg: LaunchConfiguration = cfg;
                     /*
                      * TODO: Spawn the game server and track the spawned child
                      *       process.
@@ -184,18 +194,21 @@ impl GameServerStateMachine {
                 Self::ClosedManually => {
                     /*
                      * TODO: Wait for command to "update and restart". Then
-                     *       transition to "InstallingOrUpdating".
+                     *       transition to "Preparing".
                      */
                 }
                 Self::TerminatedUnexpectedly => {
                     /*
-                     * TODO: Transition automatically to "InstallingOrUpdating".
+                     * TODO: Transition automatically to "Preparing".
                      */
                 }
             }
         }
     }
 }
+
+#[derive(Debug)]
+struct LaunchConfiguration {}
 
 struct Terminator {
     summary: TerminatorSummary,
@@ -445,5 +458,16 @@ impl<Message> ActorHandle<Message> {
         message: Message,
     ) -> Result<(), tokio::sync::mpsc::error::TrySendError<Message>> {
         self.tx.try_send(message)
+    }
+}
+
+struct Store {}
+impl Store {
+    pub fn new() -> std::sync::Arc<tokio::sync::Mutex<Self>> {
+        std::sync::Arc::new(tokio::sync::Mutex::new(Self {}))
+    }
+
+    pub async fn get_game_server_launch_configuration(&self) -> LaunchConfiguration {
+        todo!();
     }
 }
