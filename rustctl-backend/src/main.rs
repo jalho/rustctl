@@ -17,6 +17,15 @@
  *   server.
  */
 fn main() -> std::process::ExitCode {
+    let args: Args = <Args as clap::Parser>::parse();
+
+    let _handle: log4rs::Handle = init_logging(args.log_level);
+    log::info!(
+        "{name} {version}",
+        name = env!("CARGO_PKG_NAME"),
+        version = env!("CARGO_PKG_VERSION")
+    );
+
     let cancel = tokio_util::sync::CancellationToken::new();
 
     /*
@@ -45,7 +54,7 @@ fn main() -> std::process::ExitCode {
     {
         Ok(n) => n,
         Err(err) => {
-            eprintln!("failed to build async runtime: {err}");
+            log::error!("failed to build async runtime: {err}");
             return std::process::ExitCode::FAILURE;
         }
     };
@@ -56,6 +65,30 @@ fn main() -> std::process::ExitCode {
     });
 
     std::process::ExitCode::SUCCESS
+}
+
+fn init_logging(level: log::LevelFilter) -> log4rs::Handle {
+    let stdout = log4rs::append::console::ConsoleAppender::builder()
+        .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
+            "{h({d(%Y-%m-%dT%H:%M:%SZ)(utc)} {l} - {m})} [{f}:{L}] [{T}]\n",
+        )))
+        .build();
+
+    let name = "stdout";
+
+    let config = log4rs::Config::builder()
+        .appender(log4rs::config::Appender::builder().build(name, Box::new(stdout)))
+        .build(log4rs::config::Root::builder().appender(name).build(level))
+        .unwrap();
+
+    log4rs::init_config(config).unwrap()
+}
+
+#[derive(clap::Parser, Debug)]
+#[command(version)]
+pub struct Args {
+    #[arg(short, long, default_value_t = log::LevelFilter::Debug)]
+    pub log_level: log::LevelFilter,
 }
 
 struct WebServer {
@@ -80,7 +113,7 @@ impl WebServer {
         let tcp_listener = match tokio::net::TcpListener::bind("127.0.0.1:8080").await {
             Ok(n) => n,
             Err(err) => {
-                eprintln!("failed to bind TCP listener: {err}");
+                log::error!("failed to bind TCP listener: {err}");
                 return self.summary;
             }
         };
@@ -117,12 +150,12 @@ async fn websocket_handler(
             let msg_valid: DownstreamClientMessage = match (&msg_raw).try_into() {
                 Ok(n) => n,
                 Err(err) => {
-                    eprintln!("invalid message from downstream client: {err:?}: {msg_raw:?}");
+                    log::error!("invalid message from downstream client: {err:?}: {msg_raw:?}");
                     continue 'recv_messages;
                 }
             };
             if let Err(err) = stage.send(msg_valid).await {
-                eprintln!("could not send message from downstream client to stage: {err:?}");
+                log::error!("could not send message from downstream client to stage: {err:?}");
                 continue 'recv_messages;
             };
         }
@@ -225,7 +258,7 @@ impl Actor<DownstreamClientMessage> for Stage {
         });
         let coroutine_done = self.cancel.run_until_cancelled(coroutine).await;
         if let Some(Err(err)) = coroutine_done {
-            eprintln!("coroutine failed: {err}");
+            log::error!("coroutine failed: {err}");
         }
         return self.summary;
     }
