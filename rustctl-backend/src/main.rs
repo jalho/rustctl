@@ -31,7 +31,7 @@ fn main() -> std::process::ExitCode {
      */
     let terminator: Terminator = Terminator::new();
 
-    let store: std::sync::Arc<tokio::sync::Mutex<Store>> = Store::new();
+    let store: std::sync::Arc<tokio::sync::Mutex<Store>> = Store::new(&cli_args);
 
     let game_ctl: GameServerController = GameServerController::new(&terminator);
 
@@ -115,7 +115,7 @@ struct GameServerControllerSummary;
 enum GameServerStateMachine {
     Init,
     Preparing,
-    InstalledAndConfigured { cfg: LaunchConfiguration },
+    InstalledAndConfigured { cfg: Configuration },
     Launching,
     RunningHealthy,
     SavingAndClosing,
@@ -143,17 +143,17 @@ impl GameServerStateMachine {
                      * TODO: Install or update `RustDedicated` using `steamcmd`.
                      */
 
-                    let cfg: LaunchConfiguration;
+                    let cfg: Configuration;
                     {
                         let lock = store.lock().await;
-                        cfg = lock.get_game_server_launch_configuration().await;
+                        cfg = lock.get_config().await;
                     }
 
                     self = Self::InstalledAndConfigured { cfg };
                 }
 
                 Self::InstalledAndConfigured { cfg } => {
-                    let cfg: LaunchConfiguration = cfg;
+                    let cfg: Configuration = cfg;
                     /*
                      * TODO: Spawn the game server and track the spawned child
                      *       process.
@@ -234,7 +234,31 @@ impl GameServerStateMachine {
 }
 
 #[derive(Debug)]
-struct LaunchConfiguration {}
+struct Configuration {
+    root_dir_absolute: std::path::PathBuf,
+    installer_relative: std::path::PathBuf,
+    game_relative: std::path::PathBuf,
+    manifest_relative: std::path::PathBuf,
+}
+impl Configuration {
+    pub fn get_installer_absolute(&self) -> std::path::PathBuf {
+        let mut path = self.root_dir_absolute.clone();
+        path.push(&self.installer_relative);
+        path
+    }
+
+    pub fn get_game_absolute(&self) -> std::path::PathBuf {
+        let mut path = self.root_dir_absolute.clone();
+        path.push(&self.game_relative);
+        path
+    }
+
+    pub fn get_manifest_absolute(&self) -> std::path::PathBuf {
+        let mut path = self.root_dir_absolute.clone();
+        path.push(&self.manifest_relative);
+        path
+    }
+}
 
 struct Terminator {
     summary: TerminatorSummary,
@@ -474,13 +498,32 @@ impl<Message> ActorHandle<Message> {
     }
 }
 
-struct Store {}
+struct Store {
+    should_mock: bool,
+}
 impl Store {
-    pub fn new() -> std::sync::Arc<tokio::sync::Mutex<Self>> {
-        std::sync::Arc::new(tokio::sync::Mutex::new(Self {}))
+    pub fn new(cli_args: &CliArgs) -> std::sync::Arc<tokio::sync::Mutex<Self>> {
+        std::sync::Arc::new(tokio::sync::Mutex::new(Self {
+            should_mock: cli_args.mock,
+        }))
     }
 
-    pub async fn get_game_server_launch_configuration(&self) -> LaunchConfiguration {
-        LaunchConfiguration {}
+    pub async fn get_config(&self) -> Configuration {
+        if self.should_mock {
+            let mut root_dir_absolute = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            root_dir_absolute.push("../mocks");
+            root_dir_absolute = root_dir_absolute.canonicalize().unwrap();
+
+            return Configuration {
+                root_dir_absolute,
+                installer_relative: std::path::Path::new("steamcmd/target/debug/steamcmd")
+                    .to_path_buf(),
+                game_relative: std::path::Path::new("RustDedicated/target/debug/RustDedicated")
+                    .to_path_buf(),
+                manifest_relative: std::path::Path::new("dummy_manifest.acf").to_path_buf(),
+            };
+        } else {
+            todo!()
+        }
     }
 }
