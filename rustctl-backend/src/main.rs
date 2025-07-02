@@ -31,9 +31,12 @@ fn main() -> std::process::ExitCode {
      * are also actors).
      */
     let stage = Stage::new(cancel.child_token());
-    let router = axum::Router::new()
-        .route("/ws", axum::routing::get(websocket_handler))
-        .with_state(stage.get_handle());
+
+    /*
+     * Kind of an actor as well, but the messages are coming from underlying
+     * abstractions. Sends messages to the _stage_ actor.
+     */
+    let web_server = WebServer::new(cancel.child_token(), &stage);
 
     let runtime = match tokio::runtime::Builder::new_current_thread()
         .worker_threads(1)
@@ -47,23 +50,9 @@ fn main() -> std::process::ExitCode {
         }
     };
 
-    let runtime_done = runtime.block_on(async {
-        let tcp_listener = match tokio::net::TcpListener::bind("127.0.0.1:8080").await {
-            Ok(n) => n,
-            Err(err) => {
-                eprintln!("failed to bind TCP listener: {err}");
-                return Err(err);
-            }
-        };
-
-        let (_a, _b): (Result<(), std::io::Error>, StageSummary) = tokio::join!(
-            /*
-             * TODO: Make the web server an actor with cancel token?
-             */
-            axum::serve(tcp_listener, router),
-            stage.work(),
-        );
-
+    let runtime_done: Result<(), ()> = runtime.block_on(async {
+        let (_a, _b): (WebServerSummary, StageSummary) =
+            tokio::join!(web_server.work(), stage.work());
         return Ok(());
     });
 
@@ -75,6 +64,39 @@ fn main() -> std::process::ExitCode {
         }
     }
 }
+
+struct WebServer {
+    summary: WebServerSummary,
+    cancel: tokio_util::sync::CancellationToken,
+    router: axum::Router,
+}
+impl WebServer {
+    pub fn new(cancel: tokio_util::sync::CancellationToken, stage: &Stage) -> Self {
+        let router: axum::Router = axum::Router::new()
+            .route("/ws", axum::routing::get(websocket_handler))
+            .with_state(stage.get_handle());
+
+        Self {
+            summary: WebServerSummary {},
+            cancel,
+            router,
+        }
+    }
+
+    pub async fn work(self) -> WebServerSummary {
+        let tcp_listener = match tokio::net::TcpListener::bind("127.0.0.1:8080").await {
+            Ok(n) => n,
+            Err(err) => {
+                eprintln!("failed to bind TCP listener: {err}");
+                return self.summary;
+            }
+        };
+        let service = axum::serve(tcp_listener, self.router);
+        self.cancel.run_until_cancelled(async { service }).await;
+        self.summary
+    }
+}
+struct WebServerSummary {}
 
 async fn websocket_handler(
     ws: axum::extract::WebSocketUpgrade,
@@ -132,11 +154,16 @@ impl TryFrom<&axum::extract::ws::Message> for DownstreamClientMessage {
     }
 }
 
+/// A thing that _works_ in a coroutine (alias _background task_), working with
+/// incoming _messages_ that are sent from somewhere via the exposed _handle_.
 trait Actor<Message> {
     type Summary;
 
     fn new(cancel: tokio_util::sync::CancellationToken) -> Self;
+
+    /// Get a handle for sending messages to the actor.
     fn get_handle(&self) -> ActorHandle<Message>;
+
     async fn work(self) -> Self::Summary;
 }
 
