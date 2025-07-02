@@ -17,15 +17,18 @@
  *   server.
  */
 fn main() -> std::process::ExitCode {
-    let args: Args = <Args as clap::Parser>::parse();
+    let cli_args: CliArgs = <CliArgs as clap::Parser>::parse();
 
-    let _handle: log4rs::Handle = init_logging(args.log_level);
+    let _logger_handle: log4rs::Handle = init_logging(cli_args.log_level);
     log::info!(
         "{name} {version}",
         name = env!("CARGO_PKG_NAME"),
         version = env!("CARGO_PKG_VERSION")
     );
 
+    /*
+     * Drives (graceful) shutdown of the program upon specific signals.
+     */
     let terminator = Terminator::new();
 
     /*
@@ -36,14 +39,12 @@ fn main() -> std::process::ExitCode {
      */
 
     /*
-     * Stage (an actor) on which downstream WebSocket clients communicate (who
-     * are also actors).
+     * Stage on which downstream WebSocket clients communicate.
      */
-    let stage = Stage::new(&terminator);
+    let stage = Stage::new(&terminator); // "actors", hence "stage" :D
 
     /*
-     * Kind of an actor as well, but the messages are coming from underlying
-     * abstractions. Sends messages to the _stage_ actor.
+     * Accepts the downstream WebSocket connections.
      */
     let web_server = WebServer::new(&terminator, &stage);
 
@@ -121,7 +122,7 @@ fn init_logging(level: log::LevelFilter) -> log4rs::Handle {
 
 #[derive(clap::Parser, Debug)]
 #[command(version)]
-pub struct Args {
+pub struct CliArgs {
     #[arg(short, long, default_value_t = log::LevelFilter::Debug)]
     pub log_level: log::LevelFilter,
 }
