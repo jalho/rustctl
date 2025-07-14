@@ -630,7 +630,7 @@ fn init_logging(level: log::LevelFilter) -> log4rs::Handle {
         .logger(
             log4rs::config::Logger::builder()
                 .appender(APPENDER_NAME_GAME)
-                .additive(false)
+                .additive(false) // log only for the specific target, i.e. don't propagate duplicate log
                 .build(LOG_TARGET_GAME, level),
         )
         .build(
