@@ -423,6 +423,11 @@ impl Terminator {
             tokio::select! {
                 _ = sigint.recv() => log::info!("SIGINT"),
                 _ = sigterm.recv() => log::info!("SIGTERM"),
+                /*
+                 * TODO: Terminate the program with not-OK exit status in case
+                 *       "Cancellation requested" (i.e. some coroutine encountered a
+                 *       non-recoverable error)?
+                 */
                 _ = self.cancellation_channel.1.recv() => log::info!("Cancellation requested"),
             }
             self.cancellation_token.cancel();
