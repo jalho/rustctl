@@ -288,12 +288,12 @@ impl GameServerStateMachine {
                             .await
                             {
                                 Ok(0) => {
-                                    log::debug!("STDOUT: EOF reached");
+                                    log::debug!("EOF reached: game server STDOUT");
                                     break;
                                 }
                                 Ok(_) => {
                                     let trimmed_line = line.trim_end();
-                                    log::debug!("STDOUT: {}", trimmed_line);
+                                    log::debug!(target: "game-stdout", "{trimmed_line}");
                                     if trimmed_line.contains("SteamServer Connected") {
                                         if let Some(sender) = tx.take() {
                                             let _ = sender.send(());
@@ -320,12 +320,12 @@ impl GameServerStateMachine {
                             .await
                             {
                                 Ok(0) => {
-                                    log::debug!("STDERR: EOF reached");
+                                    log::debug!("EOF reached: game server STDERR");
                                     break;
                                 }
                                 Ok(_) => {
                                     let trimmed_line = line.trim_end();
-                                    log::debug!("STDERR: {}", trimmed_line);
+                                    log::debug!(target: "game-stderr", "{trimmed_line}");
                                 }
                                 Err(err) => {
                                     log::error!("failed to read line from STDERR: {}", err);
