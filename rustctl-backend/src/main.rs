@@ -116,8 +116,9 @@ impl GameServerController {
         let done = self.cancel_read.run_until_cancelled(coroutine).await;
         if let Some(Ok(err)) = done {
             let _err: NonRecoverableError = err;
-            if let Ok(_) = self.cancel_write.send(()).await {
-                log::debug!("Requested termination...");
+            match self.cancel_write.send(()).await {
+                Ok(_) => log::debug!("Requested termination..."),
+                Err(err) => log::error!("Failed to request termination: {err}"),
             }
         }
         self.summary
@@ -343,7 +344,7 @@ impl GameServerStateMachine {
                                 log::error!(
                                     "coroutine for reading STDOUT ended without seeing readiness indication: {err}"
                                 );
-                                Err(NonRecoverableError::SomeWeirdEdgeCase)
+                                Err(NonRecoverableError::SomeFatalEdgeCase)
                             }
                         }
                     };
@@ -901,9 +902,9 @@ enum NonRecoverableError {
     /// Launched game server did not pass health check within timeout.
     GameServerStartupTimeout,
 
-    /// Stuff that is so weird or uncommon or indicating a completely useless
-    /// system state that is not worth further narrowing.
-    SomeWeirdEdgeCase,
+    /// Anything that probably indicates a non-recoverable failure state, yet is
+    /// so weird or rare that it's not worth further narrowing.
+    SomeFatalEdgeCase,
 }
 
 const LOG_TARGET_GAME: &'static str = "game";
