@@ -599,19 +599,6 @@ impl TryFrom<&axum::extract::ws::Message> for DownstreamClientMessage {
     }
 }
 
-/// A thing that _works_ in a coroutine (alias _background task_), working with
-/// incoming _messages_ that are sent from somewhere via the exposed _handle_.
-trait Actor<Message> {
-    type Summary;
-
-    fn new(terminator: &Terminator) -> Self;
-
-    /// Get a handle for sending messages to the actor.
-    fn get_handle(&self) -> ActorHandle<Message>;
-
-    async fn work(self) -> Self::Summary;
-}
-
 struct Stage {
     summary: StageSummary,
     cancel_read: tokio_util::sync::CancellationToken,
