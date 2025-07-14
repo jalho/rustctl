@@ -198,7 +198,7 @@ impl GameServerStateMachine {
                         }
                     };
 
-                    let output: std::process::Output = process.wait_with_output().await.unwrap();
+                    let _output: std::process::Output = process.wait_with_output().await.unwrap();
 
                     let buildid_after: Option<u32> = {
                         if let Ok(contents) =
