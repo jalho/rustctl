@@ -293,7 +293,7 @@ impl GameServerStateMachine {
                                 }
                                 Ok(_) => {
                                     let trimmed_line = line.trim_end();
-                                    log::debug!(target: "game-stdout", "{trimmed_line}");
+                                    log::debug!(target: LOG_TARGET_GAME, "{trimmed_line}");
                                     if trimmed_line.contains("SteamServer Connected") {
                                         if let Some(sender) = tx.take() {
                                             let _ = sender.send(());
@@ -325,7 +325,7 @@ impl GameServerStateMachine {
                                 }
                                 Ok(_) => {
                                     let trimmed_line = line.trim_end();
-                                    log::debug!(target: "game-stderr", "{trimmed_line}");
+                                    log::debug!(target: LOG_TARGET_GAME, "{trimmed_line}");
                                 }
                                 Err(err) => {
                                     log::error!("failed to read line from STDERR: {}", err);
@@ -601,17 +601,43 @@ impl From<&TerminatorSummary> for std::process::ExitCode {
 }
 
 fn init_logging(level: log::LevelFilter) -> log4rs::Handle {
-    let stdout = log4rs::append::console::ConsoleAppender::builder()
-        .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
-            "{h({d(%Y-%m-%dT%H:%M:%SZ)(utc)} {l} - {m})} [{f}:{L}] [{T}]\n",
-        )))
-        .build();
+    const APPENDER_NAME_CORE: &'static str = "core";
+    const APPENDER_NAME_GAME: &'static str = "game_server";
 
-    let name = "stdout";
+    let appender_core: log4rs::append::console::ConsoleAppender =
+        log4rs::append::console::ConsoleAppender::builder()
+            .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
+                "{h({d(%Y-%m-%dT%H:%M:%SZ)(utc)} {l} - {m})} [{f}:{L}] [{T}]\n",
+            )))
+            .build();
+
+    let appender_game: log4rs::append::console::ConsoleAppender =
+        log4rs::append::console::ConsoleAppender::builder()
+            .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
+                "{h({d(%Y-%m-%dT%H:%M:%SZ)(utc)} {t} - {m})}\n",
+            )))
+            .build();
+
+    let appender_cfg_core: log4rs::config::Appender =
+        log4rs::config::Appender::builder().build(APPENDER_NAME_CORE, Box::new(appender_core));
+
+    let appender_cfg_game: log4rs::config::Appender =
+        log4rs::config::Appender::builder().build(APPENDER_NAME_GAME, Box::new(appender_game));
 
     let config = log4rs::Config::builder()
-        .appender(log4rs::config::Appender::builder().build(name, Box::new(stdout)))
-        .build(log4rs::config::Root::builder().appender(name).build(level))
+        .appender(appender_cfg_core)
+        .appender(appender_cfg_game)
+        .logger(
+            log4rs::config::Logger::builder()
+                .appender(APPENDER_NAME_GAME)
+                .additive(false)
+                .build(LOG_TARGET_GAME, level),
+        )
+        .build(
+            log4rs::config::Root::builder()
+                .appender(APPENDER_NAME_CORE)
+                .build(level),
+        )
         .unwrap();
 
     log4rs::init_config(config).unwrap()
@@ -866,3 +892,5 @@ enum NonRecoverableError {
     /// system state that is not worth further narrowing.
     SomeWeirdEdgeCase,
 }
+
+const LOG_TARGET_GAME: &'static str = "game";
