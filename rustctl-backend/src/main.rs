@@ -116,8 +116,9 @@ impl GameServerController {
         let done = self.cancel_read.run_until_cancelled(coroutine).await;
         if let Some(Ok(err)) = done {
             let _err: NonRecoverableError = err;
-            log::debug!("Requesting cancellation...");
-            self.cancel_write.send(()).await.unwrap();
+            if let Ok(_) = self.cancel_write.send(()).await {
+                log::debug!("Requested termination...");
+            }
         }
         self.summary
     }
