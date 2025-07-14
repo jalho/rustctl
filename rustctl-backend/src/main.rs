@@ -109,7 +109,6 @@ impl GameServerController {
         store: std::sync::Arc<tokio::sync::Mutex<Store>>,
     ) -> GameServerControllerSummary {
         let coroutine = tokio::spawn(async {
-            
             GameServerStateMachine::init()
                 .loop_transitions(self.rx, store)
                 .await
@@ -129,7 +128,7 @@ enum GameServerStateMachine {
     Init,
     Preparing,
     InstalledAndConfigured { cfg: Configuration },
-    Launching,
+    Launching { process: tokio::process::Child },
     RunningHealthy,
     SavingAndClosing,
     ClosedManually,
@@ -238,19 +237,34 @@ impl GameServerStateMachine {
 
                 Self::InstalledAndConfigured { cfg } => {
                     let cfg: Configuration = cfg;
-                    /*
-                     * TODO: Spawn the game server and track the spawned child
-                     *       process.
-                     */
-                    self = Self::Launching;
+                    let mut command = tokio::process::Command::new(cfg.get_game_absolute());
+                    command.current_dir(&cfg.root_dir_absolute);
+                    command.args(cfg.get_game_args());
+                    command.stdout(std::process::Stdio::null());
+                    command.stderr(std::process::Stdio::null());
+
+                    let process: tokio::process::Child = match command.spawn() {
+                        Ok(n) => n,
+                        Err(err) => {
+                            log::error!(
+                                "failed to spawn game server ({path}): {err}",
+                                path = cfg.get_game_absolute().to_string_lossy()
+                            );
+                            return err;
+                        }
+                    };
+
+                    self = Self::Launching { process };
                 }
 
-                Self::Launching => {
+                Self::Launching { process } => {
                     /*
                      * TODO: Wait for the tracked child process to emit to
                      *       stdout: "SteamServer Connected". Then, transition
                      *       to "RunningHealthy".
                      */
+                    let _process: tokio::process::Child = process;
+
                     self = Self::RunningHealthy;
                 }
 
@@ -327,7 +341,7 @@ impl std::fmt::Display for GameServerStateMachine {
             GameServerStateMachine::InstalledAndConfigured { .. } => {
                 write!(f, "InstalledAndConfigured")
             }
-            GameServerStateMachine::Launching => write!(f, "Launching"),
+            GameServerStateMachine::Launching { .. } => write!(f, "Launching"),
             GameServerStateMachine::RunningHealthy => write!(f, "RunningHealthy"),
             GameServerStateMachine::SavingAndClosing => write!(f, "SavingAndClosing"),
             GameServerStateMachine::ClosedManually => write!(f, "ClosedManually"),
@@ -345,6 +359,9 @@ struct Configuration {
 
     game_world_size: u16,
     game_world_seed: u32,
+
+    rcon_port: u16,
+    rcon_password: String,
 }
 impl Configuration {
     pub fn get_installer_absolute(&self) -> std::path::PathBuf {
@@ -396,6 +413,20 @@ impl Configuration {
             "258550".into(),
             "validate".into(),
             "+quit".into(),
+        ]
+    }
+
+    pub fn get_game_args(&self) -> Vec<String> {
+        vec![
+            "-batchmode".into(),
+            "+server.identity".into(),
+            "instance0".into(),
+            "+rcon.port".into(),
+            self.rcon_port.to_string(),
+            "+rcon.web".into(),
+            "1".into(),
+            "+rcon.password".into(),
+            self.rcon_password.clone(),
         ]
     }
 }
@@ -677,6 +708,9 @@ impl Store {
         let game_world_size = 1000;
         let game_world_seed = 1337;
 
+        let rcon_port = 28016;
+        let rcon_password = uuid::Uuid::new_v4().to_string();
+
         if self.should_mock {
             let mut root_dir_absolute = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
             root_dir_absolute.push("../mocks");
@@ -692,6 +726,8 @@ impl Store {
 
                 game_world_size,
                 game_world_seed,
+                rcon_port,
+                rcon_password,
             }
         } else {
             todo!()
