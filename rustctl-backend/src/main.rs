@@ -137,8 +137,6 @@ enum GameServerStateMachine {
     },
     RunningHealthy {
         process: tokio::process::Child,
-        stdout: tokio::process::ChildStdout,
-        stderr: tokio::process::ChildStderr,
     },
     SavingAndClosing,
     ClosedManually,
@@ -272,9 +270,15 @@ impl GameServerStateMachine {
                 } => {
                     let timeout = std::time::Duration::from_secs(60 * 30); // 30 minutes
                     let mut stdout_reader = tokio::io::BufReader::new(stdout);
+                    let mut stderr_reader = tokio::io::BufReader::new(stderr);
 
-                    let wait_for_connection = async {
+                    // channel for signaling readiness from coroutine
+                    let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<()>();
+
+                    let read_stdout = tokio::spawn(async move {
                         let mut line = String::new();
+                        let mut tx = Some(ready_tx);
+
                         loop {
                             line.clear();
                             match tokio::io::AsyncBufReadExt::read_line(
@@ -284,50 +288,76 @@ impl GameServerStateMachine {
                             .await
                             {
                                 Ok(0) => {
-                                    log::error!(
-                                        "end-of-file reached without finding the expected output"
-                                    );
-                                    return Err(NonRecoverableError::SomeWeirdEdgeCase);
+                                    log::debug!("STDOUT: EOF reached");
+                                    break;
                                 }
                                 Ok(_) => {
-                                    /*
-                                     * Assuming the game server indicates its
-                                     * readiness by writing to standard output:
-                                     * ```
-                                     * SteamServer Initialized
-                                     * Server startup complete
-                                     * SteamServer Connected
-                                     * ```
-                                     * (like it does as of build 18796303 on 2025-06-09)
-                                     */
-                                    if line.contains("SteamServer Connected") {
-                                        return Ok(());
+                                    let trimmed_line = line.trim_end();
+                                    log::debug!("STDOUT: {}", trimmed_line);
+                                    if trimmed_line.contains("SteamServer Connected") {
+                                        if let Some(sender) = tx.take() {
+                                            let _ = sender.send(());
+                                        }
                                     }
                                 }
                                 Err(err) => {
-                                    log::error!("failed to read line: {err}");
-                                    return Err(NonRecoverableError::SomeWeirdEdgeCase);
+                                    log::error!("failed to read line from STDOUT: {}", err);
+                                    break;
                                 }
+                            }
+                        }
+                    });
+
+                    let read_stderr = tokio::spawn(async move {
+                        let mut line = String::new();
+
+                        loop {
+                            line.clear();
+                            match tokio::io::AsyncBufReadExt::read_line(
+                                &mut stderr_reader,
+                                &mut line,
+                            )
+                            .await
+                            {
+                                Ok(0) => {
+                                    log::debug!("STDERR: EOF reached");
+                                    break;
+                                }
+                                Ok(_) => {
+                                    let trimmed_line = line.trim_end();
+                                    log::debug!("STDERR: {}", trimmed_line);
+                                }
+                                Err(err) => {
+                                    log::error!("failed to read line from STDERR: {}", err);
+                                    break;
+                                }
+                            }
+                        }
+                    });
+
+                    let wait_readiness = async {
+                        match ready_rx.await {
+                            Ok(()) => Ok(()),
+                            Err(err) => {
+                                log::error!(
+                                    "coroutine for reading STDOUT ended without seeing readiness indication: {err}"
+                                );
+                                Err(NonRecoverableError::SomeWeirdEdgeCase)
                             }
                         }
                     };
 
-                    match tokio::time::timeout(timeout, wait_for_connection).await {
+                    match tokio::time::timeout(timeout, wait_readiness).await {
                         Ok(Ok(())) => {
-                            let stdout: tokio::process::ChildStdout = stdout_reader.into_inner();
-                            self = Self::RunningHealthy {
-                                process,
-                                stdout,
-                                stderr,
-                            };
+                            self = Self::RunningHealthy { process };
                         }
                         Ok(Err(err)) => {
                             let err: NonRecoverableError = err;
                             return err;
                         }
-                        Err(_err) => {
+                        Err(err) => {
                             log::error!(
-                                "game server did not indicate its readiness within timeout of {timeout_secs} seconds",
+                                "game server did not indicate its readiness within timeout of {timeout_secs} seconds: {err}",
                                 timeout_secs = timeout.as_secs(),
                             );
                             return NonRecoverableError::GameServerStartupTimeout;
