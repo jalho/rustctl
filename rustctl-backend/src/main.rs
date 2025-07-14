@@ -57,7 +57,7 @@ fn main() -> std::process::ExitCode {
         }
     };
 
-    let _runtime_done: (
+    let runtime_done: (
         TerminatorSummary,
         WebServerSummary,
         StageSummary,
@@ -72,7 +72,10 @@ fn main() -> std::process::ExitCode {
         return summary;
     });
 
-    std::process::ExitCode::SUCCESS
+    let (status, ..) = runtime_done;
+    let exit_status: std::process::ExitCode = (&status).into();
+
+    return exit_status;
 }
 
 struct GameServerController {
@@ -409,7 +412,7 @@ impl Terminator {
     pub fn new() -> Self {
         Self {
             cancellation_token: tokio_util::sync::CancellationToken::new(),
-            summary: TerminatorSummary {},
+            summary: TerminatorSummary(None),
             cancellation_channel: tokio::sync::mpsc::channel(1),
         }
     }
@@ -420,19 +423,29 @@ impl Terminator {
                 tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()).unwrap();
             let mut sigterm =
                 tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).unwrap();
-            tokio::select! {
-                _ = sigint.recv() => log::info!("SIGINT"),
-                _ = sigterm.recv() => log::info!("SIGTERM"),
-                /*
-                 * TODO: Terminate the program with not-OK exit status in case
-                 *       "Cancellation requested" (i.e. some coroutine encountered a
-                 *       non-recoverable error)?
-                 */
-                _ = self.cancellation_channel.1.recv() => log::info!("Cancellation requested"),
-            }
+            let exit_code: Option<std::process::ExitCode> = tokio::select! {
+                _ = sigint.recv() => {
+                    log::info!("SIGINT");
+                    None
+                },
+                _ = sigterm.recv() => {
+                    log::info!("SIGTERM");
+                    None
+                },
+                _ = self.cancellation_channel.1.recv() => {
+                    log::info!("Cancellation requested");
+                    Some(std::process::ExitCode::FAILURE)
+                },
+            };
             self.cancellation_token.cancel();
+            return exit_code;
         });
-        _ = coroutine.await;
+
+        let done = coroutine.await;
+        if let Ok(Some(exit_code)) = done {
+            self.summary = TerminatorSummary(Some(exit_code));
+        }
+
         self.summary
     }
 
@@ -448,7 +461,16 @@ impl Terminator {
         );
     }
 }
-struct TerminatorSummary;
+
+struct TerminatorSummary(Option<std::process::ExitCode>);
+impl From<&TerminatorSummary> for std::process::ExitCode {
+    fn from(value: &TerminatorSummary) -> Self {
+        match value.0 {
+            Some(exit_code) => exit_code,
+            None => std::process::ExitCode::SUCCESS,
+        }
+    }
+}
 
 fn init_logging(level: log::LevelFilter) -> log4rs::Handle {
     let stdout = log4rs::append::console::ConsoleAppender::builder()
