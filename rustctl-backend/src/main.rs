@@ -79,16 +79,21 @@ struct GameServerController {
     tx: tokio::sync::mpsc::Sender<DownstreamClientMessage>,
     rx: tokio::sync::mpsc::Receiver<DownstreamClientMessage>,
     summary: GameServerControllerSummary,
-    cancel: tokio_util::sync::CancellationToken,
+    cancel_read: tokio_util::sync::CancellationToken,
+    cancel_write: tokio::sync::mpsc::Sender<()>,
 }
 impl GameServerController {
     fn new(terminator: &Terminator) -> Self {
         let (tx, rx) = tokio::sync::mpsc::channel::<DownstreamClientMessage>(1);
+
+        let (cancel_write, cancel_read) = terminator.get_handle();
+
         Self {
             summary: GameServerControllerSummary,
-            cancel: terminator.get_handle(),
             tx,
             rx,
+            cancel_read,
+            cancel_write,
         }
     }
 
@@ -101,11 +106,17 @@ impl GameServerController {
         store: std::sync::Arc<tokio::sync::Mutex<Store>>,
     ) -> GameServerControllerSummary {
         let coroutine = tokio::spawn(async {
-            GameServerStateMachine::init()
+            let done = GameServerStateMachine::init()
                 .loop_transitions(self.rx, store)
                 .await;
+            return done;
         });
-        _ = self.cancel.run_until_cancelled(coroutine).await;
+        let done = self.cancel_read.run_until_cancelled(coroutine).await;
+        if let Some(Ok(err)) = done {
+            let _err: std::io::Error = err;
+            log::debug!("Requesting cancellation...");
+            self.cancel_write.send(()).await.unwrap();
+        }
         return self.summary;
     }
 }
@@ -388,17 +399,22 @@ impl Configuration {
 
 struct Terminator {
     summary: TerminatorSummary,
-    cancel: tokio_util::sync::CancellationToken,
+    cancellation_token: tokio_util::sync::CancellationToken,
+    cancellation_channel: (
+        tokio::sync::mpsc::Sender<()>,
+        tokio::sync::mpsc::Receiver<()>,
+    ),
 }
 impl Terminator {
     pub fn new() -> Self {
         Self {
-            cancel: tokio_util::sync::CancellationToken::new(),
+            cancellation_token: tokio_util::sync::CancellationToken::new(),
             summary: TerminatorSummary {},
+            cancellation_channel: tokio::sync::mpsc::channel(1),
         }
     }
 
-    pub async fn work(self) -> TerminatorSummary {
+    pub async fn work(mut self) -> TerminatorSummary {
         let coroutine = tokio::spawn(async move {
             let mut sigint =
                 tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()).unwrap();
@@ -407,15 +423,24 @@ impl Terminator {
             tokio::select! {
                 _ = sigint.recv() => log::info!("SIGINT"),
                 _ = sigterm.recv() => log::info!("SIGTERM"),
+                _ = self.cancellation_channel.1.recv() => log::info!("Cancellation requested"),
             }
-            self.cancel.cancel();
+            self.cancellation_token.cancel();
         });
         _ = coroutine.await;
         self.summary
     }
 
-    pub fn get_handle(&self) -> tokio_util::sync::CancellationToken {
-        return self.cancel.child_token();
+    pub fn get_handle(
+        &self,
+    ) -> (
+        tokio::sync::mpsc::Sender<()>,
+        tokio_util::sync::CancellationToken,
+    ) {
+        return (
+            self.cancellation_channel.0.clone(),
+            self.cancellation_token.child_token(),
+        );
     }
 }
 struct TerminatorSummary;
@@ -449,7 +474,7 @@ pub struct CliArgs {
 
 struct WebServer {
     summary: WebServerSummary,
-    cancel: tokio_util::sync::CancellationToken,
+    cancel_read: tokio_util::sync::CancellationToken,
     router: axum::Router,
 }
 impl WebServer {
@@ -460,7 +485,7 @@ impl WebServer {
 
         Self {
             summary: WebServerSummary {},
-            cancel: terminator.get_handle(),
+            cancel_read: terminator.get_handle().1,
             router,
         }
     }
@@ -474,7 +499,7 @@ impl WebServer {
             }
         };
         if let Some(Err(err)) = self
-            .cancel
+            .cancel_read
             .run_until_cancelled(async move {
                 /*
                  * From docs (axum v0.8.4):
@@ -562,7 +587,7 @@ trait Actor<Message> {
 
 struct Stage {
     summary: StageSummary,
-    cancel: tokio_util::sync::CancellationToken,
+    cancel_read: tokio_util::sync::CancellationToken,
     channel: (
         tokio::sync::mpsc::Sender<DownstreamClientMessage>,
         tokio::sync::mpsc::Receiver<DownstreamClientMessage>,
@@ -573,7 +598,7 @@ impl Stage {
     fn new(terminator: &Terminator, game_ctl: ActorHandle<DownstreamClientMessage>) -> Self {
         Self {
             channel: tokio::sync::mpsc::channel(1),
-            cancel: terminator.get_handle(),
+            cancel_read: terminator.get_handle().1,
             summary: StageSummary { messages_total: 0 },
             game_ctl,
         }
@@ -599,7 +624,7 @@ impl Stage {
                 }
             }
         });
-        _ = self.cancel.run_until_cancelled(coroutine).await;
+        _ = self.cancel_read.run_until_cancelled(coroutine).await;
         return self.summary;
     }
 }
