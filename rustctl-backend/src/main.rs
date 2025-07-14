@@ -279,29 +279,52 @@ impl GameServerStateMachine {
                     stdout,
                     stderr,
                 } => {
-                    let _timeout: std::time::Duration = std::time::Duration::from_secs(60 * 30); // 30 minutes
-                    /*
-                     * TODO: Wait for the tracked child process to emit to
-                     *       stdout: "SteamServer Connected". Then, transition
-                     *       to "RunningHealthy". I.e.: Spawn a tokio coroutine
-                     *       that uses the stdout handle and completes when the
-                     *       expected output is read. Make the coroutine resolve
-                     *       with Result<(), ()>, and return Err(()) if the
-                     *       expected output is not seen within the specified
-                     *       timeout.
-                     *
-                     *       The stdout handle (as well as the stderr
-                     *       handle) should both remain usable for subsequent
-                     *       coroutines after the RunningHealthy state is
-                     *       reached (thus they're given as owned values to the
-                     *       RunningHealthy).
-                     */
-                    let stdout: tokio::process::ChildStdout = stdout;
+                    let timeout_duration = std::time::Duration::from_secs(60 * 30); // 30 minutes
+                    let mut stdout_reader = tokio::io::BufReader::new(stdout);
 
-                    self = Self::RunningHealthy { process, stdout, stderr };
+                    let wait_for_connection = async {
+                        let mut line = String::new();
+                        loop {
+                            line.clear();
+                            match tokio::io::AsyncBufReadExt::read_line(
+                                &mut stdout_reader,
+                                &mut line,
+                            )
+                            .await
+                            {
+                                Ok(0) => {
+                                    // EOF reached without finding the expected output
+                                    return Err(());
+                                }
+                                Ok(_) => {
+                                    if line.contains("SteamServer Connected") {
+                                        return Ok(());
+                                    }
+                                }
+                                Err(_err) => {
+                                    return Err(());
+                                }
+                            }
+                        }
+                    };
+
+                    match tokio::time::timeout(timeout_duration, wait_for_connection).await {
+                        Ok(Ok(())) => {
+                            let stdout: tokio::process::ChildStdout = stdout_reader.into_inner();
+                            self = Self::RunningHealthy {
+                                process,
+                                stdout,
+                                stderr,
+                            };
+                        }
+                        // TODO: Define a non-recoverable error case: Game server did not seem to start within timeout
+                        Ok(Err(())) | Err(_) => {
+                            todo!("Failed to detect SteamServer Connected within timeout");
+                        }
+                    }
                 }
 
-                Self::RunningHealthy { ref process, ..} => {
+                Self::RunningHealthy { ref process, .. } => {
                     let event = tokio::select! {
                         cmd = command_rx.recv() => {
                             cmd
