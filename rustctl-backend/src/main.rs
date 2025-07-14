@@ -31,16 +31,17 @@ fn main() -> std::process::ExitCode {
      */
     let terminator: Terminator = Terminator::new();
 
-    let store = Store::new(&cli_args);
+    let config: Configuration = Configuration::default(cli_args.mock);
 
-    let game_server_state_machine = match GameServerStateMachine::init(&store.get_config_blocking())
-    {
+    let game_server_state_machine = match GameServerStateMachine::init(&config) {
         Ok(n) => n,
         Err(_err) => {
             log::error!("failed to initialize game server state machine");
             return std::process::ExitCode::FAILURE;
         }
     };
+
+    let store = Store::init(config);
 
     let store_shared = std::sync::Arc::new(tokio::sync::Mutex::new(store));
 
@@ -484,6 +485,34 @@ struct Configuration {
     rcon_password: String,
 }
 impl Configuration {
+    pub fn default(mock: bool) -> Self {
+        if !mock {
+            todo!();
+        } else {
+            let game_world_size = 1000;
+            let game_world_seed = 1337;
+            let rcon_port = 28016;
+            let rcon_password = uuid::Uuid::new_v4().to_string();
+
+            let mut root_dir_absolute = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            root_dir_absolute.push("../mocks");
+            root_dir_absolute = root_dir_absolute.canonicalize().unwrap();
+
+            Self {
+                root_dir_absolute,
+                installer_relative: std::path::Path::new("steamcmd/target/debug/steamcmd")
+                    .to_path_buf(),
+                game_relative: std::path::Path::new("RustDedicated/target/debug/RustDedicated")
+                    .to_path_buf(),
+                manifest_relative: std::path::Path::new("dummy_manifest.acf").to_path_buf(),
+                game_world_size,
+                game_world_seed,
+                rcon_port,
+                rcon_password,
+            }
+        }
+    }
+
     pub fn get_installer_absolute(&self) -> std::path::PathBuf {
         let mut path = self.root_dir_absolute.clone();
         path.push(&self.installer_relative);
@@ -841,51 +870,17 @@ impl<Message> ActorHandle<Message> {
 }
 
 struct Store {
-    should_mock: Option<Configuration>,
+    in_mem: Configuration,
 }
 impl Store {
-    pub fn new(cli_args: &CliArgs) -> Self {
-        if !cli_args.mock {
-            todo!()
-        } else {
-            let game_world_size = 1000;
-            let game_world_seed = 1337;
-            let rcon_port = 28016;
-            let rcon_password = uuid::Uuid::new_v4().to_string();
-
-            let mut root_dir_absolute = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-            root_dir_absolute.push("../mocks");
-            root_dir_absolute = root_dir_absolute.canonicalize().unwrap();
-
-            Self {
-                should_mock: Some(Configuration {
-                    root_dir_absolute,
-                    installer_relative: std::path::Path::new("steamcmd/target/debug/steamcmd")
-                        .to_path_buf(),
-                    game_relative: std::path::Path::new("RustDedicated/target/debug/RustDedicated")
-                        .to_path_buf(),
-                    manifest_relative: std::path::Path::new("dummy_manifest.acf").to_path_buf(),
-                    game_world_size,
-                    game_world_seed,
-                    rcon_port,
-                    rcon_password,
-                }),
-            }
+    pub fn init(initial_config: Configuration) -> Self {
+        Self {
+            in_mem: initial_config,
         }
     }
 
     pub async fn get_config(&self) -> Configuration {
-        match self.should_mock {
-            Some(ref n) => n.clone(),
-            None => todo!(),
-        }
-    }
-
-    pub fn get_config_blocking(&self) -> Configuration {
-        match self.should_mock {
-            Some(ref n) => n.clone(),
-            None => todo!(),
-        }
+        self.in_mem.clone()
     }
 }
 
