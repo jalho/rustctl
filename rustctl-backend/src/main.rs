@@ -365,32 +365,44 @@ impl GameServerStateMachine {
                     }
                 }
 
-                Self::RunningHealthy { ref process, .. } => {
-                    let event = tokio::select! {
-                        cmd = command_rx.recv() => {
-                            cmd
+                Self::RunningHealthy {
+                    ref mut process, ..
+                } => {
+                    let event: GameCtlEvent = tokio::select! {
+                        msg = command_rx.recv() => {
+                            match msg {
+                                Some(message) => GameCtlEvent::MessageReceived { message },
+                                None => GameCtlEvent::MessageChannelClosed,
+                            }
                         }
-                        /*
-                         * TODO: Add branch for case tracked child process
-                         *       terminated unexpectedly. From there, we should
-                         *       transition to "TerminatedUnexpectedly".
-                         */
+                        output = process.wait() => {
+                            let exit_status: std::process::ExitStatus = output.unwrap();
+                            GameCtlEvent::GameProcessTerminated { exit_status }
+                        }
                     };
-                    if let Some(command) = event {
-                        let command: DownstreamClientMessage = command;
-                        match command {
-                            DownstreamClientMessage::ServerSaveAndClose => {
-                                /*
-                                 * TODO: Issue SIGINT for the tracked game
-                                 *       server child process, and transition to
-                                 *       "SavingAndClosing".
-                                 */
+
+                    match event {
+                        GameCtlEvent::MessageReceived { message } => {
+                            let command: DownstreamClientMessage = message;
+                            match command {
+                                DownstreamClientMessage::ServerSaveAndClose => {
+                                    /*
+                                     * TODO: Issue SIGINT for the tracked game
+                                     *       server child process, and transition to
+                                     *       "SavingAndClosing".
+                                     */
+                                }
+                                _ => {
+                                    log::error!(
+                                        "ignoring unexpected command: {command:?} for current state: {self}"
+                                    );
+                                }
                             }
-                            _ => {
-                                log::error!(
-                                    "ignoring unexpected command: {command:?} for current state: {self}"
-                                );
-                            }
+                        }
+                        GameCtlEvent::MessageChannelClosed => todo!(),
+                        GameCtlEvent::GameProcessTerminated { exit_status } => {
+                            let _exit_status: std::process::ExitStatus = exit_status;
+                            self = Self::TerminatedUnexpectedly;
                         }
                     }
                 }
@@ -894,3 +906,15 @@ enum NonRecoverableError {
 }
 
 const LOG_TARGET_GAME: &'static str = "game";
+
+enum GameCtlEvent {
+    MessageReceived {
+        message: DownstreamClientMessage,
+    },
+
+    MessageChannelClosed,
+
+    GameProcessTerminated {
+        exit_status: std::process::ExitStatus,
+    },
+}
