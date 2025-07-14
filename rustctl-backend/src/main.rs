@@ -69,13 +69,13 @@ fn main() -> std::process::ExitCode {
             stage.work(),
             game_ctl.work(store.clone())
         );
-        return summary;
+        summary
     });
 
     let (status, ..) = runtime_done;
     let exit_status: std::process::ExitCode = (&status).into();
 
-    return exit_status;
+    exit_status
 }
 
 struct GameServerController {
@@ -109,10 +109,10 @@ impl GameServerController {
         store: std::sync::Arc<tokio::sync::Mutex<Store>>,
     ) -> GameServerControllerSummary {
         let coroutine = tokio::spawn(async {
-            let done = GameServerStateMachine::init()
+            
+            GameServerStateMachine::init()
                 .loop_transitions(self.rx, store)
-                .await;
-            return done;
+                .await
         });
         let done = self.cancel_read.run_until_cancelled(coroutine).await;
         if let Some(Ok(err)) = done {
@@ -120,7 +120,7 @@ impl GameServerController {
             log::debug!("Requesting cancellation...");
             self.cancel_write.send(()).await.unwrap();
         }
-        return self.summary;
+        self.summary
     }
 }
 struct GameServerControllerSummary;
@@ -438,7 +438,7 @@ impl Terminator {
                 },
             };
             self.cancellation_token.cancel();
-            return exit_code;
+            exit_code
         });
 
         let done = coroutine.await;
@@ -455,10 +455,10 @@ impl Terminator {
         tokio::sync::mpsc::Sender<()>,
         tokio_util::sync::CancellationToken,
     ) {
-        return (
+        (
             self.cancellation_channel.0.clone(),
             self.cancellation_token.child_token(),
-        );
+        )
     }
 }
 
@@ -595,7 +595,7 @@ impl TryFrom<&axum::extract::ws::Message> for DownstreamClientMessage {
             Ok(n) => n,
             Err(_) => return Err(()),
         };
-        return Ok(message);
+        Ok(message)
     }
 }
 
@@ -620,7 +620,7 @@ impl Stage {
 
     fn get_handle(&self) -> ActorHandle<DownstreamClientMessage> {
         let (tx, _rx) = &self.channel;
-        return ActorHandle::new(tx.clone());
+        ActorHandle::new(tx.clone())
     }
 
     async fn work(mut self) -> StageSummary {
@@ -639,7 +639,7 @@ impl Stage {
             }
         });
         _ = self.cancel_read.run_until_cancelled(coroutine).await;
-        return self.summary;
+        self.summary
     }
 }
 struct StageSummary {
@@ -682,7 +682,7 @@ impl Store {
             root_dir_absolute.push("../mocks");
             root_dir_absolute = root_dir_absolute.canonicalize().unwrap();
 
-            return Configuration {
+            Configuration {
                 root_dir_absolute,
                 installer_relative: std::path::Path::new("steamcmd/target/debug/steamcmd")
                     .to_path_buf(),
@@ -692,7 +692,7 @@ impl Store {
 
                 game_world_size,
                 game_world_seed,
-            };
+            }
         } else {
             todo!()
         }
@@ -704,26 +704,17 @@ fn extract_buildid_from_buf(buf: &str) -> Option<u32> {
         Ok(v) => v,
         Err(_) => return None,
     };
-    let root: &keyvalues_parser::Obj = match vdf.value.get_obj() {
-        Some(n) => n,
-        None => return None,
-    };
+    let root: &keyvalues_parser::Obj = vdf.value.get_obj()?;
 
     let buildid_str: &str = match root.get("buildid") {
         Some(values) => {
             if values.len() != 1 {
                 return None;
             }
-            match values[0].get_str() {
-                Some(s) => s,
-                None => return None,
-            }
+            values[0].get_str()?
         }
         None => return None,
     };
 
-    match buildid_str.parse::<u32>() {
-        Ok(n) => Some(n),
-        Err(_) => None,
-    }
+    buildid_str.parse::<u32>().ok()
 }
