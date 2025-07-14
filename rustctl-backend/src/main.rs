@@ -156,6 +156,14 @@ enum GameServerStateMachine {
 }
 impl GameServerStateMachine {
     pub fn init(cfg: &Configuration) -> Result<Self, NonRecoverableError> {
+        if let Some(_pid) = is_process_running(cfg.get_installer_absolute()) {
+            return Err(NonRecoverableError::ConcurrentGameServerInstaller);
+        }
+
+        if let Some(_pid) = is_process_running(cfg.get_game_absolute()) {
+            return Err(NonRecoverableError::ConcurrentGameServer);
+        }
+
         Ok(Self::Init)
     }
 
@@ -937,4 +945,44 @@ enum GameCtlEvent {
     GameProcessTerminated {
         exit_status: std::process::ExitStatus,
     },
+}
+
+/// Like `pgrep`: Check if there's a program with given name running. Returns
+/// the running process's ID (PID) if so.
+fn is_process_running(executable: std::path::PathBuf) -> Option<u32> {
+    let name = match executable.file_name() {
+        Some(n) => n,
+        None => {
+            return None;
+        }
+    };
+
+    let proc_dir = match std::fs::read_dir("/proc") {
+        Ok(dir) => dir,
+        Err(_) => return None,
+    };
+
+    let seekable: &str = name.to_str()?;
+
+    for entry in proc_dir.flatten() {
+        let item: std::ffi::OsString = entry.file_name();
+        let item: &str = item.to_str()?;
+
+        if item.chars().all(|c| c.is_ascii_digit()) {
+            let pid_path = entry.path();
+
+            // comm file: contains the process name
+            let comm = pid_path.join("comm");
+            if let Ok(buf) = std::fs::read_to_string(&comm) {
+                let process_name: &str = buf.trim();
+                if process_name == seekable {
+                    if let Ok(pid) = item.parse::<u32>() {
+                        return Some(pid);
+                    }
+                }
+            }
+        }
+    }
+
+    None
 }
