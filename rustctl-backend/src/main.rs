@@ -31,7 +31,10 @@ fn main() -> std::process::ExitCode {
      */
     let terminator: Terminator = Terminator::new();
 
-    let game_server_state_machine = match GameServerStateMachine::init() {
+    let store = Store::new(&cli_args);
+
+    let game_server_state_machine = match GameServerStateMachine::init(&store.get_config_blocking())
+    {
         Ok(n) => n,
         Err(_err) => {
             log::error!("failed to initialize game server state machine");
@@ -39,7 +42,7 @@ fn main() -> std::process::ExitCode {
         }
     };
 
-    let store: std::sync::Arc<tokio::sync::Mutex<Store>> = Store::new(&cli_args);
+    let store_shared = std::sync::Arc::new(tokio::sync::Mutex::new(store));
 
     let game_ctl: GameServerController = GameServerController::new(&terminator);
 
@@ -75,7 +78,7 @@ fn main() -> std::process::ExitCode {
             terminator.work(),
             web_server.work(),
             stage.work(),
-            game_ctl.work(game_server_state_machine, store.clone())
+            game_ctl.work(game_server_state_machine, store_shared.clone())
         );
         summary
     });
@@ -151,7 +154,7 @@ enum GameServerStateMachine {
     TerminatedUnexpectedly,
 }
 impl GameServerStateMachine {
-    pub fn init() -> Result<Self, NonRecoverableError> {
+    pub fn init(cfg: &Configuration) -> Result<Self, NonRecoverableError> {
         Ok(Self::Init)
     }
 
@@ -838,42 +841,50 @@ impl<Message> ActorHandle<Message> {
 }
 
 struct Store {
-    should_mock: bool,
+    should_mock: Option<Configuration>,
 }
 impl Store {
-    pub fn new(cli_args: &CliArgs) -> std::sync::Arc<tokio::sync::Mutex<Self>> {
-        std::sync::Arc::new(tokio::sync::Mutex::new(Self {
-            should_mock: cli_args.mock,
-        }))
-    }
+    pub fn new(cli_args: &CliArgs) -> Self {
+        if !cli_args.mock {
+            todo!()
+        } else {
+            let game_world_size = 1000;
+            let game_world_seed = 1337;
+            let rcon_port = 28016;
+            let rcon_password = uuid::Uuid::new_v4().to_string();
 
-    pub async fn get_config(&self) -> Configuration {
-        let game_world_size = 1000;
-        let game_world_seed = 1337;
-
-        let rcon_port = 28016;
-        let rcon_password = uuid::Uuid::new_v4().to_string();
-
-        if self.should_mock {
             let mut root_dir_absolute = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
             root_dir_absolute.push("../mocks");
             root_dir_absolute = root_dir_absolute.canonicalize().unwrap();
 
-            Configuration {
-                root_dir_absolute,
-                installer_relative: std::path::Path::new("steamcmd/target/debug/steamcmd")
-                    .to_path_buf(),
-                game_relative: std::path::Path::new("RustDedicated/target/debug/RustDedicated")
-                    .to_path_buf(),
-                manifest_relative: std::path::Path::new("dummy_manifest.acf").to_path_buf(),
-
-                game_world_size,
-                game_world_seed,
-                rcon_port,
-                rcon_password,
+            Self {
+                should_mock: Some(Configuration {
+                    root_dir_absolute,
+                    installer_relative: std::path::Path::new("steamcmd/target/debug/steamcmd")
+                        .to_path_buf(),
+                    game_relative: std::path::Path::new("RustDedicated/target/debug/RustDedicated")
+                        .to_path_buf(),
+                    manifest_relative: std::path::Path::new("dummy_manifest.acf").to_path_buf(),
+                    game_world_size,
+                    game_world_seed,
+                    rcon_port,
+                    rcon_password,
+                }),
             }
-        } else {
-            todo!()
+        }
+    }
+
+    pub async fn get_config(&self) -> Configuration {
+        match self.should_mock {
+            Some(ref n) => n.clone(),
+            None => todo!(),
+        }
+    }
+
+    pub fn get_config_blocking(&self) -> Configuration {
+        match self.should_mock {
+            Some(ref n) => n.clone(),
+            None => todo!(),
         }
     }
 }
