@@ -127,9 +127,19 @@ struct GameServerControllerSummary;
 enum GameServerStateMachine {
     Init,
     Preparing,
-    InstalledAndConfigured { cfg: Configuration },
-    Launching { process: tokio::process::Child },
-    RunningHealthy,
+    InstalledAndConfigured {
+        cfg: Configuration,
+    },
+    Launching {
+        process: tokio::process::Child,
+        stdout: tokio::process::ChildStdout,
+        stderr: tokio::process::ChildStderr,
+    },
+    RunningHealthy {
+        process: tokio::process::Child,
+        stdout: tokio::process::ChildStdout,
+        stderr: tokio::process::ChildStderr,
+    },
     SavingAndClosing,
     ClosedManually,
     TerminatedUnexpectedly,
@@ -240,10 +250,10 @@ impl GameServerStateMachine {
                     let mut command = tokio::process::Command::new(cfg.get_game_absolute());
                     command.current_dir(&cfg.root_dir_absolute);
                     command.args(cfg.get_game_args());
-                    command.stdout(std::process::Stdio::null());
-                    command.stderr(std::process::Stdio::null());
+                    command.stdout(std::process::Stdio::piped());
+                    command.stderr(std::process::Stdio::piped());
 
-                    let process: tokio::process::Child = match command.spawn() {
+                    let mut process: tokio::process::Child = match command.spawn() {
                         Ok(n) => n,
                         Err(err) => {
                             log::error!(
@@ -254,21 +264,44 @@ impl GameServerStateMachine {
                         }
                     };
 
-                    self = Self::Launching { process };
+                    let stdout: tokio::process::ChildStdout = process.stdout.take().unwrap();
+                    let stderr: tokio::process::ChildStderr = process.stderr.take().unwrap();
+
+                    self = Self::Launching {
+                        process,
+                        stdout,
+                        stderr,
+                    };
                 }
 
-                Self::Launching { process } => {
+                Self::Launching {
+                    process,
+                    stdout,
+                    stderr,
+                } => {
+                    let _timeout: std::time::Duration = std::time::Duration::from_secs(60 * 30); // 30 minutes
                     /*
                      * TODO: Wait for the tracked child process to emit to
                      *       stdout: "SteamServer Connected". Then, transition
-                     *       to "RunningHealthy".
+                     *       to "RunningHealthy". I.e.: Spawn a tokio coroutine
+                     *       that uses the stdout handle and completes when the
+                     *       expected output is read. Make the coroutine resolve
+                     *       with Result<(), ()>, and return Err(()) if the
+                     *       expected output is not seen within the specified
+                     *       timeout.
+                     *
+                     *       The stdout handle (as well as the stderr
+                     *       handle) should both remain usable for subsequent
+                     *       coroutines after the RunningHealthy state is
+                     *       reached (thus they're given as owned values to the
+                     *       RunningHealthy).
                      */
-                    let _process: tokio::process::Child = process;
+                    let stdout: tokio::process::ChildStdout = stdout;
 
-                    self = Self::RunningHealthy;
+                    self = Self::RunningHealthy { process, stdout, stderr };
                 }
 
-                Self::RunningHealthy => {
+                Self::RunningHealthy { ref process, ..} => {
                     let event = tokio::select! {
                         cmd = command_rx.recv() => {
                             cmd
@@ -342,7 +375,7 @@ impl std::fmt::Display for GameServerStateMachine {
                 write!(f, "InstalledAndConfigured")
             }
             GameServerStateMachine::Launching { .. } => write!(f, "Launching"),
-            GameServerStateMachine::RunningHealthy => write!(f, "RunningHealthy"),
+            GameServerStateMachine::RunningHealthy { .. } => write!(f, "RunningHealthy"),
             GameServerStateMachine::SavingAndClosing => write!(f, "SavingAndClosing"),
             GameServerStateMachine::ClosedManually => write!(f, "ClosedManually"),
             GameServerStateMachine::TerminatedUnexpectedly => write!(f, "TerminatedUnexpectedly"),
