@@ -115,7 +115,7 @@ impl GameServerController {
         });
         let done = self.cancel_read.run_until_cancelled(coroutine).await;
         if let Some(Ok(err)) = done {
-            let _err: std::io::Error = err;
+            let _err: NonRecoverableError = err;
             log::debug!("Requesting cancellation...");
             self.cancel_write.send(()).await.unwrap();
         }
@@ -153,7 +153,7 @@ impl GameServerStateMachine {
         mut self,
         mut command_rx: tokio::sync::mpsc::Receiver<DownstreamClientMessage>,
         store: std::sync::Arc<tokio::sync::Mutex<Store>>,
-    ) -> std::io::Error {
+    ) -> NonRecoverableError {
         loop {
             let state_before: String = self.to_string();
             match self {
@@ -194,20 +194,11 @@ impl GameServerStateMachine {
                                 "failed to spawn game server installer ({path}): {err}",
                                 path = cfg.get_installer_absolute().to_string_lossy()
                             );
-                            return err;
+                            return NonRecoverableError::CannotSpawnGameServerInstaller;
                         }
                     };
 
-                    let output: std::process::Output = match process.wait_with_output().await {
-                        Ok(n) => n,
-                        Err(err) => {
-                            log::error!(
-                                "game server installer ({path}) failed: {err}",
-                                path = cfg.get_installer_absolute().to_string_lossy()
-                            );
-                            return err;
-                        }
-                    };
+                    let output: std::process::Output = process.wait_with_output().await.unwrap();
 
                     let buildid_after: Option<u32> = {
                         if let Ok(contents) =
@@ -260,7 +251,7 @@ impl GameServerStateMachine {
                                 "failed to spawn game server ({path}): {err}",
                                 path = cfg.get_game_absolute().to_string_lossy()
                             );
-                            return err;
+                            return NonRecoverableError::CannotSpawnGameServer;
                         }
                     };
 
@@ -279,7 +270,7 @@ impl GameServerStateMachine {
                     stdout,
                     stderr,
                 } => {
-                    let timeout_duration = std::time::Duration::from_secs(60 * 30); // 30 minutes
+                    let timeout = std::time::Duration::from_secs(60 * 30); // 30 minutes
                     let mut stdout_reader = tokio::io::BufReader::new(stdout);
 
                     let wait_for_connection = async {
@@ -293,22 +284,35 @@ impl GameServerStateMachine {
                             .await
                             {
                                 Ok(0) => {
-                                    // EOF reached without finding the expected output
-                                    return Err(());
+                                    log::error!(
+                                        "end-of-file reached without finding the expected output"
+                                    );
+                                    return Err(NonRecoverableError::SomeWeirdEdgeCase);
                                 }
                                 Ok(_) => {
+                                    /*
+                                     * Assuming the game server indicates its
+                                     * readiness by writing to standard output:
+                                     * ```
+                                     * SteamServer Initialized
+                                     * Server startup complete
+                                     * SteamServer Connected
+                                     * ```
+                                     * (like it does as of build 18796303 on 2025-06-09)
+                                     */
                                     if line.contains("SteamServer Connected") {
                                         return Ok(());
                                     }
                                 }
-                                Err(_err) => {
-                                    return Err(());
+                                Err(err) => {
+                                    log::error!("failed to read line: {err}");
+                                    return Err(NonRecoverableError::SomeWeirdEdgeCase);
                                 }
                             }
                         }
                     };
 
-                    match tokio::time::timeout(timeout_duration, wait_for_connection).await {
+                    match tokio::time::timeout(timeout, wait_for_connection).await {
                         Ok(Ok(())) => {
                             let stdout: tokio::process::ChildStdout = stdout_reader.into_inner();
                             self = Self::RunningHealthy {
@@ -317,9 +321,16 @@ impl GameServerStateMachine {
                                 stderr,
                             };
                         }
-                        // TODO: Define a non-recoverable error case: Game server did not seem to start within timeout
-                        Ok(Err(())) | Err(_) => {
-                            todo!("Failed to detect SteamServer Connected within timeout");
+                        Ok(Err(err)) => {
+                            let err: NonRecoverableError = err;
+                            return err;
+                        }
+                        Err(_err) => {
+                            log::error!(
+                                "game server did not indicate its readiness within timeout of {timeout_secs} seconds",
+                                timeout_secs = timeout.as_secs(),
+                            );
+                            return NonRecoverableError::GameServerStartupTimeout;
                         }
                     }
                 }
@@ -809,4 +820,19 @@ fn extract_buildid_from_buf(buf: &str) -> Option<u32> {
     };
 
     buildid_str.parse::<u32>().ok()
+}
+
+enum NonRecoverableError {
+    /// Cannot spawn `steamcmd`.
+    CannotSpawnGameServerInstaller,
+
+    /// Cannot spawn `RustDedicated`.
+    CannotSpawnGameServer,
+
+    /// Launched game server did not pass health check within timeout.
+    GameServerStartupTimeout,
+
+    /// Stuff that is so weird or uncommon or indicating a completely useless
+    /// system state that is not worth further narrowing.
+    SomeWeirdEdgeCase,
 }
