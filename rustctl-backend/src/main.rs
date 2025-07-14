@@ -31,6 +31,14 @@ fn main() -> std::process::ExitCode {
      */
     let terminator: Terminator = Terminator::new();
 
+    let game_server_state_machine = match GameServerStateMachine::init() {
+        Ok(n) => n,
+        Err(_err) => {
+            log::error!("failed to initialize game server state machine");
+            return std::process::ExitCode::FAILURE;
+        }
+    };
+
     let store: std::sync::Arc<tokio::sync::Mutex<Store>> = Store::new(&cli_args);
 
     let game_ctl: GameServerController = GameServerController::new(&terminator);
@@ -67,7 +75,7 @@ fn main() -> std::process::ExitCode {
             terminator.work(),
             web_server.work(),
             stage.work(),
-            game_ctl.work(store.clone())
+            game_ctl.work(game_server_state_machine, store.clone())
         );
         summary
     });
@@ -106,13 +114,11 @@ impl GameServerController {
 
     async fn work(
         self,
+        state_machine: GameServerStateMachine,
         store: std::sync::Arc<tokio::sync::Mutex<Store>>,
     ) -> GameServerControllerSummary {
-        let coroutine = tokio::spawn(async {
-            GameServerStateMachine::init()
-                .loop_transitions(self.rx, store)
-                .await
-        });
+        let coroutine =
+            tokio::spawn(async { state_machine.loop_transitions(self.rx, store).await });
         let done = self.cancel_read.run_until_cancelled(coroutine).await;
         if let Some(Ok(err)) = done {
             let _err: NonRecoverableError = err;
@@ -145,8 +151,8 @@ enum GameServerStateMachine {
     TerminatedUnexpectedly,
 }
 impl GameServerStateMachine {
-    pub fn init() -> Self {
-        Self::Init
+    pub fn init() -> Result<Self, NonRecoverableError> {
+        Ok(Self::Init)
     }
 
     pub async fn loop_transitions(
@@ -893,6 +899,12 @@ fn extract_buildid_from_buf(buf: &str) -> Option<u32> {
 }
 
 enum NonRecoverableError {
+    /// Game server installer is running when it is not expected to be.
+    ConcurrentGameServerInstaller,
+
+    /// Game server is running when it is not expected to be.
+    ConcurrentGameServer,
+
     /// Cannot spawn `steamcmd`.
     CannotSpawnGameServerInstaller,
 
