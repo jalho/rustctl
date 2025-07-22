@@ -136,6 +136,7 @@ impl GameServerController {
 }
 struct GameServerControllerSummary;
 
+#[allow(dead_code)] // TODO: Disallow dead code!
 enum GameServerStateMachine {
     Init,
     Preparing,
@@ -295,7 +296,7 @@ impl GameServerStateMachine {
                     // channel for signaling readiness from coroutine
                     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<()>();
 
-                    let read_stdout = tokio::spawn(async move {
+                    let _read_stdout = tokio::spawn(async move {
                         let mut line = String::new();
                         let mut tx = Some(ready_tx);
 
@@ -328,7 +329,7 @@ impl GameServerStateMachine {
                         }
                     });
 
-                    let read_stderr = tokio::spawn(async move {
+                    let _read_stderr = tokio::spawn(async move {
                         let mut line = String::new();
 
                         loop {
@@ -479,6 +480,7 @@ impl std::fmt::Display for GameServerStateMachine {
     }
 }
 
+#[allow(dead_code)] // TODO: Disallow dead code!
 #[derive(Debug, Clone)]
 struct Configuration {
     root_dir_absolute: std::path::PathBuf,
@@ -784,6 +786,7 @@ async fn websocket_handler(
     })
 }
 
+#[allow(dead_code)] // TODO: Disallow dead code!
 #[derive(Clone, Debug, serde::Deserialize)]
 enum DownstreamClientMessage {
     ServerSaveAndClose,

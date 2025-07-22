@@ -1,0 +1,20 @@
+[workspace]
+resolver = "3"
+members = [
+  "./mocks/RustDedicated",
+  "./mocks/websocket-client-cli",
+  "./mocks/steamcmd",
+  "./rustctl-backend",
+  "./rustctl-common",
+  "./rustctl-frontend",
+]
+
+[profile.wasm-dev]
+inherits = "dev"
+opt-level = 1
+
+[profile.server-dev]
+inherits = "dev"
+
+[profile.android-dev]
+inherits = "dev"
