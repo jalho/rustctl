@@ -1,0 +1,4 @@
+[toolchain]
+# There's no particular reason for this version of the toolchain. It's the
+# latest as of 2025-07-22.
+channel    = "1.88.0"

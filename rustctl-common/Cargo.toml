@@ -1,23 +1,23 @@
 [package]
-name = "rustctl-common"
+name    = "rustctl-common"
 edition = "2024"
 
 [dependencies.serde]
 workspace = true
-features = [
+features  = [
   "derive",
   "std",
 ]
 
 [dependencies.chrono]
 workspace = true
-features = [
+features  = [
   "serde",
 ]
 
 [dependencies.uuid]
 workspace = true
-features = [
+features  = [
   "serde",
 ]
 
@@ -26,6 +26,6 @@ workspace = true
 
 [dependencies.dioxus]
 workspace = true
-features = [
+features  = [
   "macro",
 ]

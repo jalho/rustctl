@@ -1,10 +1,10 @@
 [package]
-name = "steamcmd"
+name    = "steamcmd"
 edition = "2024"
 
 [dependencies.tokio]
 workspace = true
-features = [
+features  = [
   "rt",
   "macros",
   "time",
