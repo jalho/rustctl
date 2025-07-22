@@ -2,8 +2,8 @@
 resolver = "3"
 members = [
   "./mocks/RustDedicated",
-  "./mocks/websocket-client-cli",
   "./mocks/steamcmd",
+  "./mocks/websocket-client-cli",
   "./rustctl-backend",
   "./rustctl-common",
   "./rustctl-frontend",
