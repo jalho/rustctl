@@ -10,12 +10,12 @@ members = [
 ]
 
 [workspace.dependencies]
-tokio       = { version = "=1.45.1",  default-features = false }
-serde       = { version = "=1.0.219", default-features = false }
 chrono      = { version = "=0.4.41",  default-features = false }
-uuid        = { version = "=1.17.0",  default-features = false }
-dioxus-core = { version = "=0.6.3",   default-features = false }
 dioxus      = { version = "=0.6.3",   default-features = false }
+dioxus-core = { version = "=0.6.3",   default-features = false }
+serde       = { version = "=1.0.219", default-features = false }
+tokio       = { version = "=1.45.1",  default-features = false }
+uuid        = { version = "=1.17.0",  default-features = false }
 
 [profile.wasm-dev]
 inherits = "dev"
