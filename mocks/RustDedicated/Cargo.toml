@@ -1,12 +1,10 @@
 [package]
-name = "RustDedicated"
-version = "0.1.0"
+name    = "RustDedicated"
 edition = "2024"
 
 [dependencies.tokio]
-version = "=1.45.1"
-default-features = false
-features = [
+workspace = true
+features  = [
   "rt",
   "macros",
   "time",

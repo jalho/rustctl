@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "RustDedicated"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "tokio",
 ]
@@ -1718,7 +1718,7 @@ checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustctl-backend"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "axum",
  "clap",
@@ -1749,7 +1749,7 @@ dependencies = [
 
 [[package]]
 name = "rustctl-frontend"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "dioxus",
  "futures",

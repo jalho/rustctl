@@ -1,94 +1,76 @@
 [package]
-name = "rustctl-backend"
-version = "0.1.0"
+name    = "rustctl-backend"
 edition = "2024"
 
-# Cheatsheet:
-#
-# - List enabled features:
-#   $ cargo tree -f "{p} {f}"
-#
-# - List exact versions:
-#   $ cargo tree --depth 1
-#
-# - List outdated:
-#   $ cargo outdated
-#
-# - Inspect indirect dependency named "sha1":
-#   $ cargo tree --invert sha1
-
 [dependencies.tokio]
-version = "=1.45.1"
-default-features = false
-features = [
+workspace = true
+features  = [
   "fs",
   "process",
   "signal",
 ]
 
 [dependencies.axum]
-version = "=0.8.4"
-default-features = false
-features = [
+workspace = true
+features  = [
   "ws",
   "tokio",
   "http1", # for proof-of-concept WebSocket CLI clients -- for actual web browser clients, "http2" (or later?) should perhaps be used
 ]
 
 [dependencies.tower-http]
-version = "=0.6.6"
-default-features = false
+workspace = true
 
 [dependencies.serde]
-version = "=1.0.219"
-default-features = false
-features = [
+workspace = true
+features  = [
   "derive",
 ]
 
 [dependencies.serde_json]
-version = "=1.0.140"
-default-features = false
-features = [
+workspace = true
+features  = [
   "alloc",
 ]
 
 [dependencies.futures-util]
-version = "=0.3.31"
-default-features = false
+workspace = true
 
 [dependencies.log]
-version = "=0.4.27"
-default-features = false
+workspace = true
 
 [dependencies.log4rs]
-version = "=1.3.0"
-default-features = false
-features = ["console_appender"]
+workspace = true
+features = [
+  "console_appender",
+]
 
 [dependencies.tokio-util]
-version = "=0.7.15"
-default-features = false
+workspace = true
 
 [dependencies.keyvalues-parser]
-version = "=0.2.0"
-default-features = false
+workspace = true
 
 [dependencies.uuid]
-version = "=1.17.0"
-default-features = false
-features = ["v4"]
+workspace = true
+features = [
+  "v4",
+]
 
 [dependencies.tokio-tungstenite]
-version = "=0.27.0"
-default-features = false
-features = ["connect"]
+workspace = true
+features = [
+  "connect",
+]
 
 [dependencies.rand]
-version = "=0.9.1"
-default-features = false
+workspace = true
 
 [dependencies.clap]
-version = "=4.5.40"
-default-features = false
-features = ["derive", "std", "help", "usage"]
+workspace = true
+features = [
+  "derive",
+  "std",
+  "help",
+  "usage",
+]

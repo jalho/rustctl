@@ -1,37 +1,42 @@
 [package]
-name = "rustctl-frontend"
-version = "0.1.0"
+name    = "rustctl-frontend"
 edition = "2024"
 
+[features]
+default = ["web"]
+web     = ["dioxus/web"]
+
 [dependencies.futures]
-version = "0.3.31"
-default-features = false
-features = ["alloc"]
+workspace = true
+features = [
+  "alloc",
+]
 
 [dependencies.gloo-console]
-version = "0.3.0"
-default-features = false
+workspace = true
 
 [dependencies.uuid]
-version = "1.17.0"
-default-features = false
-features = ["v4", "serde", "js"]
+workspace = true
+features = [
+  "v4",
+  "serde",
+  "js",
+]
 
 [dependencies.gloo-timers]
-version = "0.3.0"
-default-features = false
-features = ["futures"]
+workspace = true
+features = [
+  "futures",
+]
 
 [dependencies.serde_json]
-version = "1.0.140"
-default-features = false
+workspace = true
 
 [dependencies.rustctl-common]
-path = "../rustctl-common"
+workspace = true
 
 [dependencies.dioxus]
-version = "0.6.3"
-default-features = false
+workspace = true
 features = [
   "asset",
   "cli-config",
@@ -49,24 +54,22 @@ features = [
 ]
 
 [dependencies.futures-util]
-version = "0.3.31"
-default-features = false
-features = ["sink"]
+workspace = true
+features = [
+  "sink",
+]
 
 [dependencies.gloo-net]
-version = "0.6.0"
-default-features = false
-features = ["websocket"]
+workspace = true
+features = [
+  "websocket",
+]
 
 [dependencies.serde]
-version = "1.0.219"
-default-features = false
-features = ["derive"]
+workspace = true
+features = [
+  "derive",
+]
 
 [dependencies.wasm-bindgen-futures]
-version = "0.4.50"
-default-features = false
-
-[features]
-default = ["web"]
-web = ["dioxus/web"]
+workspace = true
