@@ -13,7 +13,7 @@ fn main() -> std::process::ExitCode {
 
     let _runtime_done = runtime.block_on(async {
         let summary = tokio::join!(sleep(std::time::Duration::from_secs(3)));
-        return summary;
+        summary
     });
 
     std::process::ExitCode::SUCCESS

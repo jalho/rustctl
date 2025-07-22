@@ -22,8 +22,7 @@ fn App() -> Element {
         spawn_local(async move {
             'connect_websocket: loop {
                 let ws_result = WebSocket::open(&format!(
-                    "ws://localhost:8081{path}",
-                    path = WEBSOCKET_CONNECT_URL_PATH
+                    "ws://localhost:8081{WEBSOCKET_CONNECT_URL_PATH}"
                 ));
                 let ws: WebSocket = match ws_result {
                     Ok(ws) => ws,

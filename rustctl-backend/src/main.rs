@@ -322,7 +322,7 @@ impl GameServerStateMachine {
                                     }
                                 }
                                 Err(err) => {
-                                    log::error!("failed to read line from STDOUT: {}", err);
+                                    log::error!("failed to read line from STDOUT: {err}");
                                     break;
                                 }
                             }
@@ -349,7 +349,7 @@ impl GameServerStateMachine {
                                     log::debug!(target: LOG_TARGET_GAME, "{trimmed_line}");
                                 }
                                 Err(err) => {
-                                    log::error!("failed to read line from STDERR: {}", err);
+                                    log::error!("failed to read line from STDERR: {err}");
                                     break;
                                 }
                             }
@@ -664,8 +664,8 @@ impl From<&TerminatorSummary> for std::process::ExitCode {
 }
 
 fn init_logging(level: log::LevelFilter) -> log4rs::Handle {
-    const APPENDER_NAME_CORE: &'static str = "core";
-    const APPENDER_NAME_GAME: &'static str = "game_server";
+    const APPENDER_NAME_CORE: &str = "core";
+    const APPENDER_NAME_GAME: &str = "game_server";
 
     let appender_core: log4rs::append::console::ConsoleAppender =
         log4rs::append::console::ConsoleAppender::builder()
@@ -937,7 +937,7 @@ enum NonRecoverableError {
     SomeFatalEdgeCase,
 }
 
-const LOG_TARGET_GAME: &'static str = "game";
+const LOG_TARGET_GAME: &str = "game";
 
 enum GameCtlEvent {
     MessageReceived {
