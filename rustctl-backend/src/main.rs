@@ -31,7 +31,7 @@ fn main() -> std::process::ExitCode {
      */
     let terminator: Terminator = Terminator::new();
 
-    let config: Configuration = Configuration::default(cli_args.mock);
+    let config: Configuration = Configuration::resolve(cli_args.mock);
 
     let game_server_state_machine = match GameServerStateMachine::init(&config) {
         Ok(n) => n,
@@ -495,26 +495,27 @@ struct Configuration {
     rcon_password: String,
 }
 impl Configuration {
-    pub fn default(mock: bool) -> Self {
+    pub fn resolve(mock: bool) -> Self {
         if !mock {
-            todo!();
+            todo!("only --mock mode is implemented for now");
         } else {
             let game_world_size = 1000;
             let game_world_seed = 1337;
             let rcon_port = 28016;
             let rcon_password = uuid::Uuid::new_v4().to_string();
 
-            let mut root_dir_absolute = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-            root_dir_absolute.push("../mocks");
-            root_dir_absolute = root_dir_absolute.canonicalize().unwrap();
+            let crate_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            let crate_root_abs = crate_root.canonicalize().unwrap();
+            let workspace_root_abs = crate_root_abs
+                .parent()
+                .expect("crate root should have parent")
+                .to_path_buf();
 
             Self {
-                root_dir_absolute,
-                installer_relative: std::path::Path::new("steamcmd/target/debug/steamcmd")
-                    .to_path_buf(),
-                game_relative: std::path::Path::new("RustDedicated/target/debug/RustDedicated")
-                    .to_path_buf(),
-                manifest_relative: std::path::Path::new("dummy_manifest.acf").to_path_buf(),
+                root_dir_absolute: workspace_root_abs,
+                installer_relative: std::path::Path::new("target/debug/steamcmd").to_path_buf(),
+                game_relative: std::path::Path::new("target/debug/RustDedicated").to_path_buf(),
+                manifest_relative: std::path::Path::new("mocks/dummy_manifest.acf").to_path_buf(),
                 game_world_size,
                 game_world_seed,
                 rcon_port,
