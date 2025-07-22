@@ -1,8 +1,8 @@
 [toolchain]
 
 # There's no particular reason for this version of the toolchain. It's the
-# latest as of 2025-07-22 and I just wanted to bind the project to an exact
-# version.
+# latest stable as of 2025-07-22 and I just wanted to bind the project to an
+# exact version.
 channel = "1.88.0"
 
 # We're using musl target because I like statically linked executables for some
