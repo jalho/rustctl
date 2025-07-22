@@ -1,30 +1,31 @@
 [package]
 name = "rustctl-common"
-version = "0.1.0"
 edition = "2024"
 
 [dependencies.serde]
-version = "1.0.219"
-default-features = false
-features = ["derive", "std"]
+workspace = true
+features = [
+  "derive",
+  "std",
+]
 
 [dependencies.chrono]
-version = "0.4.41"
-default-features = false
-features = ["serde"]
+workspace = true
+features = [
+  "serde",
+]
 
 [dependencies.uuid]
-version = "1.17.0"
-default-features = false
-features = ["serde"]
+workspace = true
+features = [
+  "serde",
+]
 
 [dependencies.dioxus-core]
-version = "0.6.3"
-default-features = false
+workspace = true
 
 [dependencies.dioxus]
-version = "0.6.3"
-default-features = false
+workspace = true
 features = [
   "macro",
 ]
