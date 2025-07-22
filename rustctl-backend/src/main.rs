@@ -513,8 +513,14 @@ impl Configuration {
 
             Self {
                 root_dir_absolute: workspace_root_abs,
-                installer_relative: std::path::Path::new("target/debug/steamcmd").to_path_buf(),
-                game_relative: std::path::Path::new("target/debug/RustDedicated").to_path_buf(),
+                installer_relative: std::path::Path::new(
+                    "target/x86_64-unknown-linux-musl/debug/steamcmd",
+                )
+                .to_path_buf(),
+                game_relative: std::path::Path::new(
+                    "target/x86_64-unknown-linux-musl/debug/RustDedicated",
+                )
+                .to_path_buf(),
                 manifest_relative: std::path::Path::new("mocks/dummy_manifest.acf").to_path_buf(),
                 game_world_size,
                 game_world_seed,
