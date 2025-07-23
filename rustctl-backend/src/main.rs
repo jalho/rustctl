@@ -131,7 +131,11 @@ impl GameServerController {
             tokio::spawn(async { state_machine.loop_transitions(self.rx, store).await });
         let done = self.cancel_read.run_until_cancelled(coroutine).await;
         if let Some(Ok(err)) = done {
-            let _err: NonRecoverableError = err;
+            let err: NonRecoverableError = err;
+            log::error!(
+                "Game server controller failed: {err_fmt}",
+                err_fmt = fmt_source_tree(&err)
+            );
             match self.cancel_write.send(()).await {
                 Ok(_) => log::debug!("Requested termination..."),
                 Err(err) => log::error!(
