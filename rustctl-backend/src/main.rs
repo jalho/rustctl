@@ -381,7 +381,9 @@ impl GameServerStateMachine {
                                     "coroutine for reading STDOUT ended without seeing readiness indication: {err_fmt}",
                                     err_fmt = fmt_source_tree(&err)
                                 );
-                                Err(NonRecoverableError::SomeFatalEdgeCase)
+                                todo!(
+                                    "in case of deliberate shutdown sequence in progress, don't consider not seeing readiness indication an error"
+                                );
                             }
                         }
                     };
@@ -965,10 +967,6 @@ enum NonRecoverableError {
 
     /// Launched game server did not pass health check within timeout.
     GameServerStartupTimeout,
-
-    /// Anything that probably indicates a non-recoverable failure state, yet is
-    /// so weird or rare that it's not worth further narrowing.
-    SomeFatalEdgeCase,
 }
 
 impl std::error::Error for NonRecoverableError {
@@ -979,14 +977,29 @@ impl std::error::Error for NonRecoverableError {
             NonRecoverableError::CannotSpawnGameServerInstaller => None,
             NonRecoverableError::CannotSpawnGameServer => None,
             NonRecoverableError::GameServerStartupTimeout => None,
-            NonRecoverableError::SomeFatalEdgeCase => None,
         }
     }
 }
 
 impl std::fmt::Display for NonRecoverableError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{self:?}")
+        match self {
+            NonRecoverableError::ConcurrentGameServerInstaller => {
+                write!(f, "game server installer running already")
+            }
+            NonRecoverableError::CannotSpawnGameServerInstaller => {
+                write!(f, "cannot spawn process for game server installer")
+            }
+            NonRecoverableError::ConcurrentGameServer => {
+                write!(f, "game server running already")
+            }
+            NonRecoverableError::CannotSpawnGameServer => {
+                write!(f, "cannot spawn process for game server")
+            }
+            NonRecoverableError::GameServerStartupTimeout => {
+                write!(f, "game server startup timeout")
+            }
+        }
     }
 }
 
