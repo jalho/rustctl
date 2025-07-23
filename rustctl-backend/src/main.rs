@@ -676,14 +676,14 @@ fn init_logging(level: log::LevelFilter) -> log4rs::Handle {
     let appender_core: log4rs::append::console::ConsoleAppender =
         log4rs::append::console::ConsoleAppender::builder()
             .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
-                "{h({d(%Y-%m-%dT%H:%M:%SZ)(utc)} {l} - {m})} [{f}:{L}] [{T}]\n",
+                "{h({d(%Y-%m-%d %H:%M:%S)(utc)} UTC+0 - {l:4.4} - {m})} [{f}:{L}]\n",
             )))
             .build();
 
     let appender_game: log4rs::append::console::ConsoleAppender =
         log4rs::append::console::ConsoleAppender::builder()
             .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
-                "{h({d(%Y-%m-%dT%H:%M:%SZ)(utc)} {t} - {m})}\n",
+                "{h({d(%Y-%m-%d %H:%M:%S)(utc)} {t:5.5} - {l:4.4} - {m})}\n",
             )))
             .build();
 
