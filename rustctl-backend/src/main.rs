@@ -380,29 +380,29 @@ impl GameServerStateMachine {
                     });
 
                     let wait_readiness = async {
-                        match ready_rx.await {
-                            Ok(()) => Ok(()),
-                            Err(err) => {
-                                if !cancellation_token.is_cancelled() {
-                                    log::error!(
-                                        "Coroutine for reading game server STDOUT ended without seeing readiness indication: {err_fmt}",
-                                        err_fmt = fmt_source_tree(&err)
-                                    );
-                                    Err(err)
-                                } else {
-                                    Ok(())
-                                }
+                        if let Err(err) = ready_rx.await {
+                            let err: tokio::sync::oneshot::error::RecvError = err;
+                            if !cancellation_token.is_cancelled() {
+                                /*
+                                 * The Err variant is expected when the channel gets teared
+                                 * down, which is expected to happen when the program is
+                                 * about to terminate, as indicated by the cancellation
+                                 * token.
+                                 *
+                                 * If the Err variant is reached in any other scenario, then
+                                 * that's a bug that should be investigated!
+                                 */
+                                todo!(
+                                    "readiness channel receive failed while not cancelled: {err_fmt}",
+                                    err_fmt = fmt_source_tree(&err)
+                                );
                             }
                         }
                     };
 
                     match tokio::time::timeout(timeout, wait_readiness).await {
-                        Ok(Ok(())) => {
+                        Ok(_) => {
                             self = Self::RunningHealthy { process };
-                        }
-                        Ok(Err(err)) => {
-                            let err: tokio::sync::oneshot::error::RecvError = err;
-                            todo!("define non-recoverable error case: {err}");
                         }
                         Err(err) => {
                             log::error!(
