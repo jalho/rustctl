@@ -37,7 +37,7 @@ fn main() -> std::process::ExitCode {
         Ok(n) => n,
         Err(err) => {
             log::error!(
-                "failed to initialize game server state machine: {err_fmt}",
+                "Failed to initialize game server state machine: {err_fmt}",
                 err_fmt = fmt_source_tree(&err)
             );
             return std::process::ExitCode::FAILURE;
@@ -68,7 +68,7 @@ fn main() -> std::process::ExitCode {
         Ok(n) => n,
         Err(err) => {
             log::error!(
-                "failed to build async runtime: {err_fmt}",
+                "Failed to build async runtime: {err_fmt}",
                 err_fmt = fmt_source_tree(&err)
             );
             return std::process::ExitCode::FAILURE;
@@ -225,7 +225,7 @@ impl GameServerStateMachine {
                         Ok(n) => n,
                         Err(err) => {
                             log::error!(
-                                "failed to spawn game server installer ({path}): {err_fmt}",
+                                "Failed to spawn game server installer ({path}): {err_fmt}",
                                 path = cfg.get_installer_absolute().to_string_lossy(),
                                 err_fmt = fmt_source_tree(&err),
                             );
@@ -283,7 +283,7 @@ impl GameServerStateMachine {
                         Ok(n) => n,
                         Err(err) => {
                             log::error!(
-                                "failed to spawn game server ({path}): {err_fmt}",
+                                "Failed to spawn game server ({path}): {err_fmt}",
                                 path = cfg.get_game_absolute().to_string_lossy(),
                                 err_fmt = fmt_source_tree(&err),
                             );
@@ -340,7 +340,7 @@ impl GameServerStateMachine {
                                 }
                                 Err(err) => {
                                     log::error!(
-                                        "failed to read line from STDOUT: {err_fmt}",
+                                        "Failed to read line from STDOUT: {err_fmt}",
                                         err_fmt = fmt_source_tree(&err)
                                     );
                                     break;
@@ -370,7 +370,7 @@ impl GameServerStateMachine {
                                 }
                                 Err(err) => {
                                     log::error!(
-                                        "failed to read line from STDERR: {err_fmt}",
+                                        "Failed to read line from STDERR: {err_fmt}",
                                         err_fmt = fmt_source_tree(&err)
                                     );
                                     break;
@@ -406,7 +406,7 @@ impl GameServerStateMachine {
                         }
                         Err(err) => {
                             log::error!(
-                                "game server did not indicate its readiness within timeout of {timeout_secs} seconds: {err_fmt}",
+                                "Game server did not indicate its readiness within timeout of {timeout_secs} seconds: {err_fmt}",
                                 timeout_secs = timeout.as_secs(),
                                 err_fmt = fmt_source_tree(&err)
                             );
@@ -444,7 +444,7 @@ impl GameServerStateMachine {
                                 }
                                 _ => {
                                     log::error!(
-                                        "ignoring unexpected command: {command:?} for current state: {self}"
+                                        "Ignoring unexpected command: {command:?} for current state: {self}"
                                     );
                                 }
                             }
@@ -475,7 +475,7 @@ impl GameServerStateMachine {
                             }
                             _ => {
                                 log::error!(
-                                    "ignoring unexpected command: {command:?} for current state: {self}"
+                                    "Ignoring unexpected command: {command:?} for current state: {self}"
                                 );
                             }
                         }
@@ -774,7 +774,7 @@ impl WebServer {
             Ok(n) => n,
             Err(err) => {
                 log::error!(
-                    "failed to bind TCP listener: {err_fmt}",
+                    "Failed to bind TCP listener: {err_fmt}",
                     err_fmt = fmt_source_tree(&err)
                 );
                 return self.summary;
@@ -814,7 +814,7 @@ async fn websocket_handler(
                 Ok(n) => n,
                 Err(err) => {
                     log::error!(
-                        "invalid message from downstream client: {err_fmt}",
+                        "Invalid message from downstream client: {err_fmt}",
                         err_fmt = fmt_source_tree(&err)
                     );
                     continue 'recv_messages;
@@ -822,7 +822,7 @@ async fn websocket_handler(
             };
             if let Err(err) = stage.send(msg_valid).await {
                 log::error!(
-                    "could not send message from downstream client to stage: {err_fmt}",
+                    "Could not send message from downstream client to stage: {err_fmt}",
                     err_fmt = fmt_source_tree(&err)
                 );
                 continue 'recv_messages;
@@ -893,7 +893,7 @@ impl Stage {
                 let msg: DownstreamClientMessage = msg;
                 if let Err(err) = self.game_ctl.send(msg).await {
                     log::error!(
-                        "failed to send downstream client message from stage to game server controller: {err_fmt}",
+                        "Failed to send downstream client message from stage to game server controller: {err_fmt}",
                         err_fmt = fmt_source_tree(&err)
                     );
                 }
