@@ -127,8 +127,9 @@ impl GameServerController {
         state_machine: GameServerStateMachine,
         store: std::sync::Arc<tokio::sync::Mutex<Store>>,
     ) -> GameServerControllerSummary {
+        let token: tokio_util::sync::CancellationToken = self.cancel_read.child_token();
         let coroutine =
-            tokio::spawn(async { state_machine.loop_transitions(self.rx, store).await });
+            tokio::spawn(async { state_machine.loop_transitions(token, self.rx, store).await });
         let done = self.cancel_read.run_until_cancelled(coroutine).await;
         if let Some(Ok(err)) = done {
             let err: NonRecoverableError = err;
@@ -183,6 +184,7 @@ impl GameServerStateMachine {
 
     pub async fn loop_transitions(
         mut self,
+        cancellation_token: tokio_util::sync::CancellationToken,
         mut command_rx: tokio::sync::mpsc::Receiver<DownstreamClientMessage>,
         store: std::sync::Arc<tokio::sync::Mutex<Store>>,
     ) -> NonRecoverableError {
@@ -381,13 +383,15 @@ impl GameServerStateMachine {
                         match ready_rx.await {
                             Ok(()) => Ok(()),
                             Err(err) => {
-                                log::error!(
-                                    "coroutine for reading STDOUT ended without seeing readiness indication: {err_fmt}",
-                                    err_fmt = fmt_source_tree(&err)
-                                );
-                                todo!(
-                                    "in case of deliberate shutdown sequence in progress, don't consider not seeing readiness indication an error"
-                                );
+                                if !cancellation_token.is_cancelled() {
+                                    log::error!(
+                                        "Coroutine for reading game server STDOUT ended without seeing readiness indication: {err_fmt}",
+                                        err_fmt = fmt_source_tree(&err)
+                                    );
+                                    Err(err)
+                                } else {
+                                    Ok(())
+                                }
                             }
                         }
                     };
@@ -397,8 +401,8 @@ impl GameServerStateMachine {
                             self = Self::RunningHealthy { process };
                         }
                         Ok(Err(err)) => {
-                            let err: NonRecoverableError = err;
-                            return err;
+                            let err: tokio::sync::oneshot::error::RecvError = err;
+                            todo!("define non-recoverable error case: {err}");
                         }
                         Err(err) => {
                             log::error!(
