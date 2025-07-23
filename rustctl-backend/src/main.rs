@@ -242,21 +242,21 @@ impl GameServerStateMachine {
                     match (buildid_before, buildid_after) {
                         (_, None) => {
                             log::error!(
-                                "failed to extract buildid from game server app manifest after installation: {path}",
+                                "Installing game server failed: Could not extract buildid from game server app manifest after installation: {path}",
                                 path = cfg.get_manifest_absolute().to_string_lossy()
                             );
                         }
                         (None, Some(buildid)) => {
-                            log::info!("game server installed: buildid {buildid}");
+                            log::info!("Installed game server: buildid {buildid}");
                         }
                         (Some(buildid_before), Some(buildid_after)) => {
                             if buildid_before == buildid_after {
                                 log::info!(
-                                    "installed game server is up to date: buildid {buildid_after}"
+                                    "Installation checked: Game server is up to date: buildid {buildid_after}"
                                 );
                             } else {
                                 log::info!(
-                                    "game server updated from buildid {buildid_before} to buildid {buildid_after}"
+                                    "Updated game server: From buildid {buildid_before} to {buildid_after}"
                                 );
                             }
                         }
@@ -480,7 +480,7 @@ impl GameServerStateMachine {
             }
             let state_after: String = self.to_string();
 
-            log::info!("Transitioned from {state_before} to {state_after}");
+            log::info!("Transitioned: {state_before} -> {state_after}");
         }
     }
 }
