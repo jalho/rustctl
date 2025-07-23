@@ -35,8 +35,11 @@ fn main() -> std::process::ExitCode {
 
     let game_server_state_machine = match GameServerStateMachine::init(&config) {
         Ok(n) => n,
-        Err(_err) => {
-            log::error!("failed to initialize game server state machine");
+        Err(err) => {
+            log::error!(
+                "failed to initialize game server state machine: {err_fmt}",
+                err_fmt = fmt_source_tree(&err)
+            );
             return std::process::ExitCode::FAILURE;
         }
     };
@@ -64,7 +67,10 @@ fn main() -> std::process::ExitCode {
     {
         Ok(n) => n,
         Err(err) => {
-            log::error!("failed to build async runtime: {err}");
+            log::error!(
+                "failed to build async runtime: {err_fmt}",
+                err_fmt = fmt_source_tree(&err)
+            );
             return std::process::ExitCode::FAILURE;
         }
     };
@@ -128,7 +134,10 @@ impl GameServerController {
             let _err: NonRecoverableError = err;
             match self.cancel_write.send(()).await {
                 Ok(_) => log::debug!("Requested termination..."),
-                Err(err) => log::error!("Failed to request termination: {err}"),
+                Err(err) => log::error!(
+                    "Failed to request termination: {err_fmt}",
+                    err_fmt = fmt_source_tree(&err)
+                ),
             }
         }
         self.summary
@@ -210,8 +219,9 @@ impl GameServerStateMachine {
                         Ok(n) => n,
                         Err(err) => {
                             log::error!(
-                                "failed to spawn game server installer ({path}): {err}",
-                                path = cfg.get_installer_absolute().to_string_lossy()
+                                "failed to spawn game server installer ({path}): {err_fmt}",
+                                path = cfg.get_installer_absolute().to_string_lossy(),
+                                err_fmt = fmt_source_tree(&err),
                             );
                             return NonRecoverableError::CannotSpawnGameServerInstaller;
                         }
@@ -267,8 +277,9 @@ impl GameServerStateMachine {
                         Ok(n) => n,
                         Err(err) => {
                             log::error!(
-                                "failed to spawn game server ({path}): {err}",
-                                path = cfg.get_game_absolute().to_string_lossy()
+                                "failed to spawn game server ({path}): {err_fmt}",
+                                path = cfg.get_game_absolute().to_string_lossy(),
+                                err_fmt = fmt_source_tree(&err),
                             );
                             return NonRecoverableError::CannotSpawnGameServer;
                         }
@@ -322,7 +333,10 @@ impl GameServerStateMachine {
                                     }
                                 }
                                 Err(err) => {
-                                    log::error!("failed to read line from STDOUT: {err}");
+                                    log::error!(
+                                        "failed to read line from STDOUT: {err_fmt}",
+                                        err_fmt = fmt_source_tree(&err)
+                                    );
                                     break;
                                 }
                             }
@@ -349,7 +363,10 @@ impl GameServerStateMachine {
                                     log::debug!(target: LOG_TARGET_GAME, "{trimmed_line}");
                                 }
                                 Err(err) => {
-                                    log::error!("failed to read line from STDERR: {err}");
+                                    log::error!(
+                                        "failed to read line from STDERR: {err_fmt}",
+                                        err_fmt = fmt_source_tree(&err)
+                                    );
                                     break;
                                 }
                             }
@@ -361,7 +378,8 @@ impl GameServerStateMachine {
                             Ok(()) => Ok(()),
                             Err(err) => {
                                 log::error!(
-                                    "coroutine for reading STDOUT ended without seeing readiness indication: {err}"
+                                    "coroutine for reading STDOUT ended without seeing readiness indication: {err_fmt}",
+                                    err_fmt = fmt_source_tree(&err)
                                 );
                                 Err(NonRecoverableError::SomeFatalEdgeCase)
                             }
@@ -378,8 +396,9 @@ impl GameServerStateMachine {
                         }
                         Err(err) => {
                             log::error!(
-                                "game server did not indicate its readiness within timeout of {timeout_secs} seconds: {err}",
+                                "game server did not indicate its readiness within timeout of {timeout_secs} seconds: {err_fmt}",
                                 timeout_secs = timeout.as_secs(),
+                                err_fmt = fmt_source_tree(&err)
                             );
                             return NonRecoverableError::GameServerStartupTimeout;
                         }
@@ -744,7 +763,10 @@ impl WebServer {
         let tcp_listener = match tokio::net::TcpListener::bind("127.0.0.1:8080").await {
             Ok(n) => n,
             Err(err) => {
-                log::error!("failed to bind TCP listener: {err}");
+                log::error!(
+                    "failed to bind TCP listener: {err_fmt}",
+                    err_fmt = fmt_source_tree(&err)
+                );
                 return self.summary;
             }
         };
@@ -781,12 +803,18 @@ async fn websocket_handler(
             let msg_valid: DownstreamClientMessage = match (&msg_raw).try_into() {
                 Ok(n) => n,
                 Err(err) => {
-                    log::error!("invalid message from downstream client: {err:?}: {msg_raw:?}");
+                    log::error!(
+                        "invalid message from downstream client: {err_fmt}",
+                        err_fmt = fmt_source_tree(&err)
+                    );
                     continue 'recv_messages;
                 }
             };
             if let Err(err) = stage.send(msg_valid).await {
-                log::error!("could not send message from downstream client to stage: {err:?}");
+                log::error!(
+                    "could not send message from downstream client to stage: {err_fmt}",
+                    err_fmt = fmt_source_tree(&err)
+                );
                 continue 'recv_messages;
             };
         }
@@ -800,12 +828,13 @@ enum DownstreamClientMessage {
     ServerConfigure { cfg: GameServerConfigurationPatch },
     ServerInstallOrUpdateAndStart,
     GameWorldKillPlayer { id: String },
+    WebSocketProtocolOther,
 }
 #[derive(Clone, Debug, serde::Deserialize)]
 struct GameServerConfigurationPatch {}
 
 impl TryFrom<&axum::extract::ws::Message> for DownstreamClientMessage {
-    type Error = ();
+    type Error = serde_json::Error;
 
     fn try_from(value: &axum::extract::ws::Message) -> Result<Self, Self::Error> {
         let utf8: String = match value {
@@ -813,11 +842,11 @@ impl TryFrom<&axum::extract::ws::Message> for DownstreamClientMessage {
             axum::extract::ws::Message::Binary(_)
             | axum::extract::ws::Message::Ping(_)
             | axum::extract::ws::Message::Pong(_)
-            | axum::extract::ws::Message::Close(_) => return Err(()),
+            | axum::extract::ws::Message::Close(_) => return Ok(Self::WebSocketProtocolOther),
         };
         let message: DownstreamClientMessage = match serde_json::from_str(&utf8) {
             Ok(n) => n,
-            Err(_) => return Err(()),
+            Err(err) => return Err(err),
         };
         Ok(message)
     }
@@ -857,7 +886,8 @@ impl Stage {
                 let msg: DownstreamClientMessage = msg;
                 if let Err(err) = self.game_ctl.send(msg).await {
                     log::error!(
-                        "failed to send downstream client message from stage to game server controller: {err}"
+                        "failed to send downstream client message from stage to game server controller: {err_fmt}",
+                        err_fmt = fmt_source_tree(&err)
                     );
                 }
             }
@@ -922,6 +952,7 @@ fn extract_buildid_from_buf(buf: &str) -> Option<u32> {
     buildid_str.parse::<u32>().ok()
 }
 
+#[derive(Debug)]
 enum NonRecoverableError {
     /// Game server installer is running when it is not expected to be.
     ConcurrentGameServerInstaller,
@@ -941,6 +972,25 @@ enum NonRecoverableError {
     /// Anything that probably indicates a non-recoverable failure state, yet is
     /// so weird or rare that it's not worth further narrowing.
     SomeFatalEdgeCase,
+}
+
+impl std::error::Error for NonRecoverableError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            NonRecoverableError::ConcurrentGameServerInstaller => None,
+            NonRecoverableError::ConcurrentGameServer => None,
+            NonRecoverableError::CannotSpawnGameServerInstaller => None,
+            NonRecoverableError::CannotSpawnGameServer => None,
+            NonRecoverableError::GameServerStartupTimeout => None,
+            NonRecoverableError::SomeFatalEdgeCase => None,
+        }
+    }
+}
+
+impl std::fmt::Display for NonRecoverableError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
 }
 
 const LOG_TARGET_GAME: &str = "game";
@@ -995,4 +1045,21 @@ fn is_process_running(executable: std::path::PathBuf) -> Option<u32> {
     }
 
     None
+}
+
+fn fmt_source_tree<E>(error: &E) -> String
+where
+    E: std::error::Error,
+{
+    let mut concatenated: String = String::new();
+
+    concatenated.push_str(&format!("{error}"));
+
+    let mut source: Option<_> = error.source();
+    while let Some(src) = source {
+        concatenated.push_str(&format!(": {src}"));
+        source = src.source();
+    }
+
+    concatenated
 }
