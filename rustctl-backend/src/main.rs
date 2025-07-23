@@ -844,10 +844,7 @@ impl TryFrom<&axum::extract::ws::Message> for DownstreamClientMessage {
             | axum::extract::ws::Message::Pong(_)
             | axum::extract::ws::Message::Close(_) => return Ok(Self::WebSocketProtocolOther),
         };
-        let message: DownstreamClientMessage = match serde_json::from_str(&utf8) {
-            Ok(n) => n,
-            Err(err) => return Err(err),
-        };
+        let message: DownstreamClientMessage = serde_json::from_str(&utf8)?;
         Ok(message)
     }
 }
