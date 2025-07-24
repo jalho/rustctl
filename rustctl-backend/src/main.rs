@@ -864,7 +864,7 @@ async fn websocket_handler(
 
         let client = DownstreamClient::new();
         let (client_id, connected_total) = state.register_client(client).await;
-        log::info!("Downstream client connected from {addr} -- {connected_total} connected clients in total");
+        log::info!("Downstream client connected: {addr} -- {connected_total} connected clients in total");
 
         let (tx, rx) = futures_util::StreamExt::split(socket);
         let mut sender = DownstreamClientSender::new(tx);
@@ -877,7 +877,7 @@ async fn websocket_handler(
 
         let connected_remaining = state.unregister_client(&client_id).await;
         log::info!(
-            "Downstream client disconnected from {addr} -- {connected_remaining} connected clients remain"
+            "Downstream client disconnected: {addr} -- {connected_remaining} connected clients remain"
         );
     })
 }
