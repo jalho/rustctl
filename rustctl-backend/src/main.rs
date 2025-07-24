@@ -968,11 +968,15 @@ impl DownstreamClientReceiver {
             let msg: DownstreamClientMessage = match (&msg).try_into() {
                 Ok(n) => n,
                 Err(err) => {
+                    /*
+                     * Client misbehavior indicates a bug in the client, in
+                     * which case we should drop it.
+                     */
                     log::error!(
-                        "Received invalid message from a downstream client: {err_fmt}",
+                        "Received invalid message from a downstream client: {err_fmt} -- Stopping handling!",
                         err_fmt = fmt_source_tree(&err)
                     );
-                    continue 'recv_messages;
+                    break 'recv_messages;
                 }
             };
 
