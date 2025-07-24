@@ -943,12 +943,17 @@ impl DownstreamClientReceiver {
         Self { rx }
     }
 
-    pub async fn work(&mut self, _stage: ActorHandle<DownstreamClientMessage>) {
+    pub async fn work(&mut self, stage: ActorHandle<DownstreamClientMessage>) {
         'recv_messages: loop {
             let next = futures_util::StreamExt::next(&mut self.rx);
             let msg: axum::extract::ws::Message = match next.await {
                 Some(Ok(n)) => n,
                 Some(Err(err)) => {
+                    /*
+                     * TODO: Unregister the client? Failing to recv from
+                     *       downstream probably indicates that the client is
+                     *       lost!
+                     */
                     log::error!(
                         "Failed to receive message from downstream client: {err_fmt}",
                         err_fmt = fmt_source_tree(&err)
@@ -960,13 +965,6 @@ impl DownstreamClientReceiver {
                 }
             };
 
-            /*
-             * TODO: Send msg to other actors via stage! I.e. msg being a
-             *       command received from an (authorized) downstream client,
-             *       to make the server initiate some state transition, such as
-             *       stopping a running game instance, and the "other actors"
-             *       being the thing that manages the game server state machine.
-             */
             let msg: DownstreamClientMessage = match (&msg).try_into() {
                 Ok(n) => n,
                 Err(err) => {
@@ -977,7 +975,19 @@ impl DownstreamClientReceiver {
                     continue 'recv_messages;
                 }
             };
-            dbg!(msg);
+
+            if let Err(err) = stage.send(msg).await {
+                log::error!(
+                    "Failed to send downstream client message to stage: {err_fmt}",
+                    err_fmt = fmt_source_tree(&err)
+                );
+                /*
+                 * Not being able to send a message to stage may indicate a
+                 * non-recoverable error case! (In case e.g. out of memory or
+                 * something...)
+                 */
+                todo!("request termination of the program");
+            }
         }
     }
 }
