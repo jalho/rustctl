@@ -753,6 +753,21 @@ pub struct CliArgs {
     pub mock: bool,
 }
 
+#[derive(Clone)]
+struct WebServerState {
+    stage: ActorHandle<DownstreamClientMessage>,
+}
+
+impl WebServerState {
+    pub fn new(stage: ActorHandle<DownstreamClientMessage>) -> Self {
+        Self { stage }
+    }
+
+    pub fn get_stage_handle(&self) -> ActorHandle<DownstreamClientMessage> {
+        self.stage.clone()
+    }
+}
+
 struct WebServer {
     summary: WebServerSummary,
     cancel_read: tokio_util::sync::CancellationToken,
@@ -760,9 +775,11 @@ struct WebServer {
 }
 impl WebServer {
     pub fn new(terminator: &Terminator, stage: &Stage) -> Self {
+        let state = WebServerState::new(stage.get_handle());
+
         let router: axum::Router = axum::Router::new()
             .route("/ws", axum::routing::get(websocket_handler))
-            .with_state(stage.get_handle());
+            .with_state(state);
 
         Self {
             summary: WebServerSummary {},
@@ -800,11 +817,11 @@ struct WebServerSummary;
 
 async fn websocket_handler(
     ws: axum::extract::WebSocketUpgrade,
-    axum::extract::State(stage): axum::extract::State<ActorHandle<DownstreamClientMessage>>,
+    axum::extract::State(state): axum::extract::State<WebServerState>,
 ) -> axum::response::Response {
     ws.on_upgrade(async |socket| {
         let socket: axum::extract::ws::WebSocket = socket;
-        let stage: ActorHandle<DownstreamClientMessage> = stage;
+        let state: WebServerState = state;
 
         let (tx, rx) = futures_util::StreamExt::split(socket);
         let mut sender = DownstreamClientSender::new(tx);
@@ -812,7 +829,7 @@ async fn websocket_handler(
 
         let _done: () = tokio::select!(
             done = sender.work() => done,
-            done = receiver.work(stage) => done,
+            done = receiver.work(state.get_stage_handle()) => done,
         );
     })
 }
