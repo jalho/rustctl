@@ -907,8 +907,10 @@ impl DownstreamClientSender {
 
     /*
      * TODO: Instead of mock ticking with interval, continuosly receive from
-     *       some other Actor: Send state updates as fast as the other Actor
-     *       produces them!
+     *       other actors: Send state updates as fast as the other actors
+     *       produce them! I.e. the other actors being some mechanisms that
+     *       query in-game state updates (via RCON), or system resources usage
+     *       snapshots etc.
      */
     pub async fn work(&mut self) {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(3));
@@ -959,7 +961,11 @@ impl DownstreamClientReceiver {
             };
 
             /*
-             * TODO: Send msg to other actors via stage!
+             * TODO: Send msg to other actors via stage! I.e. msg being a
+             *       command received from an (authorized) downstream client,
+             *       to make the server initiate some state transition, such as
+             *       stopping a running game instance, and the "other actors"
+             *       being the thing that manages the game server state machine.
              */
             dbg!(msg);
         }
