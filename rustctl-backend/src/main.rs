@@ -967,6 +967,16 @@ impl DownstreamClientReceiver {
              *       stopping a running game instance, and the "other actors"
              *       being the thing that manages the game server state machine.
              */
+            let msg: DownstreamClientMessage = match (&msg).try_into() {
+                Ok(n) => n,
+                Err(err) => {
+                    log::error!(
+                        "Received invalid message from a downstream client: {err_fmt}",
+                        err_fmt = fmt_source_tree(&err)
+                    );
+                    continue 'recv_messages;
+                }
+            };
             dbg!(msg);
         }
     }
