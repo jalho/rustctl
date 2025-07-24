@@ -2,4 +2,21 @@
 name = "websocket-client-cli"
 edition = "2024"
 
-[dependencies]
+[dependencies.tokio]
+workspace = true
+features  = [
+  "macros",
+  "rt",
+  "time",
+]
+
+[dependencies.tokio-tungstenite]
+workspace = true
+features  = [
+  "connect",
+]
+
+[dependencies.futures-util]
+workspace = true
+features  = [
+]
