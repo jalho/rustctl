@@ -51,7 +51,7 @@ async fn work_with_writeable(mut writable: SplitSink<Socket, tungstenite::Messag
 
     loop {
         interval.tick().await;
-        let msg = tungstenite::Message::Text("foofoo".into());
+        let msg = tungstenite::Message::Text("Hello to server from CLI client!".into());
         if let Err(e) = futures_util::SinkExt::send(&mut writable, msg).await {
             eprintln!("Error sending message: {}", e);
             break;

@@ -1,3 +1,5 @@
+use futures_util::SinkExt;
+
 /*
  * Rewrite in terms of the "actor pattern" (a concurrency pattern): There should
  * be _actors_ that own their stuff (such as I/O resources), and that perform
@@ -801,32 +803,93 @@ async fn websocket_handler(
     axum::extract::State(stage): axum::extract::State<ActorHandle<DownstreamClientMessage>>,
 ) -> axum::response::Response {
     ws.on_upgrade(async |socket| {
-        let mut socket: axum::extract::ws::WebSocket = socket;
+        let socket: axum::extract::ws::WebSocket = socket;
         let stage: ActorHandle<DownstreamClientMessage> = stage;
 
-        'recv_messages: while let Some(Ok(message)) =
-            futures_util::StreamExt::next(&mut socket).await
-        {
-            let msg_raw: axum::extract::ws::Message = message;
-            let msg_valid: DownstreamClientMessage = match (&msg_raw).try_into() {
-                Ok(n) => n,
-                Err(err) => {
-                    log::error!(
-                        "Invalid message from downstream client: {err_fmt}",
-                        err_fmt = fmt_source_tree(&err)
-                    );
-                    continue 'recv_messages;
-                }
-            };
-            if let Err(err) = stage.send(msg_valid).await {
+        let (tx, rx) = futures_util::StreamExt::split(socket);
+        let mut sender = DownstreamClientSender::new(tx);
+        let mut receiver = DownstreamClientReceiver::new(rx);
+
+        let _done: () = tokio::select!(
+            done = sender.work() => done,
+            done = receiver.work(stage) => done,
+        );
+    })
+}
+
+struct DownstreamClientSender {
+    tx: futures_util::stream::SplitSink<axum::extract::ws::WebSocket, axum::extract::ws::Message>,
+}
+
+impl DownstreamClientSender {
+    pub fn new(
+        tx: futures_util::stream::SplitSink<
+            axum::extract::ws::WebSocket,
+            axum::extract::ws::Message,
+        >,
+    ) -> Self {
+        Self { tx }
+    }
+
+    /*
+     * TODO: Instead of mock ticking with interval, continuosly receive from
+     *       some other Actor: Send state updates as fast as the other Actor
+     *       produces them!
+     */
+    pub async fn work(&mut self) {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(3));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        'send_messages: loop {
+            interval.tick().await;
+            if let Err(err) = self
+                .tx
+                .send("Hello to downstream client from server!".into())
+                .await
+            {
+                let err: axum::Error = err;
                 log::error!(
-                    "Could not send message from downstream client to stage: {err_fmt}",
+                    "Failed to send message to downstream client: {err_fmt}",
                     err_fmt = fmt_source_tree(&err)
                 );
-                continue 'recv_messages;
-            };
+                break 'send_messages;
+            }
         }
-    })
+    }
+}
+
+struct DownstreamClientReceiver {
+    rx: futures_util::stream::SplitStream<axum::extract::ws::WebSocket>,
+}
+
+impl DownstreamClientReceiver {
+    pub fn new(rx: futures_util::stream::SplitStream<axum::extract::ws::WebSocket>) -> Self {
+        Self { rx }
+    }
+
+    pub async fn work(&mut self, _stage: ActorHandle<DownstreamClientMessage>) {
+        'recv_messages: loop {
+            let next = futures_util::StreamExt::next(&mut self.rx);
+            let msg: axum::extract::ws::Message = match next.await {
+                Some(Ok(n)) => n,
+                Some(Err(err)) => {
+                    log::error!(
+                        "Failed to receive message from downstream client: {err_fmt}",
+                        err_fmt = fmt_source_tree(&err)
+                    );
+                    break 'recv_messages;
+                }
+                None => {
+                    break 'recv_messages;
+                }
+            };
+
+            /*
+             * TODO: Send msg to other actors via stage!
+             */
+            dbg!(msg);
+        }
+    }
 }
 
 #[allow(dead_code)] // TODO: Disallow dead code!
