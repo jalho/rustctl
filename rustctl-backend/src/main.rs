@@ -829,9 +829,16 @@ impl WebServer {
                 return self.summary;
             }
         };
+
+        let service = self
+            .router
+            .into_make_service_with_connect_info::<std::net::SocketAddr>();
+
+        let serve = axum::serve(tcp_listener, service);
+
         if let Some(Err(err)) = self
             .cancel_read
-            .run_until_cancelled(async move { axum::serve(tcp_listener, self.router).await })
+            .run_until_cancelled(async move { serve.await })
             .await
         {
             /*
@@ -847,15 +854,17 @@ struct WebServerSummary;
 
 async fn websocket_handler(
     ws: axum::extract::WebSocketUpgrade,
+    axum::extract::ConnectInfo(addr): axum::extract::ConnectInfo<std::net::SocketAddr>,
     axum::extract::State(state): axum::extract::State<WebServerState>,
 ) -> axum::response::Response {
-    ws.on_upgrade(async |socket| {
+    ws.on_upgrade(async move |socket| {
         let socket: axum::extract::ws::WebSocket = socket;
+        let addr: std::net::SocketAddr = addr;
         let mut state: WebServerState = state;
 
         let client = DownstreamClient::new();
         let (client_id, connected_total) = state.register_client(client).await;
-        log::info!("Downstream client connected -- {connected_total} connected clients in total");
+        log::info!("Downstream client connected from {addr} -- {connected_total} connected clients in total");
 
         let (tx, rx) = futures_util::StreamExt::split(socket);
         let mut sender = DownstreamClientSender::new(tx);
@@ -868,7 +877,7 @@ async fn websocket_handler(
 
         let connected_remaining = state.unregister_client(&client_id).await;
         log::info!(
-            "Downstream client disconnected -- {connected_remaining} connected clients remain"
+            "Downstream client disconnected from {addr} -- {connected_remaining} connected clients remain"
         );
     })
 }
