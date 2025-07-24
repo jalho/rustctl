@@ -35,7 +35,7 @@ async fn work_with_readable(mut readable: SplitStream<Socket>) {
                 dbg!(msg);
             }
             Some(Err(e)) => {
-                eprintln!("Error receiving message: {}", e);
+                eprintln!("Error receiving message: {e}");
                 break;
             }
             None => {
@@ -53,7 +53,7 @@ async fn work_with_writeable(mut writable: SplitSink<Socket, tungstenite::Messag
         interval.tick().await;
         let msg = tungstenite::Message::Text("Hello to server from CLI client!".into());
         if let Err(e) = futures_util::SinkExt::send(&mut writable, msg).await {
-            eprintln!("Error sending message: {}", e);
+            eprintln!("Error sending message: {e}");
             break;
         }
     }
