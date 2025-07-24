@@ -950,12 +950,14 @@ impl DownstreamClientReceiver {
                 Some(Ok(n)) => n,
                 Some(Err(err)) => {
                     /*
-                     * TODO: Unregister the client? Failing to recv from
-                     *       downstream probably indicates that the client is
-                     *       lost!
+                     * Client closing the connection non-gracefully is not the
+                     * happy path, but there might also not be anything we can
+                     * do about it (e.g. in the case of the client's networking
+                     * device just exploding or something), therefore logging
+                     * as warning.
                      */
-                    log::error!(
-                        "Failed to receive message from downstream client: {err_fmt}",
+                    log::warn!(
+                        "Client likely closed non-gracefully: Failed to receive message from downstream client: {err_fmt}",
                         err_fmt = fmt_source_tree(&err)
                     );
                     break 'recv_messages;
@@ -965,6 +967,10 @@ impl DownstreamClientReceiver {
                 }
             };
 
+            /*
+             * TODO: Implement graceful disconnect: Unregister the client when
+             *       graceful close message is received!
+             */
             let msg: DownstreamClientMessage = match (&msg).try_into() {
                 Ok(n) => n,
                 Err(err) => {
