@@ -756,15 +756,35 @@ pub struct CliArgs {
 #[derive(Clone)]
 struct WebServerState {
     stage: ActorHandle<DownstreamClientMessage>,
+
+    /*
+     * TODO: Put the clients collection in Arc<Mutex>! Otherwise, the same
+     *       shared collection is not referenced between different accepted
+     *       connections!
+     */
+    clients_connected: std::collections::HashMap<uuid::Uuid, DownstreamClient>,
 }
 
 impl WebServerState {
     pub fn new(stage: ActorHandle<DownstreamClientMessage>) -> Self {
-        Self { stage }
+        Self {
+            stage,
+            clients_connected: std::collections::HashMap::new(),
+        }
     }
 
     pub fn get_stage_handle(&self) -> ActorHandle<DownstreamClientMessage> {
         self.stage.clone()
+    }
+
+    pub fn register_client(&mut self, client: DownstreamClient) -> uuid::Uuid {
+        let id = uuid::Uuid::new_v4();
+        self.clients_connected.insert(id, client);
+        id
+    }
+
+    pub fn unregister_client(&mut self, id: &uuid::Uuid) {
+        self.clients_connected.remove(id);
     }
 }
 
@@ -821,7 +841,14 @@ async fn websocket_handler(
 ) -> axum::response::Response {
     ws.on_upgrade(async |socket| {
         let socket: axum::extract::ws::WebSocket = socket;
-        let state: WebServerState = state;
+        let mut state: WebServerState = state;
+
+        let client = DownstreamClient::new();
+        let client_id: uuid::Uuid = state.register_client(client);
+        log::info!(
+            "Downstream client connected -- {count} connected clients in total",
+            count = state.clients_connected.len()
+        );
 
         let (tx, rx) = futures_util::StreamExt::split(socket);
         let mut sender = DownstreamClientSender::new(tx);
@@ -831,7 +858,22 @@ async fn websocket_handler(
             done = sender.work() => done,
             done = receiver.work(state.get_stage_handle()) => done,
         );
+
+        state.unregister_client(&client_id);
+        log::info!(
+            "Downstream client disconnected -- {count} connected clients remain",
+            count = state.clients_connected.len()
+        );
     })
+}
+
+#[derive(Clone)]
+struct DownstreamClient {}
+
+impl DownstreamClient {
+    pub fn new() -> Self {
+        Self {}
+    }
 }
 
 struct DownstreamClientSender {
