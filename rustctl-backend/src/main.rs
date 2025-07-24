@@ -782,15 +782,13 @@ impl WebServer {
         };
         if let Some(Err(err)) = self
             .cancel_read
-            .run_until_cancelled(async move {
-                /*
-                 * From docs (axum v0.8.4):
-                 *   "will never actually complete or return an error"
-                 */
-                axum::serve(tcp_listener, self.router).await
-            })
+            .run_until_cancelled(async move { axum::serve(tcp_listener, self.router).await })
             .await
         {
+            /*
+             * From docs (axum v0.8.4):
+             *   fn axum::serve "will never actually complete or return an error"
+             */
             unreachable!("{err}")
         }
         self.summary
