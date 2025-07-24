@@ -1,5 +1,3 @@
-use futures_util::SinkExt;
-
 /*
  * Rewrite in terms of the "actor pattern" (a concurrency pattern): There should
  * be _actors_ that own their stuff (such as I/O resources), and that perform
@@ -756,20 +754,17 @@ pub struct CliArgs {
 #[derive(Clone)]
 struct WebServerState {
     stage: ActorHandle<DownstreamClientMessage>,
-
-    /*
-     * TODO: Put the clients collection in Arc<Mutex>! Otherwise, the same
-     *       shared collection is not referenced between different accepted
-     *       connections!
-     */
-    clients_connected: std::collections::HashMap<uuid::Uuid, DownstreamClient>,
+    clients_connected:
+        std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<uuid::Uuid, DownstreamClient>>>,
 }
 
 impl WebServerState {
     pub fn new(stage: ActorHandle<DownstreamClientMessage>) -> Self {
         Self {
             stage,
-            clients_connected: std::collections::HashMap::new(),
+            clients_connected: std::sync::Arc::new(tokio::sync::Mutex::new(
+                std::collections::HashMap::new(),
+            )),
         }
     }
 
@@ -777,14 +772,29 @@ impl WebServerState {
         self.stage.clone()
     }
 
-    pub fn register_client(&mut self, client: DownstreamClient) -> uuid::Uuid {
+    pub async fn register_client(&mut self, client: DownstreamClient) -> (uuid::Uuid, usize) {
         let id = uuid::Uuid::new_v4();
-        self.clients_connected.insert(id, client);
-        id
+        let connected_total: usize;
+
+        {
+            let mut lock = self.clients_connected.lock().await;
+            lock.insert(id, client);
+            connected_total = lock.len();
+        }
+
+        (id, connected_total)
     }
 
-    pub fn unregister_client(&mut self, id: &uuid::Uuid) {
-        self.clients_connected.remove(id);
+    pub async fn unregister_client(&mut self, id: &uuid::Uuid) -> usize {
+        let connected_remaining: usize;
+
+        {
+            let mut lock = self.clients_connected.lock().await;
+            lock.remove(id);
+            connected_remaining = lock.len();
+        }
+
+        connected_remaining
     }
 }
 
@@ -844,11 +854,8 @@ async fn websocket_handler(
         let mut state: WebServerState = state;
 
         let client = DownstreamClient::new();
-        let client_id: uuid::Uuid = state.register_client(client);
-        log::info!(
-            "Downstream client connected -- {count} connected clients in total",
-            count = state.clients_connected.len()
-        );
+        let (client_id, connected_total) = state.register_client(client).await;
+        log::info!("Downstream client connected -- {connected_total} connected clients in total");
 
         let (tx, rx) = futures_util::StreamExt::split(socket);
         let mut sender = DownstreamClientSender::new(tx);
@@ -859,10 +866,9 @@ async fn websocket_handler(
             done = receiver.work(state.get_stage_handle()) => done,
         );
 
-        state.unregister_client(&client_id);
+        let connected_remaining = state.unregister_client(&client_id).await;
         log::info!(
-            "Downstream client disconnected -- {count} connected clients remain",
-            count = state.clients_connected.len()
+            "Downstream client disconnected -- {connected_remaining} connected clients remain"
         );
     })
 }
@@ -901,11 +907,11 @@ impl DownstreamClientSender {
 
         'send_messages: loop {
             interval.tick().await;
-            if let Err(err) = self
-                .tx
-                .send("Hello to downstream client from server!".into())
-                .await
-            {
+            let send = futures_util::SinkExt::send(
+                &mut self.tx,
+                "Hello to downstream client from server!".into(),
+            );
+            if let Err(err) = send.await {
                 let err: axum::Error = err;
                 log::error!(
                     "Failed to send message to downstream client: {err_fmt}",
