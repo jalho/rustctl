@@ -919,13 +919,11 @@ impl DownstreamClientSender {
         'send_messages: loop {
             interval.tick().await;
 
-            let timestamp: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
-            let timestamp: String = timestamp.to_rfc3339();
+            let captured: rustctl_common::snapshot::Snapshot =
+                rustctl_common::snapshot::Snapshot::dummy();
+            let serialized: String = serde_json::to_string(&captured).unwrap();
 
-            let send = futures_util::SinkExt::send(
-                &mut self.tx,
-                format!("[{timestamp}] [server] - Hello to downstream client from server!").into(),
-            );
+            let send = futures_util::SinkExt::send(&mut self.tx, serialized.into());
             if let Err(err) = send.await {
                 let err: axum::Error = err;
                 log::error!(

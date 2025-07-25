@@ -80,3 +80,8 @@ features = [
 workspace = true
 features  = [
 ]
+
+[dependencies.rustctl-common]
+workspace = true
+features  = [
+]

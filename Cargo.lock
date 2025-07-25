@@ -1935,6 +1935,7 @@ dependencies = [
  "log",
  "log4rs",
  "rand 0.9.1",
+ "rustctl-common",
  "serde",
  "serde_json",
  "tokio",

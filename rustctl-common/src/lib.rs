@@ -7,6 +7,19 @@ pub mod snapshot {
         pub game_server_state: GameServerStateExposed,
     }
 
+    impl Snapshot {
+        pub fn dummy() -> Self {
+            let timestamp = chrono::Utc::now();
+            Self {
+                captured_at: timestamp,
+                game_server_state: GameServerStateExposed::NotRunning(TrackedState {
+                    transitioned_into_at: timestamp,
+                    value: (),
+                }),
+            }
+        }
+    }
+
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     pub struct TrackedState<T> {
         pub transitioned_into_at: chrono::DateTime<chrono::Utc>,
