@@ -3,9 +3,10 @@ fn main() -> std::process::ExitCode {
     let c1: tokio_util::sync::CancellationToken = c0.child_token();
 
     let (tx_updates, rx_updates) = std::sync::mpsc::channel::<rustctl_common::snapshot::Snapshot>();
+    let (tx_commands, rx_commands) = std::sync::mpsc::channel::<rustctl_common::command::Command>();
 
-    let th_tui = std::thread::spawn(|| tui::work(rx_updates, c0));
-    let th_connection = std::thread::spawn(|| connection::work(tx_updates, c1));
+    let th_tui = std::thread::spawn(|| tui::work(rx_updates, tx_commands, c0));
+    let th_connection = std::thread::spawn(|| connection::work(tx_updates, rx_commands, c1));
 
     let _done_tui: () = th_tui.join().unwrap();
     let _done_connection: () = th_connection.join().unwrap();
@@ -15,10 +16,12 @@ fn main() -> std::process::ExitCode {
 }
 
 mod connection {
+    use futures_util::{SinkExt, StreamExt};
     use rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH;
 
     pub fn work(
         tx_updates: std::sync::mpsc::Sender<rustctl_common::snapshot::Snapshot>,
+        rx_commands: std::sync::mpsc::Receiver<rustctl_common::command::Command>,
         cancel: tokio_util::sync::CancellationToken,
     ) {
         let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
@@ -27,23 +30,37 @@ mod connection {
             .build()
             .unwrap();
 
-        let job = cancel.run_until_cancelled(connect(tx_updates));
+        let job = cancel.run_until_cancelled(connect(tx_updates, rx_commands));
 
         let _coroutine_done = rt.block_on(job);
     }
 
-    async fn connect(tx_updates: std::sync::mpsc::Sender<rustctl_common::snapshot::Snapshot>) {
-        /*
-         * TODO: Split the stream to read and write, and use the write to send
-         *       commands to the server, on key press!
-         */
-        let (mut stream, _response) = tokio_tungstenite::connect_async(format!(
+    async fn connect(
+        tx_updates: std::sync::mpsc::Sender<rustctl_common::snapshot::Snapshot>,
+        rx_commands: std::sync::mpsc::Receiver<rustctl_common::command::Command>,
+    ) {
+        let (stream, _response) = tokio_tungstenite::connect_async(format!(
             "ws://127.0.0.1:8080{WEBSOCKET_CONNECT_URL_PATH}"
         ))
         .await
         .unwrap();
 
-        'recv_messages: while let Some(Ok(msg)) = futures_util::StreamExt::next(&mut stream).await {
+        let (mut write, mut read) = stream.split();
+
+        let coroutine_pass_commands = tokio::spawn(async move {
+            'pass_commands: loop {
+                if let Ok(command) = rx_commands.try_recv() {
+                    let serialized = serde_json::to_string(&command).unwrap();
+                    let message = tokio_tungstenite::tungstenite::Message::Text(serialized.into());
+                    if write.send(message).await.is_err() {
+                        break 'pass_commands;
+                    }
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        });
+
+        'recv_messages: while let Some(Ok(msg)) = read.next().await {
             let msg: tokio_tungstenite::tungstenite::Message = msg;
             let utf8: String = match msg {
                 tokio_tungstenite::tungstenite::Message::Text(utf8_bytes) => utf8_bytes.to_string(),
@@ -55,8 +72,12 @@ mod connection {
             let deserialized: rustctl_common::snapshot::Snapshot =
                 serde_json::from_str(&utf8).unwrap();
 
-            tx_updates.send(deserialized).unwrap();
+            if tx_updates.send(deserialized).is_err() {
+                break 'recv_messages;
+            }
         }
+
+        coroutine_pass_commands.abort();
     }
 }
 
@@ -65,26 +86,32 @@ mod tui {
 
     pub fn work(
         rx_updates: std::sync::mpsc::Receiver<rustctl_common::snapshot::Snapshot>,
+        tx_commands: std::sync::mpsc::Sender<rustctl_common::command::Command>,
         cancel: tokio_util::sync::CancellationToken,
     ) {
         let mut terminal: ratatui::Terminal<_> = ratatui::init();
-        let _app_done = Ctl::new(rx_updates, cancel).run(&mut terminal).unwrap();
+        let _app_done = Ctl::new(rx_updates, tx_commands, cancel)
+            .run(&mut terminal)
+            .unwrap();
     }
 
     pub struct Ctl {
         should_terminate: tokio_util::sync::CancellationToken,
         rx_updates: std::sync::mpsc::Receiver<rustctl_common::snapshot::Snapshot>,
+        tx_commands: std::sync::mpsc::Sender<rustctl_common::command::Command>,
         message_log: std::collections::VecDeque<rustctl_common::snapshot::Snapshot>,
     }
 
     impl Ctl {
         pub fn new(
             rx_updates: std::sync::mpsc::Receiver<rustctl_common::snapshot::Snapshot>,
+            tx_commands: std::sync::mpsc::Sender<rustctl_common::command::Command>,
             cancel: tokio_util::sync::CancellationToken,
         ) -> Self {
             Self {
                 should_terminate: cancel,
                 rx_updates,
+                tx_commands,
                 message_log: std::collections::VecDeque::with_capacity(MSG_STORE_SIZE),
             }
         }
@@ -116,20 +143,20 @@ mod tui {
         }
 
         fn handle_key_event(&mut self, key_event: crossterm::event::KeyEvent) {
-            /*
-             * TODO: On key press 'l', send command "cmd_launch", and on key press
-             *       't', send command "cmd_terminate".
-             *
-             *       Send = Serialize with serde_json, and send the serialized
-             *              over the WebSocket.
-             */
             let cmd_launch: rustctl_common::command::Command =
                 rustctl_common::command::Command::TransitionFromNotRunning;
+
             let cmd_terminate: rustctl_common::command::Command =
                 rustctl_common::command::Command::TransitionFromRunningHealthy;
 
             match key_event.code {
                 crossterm::event::KeyCode::Char('q') => self.app_quit(),
+                crossterm::event::KeyCode::Char('l') => {
+                    let _ = self.tx_commands.send(cmd_launch);
+                }
+                crossterm::event::KeyCode::Char('t') => {
+                    let _ = self.tx_commands.send(cmd_terminate);
+                }
                 _ => {}
             }
         }
@@ -146,6 +173,10 @@ mod tui {
             let instructions = ratatui::text::Line::from(vec![
                 " Quit ".into(),
                 ratatui::style::Stylize::bold(ratatui::style::Stylize::blue("<Q>")),
+                " Launch ".into(),
+                ratatui::style::Stylize::bold(ratatui::style::Stylize::green("<L>")),
+                " Terminate ".into(),
+                ratatui::style::Stylize::bold(ratatui::style::Stylize::red("<T>")),
             ]);
             let block = ratatui::widgets::Block::bordered()
                 .title(title.centered())

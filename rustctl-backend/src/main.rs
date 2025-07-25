@@ -977,6 +977,7 @@ impl DownstreamClientReceiver {
                     break 'recv_messages;
                 }
             };
+            dbg!(&msg);
 
             /*
              * TODO: Implement graceful disconnect: Unregister the client when
