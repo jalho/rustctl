@@ -1,53 +1,73 @@
 fn main() -> std::process::ExitCode {
-    let coroutine_tui: std::thread::JoinHandle<_> = std::thread::spawn(tui::work);
+    let (tx_updates, rx_updates) = std::sync::mpsc::channel::<String>();
 
-    let _tui_done: () = coroutine_tui.join().unwrap();
+    let th_tui = std::thread::spawn(|| tui::work(rx_updates));
+    let th_connection = std::thread::spawn(|| connection::work(tx_updates));
+
+    let _done_tui: () = th_tui.join().unwrap();
+    let _done_connection: () = th_connection.join().unwrap();
+
     ratatui::restore();
-
     std::process::ExitCode::SUCCESS
 }
 
+mod connection {
+    pub fn work(tx_updates: std::sync::mpsc::Sender<String>) {
+        let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_io()
+            .enable_time()
+            .build()
+            .unwrap();
+        let _coroutine_done = rt.block_on(connect(tx_updates));
+    }
+
+    async fn connect(tx_updates: std::sync::mpsc::Sender<String>) {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            tx_updates.send("Slept a bit!".into()).unwrap();
+        }
+    }
+}
+
 mod tui {
-    pub fn work() {
+    pub fn work(rx_updates: std::sync::mpsc::Receiver<String>) {
         let mut terminal: ratatui::Terminal<_> = ratatui::init();
-        let _app_done = App::new().run(&mut terminal).unwrap();
+        let _app_done = Ctl::new(rx_updates).run(&mut terminal).unwrap();
     }
 
-    pub struct App {
-        messages_received: u8,
+    pub struct Ctl {
         should_terminate: bool,
+
+        rx_updates: std::sync::mpsc::Receiver<String>,
+
+        messages_received: u8,
     }
 
-    impl App {
-        pub fn new() -> Self {
+    impl Ctl {
+        pub fn new(rx_updates: std::sync::mpsc::Receiver<String>) -> Self {
             Self {
-                messages_received: 1,
                 should_terminate: false,
+                rx_updates,
+                messages_received: 1,
             }
         }
 
         pub fn run(&mut self, terminal: &mut ratatui::DefaultTerminal) -> std::io::Result<()> {
             while !self.should_terminate {
                 terminal.draw(|frame| self.draw(frame))?;
-                self.handle_events()?;
+                if crossterm::event::poll(std::time::Duration::from_millis(100))? {
+                    let key_event = crossterm::event::read()?;
+                    match key_event {
+                        crossterm::event::Event::Key(key_event) => self.handle_key_event(key_event),
+                        _ => {}
+                    }
+                }
             }
             Ok(())
         }
 
         fn draw(&self, frame: &mut ratatui::Frame) {
             frame.render_widget(self, frame.area());
-        }
-
-        fn handle_events(&mut self) -> std::io::Result<()> {
-            match crossterm::event::read()? {
-                crossterm::event::Event::Key(key_event)
-                    if key_event.kind == crossterm::event::KeyEventKind::Press =>
-                {
-                    self.handle_key_event(key_event)
-                }
-                _ => {}
-            };
-            Ok(())
         }
 
         fn handle_key_event(&mut self, key_event: crossterm::event::KeyEvent) {
@@ -72,7 +92,7 @@ mod tui {
         }
     }
 
-    impl ratatui::widgets::Widget for &App {
+    impl ratatui::widgets::Widget for &Ctl {
         fn render(self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
             let title = ratatui::text::Line::from(ratatui::style::Stylize::bold(" rustctl "));
 
