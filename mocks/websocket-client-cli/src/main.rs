@@ -75,10 +75,10 @@ mod tui {
         pub fn run(&mut self, terminal: &mut ratatui::DefaultTerminal) -> std::io::Result<()> {
             while !self.should_terminate.is_cancelled() {
                 while let Ok(msg) = self.rx_updates.try_recv() {
-                    self.message_log.push_back(msg);
                     if self.message_log.len() >= self.message_log.capacity() {
                         self.message_log.pop_front();
                     }
+                    self.message_log.push_back(msg);
                 }
 
                 terminal.draw(|frame| self.draw(frame))?;
@@ -123,18 +123,15 @@ mod tui {
                 .title_bottom(instructions.centered())
                 .border_set(ratatui::symbols::border::THICK);
 
-            /*
-             * TODO: Render the message log stacked vertically.
-             */
-            let message_log: &std::collections::VecDeque<String> = &self.message_log;
+            let message_lines: Vec<ratatui::text::Line> = self
+                .message_log
+                .iter()
+                .map(|msg| ratatui::text::Line::from(format!(" {}", msg)))
+                .collect();
 
-            let counter_text = ratatui::text::Text::from(vec![ratatui::text::Line::from(vec![
-                " Message log length: ".into(),
-                ratatui::style::Stylize::yellow(message_log.len().to_string()),
-            ])]);
+            let message_text = ratatui::text::Text::from(message_lines);
 
-            ratatui::widgets::Paragraph::new(counter_text)
-                .centered()
+            ratatui::widgets::Paragraph::new(message_text)
                 .block(block)
                 .render(area, buf);
         }
