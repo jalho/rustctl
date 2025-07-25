@@ -1949,10 +1949,12 @@ dependencies = [
 name = "rustctl-common"
 version = "0.0.0"
 dependencies = [
+ "axum",
  "chrono",
  "dioxus",
  "dioxus-core",
  "serde",
+ "serde_json",
  "uuid",
 ]
 

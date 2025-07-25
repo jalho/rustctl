@@ -29,3 +29,14 @@ workspace = true
 features  = [
   "macro",
 ]
+
+[dependencies.axum]
+workspace = true
+features  = [
+  "ws",
+]
+
+[dependencies.serde_json]
+workspace = true
+features  = [
+]

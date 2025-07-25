@@ -99,15 +99,16 @@ fn main() -> std::process::ExitCode {
 }
 
 struct GameServerController {
-    tx: tokio::sync::mpsc::Sender<DownstreamClientMessage>,
-    rx: tokio::sync::mpsc::Receiver<DownstreamClientMessage>,
+    tx: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
+    rx: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
     summary: GameServerControllerSummary,
     cancel_read: tokio_util::sync::CancellationToken,
     cancel_write: tokio::sync::mpsc::Sender<()>,
 }
 impl GameServerController {
     fn new(terminator: &Terminator) -> Self {
-        let (tx, rx) = tokio::sync::mpsc::channel::<DownstreamClientMessage>(1);
+        let (tx, rx) =
+            tokio::sync::mpsc::channel::<rustctl_common::command::DownstreamClientMessage>(1);
 
         let (cancel_write, cancel_read) = terminator.get_handle();
 
@@ -120,7 +121,7 @@ impl GameServerController {
         }
     }
 
-    fn get_handle(&self) -> ActorHandle<DownstreamClientMessage> {
+    fn get_handle(&self) -> ActorHandle<rustctl_common::command::DownstreamClientMessage> {
         ActorHandle::new(self.tx.clone())
     }
 
@@ -187,7 +188,9 @@ impl GameServerStateMachine {
     pub async fn loop_transitions(
         mut self,
         cancellation_token: tokio_util::sync::CancellationToken,
-        mut command_rx: tokio::sync::mpsc::Receiver<DownstreamClientMessage>,
+        mut command_rx: tokio::sync::mpsc::Receiver<
+            rustctl_common::command::DownstreamClientMessage,
+        >,
         store: std::sync::Arc<tokio::sync::Mutex<Store>>,
     ) -> NonRecoverableError {
         loop {
@@ -435,9 +438,9 @@ impl GameServerStateMachine {
 
                     match event {
                         GameCtlEvent::MessageReceived { message } => {
-                            let command: DownstreamClientMessage = message;
+                            let command: rustctl_common::command::DownstreamClientMessage = message;
                             match command {
-                                DownstreamClientMessage::ServerSaveAndClose => {
+                                rustctl_common::command::DownstreamClientMessage::ServerSaveAndClose => {
                                     /*
                                      * TODO: Issue SIGINT for the tracked game
                                      *       server child process, and transition to
@@ -470,9 +473,9 @@ impl GameServerStateMachine {
                 Self::ClosedManually => {
                     let msg = command_rx.recv().await;
                     if let Some(command) = msg {
-                        let command: DownstreamClientMessage = command;
+                        let command: rustctl_common::command::DownstreamClientMessage = command;
                         match command {
-                            DownstreamClientMessage::ServerInstallOrUpdateAndStart => {
+                            rustctl_common::command::DownstreamClientMessage::ServerInstallOrUpdateAndStart => {
                                 self = Self::Preparing;
                             }
                             _ => {
@@ -755,13 +758,13 @@ pub struct CliArgs {
 
 #[derive(Clone)]
 struct WebServerState {
-    stage: ActorHandle<DownstreamClientMessage>,
+    stage: ActorHandle<rustctl_common::command::DownstreamClientMessage>,
     clients_connected:
         std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<uuid::Uuid, DownstreamClient>>>,
 }
 
 impl WebServerState {
-    pub fn new(stage: ActorHandle<DownstreamClientMessage>) -> Self {
+    pub fn new(stage: ActorHandle<rustctl_common::command::DownstreamClientMessage>) -> Self {
         Self {
             stage,
             clients_connected: std::sync::Arc::new(tokio::sync::Mutex::new(
@@ -770,7 +773,9 @@ impl WebServerState {
         }
     }
 
-    pub fn get_stage_handle(&self) -> ActorHandle<DownstreamClientMessage> {
+    pub fn get_stage_handle(
+        &self,
+    ) -> ActorHandle<rustctl_common::command::DownstreamClientMessage> {
         self.stage.clone()
     }
 
@@ -954,7 +959,10 @@ impl DownstreamClientReceiver {
         Self { rx }
     }
 
-    pub async fn work(&mut self, stage: ActorHandle<DownstreamClientMessage>) {
+    pub async fn work(
+        &mut self,
+        stage: ActorHandle<rustctl_common::command::DownstreamClientMessage>,
+    ) {
         'recv_messages: loop {
             let next = futures_util::StreamExt::next(&mut self.rx);
             let msg: axum::extract::ws::Message = match next.await {
@@ -977,13 +985,12 @@ impl DownstreamClientReceiver {
                     break 'recv_messages;
                 }
             };
-            dbg!(&msg);
 
             /*
              * TODO: Implement graceful disconnect: Unregister the client when
              *       graceful close message is received!
              */
-            let msg: DownstreamClientMessage = match (&msg).try_into() {
+            let msg: rustctl_common::command::DownstreamClientMessage = match (&msg).try_into() {
                 Ok(n) => n,
                 Err(err) => {
                     /*
@@ -1014,45 +1021,20 @@ impl DownstreamClientReceiver {
     }
 }
 
-#[allow(dead_code)] // TODO: Disallow dead code!
-#[derive(Clone, Debug, serde::Deserialize)]
-enum DownstreamClientMessage {
-    ServerSaveAndClose,
-    ServerConfigure { cfg: GameServerConfigurationPatch },
-    ServerInstallOrUpdateAndStart,
-    GameWorldKillPlayer { id: String },
-    WebSocketProtocolOther,
-}
-#[derive(Clone, Debug, serde::Deserialize)]
-struct GameServerConfigurationPatch {}
-
-impl TryFrom<&axum::extract::ws::Message> for DownstreamClientMessage {
-    type Error = serde_json::Error;
-
-    fn try_from(value: &axum::extract::ws::Message) -> Result<Self, Self::Error> {
-        let utf8: String = match value {
-            axum::extract::ws::Message::Text(utf8_bytes) => utf8_bytes.to_string(),
-            axum::extract::ws::Message::Binary(_)
-            | axum::extract::ws::Message::Ping(_)
-            | axum::extract::ws::Message::Pong(_)
-            | axum::extract::ws::Message::Close(_) => return Ok(Self::WebSocketProtocolOther),
-        };
-        let message: DownstreamClientMessage = serde_json::from_str(&utf8)?;
-        Ok(message)
-    }
-}
-
 struct Stage {
     summary: StageSummary,
     cancel_read: tokio_util::sync::CancellationToken,
     channel: (
-        tokio::sync::mpsc::Sender<DownstreamClientMessage>,
-        tokio::sync::mpsc::Receiver<DownstreamClientMessage>,
+        tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
+        tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
     ),
-    game_ctl: ActorHandle<DownstreamClientMessage>,
+    game_ctl: ActorHandle<rustctl_common::command::DownstreamClientMessage>,
 }
 impl Stage {
-    fn new(terminator: &Terminator, game_ctl: ActorHandle<DownstreamClientMessage>) -> Self {
+    fn new(
+        terminator: &Terminator,
+        game_ctl: ActorHandle<rustctl_common::command::DownstreamClientMessage>,
+    ) -> Self {
         Self {
             channel: tokio::sync::mpsc::channel(1),
             cancel_read: terminator.get_handle().1,
@@ -1061,7 +1043,7 @@ impl Stage {
         }
     }
 
-    fn get_handle(&self) -> ActorHandle<DownstreamClientMessage> {
+    fn get_handle(&self) -> ActorHandle<rustctl_common::command::DownstreamClientMessage> {
         let (tx, _rx) = &self.channel;
         ActorHandle::new(tx.clone())
     }
@@ -1073,7 +1055,7 @@ impl Stage {
                 if let Some(no_overflow) = self.summary.messages_total.checked_add(1) {
                     self.summary.messages_total = no_overflow;
                 }
-                let msg: DownstreamClientMessage = msg;
+                let msg: rustctl_common::command::DownstreamClientMessage = msg;
                 if let Err(err) = self.game_ctl.send(msg).await {
                     log::error!(
                         "Failed to send downstream client message from stage to game server controller: {err_fmt}",
@@ -1198,7 +1180,7 @@ const LOG_TARGET_GAME: &str = "game";
 
 enum GameCtlEvent {
     MessageReceived {
-        message: DownstreamClientMessage,
+        message: rustctl_common::command::DownstreamClientMessage,
     },
 
     MessageChannelClosed,

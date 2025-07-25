@@ -3,7 +3,8 @@ fn main() -> std::process::ExitCode {
     let c1: tokio_util::sync::CancellationToken = c0.child_token();
 
     let (tx_updates, rx_updates) = std::sync::mpsc::channel::<rustctl_common::snapshot::Snapshot>();
-    let (tx_commands, rx_commands) = std::sync::mpsc::channel::<rustctl_common::command::Command>();
+    let (tx_commands, rx_commands) =
+        std::sync::mpsc::channel::<rustctl_common::command::DownstreamClientMessage>();
 
     let th_tui = std::thread::spawn(|| tui::work(rx_updates, tx_commands, c0));
     let th_connection = std::thread::spawn(|| connection::work(tx_updates, rx_commands, c1));
@@ -21,7 +22,7 @@ mod connection {
 
     pub fn work(
         tx_updates: std::sync::mpsc::Sender<rustctl_common::snapshot::Snapshot>,
-        rx_commands: std::sync::mpsc::Receiver<rustctl_common::command::Command>,
+        rx_commands: std::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
         cancel: tokio_util::sync::CancellationToken,
     ) {
         let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
@@ -37,7 +38,7 @@ mod connection {
 
     async fn connect(
         tx_updates: std::sync::mpsc::Sender<rustctl_common::snapshot::Snapshot>,
-        rx_commands: std::sync::mpsc::Receiver<rustctl_common::command::Command>,
+        rx_commands: std::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
     ) {
         let (stream, _response) = tokio_tungstenite::connect_async(format!(
             "ws://127.0.0.1:8080{WEBSOCKET_CONNECT_URL_PATH}"
@@ -86,7 +87,7 @@ mod tui {
 
     pub fn work(
         rx_updates: std::sync::mpsc::Receiver<rustctl_common::snapshot::Snapshot>,
-        tx_commands: std::sync::mpsc::Sender<rustctl_common::command::Command>,
+        tx_commands: std::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
         cancel: tokio_util::sync::CancellationToken,
     ) {
         let mut terminal: ratatui::Terminal<_> = ratatui::init();
@@ -98,14 +99,14 @@ mod tui {
     pub struct Ctl {
         should_terminate: tokio_util::sync::CancellationToken,
         rx_updates: std::sync::mpsc::Receiver<rustctl_common::snapshot::Snapshot>,
-        tx_commands: std::sync::mpsc::Sender<rustctl_common::command::Command>,
+        tx_commands: std::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
         message_log: std::collections::VecDeque<rustctl_common::snapshot::Snapshot>,
     }
 
     impl Ctl {
         pub fn new(
             rx_updates: std::sync::mpsc::Receiver<rustctl_common::snapshot::Snapshot>,
-            tx_commands: std::sync::mpsc::Sender<rustctl_common::command::Command>,
+            tx_commands: std::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
             cancel: tokio_util::sync::CancellationToken,
         ) -> Self {
             Self {
@@ -143,11 +144,11 @@ mod tui {
         }
 
         fn handle_key_event(&mut self, key_event: crossterm::event::KeyEvent) {
-            let cmd_launch: rustctl_common::command::Command =
-                rustctl_common::command::Command::TransitionFromNotRunning;
+            let cmd_launch: rustctl_common::command::DownstreamClientMessage =
+                rustctl_common::command::DownstreamClientMessage::ServerInstallOrUpdateAndStart;
 
-            let cmd_terminate: rustctl_common::command::Command =
-                rustctl_common::command::Command::TransitionFromRunningHealthy;
+            let cmd_terminate: rustctl_common::command::DownstreamClientMessage =
+                rustctl_common::command::DownstreamClientMessage::ServerSaveAndClose;
 
             match key_event.code {
                 crossterm::event::KeyCode::Char('q') => self.app_quit(),
