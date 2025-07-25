@@ -12,7 +12,7 @@ fn main() -> std::process::ExitCode {
     };
 
     let _runtime_done = runtime.block_on(async {
-        let summary = tokio::join!(launch_game(std::time::Duration::from_secs(5)));
+        let summary = tokio::join!(launch_game(std::time::Duration::from_secs(60)));
         summary
     });
 
