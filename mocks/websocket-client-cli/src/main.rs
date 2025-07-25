@@ -1,8 +1,11 @@
 fn main() -> std::process::ExitCode {
+    let c0: tokio_util::sync::CancellationToken = tokio_util::sync::CancellationToken::new();
+    let c1: tokio_util::sync::CancellationToken = c0.child_token();
+
     let (tx_updates, rx_updates) = std::sync::mpsc::channel::<String>();
 
-    let th_tui = std::thread::spawn(|| tui::work(rx_updates));
-    let th_connection = std::thread::spawn(|| connection::work(tx_updates));
+    let th_tui = std::thread::spawn(|| tui::work(rx_updates, c0));
+    let th_connection = std::thread::spawn(|| connection::work(tx_updates, c1));
 
     let _done_tui: () = th_tui.join().unwrap();
     let _done_connection: () = th_connection.join().unwrap();
@@ -12,13 +15,19 @@ fn main() -> std::process::ExitCode {
 }
 
 mod connection {
-    pub fn work(tx_updates: std::sync::mpsc::Sender<String>) {
+    pub fn work(
+        tx_updates: std::sync::mpsc::Sender<String>,
+        cancel: tokio_util::sync::CancellationToken,
+    ) {
         let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
             .enable_io()
             .enable_time()
             .build()
             .unwrap();
-        let _coroutine_done = rt.block_on(connect(tx_updates));
+
+        let job = cancel.run_until_cancelled(connect(tx_updates));
+
+        let _coroutine_done = rt.block_on(job);
     }
 
     async fn connect(tx_updates: std::sync::mpsc::Sender<String>) {
@@ -30,13 +39,16 @@ mod connection {
 }
 
 mod tui {
-    pub fn work(rx_updates: std::sync::mpsc::Receiver<String>) {
+    pub fn work(
+        rx_updates: std::sync::mpsc::Receiver<String>,
+        cancel: tokio_util::sync::CancellationToken,
+    ) {
         let mut terminal: ratatui::Terminal<_> = ratatui::init();
-        let _app_done = Ctl::new(rx_updates).run(&mut terminal).unwrap();
+        let _app_done = Ctl::new(rx_updates, cancel).run(&mut terminal).unwrap();
     }
 
     pub struct Ctl {
-        should_terminate: bool,
+        should_terminate: tokio_util::sync::CancellationToken,
 
         rx_updates: std::sync::mpsc::Receiver<String>,
 
@@ -44,16 +56,19 @@ mod tui {
     }
 
     impl Ctl {
-        pub fn new(rx_updates: std::sync::mpsc::Receiver<String>) -> Self {
+        pub fn new(
+            rx_updates: std::sync::mpsc::Receiver<String>,
+            cancel: tokio_util::sync::CancellationToken,
+        ) -> Self {
             Self {
-                should_terminate: false,
+                should_terminate: cancel,
                 rx_updates,
                 messages_received: 1,
             }
         }
 
         pub fn run(&mut self, terminal: &mut ratatui::DefaultTerminal) -> std::io::Result<()> {
-            while !self.should_terminate {
+            while !self.should_terminate.is_cancelled() {
                 terminal.draw(|frame| self.draw(frame))?;
                 if crossterm::event::poll(std::time::Duration::from_millis(100))? {
                     let key_event = crossterm::event::read()?;
@@ -80,7 +95,7 @@ mod tui {
         }
 
         fn app_quit(&mut self) {
-            self.should_terminate = true;
+            self.should_terminate.cancel();
         }
 
         fn cmd_terminate_game(&mut self) {

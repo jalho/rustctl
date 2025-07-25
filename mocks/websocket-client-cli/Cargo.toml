@@ -32,3 +32,8 @@ workspace = true
 features  = [
   "crossterm",
 ]
+
+[dependencies.tokio-util]
+workspace = true
+features  = [
+]
