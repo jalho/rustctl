@@ -49,12 +49,7 @@ mod tui {
 
     pub struct Ctl {
         should_terminate: tokio_util::sync::CancellationToken,
-
-        /*
-         * TODO: Do rx_updates.try_recv() somewhere, and on success increment messages_received!
-         */
         rx_updates: std::sync::mpsc::Receiver<String>,
-
         messages_received: u8,
     }
 
@@ -72,7 +67,12 @@ mod tui {
 
         pub fn run(&mut self, terminal: &mut ratatui::DefaultTerminal) -> std::io::Result<()> {
             while !self.should_terminate.is_cancelled() {
+                while let Ok(_message) = self.rx_updates.try_recv() {
+                    self.messages_received += 1;
+                }
+
                 terminal.draw(|frame| self.draw(frame))?;
+
                 if crossterm::event::poll(std::time::Duration::from_millis(100))? {
                     let key_event = crossterm::event::read()?;
                     match key_event {
