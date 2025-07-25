@@ -15,6 +15,8 @@ fn main() -> std::process::ExitCode {
 }
 
 mod connection {
+    use rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH;
+
     pub fn work(
         tx_updates: std::sync::mpsc::Sender<rustctl_common::snapshot::Snapshot>,
         cancel: tokio_util::sync::CancellationToken,
@@ -31,8 +33,11 @@ mod connection {
     }
 
     async fn connect(tx_updates: std::sync::mpsc::Sender<rustctl_common::snapshot::Snapshot>) {
-        const CONNECT_URL: &'static str = "ws://127.0.0.1:8080/ws";
-        let (mut stream, _response) = tokio_tungstenite::connect_async(CONNECT_URL).await.unwrap();
+        let (mut stream, _response) = tokio_tungstenite::connect_async(format!(
+            "ws://127.0.0.1:8080{WEBSOCKET_CONNECT_URL_PATH}"
+        ))
+        .await
+        .unwrap();
 
         'recv_messages: while let Some(Ok(msg)) = futures_util::StreamExt::next(&mut stream).await {
             let msg: tokio_tungstenite::tungstenite::Message = msg;

@@ -1,3 +1,5 @@
+use rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH;
+
 /*
  * Rewrite in terms of the "actor pattern" (a concurrency pattern): There should
  * be _actors_ that own their stuff (such as I/O resources), and that perform
@@ -808,7 +810,10 @@ impl WebServer {
         let state = WebServerState::new(stage.get_handle());
 
         let router: axum::Router = axum::Router::new()
-            .route("/ws", axum::routing::get(websocket_handler))
+            .route(
+                WEBSOCKET_CONNECT_URL_PATH,
+                axum::routing::get(websocket_handler),
+            )
             .with_state(state);
 
         Self {
