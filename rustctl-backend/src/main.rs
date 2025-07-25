@@ -446,6 +446,7 @@ impl GameServerStateMachine {
                                      *       server child process, and transition to
                                      *       "SavingAndClosing".
                                      */
+                                     dbg!(command);
                                 }
                                 _ => {
                                     log::error!(
