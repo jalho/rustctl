@@ -50,6 +50,9 @@ mod tui {
     pub struct Ctl {
         should_terminate: tokio_util::sync::CancellationToken,
 
+        /*
+         * TODO: Do rx_updates.try_recv() somewhere, and on success increment messages_received!
+         */
         rx_updates: std::sync::mpsc::Receiver<String>,
 
         messages_received: u8,
@@ -63,7 +66,7 @@ mod tui {
             Self {
                 should_terminate: cancel,
                 rx_updates,
-                messages_received: 1,
+                messages_received: 0,
             }
         }
 
@@ -88,22 +91,12 @@ mod tui {
         fn handle_key_event(&mut self, key_event: crossterm::event::KeyEvent) {
             match key_event.code {
                 crossterm::event::KeyCode::Char('q') => self.app_quit(),
-                crossterm::event::KeyCode::Char('l') => self.cmd_launch_game(),
-                crossterm::event::KeyCode::Char('t') => self.cmd_terminate_game(),
                 _ => {}
             }
         }
 
         fn app_quit(&mut self) {
             self.should_terminate.cancel();
-        }
-
-        fn cmd_terminate_game(&mut self) {
-            self.messages_received += 1;
-        }
-
-        fn cmd_launch_game(&mut self) {
-            self.messages_received -= 1;
         }
     }
 
@@ -112,10 +105,6 @@ mod tui {
             let title = ratatui::text::Line::from(ratatui::style::Stylize::bold(" rustctl "));
 
             let instructions = ratatui::text::Line::from(vec![
-                " Launch ".into(),
-                ratatui::style::Stylize::bold(ratatui::style::Stylize::blue("<L>")),
-                " Terminate ".into(),
-                ratatui::style::Stylize::bold(ratatui::style::Stylize::blue("<T>")),
                 " Quit ".into(),
                 ratatui::style::Stylize::bold(ratatui::style::Stylize::blue("<Q>")),
             ]);
@@ -125,7 +114,7 @@ mod tui {
                 .border_set(ratatui::symbols::border::THICK);
 
             let counter_text = ratatui::text::Text::from(vec![ratatui::text::Line::from(vec![
-                "Value: ".into(),
+                " Messages received: ".into(),
                 ratatui::style::Stylize::yellow(self.messages_received.to_string()),
             ])]);
 
