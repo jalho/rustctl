@@ -1,60 +1,103 @@
-use futures_util::stream::{SplitSink, SplitStream};
-use tokio_tungstenite::tungstenite;
+fn main() -> std::process::ExitCode {
+    let coroutine_tui: std::thread::JoinHandle<_> = std::thread::spawn(tui::work);
 
-fn main() {
-    let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_io()
-        .enable_time()
-        .build()
-        .unwrap();
-    rt.block_on(work_with_websocket());
+    let _tui_done: () = coroutine_tui.join().unwrap();
+    ratatui::restore();
+
+    std::process::ExitCode::SUCCESS
 }
 
-type Socket =
-    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
-type UpgradeResponse = tungstenite::http::Response<Option<Vec<u8>>>;
+mod tui {
+    pub fn work() {
+        let mut terminal: ratatui::Terminal<_> = ratatui::init();
+        let _app_done = App::new().run(&mut terminal).unwrap();
+    }
 
-async fn work_with_websocket() {
-    let (socket, _response): (Socket, UpgradeResponse) =
-        tokio_tungstenite::connect_async("ws://127.0.0.1:8080/ws")
-            .await
-            .unwrap();
-    let (sock_w, sock_r): (SplitSink<Socket, tungstenite::Message>, SplitStream<Socket>) =
-        futures_util::StreamExt::split(socket);
-    let coroutine_read = tokio::spawn(work_with_readable(sock_r));
-    let coroutine_write = tokio::spawn(work_with_writeable(sock_w));
-    let (coroutine_read, coroutine_write) = tokio::join!(coroutine_read, coroutine_write);
-    coroutine_read.unwrap();
-    coroutine_write.unwrap();
-}
+    pub struct App {
+        messages_received: u8,
+        should_terminate: bool,
+    }
 
-async fn work_with_readable(mut readable: SplitStream<Socket>) {
-    loop {
-        match futures_util::StreamExt::next(&mut readable).await {
-            Some(Ok(msg)) => {
-                dbg!(msg);
-            }
-            Some(Err(e)) => {
-                eprintln!("Error receiving message: {e}");
-                break;
-            }
-            None => {
-                println!("Connection closed");
-                break;
+    impl App {
+        pub fn new() -> Self {
+            Self {
+                messages_received: 1,
+                should_terminate: false,
             }
         }
+
+        pub fn run(&mut self, terminal: &mut ratatui::DefaultTerminal) -> std::io::Result<()> {
+            while !self.should_terminate {
+                terminal.draw(|frame| self.draw(frame))?;
+                self.handle_events()?;
+            }
+            Ok(())
+        }
+
+        fn draw(&self, frame: &mut ratatui::Frame) {
+            frame.render_widget(self, frame.area());
+        }
+
+        fn handle_events(&mut self) -> std::io::Result<()> {
+            match crossterm::event::read()? {
+                crossterm::event::Event::Key(key_event)
+                    if key_event.kind == crossterm::event::KeyEventKind::Press =>
+                {
+                    self.handle_key_event(key_event)
+                }
+                _ => {}
+            };
+            Ok(())
+        }
+
+        fn handle_key_event(&mut self, key_event: crossterm::event::KeyEvent) {
+            match key_event.code {
+                crossterm::event::KeyCode::Char('q') => self.app_quit(),
+                crossterm::event::KeyCode::Char('l') => self.cmd_launch_game(),
+                crossterm::event::KeyCode::Char('t') => self.cmd_terminate_game(),
+                _ => {}
+            }
+        }
+
+        fn app_quit(&mut self) {
+            self.should_terminate = true;
+        }
+
+        fn cmd_terminate_game(&mut self) {
+            self.messages_received += 1;
+        }
+
+        fn cmd_launch_game(&mut self) {
+            self.messages_received -= 1;
+        }
     }
-}
 
-async fn work_with_writeable(mut writable: SplitSink<Socket, tungstenite::Message>) {
-    let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(3));
+    impl ratatui::widgets::Widget for &App {
+        fn render(self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+            let title = ratatui::text::Line::from(ratatui::style::Stylize::bold(" rustctl "));
 
-    loop {
-        interval.tick().await;
-        let msg = tungstenite::Message::Text("Hello to server from CLI client!".into());
-        if let Err(e) = futures_util::SinkExt::send(&mut writable, msg).await {
-            eprintln!("Error sending message: {e}");
-            break;
+            let instructions = ratatui::text::Line::from(vec![
+                " Launch ".into(),
+                ratatui::style::Stylize::bold(ratatui::style::Stylize::blue("<L>")),
+                " Terminate ".into(),
+                ratatui::style::Stylize::bold(ratatui::style::Stylize::blue("<T>")),
+                " Quit ".into(),
+                ratatui::style::Stylize::bold(ratatui::style::Stylize::blue("<Q>")),
+            ]);
+            let block = ratatui::widgets::Block::bordered()
+                .title(title.centered())
+                .title_bottom(instructions.centered())
+                .border_set(ratatui::symbols::border::THICK);
+
+            let counter_text = ratatui::text::Text::from(vec![ratatui::text::Line::from(vec![
+                "Value: ".into(),
+                ratatui::style::Stylize::yellow(self.messages_received.to_string()),
+            ])]);
+
+            ratatui::widgets::Paragraph::new(counter_text)
+                .centered()
+                .block(block)
+                .render(area, buf);
         }
     }
 }
