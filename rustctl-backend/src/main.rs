@@ -924,6 +924,10 @@ impl DownstreamClientSender {
         'send_messages: loop {
             interval.tick().await;
 
+            /*
+             * TODO: Instead of sending dummy payloads, aggregate it from the
+             *       other actor(s)!
+             */
             let captured: rustctl_common::snapshot::Snapshot =
                 rustctl_common::snapshot::Snapshot::dummy();
             let serialized: String = serde_json::to_string(&captured).unwrap();

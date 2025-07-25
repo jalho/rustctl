@@ -33,6 +33,10 @@ mod connection {
     }
 
     async fn connect(tx_updates: std::sync::mpsc::Sender<rustctl_common::snapshot::Snapshot>) {
+        /*
+         * TODO: Split the stream to read and write, and use the write to send
+         *       commands to the server, on key press!
+         */
         let (mut stream, _response) = tokio_tungstenite::connect_async(format!(
             "ws://127.0.0.1:8080{WEBSOCKET_CONNECT_URL_PATH}"
         ))
@@ -112,6 +116,18 @@ mod tui {
         }
 
         fn handle_key_event(&mut self, key_event: crossterm::event::KeyEvent) {
+            /*
+             * TODO: On key press 'l', send command "cmd_launch", and on key press
+             *       't', send command "cmd_terminate".
+             *
+             *       Send = Serialize with serde_json, and send the serialized
+             *              over the WebSocket.
+             */
+            let cmd_launch: rustctl_common::command::Command =
+                rustctl_common::command::Command::TransitionFromNotRunning;
+            let cmd_terminate: rustctl_common::command::Command =
+                rustctl_common::command::Command::TransitionFromRunningHealthy;
+
             match key_event.code {
                 crossterm::event::KeyCode::Char('q') => self.app_quit(),
                 _ => {}
