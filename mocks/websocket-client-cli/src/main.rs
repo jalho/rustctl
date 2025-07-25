@@ -31,14 +31,18 @@ mod connection {
     }
 
     async fn connect(tx_updates: std::sync::mpsc::Sender<String>) {
-        let mut counter: u128 = 0;
-        loop {
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            tx_updates
-                .send(format!("Slept a bit! {counter}").into())
-                .unwrap();
+        const CONNECT_URL: &'static str = "ws://127.0.0.1:8080/ws";
+        let (mut stream, _response) = tokio_tungstenite::connect_async(CONNECT_URL).await.unwrap();
 
-            counter += 1;
+        'recv_messages: while let Some(Ok(msg)) = futures_util::StreamExt::next(&mut stream).await {
+            let msg: tokio_tungstenite::tungstenite::Message = msg;
+            let utf8: String = match msg {
+                tokio_tungstenite::tungstenite::Message::Text(utf8_bytes) => utf8_bytes.to_string(),
+                _ => {
+                    break 'recv_messages;
+                }
+            };
+            tx_updates.send(utf8.into()).unwrap();
         }
     }
 }
