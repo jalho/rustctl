@@ -43,3 +43,14 @@ workspace = true
 features  = [
   "now",
 ]
+
+[dependencies.serde_json]
+workspace = true
+features  = [
+  "alloc",
+]
+
+[dependencies.rustctl-common]
+workspace = true
+features  = [
+]

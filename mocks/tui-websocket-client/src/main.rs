@@ -2,7 +2,7 @@ fn main() -> std::process::ExitCode {
     let c0: tokio_util::sync::CancellationToken = tokio_util::sync::CancellationToken::new();
     let c1: tokio_util::sync::CancellationToken = c0.child_token();
 
-    let (tx_updates, rx_updates) = std::sync::mpsc::channel::<String>();
+    let (tx_updates, rx_updates) = std::sync::mpsc::channel::<rustctl_common::snapshot::Snapshot>();
 
     let th_tui = std::thread::spawn(|| tui::work(rx_updates, c0));
     let th_connection = std::thread::spawn(|| connection::work(tx_updates, c1));
@@ -16,7 +16,7 @@ fn main() -> std::process::ExitCode {
 
 mod connection {
     pub fn work(
-        tx_updates: std::sync::mpsc::Sender<String>,
+        tx_updates: std::sync::mpsc::Sender<rustctl_common::snapshot::Snapshot>,
         cancel: tokio_util::sync::CancellationToken,
     ) {
         let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
@@ -30,13 +30,11 @@ mod connection {
         let _coroutine_done = rt.block_on(job);
     }
 
-    async fn connect(tx_updates: std::sync::mpsc::Sender<String>) {
+    async fn connect(tx_updates: std::sync::mpsc::Sender<rustctl_common::snapshot::Snapshot>) {
         const CONNECT_URL: &'static str = "ws://127.0.0.1:8080/ws";
         let (mut stream, _response) = tokio_tungstenite::connect_async(CONNECT_URL).await.unwrap();
 
         'recv_messages: while let Some(Ok(msg)) = futures_util::StreamExt::next(&mut stream).await {
-            let timestamp: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
-
             let msg: tokio_tungstenite::tungstenite::Message = msg;
             let utf8: String = match msg {
                 tokio_tungstenite::tungstenite::Message::Text(utf8_bytes) => utf8_bytes.to_string(),
@@ -45,9 +43,10 @@ mod connection {
                 }
             };
 
-            let received: String = format!("[{timestamp}] [client] - {utf8}");
+            let deserialized: rustctl_common::snapshot::Snapshot =
+                serde_json::from_str(&utf8).unwrap();
 
-            tx_updates.send(received).unwrap();
+            tx_updates.send(deserialized).unwrap();
         }
     }
 }
@@ -56,7 +55,7 @@ mod tui {
     const MSG_STORE_SIZE: usize = 4;
 
     pub fn work(
-        rx_updates: std::sync::mpsc::Receiver<String>,
+        rx_updates: std::sync::mpsc::Receiver<rustctl_common::snapshot::Snapshot>,
         cancel: tokio_util::sync::CancellationToken,
     ) {
         let mut terminal: ratatui::Terminal<_> = ratatui::init();
@@ -65,13 +64,13 @@ mod tui {
 
     pub struct Ctl {
         should_terminate: tokio_util::sync::CancellationToken,
-        rx_updates: std::sync::mpsc::Receiver<String>,
-        message_log: std::collections::VecDeque<String>,
+        rx_updates: std::sync::mpsc::Receiver<rustctl_common::snapshot::Snapshot>,
+        message_log: std::collections::VecDeque<rustctl_common::snapshot::Snapshot>,
     }
 
     impl Ctl {
         pub fn new(
-            rx_updates: std::sync::mpsc::Receiver<String>,
+            rx_updates: std::sync::mpsc::Receiver<rustctl_common::snapshot::Snapshot>,
             cancel: tokio_util::sync::CancellationToken,
         ) -> Self {
             Self {
@@ -135,7 +134,7 @@ mod tui {
             let message_lines: Vec<ratatui::text::Line> = self
                 .message_log
                 .iter()
-                .map(|msg| ratatui::text::Line::from(format!(" {}", msg)))
+                .map(|msg| ratatui::text::Line::from(format!(" {}", msg.captured_at)))
                 .collect();
 
             let message_text = ratatui::text::Text::from(message_lines);
