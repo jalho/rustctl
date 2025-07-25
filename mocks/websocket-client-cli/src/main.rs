@@ -39,6 +39,8 @@ mod connection {
 }
 
 mod tui {
+    const MSG_STORE_SIZE: usize = 4;
+
     pub fn work(
         rx_updates: std::sync::mpsc::Receiver<String>,
         cancel: tokio_util::sync::CancellationToken,
@@ -50,7 +52,7 @@ mod tui {
     pub struct Ctl {
         should_terminate: tokio_util::sync::CancellationToken,
         rx_updates: std::sync::mpsc::Receiver<String>,
-        messages_received: u8,
+        message_log: std::collections::VecDeque<String>,
     }
 
     impl Ctl {
@@ -61,14 +63,17 @@ mod tui {
             Self {
                 should_terminate: cancel,
                 rx_updates,
-                messages_received: 0,
+                message_log: std::collections::VecDeque::with_capacity(MSG_STORE_SIZE),
             }
         }
 
         pub fn run(&mut self, terminal: &mut ratatui::DefaultTerminal) -> std::io::Result<()> {
             while !self.should_terminate.is_cancelled() {
-                while let Ok(_message) = self.rx_updates.try_recv() {
-                    self.messages_received += 1;
+                while let Ok(msg) = self.rx_updates.try_recv() {
+                    self.message_log.push_back(msg);
+                    if self.message_log.len() >= self.message_log.capacity() {
+                        self.message_log.pop_front();
+                    }
                 }
 
                 terminal.draw(|frame| self.draw(frame))?;
@@ -114,8 +119,8 @@ mod tui {
                 .border_set(ratatui::symbols::border::THICK);
 
             let counter_text = ratatui::text::Text::from(vec![ratatui::text::Line::from(vec![
-                " Messages received: ".into(),
-                ratatui::style::Stylize::yellow(self.messages_received.to_string()),
+                " Message log length: ".into(),
+                ratatui::style::Stylize::yellow(self.message_log.len().to_string()),
             ])]);
 
             ratatui::widgets::Paragraph::new(counter_text)
