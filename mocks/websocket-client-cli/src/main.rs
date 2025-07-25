@@ -31,9 +31,14 @@ mod connection {
     }
 
     async fn connect(tx_updates: std::sync::mpsc::Sender<String>) {
+        let mut counter: u128 = 0;
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            tx_updates.send("Slept a bit!".into()).unwrap();
+            tx_updates
+                .send(format!("Slept a bit! {counter}").into())
+                .unwrap();
+
+            counter += 1;
         }
     }
 }
@@ -118,9 +123,14 @@ mod tui {
                 .title_bottom(instructions.centered())
                 .border_set(ratatui::symbols::border::THICK);
 
+            /*
+             * TODO: Render the message log stacked vertically.
+             */
+            let message_log: &std::collections::VecDeque<String> = &self.message_log;
+
             let counter_text = ratatui::text::Text::from(vec![ratatui::text::Line::from(vec![
                 " Message log length: ".into(),
-                ratatui::style::Stylize::yellow(self.message_log.len().to_string()),
+                ratatui::style::Stylize::yellow(message_log.len().to_string()),
             ])]);
 
             ratatui::widgets::Paragraph::new(counter_text)
