@@ -1928,6 +1928,7 @@ name = "rustctl-backend"
 version = "0.1.0-rc1"
 dependencies = [
  "axum",
+ "chrono",
  "clap",
  "futures-util",
  "keyvalues-parser",
@@ -2853,6 +2854,7 @@ dependencies = [
 name = "websocket-client-cli"
 version = "0.0.0"
 dependencies = [
+ "chrono",
  "crossterm 0.29.0",
  "futures-util",
  "ratatui",

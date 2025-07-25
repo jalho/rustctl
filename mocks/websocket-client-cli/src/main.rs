@@ -35,6 +35,8 @@ mod connection {
         let (mut stream, _response) = tokio_tungstenite::connect_async(CONNECT_URL).await.unwrap();
 
         'recv_messages: while let Some(Ok(msg)) = futures_util::StreamExt::next(&mut stream).await {
+            let timestamp: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+
             let msg: tokio_tungstenite::tungstenite::Message = msg;
             let utf8: String = match msg {
                 tokio_tungstenite::tungstenite::Message::Text(utf8_bytes) => utf8_bytes.to_string(),
@@ -42,7 +44,10 @@ mod connection {
                     break 'recv_messages;
                 }
             };
-            tx_updates.send(utf8.into()).unwrap();
+
+            let received: String = format!("[{timestamp}] [client] - {utf8}");
+
+            tx_updates.send(received).unwrap();
         }
     }
 }

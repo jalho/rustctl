@@ -918,9 +918,13 @@ impl DownstreamClientSender {
 
         'send_messages: loop {
             interval.tick().await;
+
+            let timestamp: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+            let timestamp: String = timestamp.to_rfc3339();
+
             let send = futures_util::SinkExt::send(
                 &mut self.tx,
-                "Hello to downstream client from server!".into(),
+                format!("[{timestamp}] [server] - Hello to downstream client from server!").into(),
             );
             if let Err(err) = send.await {
                 let err: axum::Error = err;
