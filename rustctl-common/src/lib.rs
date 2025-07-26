@@ -17,12 +17,24 @@ pub mod snapshot {
         }
     }
 
+    impl std::fmt::Display for CpuUsage {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{} %", self.0)
+        }
+    }
+
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub struct MemoryUsage(u64);
 
     impl MemoryUsage {
         pub fn new(value: u64) -> Self {
             Self(value)
+        }
+    }
+
+    impl std::fmt::Display for MemoryUsage {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{} bytes", self.0)
         }
     }
 

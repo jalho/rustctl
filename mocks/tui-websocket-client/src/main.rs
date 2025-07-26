@@ -189,8 +189,11 @@ mod tui {
                 .iter()
                 .map(|msg| {
                     ratatui::text::Line::from(format!(
-                        " {}",
-                        msg.system_memory_usage_total.read_completed_by
+                        " [{}] [memory] {}\n [{}] [cpu] {}",
+                        msg.system_memory_usage_total.read_completed_by,
+                        msg.system_memory_usage_total.read_value,
+                        msg.system_cpu_usage_total.read_completed_by,
+                        msg.system_cpu_usage_total.read_value,
                     ))
                 })
                 .collect();
