@@ -169,26 +169,32 @@ mod tui {
 
     impl ratatui::widgets::Widget for &Ctl {
         fn render(self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
-            let title = ratatui::text::Line::from(ratatui::style::Stylize::bold(" rustctl "));
+            use ratatui::style::Stylize;
+            use ratatui::symbols::border::THICK;
+            use ratatui::text::{Line, Text};
+            use ratatui::widgets::{Block, Paragraph};
 
-            let instructions = ratatui::text::Line::from(vec![
+            let title = Line::from(Stylize::bold(" rustctl "));
+
+            let instructions = Line::from(vec![
                 " Quit ".into(),
-                ratatui::style::Stylize::bold(ratatui::style::Stylize::blue("<Q>")),
+                Stylize::bold(Stylize::blue("<Q>")),
                 " Launch ".into(),
-                ratatui::style::Stylize::bold(ratatui::style::Stylize::green("<L>")),
+                Stylize::bold(Stylize::green("<L>")),
                 " Terminate ".into(),
-                ratatui::style::Stylize::bold(ratatui::style::Stylize::red("<T>")),
+                Stylize::bold(Stylize::red("<T>")),
             ]);
-            let block = ratatui::widgets::Block::bordered()
+
+            let block = Block::bordered()
                 .title(title.centered())
                 .title_bottom(instructions.centered())
-                .border_set(ratatui::symbols::border::THICK);
+                .border_set(THICK);
 
-            let message_lines: Vec<ratatui::text::Line> = self
+            let message_lines: Vec<Line> = self
                 .message_log
                 .iter()
                 .map(|msg| {
-                    ratatui::text::Line::from(format!(
+                    Line::from(format!(
                         " [{}] [memory] {}\n [{}] [cpu] {}",
                         msg.system_memory_usage_total.read_completed_by,
                         msg.system_memory_usage_total.read_value,
@@ -198,11 +204,9 @@ mod tui {
                 })
                 .collect();
 
-            let message_text = ratatui::text::Text::from(message_lines);
+            let message_text = Text::from(message_lines);
 
-            ratatui::widgets::Paragraph::new(message_text)
-                .block(block)
-                .render(area, buf);
+            Paragraph::new(message_text).block(block).render(area, buf);
         }
     }
 }
