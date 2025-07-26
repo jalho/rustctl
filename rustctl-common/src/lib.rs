@@ -34,7 +34,7 @@ pub mod snapshot {
 
     impl std::fmt::Display for MemoryUsage {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "{} bytes", self.0)
+            write!(f, "{} kibibytes", self.0)
         }
     }
 

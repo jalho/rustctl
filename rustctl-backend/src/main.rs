@@ -133,9 +133,9 @@ impl MemoryQuerier {
             loop {
                 interval.tick().await;
 
-                let memory_usage_bytes = Self::read_memory_usage_bytes().await;
+                let memory_usage_kibibytes = Self::read_memory_usage_kibibytes().await;
 
-                let read_value = rustctl_common::snapshot::MemoryUsage::new(memory_usage_bytes);
+                let read_value = rustctl_common::snapshot::MemoryUsage::new(memory_usage_kibibytes);
                 let read_completed_by = chrono::Utc::now();
                 let queried = rustctl_common::snapshot::TimedValue {
                     read_value,
@@ -157,34 +157,26 @@ impl MemoryQuerier {
         self.summary
     }
 
-    async fn read_memory_usage_bytes() -> u64 {
+    async fn read_memory_usage_kibibytes() -> u64 {
         let meminfo_content = tokio::fs::read_to_string("/proc/meminfo")
             .await
             .expect("Linux should have /proc/meminfo");
 
-        let mut mem_total: Option<u64> = None;
-        let mut mem_available: Option<u64> = None;
+        let mut mem_total: u64 = 0;
+        let mut mem_available: u64 = 0;
 
         for line in meminfo_content.lines() {
             if line.starts_with("MemTotal:") {
-                mem_total = Self::parse_meminfo_line(line).expect("meminfo format should be known");
+                mem_total = Self::parse_meminfo_line(line);
             } else if line.starts_with("MemAvailable:") {
-                mem_available =
-                    Self::parse_meminfo_line(line).expect("meminfo format should be known");
+                mem_available = Self::parse_meminfo_line(line);
             }
-
-            if mem_total.is_some() && mem_available.is_some() {
+            if mem_total > 0 && mem_available > 0 {
                 break;
             }
         }
 
-        match (mem_total, mem_available) {
-            (Some(total), Some(available)) => {
-                let used_kb = total.saturating_sub(available);
-                used_kb * 1024
-            }
-            _ => unreachable!("should be able to determine memory usage"),
-        }
+        mem_total - mem_available
     }
 
     /// Parse a line from /proc/meminfo
