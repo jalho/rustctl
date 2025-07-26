@@ -133,7 +133,9 @@ impl MemoryQuerier {
             loop {
                 interval.tick().await;
 
-                let read_value = rustctl_common::snapshot::MemoryUsage::new(0); // TODO: Read actually!
+                let memory_usage_bytes = Self::read_memory_usage_bytes().await;
+
+                let read_value = rustctl_common::snapshot::MemoryUsage::new(memory_usage_bytes);
                 let read_completed_by = chrono::Utc::now();
                 let queried = rustctl_common::snapshot::TimedValue {
                     read_value,
@@ -153,6 +155,52 @@ impl MemoryQuerier {
 
         self.cancel_read.run_until_cancelled(query_task).await;
         self.summary
+    }
+
+    async fn read_memory_usage_bytes() -> u64 {
+        let meminfo_content = tokio::fs::read_to_string("/proc/meminfo")
+            .await
+            .expect("Linux should have /proc/meminfo");
+
+        let mut mem_total: Option<u64> = None;
+        let mut mem_available: Option<u64> = None;
+
+        for line in meminfo_content.lines() {
+            if line.starts_with("MemTotal:") {
+                mem_total = Self::parse_meminfo_line(line).expect("meminfo format should be known");
+            } else if line.starts_with("MemAvailable:") {
+                mem_available =
+                    Self::parse_meminfo_line(line).expect("meminfo format should be known");
+            }
+
+            if mem_total.is_some() && mem_available.is_some() {
+                break;
+            }
+        }
+
+        match (mem_total, mem_available) {
+            (Some(total), Some(available)) => {
+                let used_kb = total.saturating_sub(available);
+                used_kb * 1024
+            }
+            _ => unreachable!("should be able to determine memory usage"),
+        }
+    }
+
+    /// Parse a line from /proc/meminfo
+    fn parse_meminfo_line(line: &str) -> u64 {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+
+        if parts.len() < 2 {
+            unreachable!("meminfo format should be known");
+        }
+
+        let value_str = parts[1];
+        let value_kb = value_str
+            .parse::<u64>()
+            .expect("meminfo format should be known");
+
+        value_kb
     }
 }
 
