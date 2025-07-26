@@ -194,12 +194,17 @@ mod tui {
                 .message_log
                 .iter()
                 .map(|msg| {
+                    let mem_read_completed_by: &chrono::DateTime<chrono::Utc> =
+                        &msg.system_memory_usage_total.read_completed_by;
+                    let mem_read_value: &rustctl_common::snapshot::MemoryUsage =
+                        &msg.system_memory_usage_total.read_value;
+                    let cpu_read_completed_by: &chrono::DateTime<chrono::Utc> =
+                        &msg.system_cpu_usage_total.read_completed_by;
+                    let cpu_read_value: &rustctl_common::snapshot::CpuUsage =
+                        &msg.system_cpu_usage_total.read_value;
+
                     Line::from(format!(
-                        " [{}] [memory] {}\n [{}] [cpu] {}",
-                        msg.system_memory_usage_total.read_completed_by,
-                        msg.system_memory_usage_total.read_value,
-                        msg.system_cpu_usage_total.read_completed_by,
-                        msg.system_cpu_usage_total.read_value,
+                        " [{mem_read_completed_by}] {mem_read_value}\n [{cpu_read_completed_by}] {cpu_read_value}",
                     ))
                 })
                 .collect();
