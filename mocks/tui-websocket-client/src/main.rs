@@ -83,6 +83,8 @@ mod connection {
 }
 
 mod tui {
+    use ratatui::prelude::Widget;
+
     const MSG_STORE_SIZE: usize = 4;
 
     pub fn work(
@@ -169,49 +171,317 @@ mod tui {
 
     impl ratatui::widgets::Widget for &Ctl {
         fn render(self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
-            use ratatui::style::Stylize;
-            use ratatui::symbols::border::THICK;
-            use ratatui::text::{Line, Text};
-            use ratatui::widgets::{Block, Paragraph};
+            use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin};
+            use ratatui::style::{Color, Modifier, Style, Stylize};
+            use ratatui::symbols::border::ROUNDED;
+            use ratatui::text::{Line, Span, Text};
+            use ratatui::widgets::{Block, Gauge, Paragraph};
 
-            let title = Line::from(Stylize::bold(" rustctl "));
+            // Main layout: header + dashboard + footer
+            let main_chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(3), // Header
+                    Constraint::Min(0),    // Dashboard content
+                    Constraint::Length(3), // Footer
+                ])
+                .split(area);
 
-            let instructions = Line::from(vec![
-                " Quit ".into(),
-                Stylize::bold(Stylize::blue("<Q>")),
-                " Launch ".into(),
-                Stylize::bold(Stylize::green("<L>")),
-                " Terminate ".into(),
-                Stylize::bold(Stylize::red("<T>")),
+            // Render header
+            let header_title = Line::from(vec![
+                Span::styled("🦀 ", Style::default().fg(Color::Red)),
+                Span::styled(
+                    "rustctl",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(" Dashboard", Style::default().fg(Color::White)),
             ]);
 
-            let block = Block::bordered()
-                .title(title.centered())
+            let header_block = Block::bordered()
+                .title(header_title.centered())
+                .border_set(ROUNDED)
+                .border_style(Style::default().fg(Color::Cyan));
+
+            Paragraph::new("")
+                .block(header_block)
+                .render(main_chunks[0], buf);
+
+            // Render footer with controls
+            let instructions = Line::from(vec![
+                Span::styled("❌ ", Style::default().fg(Color::Red)),
+                Span::styled("Quit", Style::default().fg(Color::White)),
+                Span::styled(" [", Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    "Q",
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled("] ", Style::default().fg(Color::DarkGray)),
+                Span::styled("  🚀 ", Style::default().fg(Color::Green)),
+                Span::styled("Launch", Style::default().fg(Color::White)),
+                Span::styled(" [", Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    "L",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled("] ", Style::default().fg(Color::DarkGray)),
+                Span::styled("  ⛔ ", Style::default().fg(Color::Red)),
+                Span::styled("Terminate", Style::default().fg(Color::White)),
+                Span::styled(" [", Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    "T",
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled("]", Style::default().fg(Color::DarkGray)),
+            ]);
+
+            let footer_block = Block::bordered()
                 .title_bottom(instructions.centered())
-                .border_set(THICK);
+                .border_set(ROUNDED)
+                .border_style(Style::default().fg(Color::Gray));
 
-            let message_lines: Vec<Line> = self
-                .message_log
-                .iter()
-                .map(|msg| {
-                    let mem_read_completed_by: &chrono::DateTime<chrono::Utc> =
-                        &msg.system_memory_usage_total.read_completed_by;
-                    let mem_read_value: &rustctl_common::snapshot::MemoryUsage =
-                        &msg.system_memory_usage_total.read_value;
-                    let cpu_read_completed_by: &chrono::DateTime<chrono::Utc> =
-                        &msg.system_cpu_usage_total.read_completed_by;
-                    let cpu_read_value: &rustctl_common::snapshot::CpuUsage =
-                        &msg.system_cpu_usage_total.read_value;
+            Paragraph::new("")
+                .block(footer_block)
+                .render(main_chunks[2], buf);
 
-                    Line::from(format!(
-                        " [{mem_read_completed_by}] {mem_read_value}\n [{cpu_read_completed_by}] {cpu_read_value}",
-                    ))
-                })
-                .collect();
+            // Dashboard content area
+            let content_area = main_chunks[1];
 
-            let message_text = Text::from(message_lines);
+            if self.message_log.is_empty() {
+                // Empty state
+                let empty_block = Block::bordered()
+                    .title(Line::from(vec![
+                        Span::styled("📊 ", Style::default().fg(Color::Yellow)),
+                        Span::styled(
+                            "System Metrics",
+                            Style::default()
+                                .fg(Color::White)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                    ]))
+                    .border_set(ROUNDED)
+                    .border_style(Style::default().fg(Color::DarkGray));
 
-            Paragraph::new(message_text).block(block).render(area, buf);
+                let empty_text = Text::from(vec![
+                    Line::from(""),
+                    Line::from(vec![
+                        Span::styled("🔍 ", Style::default().fg(Color::Yellow)),
+                        Span::styled(
+                            "No system metrics available yet...",
+                            Style::default()
+                                .fg(Color::Gray)
+                                .add_modifier(Modifier::ITALIC),
+                        ),
+                    ]),
+                    Line::from(""),
+                    Line::from(vec![
+                        Span::styled("⏳ ", Style::default().fg(Color::Blue)),
+                        Span::styled(
+                            "Waiting for data collection to begin",
+                            Style::default().fg(Color::DarkGray),
+                        ),
+                    ]),
+                ]);
+
+                Paragraph::new(empty_text)
+                    .block(empty_block)
+                    .alignment(Alignment::Center)
+                    .render(content_area, buf);
+                return;
+            }
+
+            // Create grid layout for metric cards (2 columns)
+            let cols = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .margin(1)
+                .split(content_area);
+
+            // Left column: Memory metrics
+            self.render_memory_column(&cols[0], buf);
+
+            // Right column: CPU metrics
+            self.render_cpu_column(&cols[1], buf);
+        }
+    }
+
+    impl Ctl {
+        fn render_memory_column(
+            &self,
+            area: &ratatui::layout::Rect,
+            buf: &mut ratatui::buffer::Buffer,
+        ) {
+            use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin};
+            use ratatui::style::{Color, Modifier, Style};
+            use ratatui::symbols::border::ROUNDED;
+            use ratatui::text::{Line, Span, Text};
+            use ratatui::widgets::{Block, Paragraph};
+
+            // Create memory block
+            let memory_block = Block::bordered()
+                .title(Line::from(vec![
+                    Span::styled("📊 ", Style::default().fg(Color::LightBlue)),
+                    Span::styled(
+                        "Memory Usage",
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                ]))
+                .border_set(ROUNDED)
+                .border_style(Style::default().fg(Color::Blue));
+
+            let inner_area = memory_block.inner(*area);
+
+            // Render block first
+            memory_block.render(*area, buf);
+
+            // Create content for each snapshot
+            let mut content_lines = Vec::new();
+
+            for (idx, snapshot) in self.message_log.iter().enumerate() {
+                let mem_timestamp = &snapshot.system_memory_usage_total.read_completed_by;
+                let mem_value = &snapshot.system_memory_usage_total.read_value;
+
+                // Format timestamp
+                let timestamp_str = mem_timestamp.format("%H:%M:%S").to_string();
+
+                // Create alternating background effect with spacing
+                let bg_color = if idx % 2 == 0 {
+                    Color::Reset
+                } else {
+                    Color::Reset
+                };
+                let accent_color = if idx % 2 == 0 {
+                    Color::LightBlue
+                } else {
+                    Color::LightCyan
+                };
+
+                content_lines.push(Line::from("")); // Spacing
+
+                // Timestamp line
+                content_lines.push(Line::from(vec![
+                    Span::styled("⏰ ", Style::default().fg(Color::Yellow)),
+                    Span::styled(timestamp_str, Style::default().fg(Color::DarkGray)),
+                ]));
+
+                // Memory usage line - display the actual memory value
+                content_lines.push(Line::from(vec![
+                    Span::styled("💾 ", Style::default().fg(accent_color)),
+                    Span::styled(
+                        format!("{}", mem_value),
+                        Style::default()
+                            .fg(accent_color)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                ]));
+            }
+
+            if content_lines.is_empty() {
+                content_lines.push(Line::from(vec![
+                    Span::styled("📭 ", Style::default().fg(Color::Gray)),
+                    Span::styled(
+                        "No memory data",
+                        Style::default()
+                            .fg(Color::Gray)
+                            .add_modifier(Modifier::ITALIC),
+                    ),
+                ]));
+            }
+
+            let memory_text = Text::from(content_lines);
+            Paragraph::new(memory_text)
+                .alignment(Alignment::Left)
+                .render(inner_area, buf);
+        }
+
+        fn render_cpu_column(
+            &self,
+            area: &ratatui::layout::Rect,
+            buf: &mut ratatui::buffer::Buffer,
+        ) {
+            use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin};
+            use ratatui::style::{Color, Modifier, Style};
+            use ratatui::symbols::border::ROUNDED;
+            use ratatui::text::{Line, Span, Text};
+            use ratatui::widgets::{Block, Paragraph};
+
+            // Create CPU block
+            let cpu_block = Block::bordered()
+                .title(Line::from(vec![
+                    Span::styled("🖥️ ", Style::default().fg(Color::LightGreen)),
+                    Span::styled(
+                        "CPU Usage",
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                ]))
+                .border_set(ROUNDED)
+                .border_style(Style::default().fg(Color::Green));
+
+            let inner_area = cpu_block.inner(*area);
+
+            // Render block first
+            cpu_block.render(*area, buf);
+
+            // Create content for each snapshot
+            let mut content_lines = Vec::new();
+
+            for (idx, snapshot) in self.message_log.iter().enumerate() {
+                let cpu_timestamp = &snapshot.system_cpu_usage_total.read_completed_by;
+                let cpu_value = &snapshot.system_cpu_usage_total.read_value;
+
+                // Format timestamp
+                let timestamp_str = cpu_timestamp.format("%H:%M:%S").to_string();
+
+                // Create alternating colors
+                let accent_color = if idx % 2 == 0 {
+                    Color::LightGreen
+                } else {
+                    Color::LightYellow
+                };
+
+                content_lines.push(Line::from("")); // Spacing
+
+                // Timestamp line
+                content_lines.push(Line::from(vec![
+                    Span::styled("⏰ ", Style::default().fg(Color::Yellow)),
+                    Span::styled(timestamp_str, Style::default().fg(Color::DarkGray)),
+                ]));
+
+                // CPU usage line - display the actual CPU value
+                content_lines.push(Line::from(vec![
+                    Span::styled("⚡ ", Style::default().fg(accent_color)),
+                    Span::styled(
+                        format!("{}", cpu_value),
+                        Style::default()
+                            .fg(accent_color)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                ]));
+            }
+
+            if content_lines.is_empty() {
+                content_lines.push(Line::from(vec![
+                    Span::styled("📭 ", Style::default().fg(Color::Gray)),
+                    Span::styled(
+                        "No CPU data",
+                        Style::default()
+                            .fg(Color::Gray)
+                            .add_modifier(Modifier::ITALIC),
+                    ),
+                ]));
+            }
+
+            let cpu_text = Text::from(content_lines);
+            Paragraph::new(cpu_text)
+                .alignment(Alignment::Left)
+                .render(inner_area, buf);
         }
     }
 }
