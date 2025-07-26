@@ -1,5 +1,3 @@
-use rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH;
-
 /*
  * Rewrite in terms of the "actor pattern" (a concurrency pattern): There should
  * be _actors_ that own their stuff (such as I/O resources), and that perform
@@ -34,6 +32,44 @@ fn main() -> std::process::ExitCode {
     let terminator: Terminator = Terminator::new();
 
     let config: Configuration = Configuration::resolve(cli_args.mock);
+
+    /*
+     * TODO: Refactor Querier & Broadcaster mechanism.
+     *
+     *       Relevant resources whose ownership boundaries need to be figured out:
+     *
+     *       1. AGGREGATED_STATE: Contains latest values of CPU usage, memory
+     *                            usage etc.
+     *
+     *       2. BROADCAST_CHANNEL: Used for sending (a clone of the)
+     *                             AGGREGATED_STATE to every connected
+     *                             downstream WebSocket client.
+     *
+     *       3. SLICE_CHANNEL: Each regularly readable SLICE of the state (that
+     *                         will be aggregated into AGGREGATED_STATE) is sent
+     *                         over a channel to some aggregator mechanism.
+     *
+     *       Currently, `Broadcaster` owns all of the 3 above. That probably
+     *       doesn't work, because:
+     *
+     *       1. There's a "web server state" that needs to have something
+     *          that allows subscribing each connected client to the
+     *          BROADCAST_CHANNEL. Each client is handled in a dedicated
+     *          coroutine, and so I guess the "Web server state" must own
+     *          the BROADCAST_CHANNEL, or at least its TX end, which has the
+     *          `::subscribe()` method. (Although I'm not sure about this...)
+     *
+     *       2. The Querier & Broadcaster are running the slice queries and
+     *          aggregation in another coroutine, and so they also need to own
+     *          some of the things.
+     */
+
+    let querier: Querier = Querier::new(&terminator);
+    /*
+     * TODO: Call querier.broadcaster.subscribe() for all connected downstream
+     *       WebSocket clients, to send state snapshots that are broadcasted
+     *       there!
+     */
 
     let game_server_state_machine = match GameServerStateMachine::init(&config) {
         Ok(n) => n,
@@ -82,12 +118,14 @@ fn main() -> std::process::ExitCode {
         WebServerSummary,
         StageSummary,
         GameServerControllerSummary,
+        QuerierSummary,
     ) = runtime.block_on(async {
         let summary = tokio::join!(
             terminator.work(),
             web_server.work(),
             stage.work(),
-            game_ctl.work(game_server_state_machine, store_shared.clone())
+            game_ctl.work(game_server_state_machine, store_shared.clone()),
+            querier.work(),
         );
         summary
     });
@@ -96,6 +134,173 @@ fn main() -> std::process::ExitCode {
     let exit_status: std::process::ExitCode = (&status).into();
 
     exit_status
+}
+
+struct Querier {
+    summary: QuerierSummary,
+
+    cancel_write: tokio::sync::mpsc::Sender<()>,
+    cancel_read: tokio_util::sync::CancellationToken,
+
+    broadcaster: Broadcaster,
+}
+
+struct QuerierSummary;
+
+impl Querier {
+    pub fn new(terminator: &Terminator) -> Self {
+        let (cancel_write, cancel_read) = terminator.get_handle();
+        Self {
+            summary: QuerierSummary {},
+            cancel_write,
+            cancel_read,
+            broadcaster: Broadcaster::new(),
+        }
+    }
+
+    /*
+     * TODO: Query system resources usage, and emit resulting value via
+     *       broadcast channel to downstream WebSocket clients.
+     */
+    pub async fn work(mut self) -> QuerierSummary {
+        let _done = tokio::join!(
+            self.cancel_read.run_until_cancelled(Querier::read_memory(
+                self.broadcaster.get_handle_for_publish()
+            )),
+            self.cancel_read
+                .run_until_cancelled(Querier::read_cpu(self.broadcaster.get_handle_for_publish())),
+            self.broadcaster.aggregate_and_broadcast(),
+        );
+        return self.summary;
+    }
+
+    async fn read_memory(tx: tokio::sync::mpsc::Sender<StateUpdateSlice>) {
+        let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        loop {
+            interval.tick().await;
+
+            let read_value = rustctl_common::snapshot::MemoryUsage::new(0); // TODO: Read actually!
+            let read_completed_by = chrono::Utc::now();
+            let queried = rustctl_common::snapshot::TimedValue {
+                read_value,
+                read_completed_by,
+            };
+
+            if let Err(_) = tx
+                .send(StateUpdateSlice::MemoryUsageBySystemTotal(queried))
+                .await
+            {
+                break;
+            }
+        }
+    }
+
+    async fn read_cpu(tx: tokio::sync::mpsc::Sender<StateUpdateSlice>) {
+        let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        loop {
+            interval.tick().await;
+
+            let read_value = rustctl_common::snapshot::CpuUsage::new(0.0); // TODO: Read actually!
+            let read_completed_by = chrono::Utc::now();
+            let queried = rustctl_common::snapshot::TimedValue {
+                read_value,
+                read_completed_by,
+            };
+
+            if let Err(_) = tx
+                .send(StateUpdateSlice::CpuUsageBySystemTotal(queried))
+                .await
+            {
+                break;
+            }
+        }
+    }
+}
+
+struct Broadcaster {
+    aggregated: rustctl_common::snapshot::Snapshot,
+
+    tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
+    rx_broadcast: tokio::sync::broadcast::Receiver<rustctl_common::snapshot::Snapshot>,
+
+    tx_slice: tokio::sync::mpsc::Sender<StateUpdateSlice>,
+    rx_slice: tokio::sync::mpsc::Receiver<StateUpdateSlice>,
+}
+
+impl Broadcaster {
+    pub fn new() -> Self {
+        let (tx_broadcast, rx_broadcast) =
+            tokio::sync::broadcast::channel::<rustctl_common::snapshot::Snapshot>(
+                /*
+                 * Every sent snapshot is a "full picture", and snapshots are
+                 * sent on a regular interval. I think that implies that the
+                 * broadcast channel never needs to have capacity bigger than
+                 * 1, i.e. store at most one snapshot in the broadcast buffer at
+                 * any given time.
+                 */
+                1,
+            );
+
+        let (tx_slice, rx_slice) = tokio::sync::mpsc::channel::<StateUpdateSlice>(
+            /*
+             * Unsure if the "slice transmit channel" capacity should be greater
+             * than 1. The point is to transmit values over the channel somewhat
+             * regularly, but the exact frequency is not too important. Also, it
+             * is not important that every read value gets transmitted; Only the
+             * latest value is ever interesting.
+             */
+            1,
+        );
+
+        let init = rustctl_common::snapshot::Snapshot::init();
+
+        Self {
+            aggregated: init,
+
+            tx_broadcast,
+            rx_broadcast,
+
+            tx_slice,
+            rx_slice,
+        }
+    }
+
+    /// Aggregate a state and broadcast it to downstream (WebSocket clients).
+    pub async fn aggregate_and_broadcast(&mut self) {
+        loop {
+            match self.rx_slice.recv().await {
+                Some(StateUpdateSlice::MemoryUsageBySystemTotal(usage)) => {
+                    self.aggregated.system_memory_usage_total = usage;
+                }
+                Some(StateUpdateSlice::CpuUsageBySystemTotal(usage)) => {
+                    self.aggregated.system_cpu_usage_total = usage;
+                }
+                None => break,
+            }
+
+            _ = self.tx_broadcast.send(self.aggregated.clone());
+        }
+    }
+
+    pub fn get_handle_for_publish(&self) -> tokio::sync::mpsc::Sender<StateUpdateSlice> {
+        self.tx_slice.clone()
+    }
+
+    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<rustctl_common::snapshot::Snapshot> {
+        self.tx_broadcast.subscribe()
+    }
+}
+
+enum StateUpdateSlice {
+    MemoryUsageBySystemTotal(
+        rustctl_common::snapshot::TimedValue<rustctl_common::snapshot::MemoryUsage>,
+    ),
+
+    CpuUsageBySystemTotal(rustctl_common::snapshot::TimedValue<rustctl_common::snapshot::CpuUsage>),
 }
 
 struct GameServerController {
@@ -817,7 +1022,7 @@ impl WebServer {
 
         let router: axum::Router = axum::Router::new()
             .route(
-                WEBSOCKET_CONNECT_URL_PATH,
+                rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH,
                 axum::routing::get(websocket_handler),
             )
             .with_state(state);
@@ -935,7 +1140,7 @@ impl DownstreamClientSender {
              *       other actor(s)!
              */
             let captured: rustctl_common::snapshot::Snapshot =
-                rustctl_common::snapshot::Snapshot::dummy();
+                rustctl_common::snapshot::Snapshot::init();
             let serialized: String = serde_json::to_string(&captured).unwrap();
 
             let send = futures_util::SinkExt::send(&mut self.tx, serialized.into());

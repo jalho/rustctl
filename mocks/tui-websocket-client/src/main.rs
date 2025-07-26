@@ -187,7 +187,12 @@ mod tui {
             let message_lines: Vec<ratatui::text::Line> = self
                 .message_log
                 .iter()
-                .map(|msg| ratatui::text::Line::from(format!(" {}", msg.captured_at)))
+                .map(|msg| {
+                    ratatui::text::Line::from(format!(
+                        " {}",
+                        msg.system_memory_usage_total.read_completed_by
+                    ))
+                })
                 .collect();
 
             let message_text = ratatui::text::Text::from(message_lines);

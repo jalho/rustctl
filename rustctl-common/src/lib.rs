@@ -1,29 +1,61 @@
 pub mod snapshot {
     /// Snapshot of the remote (server) state sent to each client (on a regular
     /// interval).
-    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub struct Snapshot {
-        pub captured_at: chrono::DateTime<chrono::Utc>,
         pub game_server_state: GameServerStateExposed,
+        pub system_memory_usage_total: TimedValue<MemoryUsage>,
+        pub system_cpu_usage_total: TimedValue<CpuUsage>,
+    }
+
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub struct CpuUsage(f32);
+
+    impl CpuUsage {
+        pub fn new(value: f32) -> Self {
+            Self(value)
+        }
+    }
+
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub struct MemoryUsage(u64);
+
+    impl MemoryUsage {
+        pub fn new(value: u64) -> Self {
+            Self(value)
+        }
     }
 
     impl Snapshot {
-        pub fn dummy() -> Self {
+        pub fn init() -> Self {
             let timestamp = chrono::Utc::now();
             Self {
-                captured_at: timestamp,
                 game_server_state: GameServerStateExposed::NotRunning(TrackedState {
                     transitioned_into_at: timestamp,
                     value: (),
                 }),
+                system_memory_usage_total: TimedValue {
+                    read_completed_by: timestamp,
+                    read_value: MemoryUsage(0),
+                },
+                system_cpu_usage_total: TimedValue {
+                    read_completed_by: timestamp,
+                    read_value: CpuUsage(0.0),
+                },
             }
         }
     }
 
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    pub struct TimedValue<ReadValue> {
+        pub read_completed_by: chrono::DateTime<chrono::Utc>,
+        pub read_value: ReadValue,
+    }
+
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct TrackedState<T> {
+    pub struct TrackedState<GameServerState> {
         pub transitioned_into_at: chrono::DateTime<chrono::Utc>,
-        pub value: T,
+        pub value: GameServerState,
     }
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
