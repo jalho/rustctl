@@ -36,6 +36,12 @@ Features are listed in the [`./CHANGELOG.md`](./CHANGELOG.md).
 
 ## Actors in the server
 
+The below diagram is an approximation as of commit `bbec67ba` (2025-07-27). This
+is _not_ a clean, intentional design. Instead, this is a note about the emergent
+structure that just happened. Some cleanup and restructuring would probably be
+a good idea, at least once all the minimum required features have been somewhat
+implemented!
+
 <img src="./diagrams/rustctl-server-actors.svg">
 
 ## Cheatsheet
