@@ -187,25 +187,48 @@ mod tui {
                 ])
                 .split(area);
 
-            // header
-            let header_title = Line::from(vec![
-                Span::styled("🦀 ", Style::default().fg(Color::Red)),
-                Span::styled(
-                    "rustctl",
-                    Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
-                ),
-                Span::styled(" Dashboard", Style::default().fg(Color::White)),
-            ]);
+            // header with game server state
+            let header_title = Line::from(vec![Span::styled(
+                " rustctl ",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )]);
 
             let header_block = Block::bordered()
                 .title(header_title.centered())
                 .border_set(ROUNDED)
                 .border_style(Style::default().fg(Color::Cyan));
 
-            Paragraph::new("")
+            // game server state content for header
+            let game_server_content = if let Some(latest_snapshot) = self.message_log.back() {
+                let state_text = format!("{:?}", latest_snapshot.game_server_state);
+                Text::from(vec![Line::from(vec![
+                    Span::styled("🎮 ", Style::default().fg(Color::Magenta)),
+                    Span::styled("Game Server: ", Style::default().fg(Color::White)),
+                    Span::styled(
+                        state_text,
+                        Style::default()
+                            .fg(Color::Green)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                ])])
+            } else {
+                Text::from(vec![Line::from(vec![
+                    Span::styled("🎮 ", Style::default().fg(Color::DarkGray)),
+                    Span::styled("Game Server: ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        "Unknown",
+                        Style::default()
+                            .fg(Color::DarkGray)
+                            .add_modifier(Modifier::ITALIC),
+                    ),
+                ])])
+            };
+
+            Paragraph::new(game_server_content)
                 .block(header_block)
+                .alignment(Alignment::Center)
                 .render(main_chunks[0], buf);
 
             // footer with controls
