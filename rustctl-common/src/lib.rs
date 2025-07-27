@@ -5,7 +5,7 @@ pub mod snapshot {
     pub struct Snapshot {
         pub game_server_state: GameServerStateExposed,
         pub system_memory_usage_total: TimedValue<MemoryUsage>,
-        pub system_cpu_usage_total: TimedValue<CpuUsage>,
+        pub system_cpu_usage_total: TimedValue<Vec<CpuUsage>>,
     }
 
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
@@ -52,7 +52,7 @@ pub mod snapshot {
                 },
                 system_cpu_usage_total: TimedValue {
                     read_completed_by: timestamp,
-                    read_value: CpuUsage(0.0),
+                    read_value: Vec::new(),
                 },
             }
         }

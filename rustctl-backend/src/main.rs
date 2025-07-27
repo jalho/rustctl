@@ -226,10 +226,15 @@ impl CpuQuerier {
             loop {
                 interval.tick().await;
 
-                let read_value = rustctl_common::snapshot::CpuUsage::new(0.0); // TODO: Read actually!
+                let mut read_values = Vec::new();
+
+                let single_read = rustctl_common::snapshot::CpuUsage::new(0.0); // TODO: Read actually, and each CPU!
+                read_values.push(single_read);
+
                 let read_completed_by = chrono::Utc::now();
+
                 let queried = rustctl_common::snapshot::TimedValue {
-                    read_value,
+                    read_value: read_values,
                     read_completed_by,
                 };
 
@@ -331,7 +336,9 @@ enum StateUpdateSlice {
         rustctl_common::snapshot::TimedValue<rustctl_common::snapshot::MemoryUsage>,
     ),
 
-    CpuUsageBySystemTotal(rustctl_common::snapshot::TimedValue<rustctl_common::snapshot::CpuUsage>),
+    CpuUsageBySystemTotal(
+        rustctl_common::snapshot::TimedValue<Vec<rustctl_common::snapshot::CpuUsage>>,
+    ),
 }
 
 struct GameServerController {
