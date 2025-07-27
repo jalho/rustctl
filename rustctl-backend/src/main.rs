@@ -179,7 +179,7 @@ impl MemoryQuerier {
         mem_total - mem_available
     }
 
-    /// Parse a line from /proc/meminfo
+    /// Parse a line from `/proc/meminfo`.
     fn parse_meminfo_line(line: &str) -> u64 {
         let parts: Vec<&str> = line.split_whitespace().collect();
 
