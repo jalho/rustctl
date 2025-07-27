@@ -188,7 +188,6 @@ impl MemoryQuerier {
         }
 
         let value_str = parts[1];
-        
 
         value_str
             .parse::<u64>()
@@ -329,8 +328,7 @@ impl CpuQuerier {
 
         for line in stat_content.lines() {
             // look for lines like "cpu0", "cpu1", etc. (not the aggregate "cpu " line)
-            if line.starts_with("cpu") && line.chars().nth(3).is_some_and(|c| c.is_ascii_digit())
-            {
+            if line.starts_with("cpu") && line.chars().nth(3).is_some_and(|c| c.is_ascii_digit()) {
                 let stats = Self::parse_cpu_line(line);
                 cpu_stats.push(stats);
             }
@@ -493,8 +491,10 @@ impl GameServerController {
         }
     }
 
-    fn get_handle(&self) -> ActorHandle<rustctl_common::command::DownstreamClientMessage> {
-        ActorHandle::new(self.tx.clone())
+    fn get_handle(
+        &self,
+    ) -> tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage> {
+        self.tx.clone()
     }
 
     async fn work(
@@ -1131,7 +1131,7 @@ pub struct CliArgs {
 
 #[derive(Clone)]
 struct WebServerState {
-    stage: ActorHandle<rustctl_common::command::DownstreamClientMessage>,
+    stage: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
     broadcast_handle: StateBroadcastHandle,
     clients_connected:
         std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<uuid::Uuid, DownstreamClient>>>,
@@ -1139,7 +1139,7 @@ struct WebServerState {
 
 impl WebServerState {
     pub fn new(
-        stage: ActorHandle<rustctl_common::command::DownstreamClientMessage>,
+        stage: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
         broadcast_handle: StateBroadcastHandle,
     ) -> Self {
         Self {
@@ -1153,7 +1153,7 @@ impl WebServerState {
 
     pub fn get_stage_handle(
         &self,
-    ) -> ActorHandle<rustctl_common::command::DownstreamClientMessage> {
+    ) -> tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage> {
         self.stage.clone()
     }
 
@@ -1348,7 +1348,7 @@ impl DownstreamClientReceiver {
 
     pub async fn work(
         &mut self,
-        stage: ActorHandle<rustctl_common::command::DownstreamClientMessage>,
+        stage: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
     ) {
         'recv_messages: loop {
             let next = futures_util::StreamExt::next(&mut self.rx);
@@ -1415,14 +1415,14 @@ struct Stage {
         tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
         tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
     ),
-    game_ctl: ActorHandle<rustctl_common::command::DownstreamClientMessage>,
+    game_ctl: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
     broadcast_handle: StateBroadcastHandle,
 }
 
 impl Stage {
     fn new(
         terminator: &Terminator,
-        game_ctl: ActorHandle<rustctl_common::command::DownstreamClientMessage>,
+        game_ctl: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
         broadcast_handle: StateBroadcastHandle,
     ) -> Self {
         Self {
@@ -1434,9 +1434,11 @@ impl Stage {
         }
     }
 
-    fn get_handle(&self) -> ActorHandle<rustctl_common::command::DownstreamClientMessage> {
+    fn get_handle(
+        &self,
+    ) -> tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage> {
         let (tx, _rx) = &self.channel;
-        ActorHandle::new(tx.clone())
+        tx.clone()
     }
 
     fn get_broadcast_handle(&self) -> StateBroadcastHandle {
@@ -1466,23 +1468,6 @@ impl Stage {
 
 struct StageSummary {
     messages_total: u128,
-}
-
-#[derive(Clone)]
-struct ActorHandle<Message> {
-    tx: tokio::sync::mpsc::Sender<Message>,
-}
-impl<Message> ActorHandle<Message> {
-    pub fn new(tx: tokio::sync::mpsc::Sender<Message>) -> Self {
-        Self { tx }
-    }
-
-    pub async fn send(
-        &self,
-        message: Message,
-    ) -> Result<(), tokio::sync::mpsc::error::TrySendError<Message>> {
-        self.tx.try_send(message)
-    }
 }
 
 struct Store {
