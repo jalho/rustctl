@@ -171,11 +171,11 @@ mod tui {
 
     impl ratatui::widgets::Widget for &Ctl {
         fn render(self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
-            use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin};
-            use ratatui::style::{Color, Modifier, Style, Stylize};
+            use ratatui::layout::{Alignment, Constraint, Direction, Layout};
+            use ratatui::style::{Color, Modifier, Style};
             use ratatui::symbols::border::ROUNDED;
             use ratatui::text::{Line, Span, Text};
-            use ratatui::widgets::{Block, Gauge, Paragraph};
+            use ratatui::widgets::{Block, Paragraph};
 
             // Main layout: header + dashboard + footer
             let main_chunks = Layout::default()
@@ -314,7 +314,7 @@ mod tui {
             area: &ratatui::layout::Rect,
             buf: &mut ratatui::buffer::Buffer,
         ) {
-            use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin};
+            use ratatui::layout::Alignment;
             use ratatui::style::{Color, Modifier, Style};
             use ratatui::symbols::border::ROUNDED;
             use ratatui::text::{Line, Span, Text};
@@ -349,12 +349,6 @@ mod tui {
                 // Format timestamp
                 let timestamp_str = mem_timestamp.format("%H:%M:%S").to_string();
 
-                // Create alternating background effect with spacing
-                let bg_color = if idx % 2 == 0 {
-                    Color::Reset
-                } else {
-                    Color::Reset
-                };
                 let accent_color = if idx % 2 == 0 {
                     Color::LightBlue
                 } else {
@@ -404,7 +398,7 @@ mod tui {
             area: &ratatui::layout::Rect,
             buf: &mut ratatui::buffer::Buffer,
         ) {
-            use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin};
+            use ratatui::layout::Alignment;
             use ratatui::style::{Color, Modifier, Style};
             use ratatui::symbols::border::ROUNDED;
             use ratatui::text::{Line, Span, Text};
@@ -434,7 +428,8 @@ mod tui {
 
             for (idx, snapshot) in self.message_log.iter().enumerate() {
                 let cpu_timestamp = &snapshot.system_cpu_usage_total.read_completed_by;
-                let cpu_values: &Vec<rustctl_common::snapshot::CpuUsage> = &snapshot.system_cpu_usage_total.read_value;
+                let cpu_values: &Vec<rustctl_common::snapshot::CpuUsage> =
+                    &snapshot.system_cpu_usage_total.read_value;
 
                 // Format timestamp
                 let timestamp_str = cpu_timestamp.format("%H:%M:%S").to_string();
@@ -454,24 +449,30 @@ mod tui {
                     Span::styled(timestamp_str, Style::default().fg(Color::DarkGray)),
                 ]));
 
-                /*
-                 * TODO: Update TUI to show each CPUs usage! Currently, only 1
-                 *       aggregate value is shown. Note that `cpu_value` is not
-                 *       defined in this code: It used to be, but I've replaced
-                 *       it with `cpu_values`, which is a &Vec representing each
-                 *       CPUs value.
-                 */
+                // Display each CPU's usage individually
+                for (cpu_idx, cpu_value) in cpu_values.iter().enumerate() {
+                    // Choose color based on usage level
+                    let usage_color = match cpu_value.as_percentage() {
+                        p if p >= 80.0 => Color::Red,
+                        p if p >= 60.0 => Color::Yellow,
+                        p if p >= 40.0 => Color::LightYellow,
+                        _ => accent_color,
+                    };
 
-                // CPU usage line - display the actual CPU value
-                content_lines.push(Line::from(vec![
-                    Span::styled("⚡ ", Style::default().fg(accent_color)),
-                    Span::styled(
-                        format!("{}", cpu_value),
-                        Style::default()
-                            .fg(accent_color)
-                            .add_modifier(Modifier::BOLD),
-                    ),
-                ]));
+                    content_lines.push(Line::from(vec![
+                        Span::styled("⚡ ", Style::default().fg(accent_color)),
+                        Span::styled(
+                            format!("CPU{}: ", cpu_idx),
+                            Style::default().fg(Color::DarkGray),
+                        ),
+                        Span::styled(
+                            format!("{:.1}%", cpu_value.as_percentage()),
+                            Style::default()
+                                .fg(usage_color)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                    ]));
+                }
             }
 
             if content_lines.is_empty() {

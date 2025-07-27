@@ -15,6 +15,10 @@ pub mod snapshot {
         pub fn new(value: f64) -> Self {
             Self(value)
         }
+
+        pub fn as_percentage(&self) -> f64 {
+            self.0
+        }
     }
 
     impl std::fmt::Display for CpuUsage {
