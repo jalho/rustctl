@@ -342,7 +342,7 @@ mod tui {
             // Create content for each snapshot
             let mut content_lines = Vec::new();
 
-            for (idx, snapshot) in self.message_log.iter().enumerate() {
+            for (idx, snapshot) in self.message_log.iter().rev().enumerate() {
                 let mem_timestamp = &snapshot.system_memory_usage_total.read_completed_by;
                 let mem_value = &snapshot.system_memory_usage_total.read_value;
 
@@ -426,7 +426,7 @@ mod tui {
             // Create content for each snapshot
             let mut content_lines = Vec::new();
 
-            for (idx, snapshot) in self.message_log.iter().enumerate() {
+            for (idx, snapshot) in self.message_log.iter().rev().enumerate() {
                 let cpu_timestamp = &snapshot.system_cpu_usage_total.read_completed_by;
                 let cpu_values: &Vec<rustctl_common::snapshot::CpuUsage> =
                     &snapshot.system_cpu_usage_total.read_value;
