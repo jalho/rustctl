@@ -319,9 +319,9 @@ mod tui {
 
             let memory_block = Block::bordered()
                 .title(Line::from(vec![
-                    Span::styled("📊 ", Style::default().fg(Color::LightBlue)),
+                    Span::styled(" 📊 ", Style::default().fg(Color::LightBlue)),
                     Span::styled(
-                        "Memory Usage",
+                        "Memory Usage (latest first) ",
                         Style::default()
                             .fg(Color::White)
                             .add_modifier(Modifier::BOLD),
@@ -397,9 +397,9 @@ mod tui {
 
             let cpu_block = Block::bordered()
                 .title(Line::from(vec![
-                    Span::styled("🖥️ ", Style::default().fg(Color::LightGreen)),
+                    Span::styled(" 🖥️ ", Style::default().fg(Color::LightGreen)),
                     Span::styled(
-                        "CPU Usage",
+                        "CPU Usage (latest first) ",
                         Style::default()
                             .fg(Color::White)
                             .add_modifier(Modifier::BOLD),
