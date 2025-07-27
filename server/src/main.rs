@@ -418,10 +418,10 @@ impl StateAggregator {
         self.slice_tx.clone()
     }
 
-    pub fn get_broadcast_handle(&self) -> StateBroadcastHandle {
-        StateBroadcastHandle {
-            tx: self.broadcast_tx.clone(),
-        }
+    pub fn get_broadcast_handle(
+        &self,
+    ) -> tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot> {
+        self.broadcast_tx.clone()
     }
 
     pub async fn work(mut self) -> StateAggregatorSummary {
@@ -442,19 +442,6 @@ impl StateAggregator {
 
         self.cancel_read.run_until_cancelled(aggregation_task).await;
         self.summary
-    }
-}
-
-#[derive(Clone)]
-struct StateBroadcastHandle {
-    tx: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
-}
-
-impl StateBroadcastHandle {
-    pub fn subscribe(
-        &self,
-    ) -> tokio::sync::broadcast::Receiver<rustctl_common::snapshot::Snapshot> {
-        self.tx.subscribe()
     }
 }
 
@@ -1132,7 +1119,7 @@ pub struct CliArgs {
 #[derive(Clone)]
 struct WebServerState {
     stage: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
-    broadcast_handle: StateBroadcastHandle,
+    broadcast_handle: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
     clients_connected:
         std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<uuid::Uuid, DownstreamClient>>>,
 }
@@ -1140,7 +1127,7 @@ struct WebServerState {
 impl WebServerState {
     pub fn new(
         stage: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
-        broadcast_handle: StateBroadcastHandle,
+        broadcast_handle: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
     ) -> Self {
         Self {
             stage,
@@ -1157,7 +1144,9 @@ impl WebServerState {
         self.stage.clone()
     }
 
-    pub fn get_broadcast_handle(&self) -> StateBroadcastHandle {
+    pub fn get_broadcast_handle(
+        &self,
+    ) -> tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot> {
         self.broadcast_handle.clone()
     }
 
@@ -1294,7 +1283,7 @@ impl DownstreamClientSender {
             axum::extract::ws::WebSocket,
             axum::extract::ws::Message,
         >,
-        broadcast_handle: StateBroadcastHandle,
+        broadcast_handle: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
     ) -> Self {
         Self {
             tx,
@@ -1416,14 +1405,14 @@ struct Stage {
         tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
     ),
     game_ctl: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
-    broadcast_handle: StateBroadcastHandle,
+    broadcast_handle: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
 }
 
 impl Stage {
     fn new(
         terminator: &Terminator,
         game_ctl: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
-        broadcast_handle: StateBroadcastHandle,
+        broadcast_handle: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
     ) -> Self {
         Self {
             channel: tokio::sync::mpsc::channel(1),
@@ -1441,7 +1430,7 @@ impl Stage {
         tx.clone()
     }
 
-    fn get_broadcast_handle(&self) -> StateBroadcastHandle {
+    fn get_broadcast_handle(&self) -> tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot> {
         self.broadcast_handle.clone()
     }
 
