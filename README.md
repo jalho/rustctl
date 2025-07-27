@@ -34,6 +34,10 @@ Features are listed in the [`./CHANGELOG.md`](./CHANGELOG.md).
 
 <img src="./diagrams/rustctl-state-machine.svg">
 
+## Actors in the server
+
+<img src="./diagrams/rustctl-server-actors.svg">
+
 ## Cheatsheet
 
 #### Running a light game server
