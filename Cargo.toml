@@ -1,12 +1,15 @@
 [workspace]
 resolver = "3"
 members = [
+  "./server",
+
+  "./clients/tui",
+  "./clients/web",
+
+  "./common",
+
   "./mocks/RustDedicated",
   "./mocks/steamcmd",
-  "./mocks/tui-websocket-client",
-  "./rustctl-backend",
-  "./rustctl-common",
-  "./rustctl-frontend",
 ]
 
 [workspace.dependencies]
@@ -26,7 +29,7 @@ log4rs               = { version = "=1.3.0",   default-features = false }
 log                  = { version = "=0.4.27",  default-features = false }
 rand                 = { version = "=0.9.1",   default-features = false }
 ratatui              = { version = "=0.29.0",  default-features = false }
-rustctl-common       = { path    = "./rustctl-common"                   }
+rustctl-common       = { path    = "./common"                           }
 serde_json           = { version = "=1.0.140", default-features = false }
 serde                = { version = "=1.0.219", default-features = false }
 tokio-tungstenite    = { version = "=0.27.0",  default-features = false }

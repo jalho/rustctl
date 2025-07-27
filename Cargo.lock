@@ -1959,7 +1959,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustctl-frontend"
+name = "rustctl-tui"
+version = "0.0.0"
+dependencies = [
+ "chrono",
+ "crossterm 0.29.0",
+ "futures-util",
+ "ratatui",
+ "rustctl-common",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite 0.27.0",
+ "tokio-util",
+]
+
+[[package]]
+name = "rustctl-web"
 version = "0.0.0"
 dependencies = [
  "dioxus",
@@ -2574,21 +2589,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "tui-websocket-client"
-version = "0.0.0"
-dependencies = [
- "chrono",
- "crossterm 0.29.0",
- "futures-util",
- "ratatui",
- "rustctl-common",
- "serde_json",
- "tokio",
- "tokio-tungstenite 0.27.0",
- "tokio-util",
 ]
 
 [[package]]

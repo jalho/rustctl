@@ -1,5 +1,5 @@
 [package]
-name    = "rustctl-frontend"
+name    = "rustctl-web"
 edition = "2024"
 
 [features]
