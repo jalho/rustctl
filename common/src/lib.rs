@@ -8,11 +8,13 @@ pub mod snapshot {
         pub system_cpu_usage_total: TimedValue<Vec<CpuUsage>>,
     }
 
+    /// A single CPU's utilization rate in some time window.
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub struct CpuUsage(f64);
 
     impl CpuUsage {
         pub fn new(value: f64) -> Self {
+            assert!(value >= 0.0 && value <= 100.0, "{value}");
             Self(value)
         }
 
@@ -27,6 +29,7 @@ pub mod snapshot {
         }
     }
 
+    /// Amount of memory used, in kibiytes (KiB, i.e. 1024 bytes).
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub struct MemoryUsage(u64);
 
@@ -38,7 +41,13 @@ pub mod snapshot {
 
     impl std::fmt::Display for MemoryUsage {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "{} kibibytes", self.0)
+            write!(
+                f,
+                "{kib} KiB (~ {gib:.2} GiB = {gb:.2} GB)",
+                kib = self.0,
+                gib = self.0 as f32 / 1_048_576.0,
+                gb = (self.0 * 1024) as f32 / 1_000_000_000.0
+            )
         }
     }
 
