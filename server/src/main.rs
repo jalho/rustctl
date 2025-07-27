@@ -188,11 +188,11 @@ impl MemoryQuerier {
         }
 
         let value_str = parts[1];
-        let value_kb = value_str
-            .parse::<u64>()
-            .expect("meminfo format should be known");
+        
 
-        value_kb
+        value_str
+            .parse::<u64>()
+            .expect("meminfo format should be known")
     }
 }
 
@@ -329,7 +329,7 @@ impl CpuQuerier {
 
         for line in stat_content.lines() {
             // look for lines like "cpu0", "cpu1", etc. (not the aggregate "cpu " line)
-            if line.starts_with("cpu") && line.chars().nth(3).map_or(false, |c| c.is_ascii_digit())
+            if line.starts_with("cpu") && line.chars().nth(3).is_some_and(|c| c.is_ascii_digit())
             {
                 let stats = Self::parse_cpu_line(line);
                 cpu_stats.push(stats);
@@ -351,7 +351,7 @@ impl CpuQuerier {
         let parsed_u64: Vec<u64> = parts
             .iter()
             .map(|value| {
-                let value: &str = *value;
+                let value: &str = value;
                 let value: u64 = value.parse().expect("format should be known");
                 value
             })
@@ -1319,7 +1319,7 @@ impl DownstreamClientSender {
             let serialized: String = match serde_json::to_string(&snapshot) {
                 Ok(s) => s,
                 Err(err) => {
-                    log::error!("Failed to serialize snapshot: {}", err);
+                    log::error!("Failed to serialize snapshot: {err}");
                     continue;
                 }
             };

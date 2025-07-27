@@ -93,7 +93,7 @@ mod tui {
         cancel: tokio_util::sync::CancellationToken,
     ) {
         let mut terminal: ratatui::Terminal<_> = ratatui::init();
-        let _app_done = Ctl::new(rx_updates, tx_commands, cancel)
+        Ctl::new(rx_updates, tx_commands, cancel)
             .run(&mut terminal)
             .unwrap();
     }
@@ -132,10 +132,7 @@ mod tui {
 
                 if crossterm::event::poll(std::time::Duration::from_millis(100))? {
                     let key_event = crossterm::event::read()?;
-                    match key_event {
-                        crossterm::event::Event::Key(key_event) => self.handle_key_event(key_event),
-                        _ => {}
-                    }
+                    if let crossterm::event::Event::Key(key_event) = key_event { self.handle_key_event(key_event) }
                 }
             }
             Ok(())
@@ -381,7 +378,7 @@ mod tui {
                 content_lines.push(Line::from(vec![
                     Span::styled("💾 ", Style::default().fg(accent_color)),
                     Span::styled(
-                        format!("{}", mem_value),
+                        format!("{mem_value}"),
                         Style::default()
                             .fg(accent_color)
                             .add_modifier(Modifier::BOLD),
@@ -468,7 +465,7 @@ mod tui {
                     content_lines.push(Line::from(vec![
                         Span::styled("⚡ ", Style::default().fg(accent_color)),
                         Span::styled(
-                            format!("CPU{}: ", cpu_idx),
+                            format!("CPU{cpu_idx}: "),
                             Style::default().fg(Color::DarkGray),
                         ),
                         Span::styled(

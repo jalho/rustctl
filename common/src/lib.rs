@@ -14,7 +14,7 @@ pub mod snapshot {
 
     impl CpuUsage {
         pub fn new(value: f64) -> Self {
-            assert!(value >= 0.0 && value <= 100.0, "{value}");
+            assert!((0.0..=100.0).contains(&value), "{value}");
             Self(value)
         }
 
