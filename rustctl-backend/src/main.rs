@@ -200,9 +200,39 @@ struct CpuQuerier {
     summary: CpuQuerierSummary,
     cancel_read: tokio_util::sync::CancellationToken,
     slice_tx: tokio::sync::mpsc::Sender<StateUpdateSlice>,
+    previous_stats: Vec<CpuStats>,
 }
 
 struct CpuQuerierSummary;
+
+#[derive(Clone, Copy)]
+struct CpuStats {
+    user: u64,
+    nice: u64,
+    system: u64,
+    idle: u64,
+    iowait: u64,
+    irq: u64,
+    softirq: u64,
+    steal: u64,
+}
+
+impl CpuStats {
+    fn total(&self) -> u64 {
+        self.user
+            + self.nice
+            + self.system
+            + self.idle
+            + self.iowait
+            + self.irq
+            + self.softirq
+            + self.steal
+    }
+
+    fn active(&self) -> u64 {
+        self.user + self.nice + self.system + self.irq + self.softirq + self.steal
+    }
+}
 
 impl CpuQuerier {
     pub fn new(
@@ -210,29 +240,57 @@ impl CpuQuerier {
         slice_tx: tokio::sync::mpsc::Sender<StateUpdateSlice>,
     ) -> Self {
         let (_, cancel_read) = terminator.get_handle();
-
         Self {
             summary: CpuQuerierSummary,
             cancel_read,
             slice_tx,
+            previous_stats: Vec::new(),
         }
     }
 
-    pub async fn work(self) -> CpuQuerierSummary {
+    pub async fn work(mut self) -> CpuQuerierSummary {
         let query_task = async {
             let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
+            if let Ok(initial_stats) = Self::read_all_cpu_stats().await {
+                self.previous_stats = initial_stats;
+            }
+
             loop {
                 interval.tick().await;
-
                 let mut read_values = Vec::new();
 
-                let single_read = rustctl_common::snapshot::CpuUsage::new(0.0); // TODO: Read actually, and each CPU!
-                read_values.push(single_read);
+                match Self::read_all_cpu_stats().await {
+                    Ok(current_stats) => {
+                        // calculate usage for each CPU
+                        for (cpu_index, current_cpu_stats) in current_stats.iter().enumerate() {
+                            let usage_percent = if cpu_index < self.previous_stats.len() {
+                                Self::calculate_cpu_usage(
+                                    &self.previous_stats[cpu_index],
+                                    current_cpu_stats,
+                                )
+                            } else {
+                                0.0 // first reading for this CPU
+                            };
+
+                            let single_read =
+                                rustctl_common::snapshot::CpuUsage::new(usage_percent);
+                            read_values.push(single_read);
+                        }
+
+                        self.previous_stats = current_stats;
+                    }
+                    // TODO: Define as infallible!
+                    Err(_) => {
+                        for _ in 0..self.previous_stats.len() {
+                            let single_read = rustctl_common::snapshot::CpuUsage::new(0.0);
+                            read_values.push(single_read);
+                        }
+                    }
+                }
 
                 let read_completed_by = chrono::Utc::now();
-
                 let queried = rustctl_common::snapshot::TimedValue {
                     read_value: read_values,
                     read_completed_by,
@@ -248,9 +306,74 @@ impl CpuQuerier {
                 }
             }
         };
-
         self.cancel_read.run_until_cancelled(query_task).await;
         self.summary
+    }
+
+    async fn read_all_cpu_stats() -> Result<Vec<CpuStats>, std::io::Error> {
+        let stat_content = tokio::fs::read_to_string("/proc/stat").await?;
+        let mut cpu_stats = Vec::new();
+
+        for line in stat_content.lines() {
+            // look for lines like "cpu0", "cpu1", etc. (not the aggregate "cpu " line)
+            if line.starts_with("cpu") && line.chars().nth(3).map_or(false, |c| c.is_ascii_digit())
+            {
+                match Self::parse_cpu_line(line) {
+                    Ok(stats) => cpu_stats.push(stats),
+                    Err(_) => continue, // TODO: Panic on malformed lines?
+                }
+            }
+        }
+
+        // TODO: Panic on no data?
+        if cpu_stats.is_empty() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "No individual CPU stats found in /proc/stat",
+            ));
+        }
+
+        Ok(cpu_stats)
+    }
+
+    // TODO: Define as nonfallible?
+    fn parse_cpu_line(line: &str) -> Result<CpuStats, std::io::Error> {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+
+        if parts.len() < 9 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Invalid CPU stats format",
+            ));
+        }
+
+        let parse_u64 = |s: &str| -> Result<u64, std::io::Error> {
+            s.parse::<u64>().map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "Failed to parse CPU value")
+            })
+        };
+
+        Ok(CpuStats {
+            user: parse_u64(parts[1])?,
+            nice: parse_u64(parts[2])?,
+            system: parse_u64(parts[3])?,
+            idle: parse_u64(parts[4])?,
+            iowait: parse_u64(parts[5])?,
+            irq: parse_u64(parts[6])?,
+            softirq: parse_u64(parts[7])?,
+            steal: parse_u64(parts[8])?,
+        })
+    }
+
+    fn calculate_cpu_usage(prev_stats: &CpuStats, current_stats: &CpuStats) -> f64 {
+        let total_diff = current_stats.total() - prev_stats.total();
+        let active_diff = current_stats.active() - prev_stats.active();
+
+        if total_diff > 0 {
+            ((active_diff as f64 / total_diff as f64) * 100.0).clamp(0.0, 100.0)
+        } else {
+            0.0
+        }
     }
 }
 

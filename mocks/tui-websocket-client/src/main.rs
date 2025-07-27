@@ -434,7 +434,7 @@ mod tui {
 
             for (idx, snapshot) in self.message_log.iter().enumerate() {
                 let cpu_timestamp = &snapshot.system_cpu_usage_total.read_completed_by;
-                let cpu_value = &snapshot.system_cpu_usage_total.read_value;
+                let cpu_values: &Vec<rustctl_common::snapshot::CpuUsage> = &snapshot.system_cpu_usage_total.read_value;
 
                 // Format timestamp
                 let timestamp_str = cpu_timestamp.format("%H:%M:%S").to_string();
@@ -453,6 +453,14 @@ mod tui {
                     Span::styled("⏰ ", Style::default().fg(Color::Yellow)),
                     Span::styled(timestamp_str, Style::default().fg(Color::DarkGray)),
                 ]));
+
+                /*
+                 * TODO: Update TUI to show each CPUs usage! Currently, only 1
+                 *       aggregate value is shown. Note that `cpu_value` is not
+                 *       defined in this code: It used to be, but I've replaced
+                 *       it with `cpu_values`, which is a &Vec representing each
+                 *       CPUs value.
+                 */
 
                 // CPU usage line - display the actual CPU value
                 content_lines.push(Line::from(vec![

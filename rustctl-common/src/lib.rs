@@ -9,10 +9,10 @@ pub mod snapshot {
     }
 
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
-    pub struct CpuUsage(f32);
+    pub struct CpuUsage(f64);
 
     impl CpuUsage {
-        pub fn new(value: f32) -> Self {
+        pub fn new(value: f64) -> Self {
             Self(value)
         }
     }
