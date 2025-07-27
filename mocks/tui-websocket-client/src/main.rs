@@ -177,17 +177,17 @@ mod tui {
             use ratatui::text::{Line, Span, Text};
             use ratatui::widgets::{Block, Paragraph};
 
-            // Main layout: header + dashboard + footer
+            // main layout: header + dashboard + footer
             let main_chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Length(3), // Header
-                    Constraint::Min(0),    // Dashboard content
-                    Constraint::Length(3), // Footer
+                    Constraint::Length(3), // header
+                    Constraint::Min(0),    // dashboard content
+                    Constraint::Length(3), // footer
                 ])
                 .split(area);
 
-            // Render header
+            // header
             let header_title = Line::from(vec![
                 Span::styled("🦀 ", Style::default().fg(Color::Red)),
                 Span::styled(
@@ -208,7 +208,7 @@ mod tui {
                 .block(header_block)
                 .render(main_chunks[0], buf);
 
-            // Render footer with controls
+            // footer with controls
             let instructions = Line::from(vec![
                 Span::styled("❌ ", Style::default().fg(Color::Red)),
                 Span::styled("Quit", Style::default().fg(Color::White)),
@@ -247,11 +247,11 @@ mod tui {
                 .block(footer_block)
                 .render(main_chunks[2], buf);
 
-            // Dashboard content area
+            // dashboard content area
             let content_area = main_chunks[1];
 
             if self.message_log.is_empty() {
-                // Empty state
+                // empty state
                 let empty_block = Block::bordered()
                     .title(Line::from(vec![
                         Span::styled("📊 ", Style::default().fg(Color::Yellow)),
@@ -293,17 +293,14 @@ mod tui {
                 return;
             }
 
-            // Create grid layout for metric cards (2 columns)
             let cols = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
                 .margin(1)
                 .split(content_area);
 
-            // Left column: Memory metrics
             self.render_memory_column(&cols[0], buf);
 
-            // Right column: CPU metrics
             self.render_cpu_column(&cols[1], buf);
         }
     }
@@ -320,7 +317,6 @@ mod tui {
             use ratatui::text::{Line, Span, Text};
             use ratatui::widgets::{Block, Paragraph};
 
-            // Create memory block
             let memory_block = Block::bordered()
                 .title(Line::from(vec![
                     Span::styled("📊 ", Style::default().fg(Color::LightBlue)),
@@ -336,17 +332,14 @@ mod tui {
 
             let inner_area = memory_block.inner(*area);
 
-            // Render block first
             memory_block.render(*area, buf);
 
-            // Create content for each snapshot
             let mut content_lines = Vec::new();
 
             for (idx, snapshot) in self.message_log.iter().rev().enumerate() {
                 let mem_timestamp = &snapshot.system_memory_usage_total.read_completed_by;
                 let mem_value = &snapshot.system_memory_usage_total.read_value;
 
-                // Format timestamp
                 let timestamp_str = mem_timestamp.format("%H:%M:%S").to_string();
 
                 let accent_color = if idx % 2 == 0 {
@@ -355,15 +348,13 @@ mod tui {
                     Color::LightCyan
                 };
 
-                content_lines.push(Line::from("")); // Spacing
+                content_lines.push(Line::from("")); // spacing
 
-                // Timestamp line
                 content_lines.push(Line::from(vec![
                     Span::styled("⏰ ", Style::default().fg(Color::Yellow)),
                     Span::styled(timestamp_str, Style::default().fg(Color::DarkGray)),
                 ]));
 
-                // Memory usage line - display the actual memory value
                 content_lines.push(Line::from(vec![
                     Span::styled("💾 ", Style::default().fg(accent_color)),
                     Span::styled(
@@ -404,7 +395,6 @@ mod tui {
             use ratatui::text::{Line, Span, Text};
             use ratatui::widgets::{Block, Paragraph};
 
-            // Create CPU block
             let cpu_block = Block::bordered()
                 .title(Line::from(vec![
                     Span::styled("🖥️ ", Style::default().fg(Color::LightGreen)),
@@ -420,10 +410,8 @@ mod tui {
 
             let inner_area = cpu_block.inner(*area);
 
-            // Render block first
             cpu_block.render(*area, buf);
 
-            // Create content for each snapshot
             let mut content_lines = Vec::new();
 
             for (idx, snapshot) in self.message_log.iter().rev().enumerate() {
@@ -431,27 +419,22 @@ mod tui {
                 let cpu_values: &Vec<rustctl_common::snapshot::CpuUsage> =
                     &snapshot.system_cpu_usage_total.read_value;
 
-                // Format timestamp
                 let timestamp_str = cpu_timestamp.format("%H:%M:%S").to_string();
 
-                // Create alternating colors
                 let accent_color = if idx % 2 == 0 {
                     Color::LightGreen
                 } else {
                     Color::LightYellow
                 };
 
-                content_lines.push(Line::from("")); // Spacing
+                content_lines.push(Line::from("")); // spacing
 
-                // Timestamp line
                 content_lines.push(Line::from(vec![
                     Span::styled("⏰ ", Style::default().fg(Color::Yellow)),
                     Span::styled(timestamp_str, Style::default().fg(Color::DarkGray)),
                 ]));
 
-                // Display each CPU's usage individually
                 for (cpu_idx, cpu_value) in cpu_values.iter().enumerate() {
-                    // Choose color based on usage level
                     let usage_color = match cpu_value.as_percentage() {
                         p if p >= 80.0 => Color::Red,
                         p if p >= 60.0 => Color::Yellow,
