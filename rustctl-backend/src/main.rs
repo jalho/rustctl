@@ -205,32 +205,56 @@ struct CpuQuerier {
 
 struct CpuQuerierSummary;
 
+/// Accurate as of:
+/// ```
+/// $ uname -r
+/// 6.1.0-37-amd64
+///
+/// $ lsb_release -a
+/// Description:    Debian GNU/Linux 12 (bookworm)
+/// ```
 #[derive(Clone, Copy)]
 struct CpuStats {
+    system: u64,
     user: u64,
     nice: u64,
-    system: u64,
-    idle: u64,
-    iowait: u64,
+
     irq: u64,
     softirq: u64,
+
     steal: u64,
+    guest: u64,
+    guest_nice: u64,
+
+    idle: u64,
+    iowait: u64,
 }
 
 impl CpuStats {
     fn total(&self) -> u64 {
-        self.user
-            + self.nice
-            + self.system
+        self.guest
+            + self.guest_nice
             + self.idle
             + self.iowait
             + self.irq
+            + self.nice
             + self.softirq
             + self.steal
+            + self.system
+            + self.user
     }
 
     fn active(&self) -> u64 {
-        self.user + self.nice + self.system + self.irq + self.softirq + self.steal
+        self.guest
+            + self.guest_nice
+            // + self.idle
+            // + self.iowait
+            + self.irq
+            + self.nice
+            + self.softirq
+            + self.steal
+            + self.system
+            + self.user
     }
 }
 
@@ -253,42 +277,29 @@ impl CpuQuerier {
             let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-            if let Ok(initial_stats) = Self::read_all_cpu_stats().await {
-                self.previous_stats = initial_stats;
-            }
+            self.previous_stats = Self::read_all_cpu_stats().await;
 
             loop {
                 interval.tick().await;
                 let mut read_values = Vec::new();
 
-                match Self::read_all_cpu_stats().await {
-                    Ok(current_stats) => {
-                        // calculate usage for each CPU
-                        for (cpu_index, current_cpu_stats) in current_stats.iter().enumerate() {
-                            let usage_percent = if cpu_index < self.previous_stats.len() {
-                                Self::calculate_cpu_usage(
-                                    &self.previous_stats[cpu_index],
-                                    current_cpu_stats,
-                                )
-                            } else {
-                                0.0 // first reading for this CPU
-                            };
+                let current_stats = Self::read_all_cpu_stats().await;
 
-                            let single_read =
-                                rustctl_common::snapshot::CpuUsage::new(usage_percent);
-                            read_values.push(single_read);
-                        }
+                // calculate usage for each CPU
+                for (cpu_index, current_cpu_stats) in current_stats.iter().enumerate() {
+                    let usage_percent = if cpu_index < self.previous_stats.len() {
+                        Self::calculate_cpu_usage(
+                            &self.previous_stats[cpu_index],
+                            current_cpu_stats,
+                        )
+                    } else {
+                        0.0 // first reading for this CPU
+                    };
 
-                        self.previous_stats = current_stats;
-                    }
-                    // TODO: Define as infallible!
-                    Err(_) => {
-                        for _ in 0..self.previous_stats.len() {
-                            let single_read = rustctl_common::snapshot::CpuUsage::new(0.0);
-                            read_values.push(single_read);
-                        }
-                    }
+                    let single_read = rustctl_common::snapshot::CpuUsage::new(usage_percent);
+                    read_values.push(single_read);
                 }
+                self.previous_stats = current_stats;
 
                 let read_completed_by = chrono::Utc::now();
                 let queried = rustctl_common::snapshot::TimedValue {
@@ -310,59 +321,54 @@ impl CpuQuerier {
         self.summary
     }
 
-    async fn read_all_cpu_stats() -> Result<Vec<CpuStats>, std::io::Error> {
-        let stat_content = tokio::fs::read_to_string("/proc/stat").await?;
+    async fn read_all_cpu_stats() -> Vec<CpuStats> {
+        let stat_content = tokio::fs::read_to_string("/proc/stat")
+            .await
+            .expect("Linux should have /proc/stat");
         let mut cpu_stats = Vec::new();
 
         for line in stat_content.lines() {
             // look for lines like "cpu0", "cpu1", etc. (not the aggregate "cpu " line)
             if line.starts_with("cpu") && line.chars().nth(3).map_or(false, |c| c.is_ascii_digit())
             {
-                match Self::parse_cpu_line(line) {
-                    Ok(stats) => cpu_stats.push(stats),
-                    Err(_) => continue, // TODO: Panic on malformed lines?
-                }
+                let stats = Self::parse_cpu_line(line);
+                cpu_stats.push(stats);
             }
         }
 
-        // TODO: Panic on no data?
-        if cpu_stats.is_empty() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "No individual CPU stats found in /proc/stat",
-            ));
-        }
-
-        Ok(cpu_stats)
+        cpu_stats
     }
 
-    // TODO: Define as nonfallible?
-    fn parse_cpu_line(line: &str) -> Result<CpuStats, std::io::Error> {
-        let parts: Vec<&str> = line.split_whitespace().collect();
+    /// Assuming format:
+    /// ```
+    /// cpu0 7856 2 1650 443198 226 0 23 0 0 0
+    /// ```
+    fn parse_cpu_line(line: &str) -> CpuStats {
+        let mut parts: Vec<&str> = line.split_whitespace().collect();
+        assert_eq!(parts.len(), 11, "{line}");
+        parts.remove(0);
 
-        if parts.len() < 9 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Invalid CPU stats format",
-            ));
-        }
-
-        let parse_u64 = |s: &str| -> Result<u64, std::io::Error> {
-            s.parse::<u64>().map_err(|_| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "Failed to parse CPU value")
+        let parsed_u64: Vec<u64> = parts
+            .iter()
+            .map(|value| {
+                let value: &str = *value;
+                let value: u64 = value.parse().expect("format should be known");
+                value
             })
-        };
+            .collect::<Vec<u64>>();
 
-        Ok(CpuStats {
-            user: parse_u64(parts[1])?,
-            nice: parse_u64(parts[2])?,
-            system: parse_u64(parts[3])?,
-            idle: parse_u64(parts[4])?,
-            iowait: parse_u64(parts[5])?,
-            irq: parse_u64(parts[6])?,
-            softirq: parse_u64(parts[7])?,
-            steal: parse_u64(parts[8])?,
-        })
+        CpuStats {
+            user: parsed_u64[0],
+            nice: parsed_u64[1],
+            system: parsed_u64[2],
+            idle: parsed_u64[3],
+            iowait: parsed_u64[4],
+            irq: parsed_u64[5],
+            softirq: parsed_u64[6],
+            steal: parsed_u64[7],
+            guest: parsed_u64[8],
+            guest_nice: parsed_u64[9],
+        }
     }
 
     fn calculate_cpu_usage(prev_stats: &CpuStats, current_stats: &CpuStats) -> f64 {
