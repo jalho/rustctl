@@ -35,8 +35,8 @@ fn main() -> std::process::ExitCode {
 
     let aggregator = StateAggregator::new(&terminator);
 
-    let memory_querier = MemoryQuerier::new(&terminator, aggregator.get_slice_handle());
-    let cpu_querier = CpuQuerier::new(&terminator, aggregator.get_slice_handle());
+    let memory_querier = MemoryQuerier::new(&terminator, aggregator.get_sender_res_usage());
+    let cpu_querier = CpuQuerier::new(&terminator, aggregator.get_sender_res_usage());
 
     let game_server_state_machine = match GameServerStateMachine::init(&config) {
         Ok(n) => n,
@@ -53,7 +53,7 @@ fn main() -> std::process::ExitCode {
 
     let store_shared = std::sync::Arc::new(tokio::sync::Mutex::new(store));
 
-    let game_ctl: GameServerController = GameServerController::new(&terminator);
+    let game_ctl: GameServerController = GameServerController::new(&terminator, &aggregator);
 
     /*
      * Stage on which downstream WebSocket clients communicate.
@@ -391,6 +391,11 @@ struct StateAggregator {
 
     slice_tx: tokio::sync::mpsc::Sender<StateUpdateSlice>,
     slice_rx: tokio::sync::mpsc::Receiver<StateUpdateSlice>,
+
+    chan_down_state_transitions: (
+        tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
+        tokio::sync::mpsc::Receiver<rustctl_common::snapshot::GameServerStateExposed>,
+    ),
 }
 
 struct StateAggregatorSummary;
@@ -404,6 +409,8 @@ impl StateAggregator {
 
         let (slice_tx, slice_rx) = tokio::sync::mpsc::channel::<StateUpdateSlice>(1);
 
+        let chan_down_state_transitions = tokio::sync::mpsc::channel(1);
+
         Self {
             summary: StateAggregatorSummary,
             cancel_read,
@@ -411,11 +418,18 @@ impl StateAggregator {
             broadcast_tx,
             slice_tx,
             slice_rx,
+            chan_down_state_transitions,
         }
     }
 
-    pub fn get_slice_handle(&self) -> tokio::sync::mpsc::Sender<StateUpdateSlice> {
+    pub fn get_sender_res_usage(&self) -> tokio::sync::mpsc::Sender<StateUpdateSlice> {
         self.slice_tx.clone()
+    }
+
+    pub fn get_sender_game_server_state(
+        &self,
+    ) -> tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed> {
+        self.chan_down_state_transitions.0.clone()
     }
 
     pub fn get_broadcast_handle(
@@ -425,22 +439,36 @@ impl StateAggregator {
     }
 
     pub async fn work(mut self) -> StateAggregatorSummary {
-        let aggregation_task = async {
-            while let Some(slice) = self.slice_rx.recv().await {
-                match slice {
-                    StateUpdateSlice::MemoryUsageBySystemTotal(usage) => {
-                        self.aggregated_state.system_memory_usage_total = usage;
-                    }
-                    StateUpdateSlice::CpuUsageBySystemTotal(usage) => {
-                        self.aggregated_state.system_cpu_usage_total = usage;
-                    }
-                }
+        let mut rx_res_usage = self.slice_rx;
+        let (_, mut rx_server_state) = self.chan_down_state_transitions;
 
-                let _ = self.broadcast_tx.send(self.aggregated_state.clone());
+        let job = async {
+            loop {
+                tokio::select!(
+                    res_usage = rx_res_usage.recv() => {
+                       match res_usage {
+                            Some(StateUpdateSlice::MemoryUsageBySystemTotal(n)) => {
+                                self.aggregated_state.system_memory_usage_total = n;
+                            },
+                            Some(StateUpdateSlice::CpuUsageBySystemTotal(n)) => {
+                                self.aggregated_state.system_cpu_usage_total = n;
+                            },
+                            None => break,
+                        }
+                    },
+                    server_state = rx_server_state.recv() => {
+                        match server_state {
+                            Some(n) => {
+                                self.aggregated_state.game_server_state = n;
+                            },
+                            None => break,
+                        }
+                    },
+                );
+                _ = self.broadcast_tx.send(self.aggregated_state.clone());
             }
         };
-
-        self.cancel_read.run_until_cancelled(aggregation_task).await;
+        self.cancel_read.run_until_cancelled(job).await;
         self.summary
     }
 }
@@ -461,13 +489,16 @@ struct GameServerController {
     summary: GameServerControllerSummary,
     cancel_read: tokio_util::sync::CancellationToken,
     cancel_write: tokio::sync::mpsc::Sender<()>,
+    aggregator_sender: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
 }
 impl GameServerController {
-    fn new(terminator: &Terminator) -> Self {
+    fn new(terminator: &Terminator, aggregator: &StateAggregator) -> Self {
         let (tx, rx) =
             tokio::sync::mpsc::channel::<rustctl_common::command::DownstreamClientMessage>(1);
 
         let (cancel_write, cancel_read) = terminator.get_handle();
+
+        let aggregator_sender = aggregator.get_sender_game_server_state();
 
         Self {
             summary: GameServerControllerSummary,
@@ -475,6 +506,7 @@ impl GameServerController {
             rx,
             cancel_read,
             cancel_write,
+            aggregator_sender,
         }
     }
 
@@ -490,8 +522,11 @@ impl GameServerController {
         store: std::sync::Arc<tokio::sync::Mutex<Store>>,
     ) -> GameServerControllerSummary {
         let token: tokio_util::sync::CancellationToken = self.cancel_read.child_token();
-        let coroutine =
-            tokio::spawn(async { state_machine.loop_transitions(token, self.rx, store).await });
+        let coroutine = tokio::spawn(async {
+            state_machine
+                .loop_transitions(token, self.rx, store, self.aggregator_sender)
+                .await
+        });
         let done = self.cancel_read.run_until_cancelled(coroutine).await;
         if let Some(Ok(err)) = done {
             let err: NonRecoverableError = err;
@@ -531,6 +566,7 @@ enum GameServerStateMachine {
     ClosedManually,
     TerminatedUnexpectedly,
 }
+
 impl GameServerStateMachine {
     pub fn init(cfg: &Configuration) -> Result<Self, NonRecoverableError> {
         if let Some(_pid) = is_process_running(cfg.get_installer_absolute()) {
@@ -551,6 +587,9 @@ impl GameServerStateMachine {
             rustctl_common::command::DownstreamClientMessage,
         >,
         store: std::sync::Arc<tokio::sync::Mutex<Store>>,
+        aggregator_sender: tokio::sync::mpsc::Sender<
+            rustctl_common::snapshot::GameServerStateExposed,
+        >,
     ) -> NonRecoverableError {
         loop {
             let state_before: String = self.to_string();
@@ -851,8 +890,8 @@ impl GameServerStateMachine {
                     self = Self::Preparing;
                 }
             }
+            aggregator_sender.send(self.into()).await;
             let state_after: String = self.to_string();
-
             log::info!("Transitioned: {state_before} -> {state_after}");
         }
     }
@@ -1430,7 +1469,9 @@ impl Stage {
         tx.clone()
     }
 
-    fn get_broadcast_handle(&self) -> tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot> {
+    fn get_broadcast_handle(
+        &self,
+    ) -> tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot> {
         self.broadcast_handle.clone()
     }
 
