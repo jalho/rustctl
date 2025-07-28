@@ -86,18 +86,18 @@ fn App() -> Element {
         Some(ref state) => {
             let state: &Snapshot = state;
             match state.game_server_state {
-                rustctl_common::snapshot::GameServerStateExposed::Init(_)
-                | rustctl_common::snapshot::GameServerStateExposed::Preparing(_)
-                | rustctl_common::snapshot::GameServerStateExposed::InstalledAndConfigured(_)
-                | rustctl_common::snapshot::GameServerStateExposed::Launching(_)
-                | rustctl_common::snapshot::GameServerStateExposed::SavingAndClosing(_) => None,
+                rustctl_common::snapshot::GameServerStateExposed::Init
+                | rustctl_common::snapshot::GameServerStateExposed::Preparing
+                | rustctl_common::snapshot::GameServerStateExposed::InstalledAndConfigured
+                | rustctl_common::snapshot::GameServerStateExposed::Launching
+                | rustctl_common::snapshot::GameServerStateExposed::SavingAndClosing => None,
 
-                rustctl_common::snapshot::GameServerStateExposed::ClosedManually(_)
-                | rustctl_common::snapshot::GameServerStateExposed::TerminatedUnexpectedly(_) => {
+                rustctl_common::snapshot::GameServerStateExposed::ClosedManually
+                | rustctl_common::snapshot::GameServerStateExposed::TerminatedUnexpectedly => {
                     Some(DownstreamClientMessage::ServerInstallOrUpdateAndStart)
                 }
 
-                rustctl_common::snapshot::GameServerStateExposed::RunningHealthy(_) => {
+                rustctl_common::snapshot::GameServerStateExposed::RunningHealthy => {
                     Some(DownstreamClientMessage::ServerSaveAndClose)
                 }
             }
