@@ -55,7 +55,7 @@ pub mod snapshot {
         pub fn init() -> Self {
             let timestamp = chrono::Utc::now();
             Self {
-                game_server_state: GameServerStateExposed::NotRunning(TrackedState {
+                game_server_state: GameServerStateExposed::Init(TrackedState {
                     transitioned_into_at: timestamp,
                     value: (),
                 }),
@@ -85,12 +85,14 @@ pub mod snapshot {
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     pub enum GameServerStateExposed {
-        NotRunning(TrackedState<()>),
-        Wiping(TrackedState<()>),
-        Updating(TrackedState<()>),
+        Init(TrackedState<()>),
+        Preparing(TrackedState<()>),
+        InstalledAndConfigured(TrackedState<()>),
         Launching(TrackedState<()>),
         RunningHealthy(TrackedState<()>),
-        Stopping(TrackedState<()>),
+        SavingAndClosing(TrackedState<()>),
+        ClosedManually(TrackedState<()>),
+        TerminatedUnexpectedly(TrackedState<()>),
     }
 }
 

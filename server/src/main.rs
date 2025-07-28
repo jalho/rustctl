@@ -919,7 +919,16 @@ impl std::fmt::Display for GameServerStateMachine {
 
 impl From<&GameServerStateMachine> for rustctl_common::snapshot::GameServerStateExposed {
     fn from(value: &GameServerStateMachine) -> Self {
-        todo!()
+        match value {
+            GameServerStateMachine::Init => todo!(),
+            GameServerStateMachine::Preparing => todo!(),
+            GameServerStateMachine::InstalledAndConfigured { cfg } => todo!(),
+            GameServerStateMachine::Launching { process, stdout, stderr } => todo!(),
+            GameServerStateMachine::RunningHealthy { process } => todo!(),
+            GameServerStateMachine::SavingAndClosing => todo!(),
+            GameServerStateMachine::ClosedManually => todo!(),
+            GameServerStateMachine::TerminatedUnexpectedly => todo!(),
+        }
     }
 }
 
