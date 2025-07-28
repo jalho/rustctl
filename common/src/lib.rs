@@ -55,10 +55,7 @@ pub mod snapshot {
         pub fn init() -> Self {
             let timestamp = chrono::Utc::now();
             Self {
-                game_server_state: GameServerStateExposed::Init(TrackedState {
-                    transitioned_into_at: timestamp,
-                    value: (),
-                }),
+                game_server_state: GameServerStateExposed::Init,
                 system_memory_usage_total: TimedValue {
                     read_completed_by: timestamp,
                     read_value: MemoryUsage(0),
@@ -85,14 +82,14 @@ pub mod snapshot {
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     pub enum GameServerStateExposed {
-        Init(TrackedState<()>),
-        Preparing(TrackedState<()>),
-        InstalledAndConfigured(TrackedState<()>),
-        Launching(TrackedState<()>),
-        RunningHealthy(TrackedState<()>),
-        SavingAndClosing(TrackedState<()>),
-        ClosedManually(TrackedState<()>),
-        TerminatedUnexpectedly(TrackedState<()>),
+        Init,
+        Preparing,
+        InstalledAndConfigured,
+        Launching,
+        RunningHealthy,
+        SavingAndClosing,
+        ClosedManually,
+        TerminatedUnexpectedly,
     }
 }
 

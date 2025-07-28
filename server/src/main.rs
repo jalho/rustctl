@@ -920,14 +920,28 @@ impl std::fmt::Display for GameServerStateMachine {
 impl From<&GameServerStateMachine> for rustctl_common::snapshot::GameServerStateExposed {
     fn from(value: &GameServerStateMachine) -> Self {
         match value {
-            GameServerStateMachine::Init => todo!(),
-            GameServerStateMachine::Preparing => todo!(),
-            GameServerStateMachine::InstalledAndConfigured { cfg } => todo!(),
-            GameServerStateMachine::Launching { process, stdout, stderr } => todo!(),
-            GameServerStateMachine::RunningHealthy { process } => todo!(),
-            GameServerStateMachine::SavingAndClosing => todo!(),
-            GameServerStateMachine::ClosedManually => todo!(),
-            GameServerStateMachine::TerminatedUnexpectedly => todo!(),
+            GameServerStateMachine::Init => rustctl_common::snapshot::GameServerStateExposed::Init,
+            GameServerStateMachine::Preparing => {
+                rustctl_common::snapshot::GameServerStateExposed::Preparing
+            }
+            GameServerStateMachine::InstalledAndConfigured { .. } => {
+                rustctl_common::snapshot::GameServerStateExposed::InstalledAndConfigured
+            }
+            GameServerStateMachine::Launching { .. } => {
+                rustctl_common::snapshot::GameServerStateExposed::Launching
+            }
+            GameServerStateMachine::RunningHealthy { .. } => {
+                rustctl_common::snapshot::GameServerStateExposed::RunningHealthy
+            }
+            GameServerStateMachine::SavingAndClosing => {
+                rustctl_common::snapshot::GameServerStateExposed::SavingAndClosing
+            }
+            GameServerStateMachine::ClosedManually => {
+                rustctl_common::snapshot::GameServerStateExposed::ClosedManually
+            }
+            GameServerStateMachine::TerminatedUnexpectedly => {
+                rustctl_common::snapshot::GameServerStateExposed::TerminatedUnexpectedly
+            }
         }
     }
 }
