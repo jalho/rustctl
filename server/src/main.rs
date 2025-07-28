@@ -522,13 +522,9 @@ impl GameServerController {
         store: std::sync::Arc<tokio::sync::Mutex<Store>>,
     ) -> GameServerControllerSummary {
         let token: tokio_util::sync::CancellationToken = self.cancel_read.child_token();
-        let coroutine = tokio::spawn(async {
-            state_machine
-                .loop_transitions(token, self.rx, store, self.aggregator_sender)
-                .await
-        });
-        let done = self.cancel_read.run_until_cancelled(coroutine).await;
-        if let Some(Ok(err)) = done {
+        let job = state_machine.loop_transitions(token, self.rx, store, self.aggregator_sender);
+        let done = self.cancel_read.run_until_cancelled(job).await;
+        if let Some(Err(err)) = done {
             let err: NonRecoverableError = err;
             log::error!(
                 "Game server controller failed: {err_fmt}",
@@ -590,7 +586,7 @@ impl GameServerStateMachine {
         aggregator_sender: tokio::sync::mpsc::Sender<
             rustctl_common::snapshot::GameServerStateExposed,
         >,
-    ) -> NonRecoverableError {
+    ) -> Result<(), NonRecoverableError> {
         loop {
             let state_before: String = self.to_string();
             match self {
@@ -632,7 +628,7 @@ impl GameServerStateMachine {
                                 path = cfg.get_installer_absolute().to_string_lossy(),
                                 err_fmt = fmt_source_tree(&err),
                             );
-                            return NonRecoverableError::CannotSpawnGameServerInstaller;
+                            return Err(NonRecoverableError::CannotSpawnGameServerInstaller);
                         }
                     };
 
@@ -690,7 +686,7 @@ impl GameServerStateMachine {
                                 path = cfg.get_game_absolute().to_string_lossy(),
                                 err_fmt = fmt_source_tree(&err),
                             );
-                            return NonRecoverableError::CannotSpawnGameServer;
+                            return Err(NonRecoverableError::CannotSpawnGameServer);
                         }
                     };
 
@@ -813,7 +809,7 @@ impl GameServerStateMachine {
                                 timeout_secs = timeout.as_secs(),
                                 err_fmt = fmt_source_tree(&err)
                             );
-                            return NonRecoverableError::GameServerStartupTimeout;
+                            return Err(NonRecoverableError::GameServerStartupTimeout);
                         }
                     }
                 }
@@ -890,9 +886,17 @@ impl GameServerStateMachine {
                     self = Self::Preparing;
                 }
             }
-            aggregator_sender.send(self.into()).await;
             let state_after: String = self.to_string();
             log::info!("Transitioned: {state_before} -> {state_after}");
+            if let Err(_err) = aggregator_sender.send((&self).into()).await {
+                /*
+                 * Channel being closed indicates that the program is doing
+                 * a shutdown.
+                 *
+                 * TODO: Verify by checking the cancellation token?
+                 */
+                return Ok(());
+            }
         }
     }
 }
@@ -910,6 +914,12 @@ impl std::fmt::Display for GameServerStateMachine {
             GameServerStateMachine::ClosedManually => write!(f, "ClosedManually"),
             GameServerStateMachine::TerminatedUnexpectedly => write!(f, "TerminatedUnexpectedly"),
         }
+    }
+}
+
+impl From<&GameServerStateMachine> for rustctl_common::snapshot::GameServerStateExposed {
+    fn from(value: &GameServerStateMachine) -> Self {
+        todo!()
     }
 }
 
