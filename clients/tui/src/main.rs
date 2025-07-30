@@ -132,7 +132,9 @@ mod tui {
 
                 if crossterm::event::poll(std::time::Duration::from_millis(100))? {
                     let key_event = crossterm::event::read()?;
-                    if let crossterm::event::Event::Key(key_event) = key_event { self.handle_key_event(key_event) }
+                    if let crossterm::event::Event::Key(key_event) = key_event {
+                        self.handle_key_event(key_event)
+                    }
                 }
             }
             Ok(())
