@@ -35,7 +35,7 @@ async fn launch_game(duration: std::time::Duration) -> std::process::ExitCode {
     tokio::time::sleep(duration).await;
     println!("Done sleeping");
 
-    std::process::ExitCode::FAILURE
+    std::process::ExitCode::from(42)
 }
 
 async fn wait_signal() -> std::process::ExitCode {
@@ -46,18 +46,15 @@ async fn wait_signal() -> std::process::ExitCode {
     tokio::select! {
         _ = sigint.recv() => {
             println!("SIGINT");
-
-            println!("Sleeping a bit...");
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-            println!("Done!");
         },
         _ = sigterm.recv() => {
             println!("SIGTERM");
-
-            println!("Sleeping a bit...");
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-            println!("Done!");
         },
     };
+
+    println!("Sleeping a bit, as if closing the game gracefully...");
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    println!("Done!");
+
     std::process::ExitCode::SUCCESS
 }
