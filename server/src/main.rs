@@ -858,7 +858,14 @@ impl GameServerStateMachine {
                      *       be cleaned up. Check savefile of game world state
                      *       on disk. Then transition to "ClosedManually".
                      */
-                    process.wait().await;
+                    match process.wait().await {
+                        Ok(n) => {
+                            log::info!("game server process exited with status {n}");
+                        }
+                        Err(err) => {
+                            todo!("waiting for game server process to terminate failed: {err}");
+                        }
+                    }
 
                     Self::ClosedManually
                 }
