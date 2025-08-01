@@ -558,7 +558,9 @@ enum GameServerStateMachine {
     RunningHealthy {
         process: tokio::process::Child,
     },
-    SavingAndClosing,
+    SavingAndClosing {
+        process: tokio::process::Child,
+    },
     ClosedManually,
     TerminatedUnexpectedly,
 }
@@ -589,10 +591,8 @@ impl GameServerStateMachine {
     ) -> Result<(), NonRecoverableError> {
         loop {
             let state_before: String = self.to_string();
-            match self {
-                Self::Init => {
-                    self = Self::Preparing;
-                }
+            self = match self {
+                Self::Init => Self::Preparing,
 
                 /*
                  * Install or update `RustDedicated` using `steamcmd`.
@@ -667,7 +667,7 @@ impl GameServerStateMachine {
                         }
                     }
 
-                    self = Self::InstalledAndConfigured { cfg };
+                    Self::InstalledAndConfigured { cfg }
                 }
 
                 Self::InstalledAndConfigured { cfg } => {
@@ -693,11 +693,11 @@ impl GameServerStateMachine {
                     let stdout: tokio::process::ChildStdout = process.stdout.take().unwrap();
                     let stderr: tokio::process::ChildStderr = process.stderr.take().unwrap();
 
-                    self = Self::Launching {
+                    Self::Launching {
                         process,
                         stdout,
                         stderr,
-                    };
+                    }
                 }
 
                 Self::Launching {
@@ -800,9 +800,7 @@ impl GameServerStateMachine {
                     };
 
                     match tokio::time::timeout(timeout, wait_readiness).await {
-                        Ok(_) => {
-                            self = Self::RunningHealthy { process };
-                        }
+                        Ok(_) => Self::RunningHealthy { process },
                         Err(err) => {
                             log::error!(
                                 "Game server did not indicate its readiness within timeout of {timeout_secs} seconds: {err_fmt}",
@@ -814,9 +812,7 @@ impl GameServerStateMachine {
                     }
                 }
 
-                Self::RunningHealthy {
-                    ref mut process, ..
-                } => {
+                Self::RunningHealthy { mut process } => {
                     let event: GameCtlEvent = tokio::select! {
                         msg = command_rx.recv() => {
                             match msg {
@@ -836,31 +832,35 @@ impl GameServerStateMachine {
                             match command {
                                 rustctl_common::command::DownstreamClientMessage::ServerSaveAndClose => {
                                      let signal = nix::sys::signal::Signal::SIGINT;
-                                     let pid = send_signal(process, signal).await;
+                                     let pid = send_signal(&process, signal).await;
                                      log::info!("Sent signal to game server process: {signal}: PID {pid}");
-                                     self = Self::SavingAndClosing;
+                                     Self::SavingAndClosing { process }
                                 }
                                 _ => {
                                     log::error!(
-                                        "Ignoring unexpected command: {command:?} for current state: {self}"
+                                        "Ignoring unexpected command: {command:?} for current state"
                                     );
+                                    Self::RunningHealthy { process }
                                 }
                             }
                         }
                         GameCtlEvent::MessageChannelClosed => todo!(),
                         GameCtlEvent::GameProcessTerminated { exit_status } => {
                             let _exit_status: std::process::ExitStatus = exit_status;
-                            self = Self::TerminatedUnexpectedly;
+                            Self::TerminatedUnexpectedly
                         }
                     }
                 }
 
-                Self::SavingAndClosing => {
+                Self::SavingAndClosing { mut process } => {
                     /*
                      * TODO: Wait for the tracked child process to terminate and
                      *       be cleaned up. Check savefile of game world state
                      *       on disk. Then transition to "ClosedManually".
                      */
+                    process.wait().await;
+
+                    Self::ClosedManually
                 }
 
                 Self::ClosedManually => {
@@ -869,21 +869,22 @@ impl GameServerStateMachine {
                         let command: rustctl_common::command::DownstreamClientMessage = command;
                         match command {
                             rustctl_common::command::DownstreamClientMessage::ServerInstallOrUpdateAndStart => {
-                                self = Self::Preparing;
+                                Self::Preparing
                             }
                             _ => {
                                 log::error!(
                                     "Ignoring unexpected command: {command:?} for current state: {self}"
                                 );
+                                self
                             }
                         }
+                    } else {
+                        self
                     }
                 }
 
-                Self::TerminatedUnexpectedly => {
-                    self = Self::Preparing;
-                }
-            }
+                Self::TerminatedUnexpectedly => Self::Preparing,
+            };
             let state_after: String = self.to_string();
             log::info!("Transitioned: {state_before} -> {state_after}");
             if let Err(_err) = aggregator_sender.send((&self).into()).await {
@@ -908,7 +909,7 @@ impl std::fmt::Display for GameServerStateMachine {
             }
             GameServerStateMachine::Launching { .. } => write!(f, "Launching"),
             GameServerStateMachine::RunningHealthy { .. } => write!(f, "RunningHealthy"),
-            GameServerStateMachine::SavingAndClosing => write!(f, "SavingAndClosing"),
+            GameServerStateMachine::SavingAndClosing { .. } => write!(f, "SavingAndClosing"),
             GameServerStateMachine::ClosedManually => write!(f, "ClosedManually"),
             GameServerStateMachine::TerminatedUnexpectedly => write!(f, "TerminatedUnexpectedly"),
         }
@@ -931,7 +932,7 @@ impl From<&GameServerStateMachine> for rustctl_common::snapshot::GameServerState
             GameServerStateMachine::RunningHealthy { .. } => {
                 rustctl_common::snapshot::GameServerStateExposed::RunningHealthy
             }
-            GameServerStateMachine::SavingAndClosing => {
+            GameServerStateMachine::SavingAndClosing { .. } => {
                 rustctl_common::snapshot::GameServerStateExposed::SavingAndClosing
             }
             GameServerStateMachine::ClosedManually => {
