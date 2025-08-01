@@ -85,3 +85,9 @@ features  = [
 workspace = true
 features  = [
 ]
+
+[dependencies.nix]
+workspace = true
+features  = [
+  "signal",
+]

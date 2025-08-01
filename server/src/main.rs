@@ -835,12 +835,10 @@ impl GameServerStateMachine {
                             let command: rustctl_common::command::DownstreamClientMessage = message;
                             match command {
                                 rustctl_common::command::DownstreamClientMessage::ServerSaveAndClose => {
-                                    /*
-                                     * TODO: Issue SIGINT for the tracked game
-                                     *       server child process, and transition to
-                                     *       "SavingAndClosing".
-                                     */
-                                     dbg!(command);
+                                     let signal = nix::sys::signal::Signal::SIGINT;
+                                     let pid = send_signal(process, signal).await;
+                                     log::info!("Sent signal to game server process: {signal}: PID {pid}");
+                                     self = Self::SavingAndClosing;
                                 }
                                 _ => {
                                     log::error!(
@@ -1689,4 +1687,15 @@ where
     }
 
     concatenated
+}
+
+async fn send_signal(
+    child: &tokio::process::Child,
+    signal: nix::sys::signal::Signal,
+) -> nix::unistd::Pid {
+    let pid: u32 = child.id().expect("process should have PID");
+    let pid: i32 = pid.try_into().expect("PID u32 should fit into i32: {pid}");
+    let pid: nix::unistd::Pid = nix::unistd::Pid::from_raw(pid);
+    _ = nix::sys::signal::kill(pid, signal).expect("sending a signal should succeed");
+    pid
 }
