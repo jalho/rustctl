@@ -561,7 +561,9 @@ enum GameServerStateMachine {
     SavingAndClosing {
         process: tokio::process::Child,
     },
-    ClosedManually,
+    ClosedManually {
+        exit_status: std::process::ExitStatus,
+    },
     TerminatedUnexpectedly,
 }
 
@@ -853,24 +855,25 @@ impl GameServerStateMachine {
                 }
 
                 Self::SavingAndClosing { mut process } => {
-                    /*
-                     * TODO: Wait for the tracked child process to terminate and
-                     *       be cleaned up. Check savefile of game world state
-                     *       on disk. Then transition to "ClosedManually".
-                     */
-                    match process.wait().await {
+                    let exit_status = match process.wait().await {
                         Ok(n) => {
                             log::info!("game server process exited with status {n}");
+                            n
                         }
                         Err(err) => {
                             todo!("waiting for game server process to terminate failed: {err}");
                         }
-                    }
+                    };
 
-                    Self::ClosedManually
+                    /*
+                     * TODO: Check savefile of game world state on disk. Then
+                     *       transition to "ClosedManually".
+                     */
+
+                    Self::ClosedManually { exit_status }
                 }
 
-                Self::ClosedManually => {
+                Self::ClosedManually { .. } => {
                     let msg = command_rx.recv().await;
                     if let Some(command) = msg {
                         let command: rustctl_common::command::DownstreamClientMessage = command;
@@ -917,7 +920,7 @@ impl std::fmt::Display for GameServerStateMachine {
             GameServerStateMachine::Launching { .. } => write!(f, "Launching"),
             GameServerStateMachine::RunningHealthy { .. } => write!(f, "RunningHealthy"),
             GameServerStateMachine::SavingAndClosing { .. } => write!(f, "SavingAndClosing"),
-            GameServerStateMachine::ClosedManually => write!(f, "ClosedManually"),
+            GameServerStateMachine::ClosedManually { .. } => write!(f, "ClosedManually"),
             GameServerStateMachine::TerminatedUnexpectedly => write!(f, "TerminatedUnexpectedly"),
         }
     }
@@ -942,7 +945,7 @@ impl From<&GameServerStateMachine> for rustctl_common::snapshot::GameServerState
             GameServerStateMachine::SavingAndClosing { .. } => {
                 rustctl_common::snapshot::GameServerStateExposed::SavingAndClosing
             }
-            GameServerStateMachine::ClosedManually => {
+            GameServerStateMachine::ClosedManually { .. } => {
                 rustctl_common::snapshot::GameServerStateExposed::ClosedManually
             }
             GameServerStateMachine::TerminatedUnexpectedly => {
