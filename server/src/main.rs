@@ -855,6 +855,18 @@ impl GameServerStateMachine {
                 }
 
                 Self::SavingAndClosing { mut process } => {
+                    /*
+                     * TODO: Wait until some timeout only! And get the actual
+                     *       game server root dir & expected save file name from
+                     *       some existing structure...
+                     */
+                    let saved: std::fs::Metadata = wait_file(
+                        std::path::Path::new("game server root dir"),
+                        std::path::Path::new("savefile.txt"),
+                    )
+                    .await;
+                    log::info!("game server state saved: {saved:?}");
+
                     let exit_status = match process.wait().await {
                         Ok(n) => {
                             log::info!("game server process exited with status {n}");
@@ -864,11 +876,6 @@ impl GameServerStateMachine {
                             todo!("waiting for game server process to terminate failed: {err}");
                         }
                     };
-
-                    /*
-                     * TODO: Check savefile of game world state on disk. Then
-                     *       transition to "ClosedManually".
-                     */
 
                     Self::ClosedManually { exit_status }
                 }
@@ -1709,4 +1716,19 @@ async fn send_signal(
     let pid: nix::unistd::Pid = nix::unistd::Pid::from_raw(pid);
     _ = nix::sys::signal::kill(pid, signal).expect("sending a signal should succeed");
     pid
+}
+
+async fn wait_file(dir: &std::path::Path, file_name: &std::path::Path) -> std::fs::Metadata {
+    let file_path = dir.join(file_name);
+    let mut interval = tokio::time::interval(std::time::Duration::from_millis(100));
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+    loop {
+        interval.tick().await;
+
+        match tokio::fs::metadata(&file_path).await {
+            Ok(metadata) => return metadata.into(),
+            Err(_) => continue,
+        }
+    }
 }
