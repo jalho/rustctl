@@ -23,7 +23,14 @@ fn main() -> std::process::ExitCode {
 }
 
 async fn launch_game(duration: std::time::Duration) -> std::process::ExitCode {
-    tokio::fs::create_dir_all("./server/instance0")
+    let current = std::path::Path::new(".").canonicalize().unwrap();
+    let createable = std::path::Path::new("./server/instance0");
+    println!(
+        "Creating into {current}: {createable}",
+        current = current.to_string_lossy(),
+        createable = createable.to_string_lossy(),
+    );
+    tokio::fs::create_dir_all(createable)
         .await
         .expect("failed to create directory");
 
@@ -35,7 +42,7 @@ async fn launch_game(duration: std::time::Duration) -> std::process::ExitCode {
     println!("SteamServer Connected");
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
-    println!("Sleeping {duration:?}");
+    println!("Sleeping...");
     tokio::time::sleep(duration).await;
     println!("Done sleeping");
 
@@ -57,13 +64,15 @@ async fn wait_signal() -> std::process::ExitCode {
     };
 
     println!("Sleeping a bit, as if closing the game gracefully...");
-    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
     let mock_savefile_path = "./server/instance0/proceduralmap.1000.1337.269.sav";
-    println!("Writing a mock savefile relative to given working directory: {mock_savefile_path}");
+    println!("Writing a mock savefile relative to working directory: {mock_savefile_path}");
     tokio::fs::File::create(mock_savefile_path)
         .await
         .expect("failed to create file");
+    let created = std::path::Path::new(mock_savefile_path).canonicalize().unwrap();
+    println!("Created: {}", created.to_string_lossy());
 
     std::process::ExitCode::SUCCESS
 }

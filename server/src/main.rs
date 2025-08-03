@@ -676,7 +676,7 @@ impl GameServerStateMachine {
                 Self::InstalledAndConfigured { cfg } => {
                     let cfg: Configuration = cfg;
                     let mut command = tokio::process::Command::new(cfg.get_game_absolute());
-                    command.current_dir(&cfg.root_dir_absolute);
+                    command.current_dir(cfg.get_game_executable_dir_absolute());
                     command.args(cfg.get_game_args());
                     command.stdout(std::process::Stdio::piped());
                     command.stderr(std::process::Stdio::piped());
@@ -839,7 +839,7 @@ impl GameServerStateMachine {
                                          let lock  = store.lock().await;
                                          cfg = lock.get_config().await;
                                      }
-                                     let expected_savefile_dir_absolute: std::path::PathBuf = cfg.get_game_instance_absolute();
+                                     let expected_savefile_dir_absolute: std::path::PathBuf = cfg.get_game_instance_data_dir_absolute();
 
                                      let signal = nix::sys::signal::Signal::SIGINT;
                                      let pid = send_signal(&process, signal).await;
@@ -868,18 +868,14 @@ impl GameServerStateMachine {
                 } => {
                     let wait_save =
                         wait_for_game_savefile(expected_savefile_dir_absolute.as_path());
-                    log::info!(
-                        r#"Waiting for game server savefile in "{expected_dir_absolute}"..."#,
-                        expected_dir_absolute = expected_savefile_dir_absolute.to_string_lossy(),
-                    );
+                    log::info!("Waiting for game server savefile...");
                     let maybe_saved =
                         tokio::time::timeout(std::time::Duration::from_secs(15), wait_save).await;
 
                     match maybe_saved {
-                        Ok((full_path, modif_age_secs)) => {
+                        Ok((savefile_name, modif_age_millis)) => {
                             log::info!(
-                                "game server state saved {modif_age_secs} seconds ago: {full_path}",
-                                full_path = full_path.to_string_lossy(),
+                                "Game server state saved {modif_age_millis} milliseconds ago: {savefile_name}"
                             );
                         }
                         Err(err) => todo!("define non-recoverable error case {err}"),
@@ -1045,11 +1041,21 @@ impl Configuration {
         path
     }
 
-    pub fn get_game_instance_absolute(&self) -> std::path::PathBuf {
+    pub fn get_game_executable_dir_absolute(&self) -> std::path::PathBuf {
         let mut path = self.root_dir_absolute.clone();
-        path.push("server");
-        path.push(self.game_instance_id.to_owned());
+        path.push(&self.game_relative);
+        let path = path
+            .parent()
+            .expect("game executable file should be in a directory")
+            .to_path_buf();
         path
+    }
+
+    pub fn get_game_instance_data_dir_absolute(&self) -> std::path::PathBuf {
+        let mut game_dir: std::path::PathBuf = self.get_game_executable_dir_absolute();
+        game_dir.push("server");
+        game_dir.push(self.game_instance_id.to_owned());
+        game_dir
     }
 
     pub fn get_manifest_absolute(&self) -> std::path::PathBuf {
@@ -1746,7 +1752,7 @@ async fn send_signal(
     pid
 }
 
-async fn wait_for_game_savefile(dir_path: &std::path::Path) -> (std::path::PathBuf, u64) {
+async fn wait_for_game_savefile(dir_path: &std::path::Path) -> (String, u128) {
     let pattern: regex::Regex =
         regex::Regex::new(r"^proceduralmap\.\d+\.\d+\.\d+\.sav$").expect("infallible");
 
@@ -1770,17 +1776,13 @@ async fn wait_for_game_savefile(dir_path: &std::path::Path) -> (std::path::PathB
                         .expect("should be able to read modification time of {filename}");
                     let now = std::time::SystemTime::now();
 
-                    let modif_age_secs: u64 = now
+                    let modif_age_millis: u128 = now
                         .duration_since(modified)
                         .expect("time should go forward")
-                        .as_secs();
+                        .as_millis();
 
-                    if modif_age_secs < 60 {
-                        let full_path: std::path::PathBuf = entry
-                            .path()
-                            .canonicalize()
-                            .expect("savefile should have path");
-                        return (full_path, modif_age_secs);
+                    if modif_age_millis < 30000 {
+                        return (filename.to_owned(), modif_age_millis);
                     }
                 }
             }

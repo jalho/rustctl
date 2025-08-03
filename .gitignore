@@ -1,1 +1,4 @@
 target
+
+# mock game server's savefiles
+*.sav
