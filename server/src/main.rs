@@ -1044,17 +1044,17 @@ impl Configuration {
     pub fn get_game_executable_dir_absolute(&self) -> std::path::PathBuf {
         let mut path = self.root_dir_absolute.clone();
         path.push(&self.game_relative);
-        let path = path
+        
+        path
             .parent()
             .expect("game executable file should be in a directory")
-            .to_path_buf();
-        path
+            .to_path_buf()
     }
 
     pub fn get_game_instance_data_dir_absolute(&self) -> std::path::PathBuf {
         let mut game_dir: std::path::PathBuf = self.get_game_executable_dir_absolute();
         game_dir.push("server");
-        game_dir.push(self.game_instance_id.to_owned());
+        game_dir.push(&self.game_instance_id);
         game_dir
     }
 
@@ -1748,7 +1748,7 @@ async fn send_signal(
     let pid: u32 = child.id().expect("process should have PID");
     let pid: i32 = pid.try_into().expect("PID u32 should fit into i32: {pid}");
     let pid: nix::unistd::Pid = nix::unistd::Pid::from_raw(pid);
-    _ = nix::sys::signal::kill(pid, signal).expect("sending a signal should succeed");
+    nix::sys::signal::kill(pid, signal).expect("sending a signal should succeed");
     pid
 }
 
