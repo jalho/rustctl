@@ -859,6 +859,13 @@ impl GameServerStateMachine {
                      * TODO: Wait until some timeout only! And get the actual
                      *       game server root dir & expected save file name from
                      *       some existing structure...
+                     *
+                     *       Example (relative to the game server executable):
+                     *
+                     *       $ ls -lt server/instance0/
+                     *       total 2772
+                     *       -rw-r--r-- 1 jka jka   68660 Aug  3 17:58 proceduralmap.1000.1337.269.sav
+                     *       -rw-r--r-- 1 jka jka   68975 Aug  3 17:48 proceduralmap.1000.1337.269.sav.1
                      */
                     let saved: std::fs::Metadata = wait_file(
                         std::path::Path::new("game server root dir"),
