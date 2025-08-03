@@ -71,7 +71,9 @@ async fn wait_signal() -> std::process::ExitCode {
     tokio::fs::File::create(mock_savefile_path)
         .await
         .expect("failed to create file");
-    let created = std::path::Path::new(mock_savefile_path).canonicalize().unwrap();
+    let created = std::path::Path::new(mock_savefile_path)
+        .canonicalize()
+        .unwrap();
     println!("Created: {}", created.to_string_lossy());
 
     std::process::ExitCode::SUCCESS
