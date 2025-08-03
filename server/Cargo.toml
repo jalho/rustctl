@@ -3,6 +3,12 @@ name    = "rustctl-backend"
 version = "0.1.0-rc1"
 edition = "2024"
 
+[dependencies.regex]
+workspace = true
+features  = [
+  "unicode-perl",
+]
+
 [dependencies.tokio]
 workspace = true
 features  = [

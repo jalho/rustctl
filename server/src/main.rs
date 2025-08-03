@@ -560,6 +560,7 @@ enum GameServerStateMachine {
     },
     SavingAndClosing {
         process: tokio::process::Child,
+        expected_savefile_dir_absolute: std::path::PathBuf,
     },
     ClosedManually {
         exit_status: std::process::ExitStatus,
@@ -833,10 +834,17 @@ impl GameServerStateMachine {
                             let command: rustctl_common::command::DownstreamClientMessage = message;
                             match command {
                                 rustctl_common::command::DownstreamClientMessage::ServerSaveAndClose => {
+                                     let cfg: Configuration;
+                                     {
+                                         let lock  = store.lock().await;
+                                         cfg = lock.get_config().await;
+                                     }
+                                     let expected_savefile_dir_absolute: std::path::PathBuf = cfg.get_game_instance_absolute();
+
                                      let signal = nix::sys::signal::Signal::SIGINT;
                                      let pid = send_signal(&process, signal).await;
                                      log::info!("Sent signal to game server process: {signal}: PID {pid}");
-                                     Self::SavingAndClosing { process }
+                                     Self::SavingAndClosing { process, expected_savefile_dir_absolute }
                                 }
                                 _ => {
                                     log::error!(
@@ -854,25 +862,28 @@ impl GameServerStateMachine {
                     }
                 }
 
-                Self::SavingAndClosing { mut process } => {
-                    /*
-                     * TODO: Wait until some timeout only! And get the actual
-                     *       game server root dir & expected save file name from
-                     *       some existing structure...
-                     *
-                     *       Example (relative to the game server executable):
-                     *
-                     *       $ ls -lt server/instance0/
-                     *       total 2772
-                     *       -rw-r--r-- 1 jka jka   68660 Aug  3 17:58 proceduralmap.1000.1337.269.sav
-                     *       -rw-r--r-- 1 jka jka   68975 Aug  3 17:48 proceduralmap.1000.1337.269.sav.1
-                     */
-                    let saved: std::fs::Metadata = wait_file(
-                        std::path::Path::new("game server root dir"),
-                        std::path::Path::new("savefile.txt"),
-                    )
-                    .await;
-                    log::info!("game server state saved: {saved:?}");
+                Self::SavingAndClosing {
+                    mut process,
+                    expected_savefile_dir_absolute,
+                } => {
+                    let wait_save =
+                        wait_for_game_savefile(expected_savefile_dir_absolute.as_path());
+                    log::info!(
+                        r#"Waiting for game server savefile in "{expected_dir_absolute}"..."#,
+                        expected_dir_absolute = expected_savefile_dir_absolute.to_string_lossy(),
+                    );
+                    let maybe_saved =
+                        tokio::time::timeout(std::time::Duration::from_secs(15), wait_save).await;
+
+                    match maybe_saved {
+                        Ok((full_path, modif_age_secs)) => {
+                            log::info!(
+                                "game server state saved {modif_age_secs} seconds ago: {full_path}",
+                                full_path = full_path.to_string_lossy(),
+                            );
+                        }
+                        Err(err) => todo!("define non-recoverable error case {err}"),
+                    }
 
                     let exit_status = match process.wait().await {
                         Ok(n) => {
@@ -977,6 +988,8 @@ struct Configuration {
     game_relative: std::path::PathBuf,
     manifest_relative: std::path::PathBuf,
 
+    game_instance_id: String,
+
     game_world_size: u16,
     game_world_seed: u32,
 
@@ -1011,6 +1024,7 @@ impl Configuration {
                 )
                 .to_path_buf(),
                 manifest_relative: std::path::Path::new("mocks/dummy_manifest.acf").to_path_buf(),
+                game_instance_id: "instance0".into(),
                 game_world_size,
                 game_world_seed,
                 rcon_port,
@@ -1028,6 +1042,13 @@ impl Configuration {
     pub fn get_game_absolute(&self) -> std::path::PathBuf {
         let mut path = self.root_dir_absolute.clone();
         path.push(&self.game_relative);
+        path
+    }
+
+    pub fn get_game_instance_absolute(&self) -> std::path::PathBuf {
+        let mut path = self.root_dir_absolute.clone();
+        path.push("server");
+        path.push(self.game_instance_id.to_owned());
         path
     }
 
@@ -1075,7 +1096,7 @@ impl Configuration {
         vec![
             "-batchmode".into(),
             "+server.identity".into(),
-            "instance0".into(),
+            self.game_instance_id.to_owned(),
             "+rcon.port".into(),
             self.rcon_port.to_string(),
             "+rcon.web".into(),
@@ -1725,17 +1746,46 @@ async fn send_signal(
     pid
 }
 
-async fn wait_file(dir: &std::path::Path, file_name: &std::path::Path) -> std::fs::Metadata {
-    let file_path = dir.join(file_name);
-    let mut interval = tokio::time::interval(std::time::Duration::from_millis(100));
-    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+async fn wait_for_game_savefile(dir_path: &std::path::Path) -> (std::path::PathBuf, u64) {
+    let pattern: regex::Regex =
+        regex::Regex::new(r"^proceduralmap\.\d+\.\d+\.\d+\.sav$").expect("infallible");
 
     loop {
-        interval.tick().await;
+        let mut entries: tokio::fs::ReadDir = tokio::fs::read_dir(dir_path)
+            .await
+            .expect("should be able to read dir {dir_path}");
 
-        match tokio::fs::metadata(&file_path).await {
-            Ok(metadata) => return metadata.into(),
-            Err(_) => continue,
+        while let Some(entry) = entries
+            .next_entry()
+            .await
+            .expect("should be able to read dir entry {entry}")
+        {
+            if let Some(filename) = entry.file_name().to_str() {
+                if pattern.is_match(filename) {
+                    let metadata = tokio::fs::metadata(entry.path())
+                        .await
+                        .expect("should be able to read metadata of {filename}");
+                    let modified = metadata
+                        .modified()
+                        .expect("should be able to read modification time of {filename}");
+                    let now = std::time::SystemTime::now();
+
+                    let modif_age_secs: u64 = now
+                        .duration_since(modified)
+                        .expect("time should go forward")
+                        .as_secs();
+
+                    if modif_age_secs < 60 {
+                        let full_path: std::path::PathBuf = entry
+                            .path()
+                            .canonicalize()
+                            .expect("savefile should have path");
+                        return (full_path, modif_age_secs);
+                    }
+                }
+            }
         }
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     }
 }
