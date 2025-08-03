@@ -5,6 +5,7 @@ edition = "2024"
 [dependencies.tokio]
 workspace = true
 features  = [
+  "fs",
   "macros",
   "rt",
   "signal",

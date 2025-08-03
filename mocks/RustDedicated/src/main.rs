@@ -23,6 +23,10 @@ fn main() -> std::process::ExitCode {
 }
 
 async fn launch_game(duration: std::time::Duration) -> std::process::ExitCode {
+    tokio::fs::create_dir_all("./server/instance0")
+        .await
+        .expect("failed to create directory");
+
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     println!("SteamServer Initialized");
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
@@ -54,7 +58,12 @@ async fn wait_signal() -> std::process::ExitCode {
 
     println!("Sleeping a bit, as if closing the game gracefully...");
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-    println!("Done!");
+
+    let mock_savefile_path = "./server/instance0/proceduralmap.1000.1337.269.sav";
+    println!("Writing a mock savefile relative to given working directory: {mock_savefile_path}");
+    tokio::fs::File::create(mock_savefile_path)
+        .await
+        .expect("failed to create file");
 
     std::process::ExitCode::SUCCESS
 }
