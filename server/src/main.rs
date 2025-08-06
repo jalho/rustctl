@@ -543,7 +543,6 @@ impl GameServerController {
 }
 struct GameServerControllerSummary;
 
-#[allow(dead_code)] // TODO: Disallow dead code!
 enum GameServerStateMachine {
     Init,
     Preparing,
@@ -562,9 +561,7 @@ enum GameServerStateMachine {
         process: tokio::process::Child,
         expected_savefile_dir_absolute: std::path::PathBuf,
     },
-    ClosedManually {
-        exit_status: std::process::ExitStatus,
-    },
+    ClosedManually,
     TerminatedUnexpectedly,
 }
 
@@ -881,17 +878,16 @@ impl GameServerStateMachine {
                         Err(err) => todo!("define non-recoverable error case {err}"),
                     }
 
-                    let exit_status = match process.wait().await {
-                        Ok(n) => {
-                            log::info!("game server process exited with status {n}");
-                            n
+                    match process.wait().await {
+                        Ok(status) => {
+                            log::info!("game server process exited with {status}");
                         }
                         Err(err) => {
                             todo!("waiting for game server process to terminate failed: {err}");
                         }
                     };
 
-                    Self::ClosedManually { exit_status }
+                    Self::ClosedManually
                 }
 
                 Self::ClosedManually { .. } => {
@@ -919,12 +915,6 @@ impl GameServerStateMachine {
             let state_after: String = self.to_string();
             log::info!("Transitioned: {state_before} -> {state_after}");
             if let Err(_err) = aggregator_sender.send((&self).into()).await {
-                /*
-                 * Channel being closed indicates that the program is doing
-                 * a shutdown.
-                 *
-                 * TODO: Verify by checking the cancellation token?
-                 */
                 return Ok(());
             }
         }
@@ -976,7 +966,6 @@ impl From<&GameServerStateMachine> for rustctl_common::snapshot::GameServerState
     }
 }
 
-#[allow(dead_code)] // TODO: Disallow dead code!
 #[derive(Debug, Clone)]
 struct Configuration {
     root_dir_absolute: std::path::PathBuf,
@@ -1044,9 +1033,8 @@ impl Configuration {
     pub fn get_game_executable_dir_absolute(&self) -> std::path::PathBuf {
         let mut path = self.root_dir_absolute.clone();
         path.push(&self.game_relative);
-        
-        path
-            .parent()
+
+        path.parent()
             .expect("game executable file should be in a directory")
             .to_path_buf()
     }
