@@ -1,0 +1,1272 @@
+2025-08-06 18:31:46 [rustctl] rustctl-backend 0.1.0-rc1 [server/src/main.rs:23]
+2025-08-06 18:31:46 [rustctl] Transitioned: Init -> Preparing [server/src/main.rs:908]
+2025-08-06 18:31:46 [rustctl] Downstream client connected: 127.0.0.1:49330 -- 1 connected clients in total [server/src/main.rs:1308]
+2025-08-06 18:39:59 [rustctl] Updated game server: From buildid 18796303 to 19176355 [server/src/main.rs:658]
+2025-08-06 18:39:59 [rustctl] Transitioned: Preparing -> InstalledAndConfigured [server/src/main.rs:908]
+2025-08-06 18:39:59 [rustctl] Transitioned: InstalledAndConfigured -> Launching [server/src/main.rs:908]
+2025-08-06 18:39:59 [game] [UnityMemory] Configuration Parameters - Can be set up in boot.config
+2025-08-06 18:39:59 [game]     "memorysetup-bucket-allocator-granularity=16"
+2025-08-06 18:39:59 [game]     "memorysetup-bucket-allocator-bucket-count=8"
+2025-08-06 18:39:59 [game]     "memorysetup-bucket-allocator-block-size=4194304"
+2025-08-06 18:39:59 [game]     "memorysetup-bucket-allocator-block-count=1"
+2025-08-06 18:39:59 [game]     "memorysetup-main-allocator-block-size=16777216"
+2025-08-06 18:39:59 [game]     "memorysetup-thread-allocator-block-size=16777216"
+2025-08-06 18:39:59 [game]     "memorysetup-gfx-main-allocator-block-size=16777216"
+2025-08-06 18:39:59 [game]     "memorysetup-gfx-thread-allocator-block-size=16777216"
+2025-08-06 18:39:59 [game]     "memorysetup-cache-allocator-block-size=4194304"
+2025-08-06 18:39:59 [game]     "memorysetup-typetree-allocator-block-size=2097152"
+2025-08-06 18:39:59 [game]     "memorysetup-profiler-bucket-allocator-granularity=16"
+2025-08-06 18:39:59 [game]     "memorysetup-profiler-bucket-allocator-bucket-count=8"
+2025-08-06 18:39:59 [game]     "memorysetup-profiler-bucket-allocator-block-size=4194304"
+2025-08-06 18:39:59 [game]     "memorysetup-profiler-bucket-allocator-block-count=1"
+2025-08-06 18:39:59 [game]     "memorysetup-profiler-allocator-block-size=16777216"
+2025-08-06 18:39:59 [game]     "memorysetup-profiler-editor-allocator-block-size=1048576"
+2025-08-06 18:39:59 [game]     "memorysetup-temp-allocator-size-main=4194304"
+2025-08-06 18:39:59 [game]     "memorysetup-job-temp-allocator-block-size=2097152"
+2025-08-06 18:39:59 [game]     "memorysetup-job-temp-allocator-block-size-background=1048576"
+2025-08-06 18:39:59 [game]     "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+2025-08-06 18:39:59 [game]     "memorysetup-allocator-temp-initial-block-size-main=262144"
+2025-08-06 18:39:59 [game]     "memorysetup-allocator-temp-initial-block-size-worker=262144"
+2025-08-06 18:39:59 [game]     "memorysetup-temp-allocator-size-background-worker=32768"
+2025-08-06 18:39:59 [game]     "memorysetup-temp-allocator-size-job-worker=262144"
+2025-08-06 18:39:59 [game]     "memorysetup-temp-allocator-size-preload-manager=262144"
+2025-08-06 18:39:59 [game]     "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+2025-08-06 18:39:59 [game]     "memorysetup-temp-allocator-size-audio-worker=65536"
+2025-08-06 18:39:59 [game]     "memorysetup-temp-allocator-size-cloud-worker=32768"
+2025-08-06 18:39:59 [game]     "memorysetup-temp-allocator-size-gfx=262144"
+2025-08-06 18:39:59 [game] Mono path[0] = '/home/rust/RustDedicated_Data/Managed'
+2025-08-06 18:39:59 [game] Mono config path = '/home/rust/RustDedicated_Data/MonoBleedingEdge/etc'
+2025-08-06 18:39:59 [game] Preloaded 'ServerProfiler.Core.so'
+2025-08-06 18:39:59 [game] Shutdown handler: initialize.
+2025-08-06 18:39:59 [game] Preloaded 'libEOSSDK-Linux-Shipping.so'
+2025-08-06 18:39:59 [game] Preloaded 'libRakNet.so'
+2025-08-06 18:39:59 [game] Preloaded 'libRenderer.so'
+2025-08-06 18:39:59 [game] Preloaded 'libRustNative.so'
+2025-08-06 18:39:59 [game] Preloaded 'lib_burst_generated.so'
+2025-08-06 18:39:59 [game] Preloaded 'libdiscord_partner_sdk.so'
+2025-08-06 18:39:59 [game] Preloaded 'libsqlite3.so'
+2025-08-06 18:39:59 [game] Preloaded 'libsqlite3.so.0'
+2025-08-06 18:39:59 [game] Preloaded 'libsteam_api.so'
+2025-08-06 18:39:59 [game] Preloaded 'libsqlite3.so'
+2025-08-06 18:39:59 [game] Preloaded 'libsqlite3.so.0'
+2025-08-06 18:39:59 [game] Preloaded 'libsteam_api.so'
+2025-08-06 18:39:59 [game] Preloaded 'steamclient.so'
+2025-08-06 18:39:59 [game] [PhysX] Initialized MultithreadedTaskDispatcher with 4 workers.
+2025-08-06 18:39:59 [game] Initialize engine version: 2022.3.41f1 (0f988161febf)
+2025-08-06 18:39:59 [game] [Subsystems] Discovering subsystems at path /home/rust/RustDedicated_Data/UnitySubsystems
+2025-08-06 18:39:59 [game] Forcing GfxDevice: Null
+2025-08-06 18:39:59 [game] GfxDevice: creating device client; threaded=0; jobified=0
+2025-08-06 18:39:59 [game] NullGfxDevice:
+2025-08-06 18:39:59 [game]     Version:  NULL 1.0 [1.0]
+2025-08-06 18:39:59 [game]     Renderer: Null Device
+2025-08-06 18:39:59 [game]     Vendor:   Unity Technologies
+2025-08-06 18:39:59 [game] Begin MonoManager ReloadAssembly
+2025-08-06 18:40:00 [game] - Loaded All Assemblies, in  0.171 seconds
+2025-08-06 18:40:00 [game] - Finished resetting the current domain, in  0.002 seconds
+2025-08-06 18:40:00 [game] ERROR: Shader Hidden/PostProcessing/Copy shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:00 [game] ERROR: Shader Hidden/PostProcessing/CopyStd shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:00 [game] ERROR: Shader Hidden/ViewModel shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:00 [game] ERROR: Shader Hidden/DLSSUtils shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:00 [game] ERROR: Shader MeshPaintable3D/UVRender shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:00 [game] ERROR: Shader Legacy Shaders/VertexLit shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:00 [game] WARNING: Shader Unsupported: 'Legacy Shaders/Diffuse' - All subshaders removed
+2025-08-06 18:40:00 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:40:00 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:40:00 [game] ERROR: Shader Legacy Shaders/Diffuse shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:00 [game] WARNING: Shader Unsupported: 'Legacy Shaders/Diffuse' - All subshaders removed
+2025-08-06 18:40:00 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:40:00 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:40:00 [game] WARNING: Shader Unsupported: 'Custom/RaycastDepthShader' - All subshaders removed
+2025-08-06 18:40:00 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:40:00 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:40:00 [game] ERROR: Shader Custom/RaycastDepthShader shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:00 [game] WARNING: Shader Unsupported: 'Custom/RaycastDepthShader' - All subshaders removed
+2025-08-06 18:40:00 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:40:00 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:40:00 [game] ERROR: Shader Hidden/PostProcessing/NightLightShader shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:00 [game] ERROR: Shader Hidden/PostProcessing/RadialBlur shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:00 [game] ERROR: Shader Hidden/PostProcessing/RustTemporalAntialiasing shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:00 [game] ERROR: Shader Hidden/DeferredIndirectLighting shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:00 [game] ERROR: Shader Sprites/Default shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:00 [game] ERROR: Shader UI/Default shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:00 [game] Profiler Disabled!
+2025-08-06 18:40:00 [game] ERROR: Shader Sprites/Mask shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:00 [game] Shader 'TextMeshPro/Distance Field': fallback shader 'TextMeshPro/Mobile/Distance Field' not found
+2025-08-06 18:40:00 [game] WARNING: Shader Unsupported: 'TextMeshPro/Distance Field' - All subshaders removed
+2025-08-06 18:40:00 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:40:00 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:40:00 [game] ERROR: Shader TextMeshPro/Distance Field shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:00 [game] WARNING: Shader Unsupported: 'TextMeshPro/Distance Field' - All subshaders removed
+2025-08-06 18:40:00 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:40:00 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:40:00 [game] ERROR: Shader UI/Colourize shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:00 [game] [PhysX] Initialized MultithreadedTaskDispatcher with 4 workers.
+2025-08-06 18:40:00 [game] UnloadTime: 7.128520 ms
+2025-08-06 18:40:00 [game] Fallback handler could not load library /home/rust/RustDedicated_Data/MonoBleedingEdge/x86_64/data-0x7f44823bf010.so
+2025-08-06 18:40:00 [game] Set managed directory to '/home/rust/RustDedicated_Data/Managed'
+2025-08-06 18:40:00 [game] Set harmony directory to '/home/rust/RustDedicated_Data/../HarmonyMods'
+2025-08-06 18:40:00 [game] 3D Noise requires higher shader capabilities (Shader Model 3.5 / OpenGL ES 3.0), which are not available on the current platform: graphicsShaderLevel (current/required) = 30 / 35
+2025-08-06 18:40:00 [game] Bootstrap Startup
+2025-08-06 18:40:00 [game] Loading maps/maps.bundle
+2025-08-06 18:40:00 [game] Loading shared/content.bundle
+2025-08-06 18:40:08 [game] Loading shared/content.private.bundle
+2025-08-06 18:40:08 [game] Loading shared/items.preload.bundle
+2025-08-06 18:40:08 [game] Loading shared/monuments.bundle
+2025-08-06 18:40:10 [game] Loading shared/monuments_scenes.bundle
+2025-08-06 18:40:10 [game] Loading shared/skinnables.preload.bundle
+2025-08-06 18:40:10 [game] System
+2025-08-06 18:40:10 [game] 	Name: felis
+2025-08-06 18:40:10 [game] 	OS:   Linux 6.15 Arch Linux  64bit
+2025-08-06 18:40:10 [game] 
+2025-08-06 18:40:10 [game] CPU
+2025-08-06 18:40:10 [game] 	Model:  Intel(R) Core(TM) i7-7500U CPU @ 2.70GHz
+2025-08-06 18:40:10 [game] 	Cores:  4
+2025-08-06 18:40:10 [game] 	Memory: 7653 MB
+2025-08-06 18:40:10 [game] 
+2025-08-06 18:40:10 [game] GPU
+2025-08-06 18:40:10 [game] 	Model:  Null Device
+2025-08-06 18:40:10 [game] 	API:    NULL 1.0 [1.0]
+2025-08-06 18:40:10 [game] 	Memory: 128 MB
+2025-08-06 18:40:10 [game] 	SM:     30
+2025-08-06 18:40:10 [game] 
+2025-08-06 18:40:10 [game] Process
+2025-08-06 18:40:10 [game] 	Memory:   0 MB
+2025-08-06 18:40:10 [game] 
+2025-08-06 18:40:10 [game] Mono
+2025-08-06 18:40:10 [game] 	Collects: 44
+2025-08-06 18:40:10 [game] 	Memory:   8 MB
+2025-08-06 18:40:10 [game] 
+2025-08-06 18:40:10 [game] 
+2025-08-06 18:40:10 [game] Manifest Metadata Loaded
+2025-08-06 18:40:10 [game] 	33154 pooled strings
+2025-08-06 18:40:10 [game] 	14545 prefab properties
+2025-08-06 18:40:10 [game] 	420 effect categories
+2025-08-06 18:40:10 [game] 	1999 entity names
+2025-08-06 18:40:11 [game] Command Line: "/home/rust/RustDedicated" "-batchmode" "+server.identity" "instance0" "+rcon.port" "28016" "+rcon.web" "1" "+rcon.password" "******" "+server.worldsize" "1000" "+server.seed" "1234"
+2025-08-06 18:40:11 [game] Setup unity update hooks
+2025-08-06 18:40:11 [game] Command 'batchmode' not found
+2025-08-06 18:40:11 [game] server.identity: "instance0"
+2025-08-06 18:40:11 [game] rcon.port: "28016"
+2025-08-06 18:40:11 [game] rcon.web: "True"
+2025-08-06 18:40:11 [game] Command 'rcon.password' not found
+2025-08-06 18:40:11 [game] server.worldsize: "1000"
+2025-08-06 18:40:11 [game] server.seed: "1234"
+2025-08-06 18:40:11 [game] Command 'batchmode' not found
+2025-08-06 18:40:11 [game] server.identity: "instance0"
+2025-08-06 18:40:11 [game] rcon.port: "28016"
+2025-08-06 18:40:11 [game] rcon.web: "True"
+2025-08-06 18:40:11 [game] Command 'rcon.password' not found
+2025-08-06 18:40:11 [game] server.worldsize: "1000"
+2025-08-06 18:40:11 [game] server.seed: "1234"
+2025-08-06 18:40:11 [game] Server Config Loaded
+2025-08-06 18:40:11 [game] Command 'batchmode' not found
+2025-08-06 18:40:11 [game] server.identity: "instance0"
+2025-08-06 18:40:11 [game] rcon.port: "28016"
+2025-08-06 18:40:11 [game] rcon.web: "True"
+2025-08-06 18:40:11 [game] Command 'rcon.password' not found
+2025-08-06 18:40:11 [game] server.worldsize: "1000"
+2025-08-06 18:40:11 [game] server.seed: "1234"
+2025-08-06 18:40:17 [game] Loading Items Took: 6.5993361 seconds
+2025-08-06 18:40:17 [game] Building Items Took: 6.6420968 seconds / Items: 1085 / Blueprints: 565
+2025-08-06 18:40:17 [game] Skinnable Warmup
+2025-08-06 18:40:26 [game] Manifest Assets Loaded
+2025-08-06 18:40:26 [game] 	137 skinnable objects
+2025-08-06 18:40:26 [game] Initializing Nexus
+2025-08-06 18:40:26 [game] Nexus endpoint and/or secret key is not set, not starting nexus connection
+2025-08-06 18:40:26 [game] Loading Scene
+2025-08-06 18:40:27 [game] HDR Render Texture not supported, disabling HDR on reflection probe.
+2025-08-06 18:40:27 [game] Unloading 5 Unused Serialized files (Serialized files now loaded: 171)
+2025-08-06 18:40:27 [game] [PhysX] Initialized MultithreadedTaskDispatcher with 4 workers.
+2025-08-06 18:40:27 [game] UnloadTime: 7.618517 ms
+2025-08-06 18:40:27 [game] Missing shader in Main Camera (TOD_Scattering)
+2025-08-06 18:40:27 [game] Missing shader in Main Camera (TOD_Scattering)
+2025-08-06 18:40:27 [game] Missing shader in Main Camera (TOD_Scattering)
+2025-08-06 18:40:28 [game] Unloading 105849 unused Assets to reduce memory usage. Loaded Objects now: 56461.
+2025-08-06 18:40:28 [game] Total: 153.352497 ms (FindLiveObjects: 7.216395 ms CreateObjectMapping: 17.905978 ms MarkObjects: 93.545325 ms  DeleteObjects: 34.684097 ms)
+2025-08-06 18:40:28 [game] 
+2025-08-06 18:40:29 [game] Asset Warmup (1/13413)
+2025-08-06 18:40:31 [game] Asset Warmup (115/13413)
+2025-08-06 18:40:33 [game] Asset Warmup (177/13413)
+2025-08-06 18:40:35 [game] Asset Warmup (422/13413)
+2025-08-06 18:40:38 [game] Asset Warmup (430/13413)
+2025-08-06 18:40:41 [game] ERROR: Shader Sprites/Default shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:41 [game] Asset Warmup (435/13413)
+2025-08-06 18:40:43 [game] Asset Warmup (439/13413)
+2025-08-06 18:40:45 [game] Asset Warmup (452/13413)
+2025-08-06 18:40:47 [game] Asset Warmup (465/13413)
+2025-08-06 18:40:50 [game] Asset Warmup (467/13413)
+2025-08-06 18:40:52 [game] Asset Warmup (476/13413)
+2025-08-06 18:40:54 [game] Asset Warmup (489/13413)
+2025-08-06 18:40:56 [game] Asset Warmup (566/13413)
+2025-08-06 18:40:56 [game] ERROR: Shader Legacy Shaders/Particles/Alpha Blended Premultiply shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:56 [game] WARNING: Shader Unsupported: 'Particles/Standard Unlit' - All subshaders removed
+2025-08-06 18:40:56 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:40:56 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:40:56 [game] ERROR: Shader Particles/Standard Unlit shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:40:56 [game] WARNING: Shader Unsupported: 'Particles/Standard Unlit' - All subshaders removed
+2025-08-06 18:40:56 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:40:56 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:40:58 [game] Asset Warmup (826/13413)
+2025-08-06 18:41:00 [game] Asset Warmup (1140/13413)
+2025-08-06 18:41:02 [game] Asset Warmup (1548/13413)
+2025-08-06 18:41:04 [game] Asset Warmup (1631/13413)
+2025-08-06 18:41:06 [game] Asset Warmup (1694/13413)
+2025-08-06 18:41:08 [game] Asset Warmup (2030/13413)
+2025-08-06 18:41:10 [game] Asset Warmup (2353/13413)
+2025-08-06 18:41:12 [game] Asset Warmup (2471/13413)
+2025-08-06 18:41:14 [game] Asset Warmup (2582/13413)
+2025-08-06 18:41:16 [game] Asset Warmup (2691/13413)
+2025-08-06 18:41:18 [game] Asset Warmup (2905/13413)
+2025-08-06 18:41:20 [game] Asset Warmup (3145/13413)
+2025-08-06 18:41:22 [game] Asset Warmup (3188/13413)
+2025-08-06 18:41:25 [game] Asset Warmup (3199/13413)
+2025-08-06 18:41:27 [game] Asset Warmup (3213/13413)
+2025-08-06 18:41:29 [game] Asset Warmup (3523/13413)
+2025-08-06 18:41:31 [game] Asset Warmup (4086/13413)
+2025-08-06 18:41:33 [game] Asset Warmup (4264/13413)
+2025-08-06 18:41:35 [game] Asset Warmup (4341/13413)
+2025-08-06 18:41:37 [game] Asset Warmup (4459/13413)
+2025-08-06 18:41:39 [game] Asset Warmup (4649/13413)
+2025-08-06 18:41:41 [game] Asset Warmup (4786/13413)
+2025-08-06 18:41:43 [game] Asset Warmup (4994/13413)
+2025-08-06 18:41:45 [game] Asset Warmup (5174/13413)
+2025-08-06 18:41:47 [game] Asset Warmup (5294/13413)
+2025-08-06 18:41:49 [game] Asset Warmup (5345/13413)
+2025-08-06 18:41:52 [game] Asset Warmup (5529/13413)
+2025-08-06 18:41:54 [game] Asset Warmup (5588/13413)
+2025-08-06 18:41:56 [game] Asset Warmup (5598/13413)
+2025-08-06 18:41:59 [game] Asset Warmup (5686/13413)
+2025-08-06 18:42:01 [game] Asset Warmup (5807/13413)
+2025-08-06 18:42:03 [game] Asset Warmup (6145/13413)
+2025-08-06 18:42:05 [game] Asset Warmup (6293/13413)
+2025-08-06 18:42:07 [game] Asset Warmup (6402/13413)
+2025-08-06 18:42:09 [game] Asset Warmup (6563/13413)
+2025-08-06 18:42:11 [game] Asset Warmup (6665/13413)
+2025-08-06 18:42:12 [game] ERROR: Shader GUI/Text Shader shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:42:13 [game] Asset Warmup (6929/13413)
+2025-08-06 18:42:16 [game] Asset Warmup (7306/13413)
+2025-08-06 18:42:18 [game] Asset Warmup (7659/13413)
+2025-08-06 18:42:20 [game] Asset Warmup (7923/13413)
+2025-08-06 18:42:22 [game] Asset Warmup (8180/13413)
+2025-08-06 18:42:24 [game] Asset Warmup (8439/13413)
+2025-08-06 18:42:26 [game] Asset Warmup (8723/13413)
+2025-08-06 18:42:28 [game] HDR Render Texture not supported, disabling HDR on reflection probe.
+2025-08-06 18:42:28 [game] WARNING: Shader Unsupported: 'Hidden/TerrainEngine/Details/Vertexlit' - All subshaders removed
+2025-08-06 18:42:28 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:42:28 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:42:28 [game] ERROR: Shader Hidden/TerrainEngine/Details/Vertexlit shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:42:28 [game] WARNING: Shader Unsupported: 'Hidden/TerrainEngine/Details/Vertexlit' - All subshaders removed
+2025-08-06 18:42:28 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:42:28 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:42:28 [game] Asset Warmup (9047/13413)
+2025-08-06 18:42:30 [game] Asset Warmup (9457/13413)
+2025-08-06 18:42:32 [game] Asset Warmup (9540/13413)
+2025-08-06 18:42:34 [game] Asset Warmup (9616/13413)
+2025-08-06 18:42:36 [game] Asset Warmup (9818/13413)
+2025-08-06 18:42:38 [game] Asset Warmup (10097/13413)
+2025-08-06 18:42:40 [game] Asset Warmup (10434/13413)
+2025-08-06 18:42:43 [game] Asset Warmup (10544/13413)
+2025-08-06 18:42:45 [game] Asset Warmup (10688/13413)
+2025-08-06 18:42:47 [game] Asset Warmup (10765/13413)
+2025-08-06 18:42:49 [game] Asset Warmup (10910/13413)
+2025-08-06 18:42:51 [game] Asset Warmup (11242/13413)
+2025-08-06 18:42:53 [game] Asset Warmup (11597/13413)
+2025-08-06 18:42:55 [game] Asset Warmup (11858/13413)
+2025-08-06 18:42:57 [game] Asset Warmup (12131/13413)
+2025-08-06 18:42:59 [game] Asset Warmup (12472/13413)
+2025-08-06 18:43:01 [game] Asset Warmup (12800/13413)
+2025-08-06 18:43:03 [game] Asset Warmup (13155/13413)
+2025-08-06 18:43:06 [game] Asset Warmup (13269/13413)
+2025-08-06 18:43:08 [game] Asset Warmup (13294/13413)
+2025-08-06 18:43:10 [game] Asset Warmup (13354/13413)
+2025-08-06 18:43:11 [game] Asset Warmup (13413/13413)
+2025-08-06 18:43:11 [game] [162.0s] asset_warmup
+2025-08-06 18:43:11 [game] WebSocket RCON Started on :28016
+2025-08-06 18:43:11 [game] Generating procedural map of size 1000 with seed 1234
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/OcclusionCulling/BlitCopy shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/Water/CombineInteractions shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader UI/CompassStrip shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/VolumetricLightBeam1Pass shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/VolumetricLightBeam2Pass shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Legacy Shaders/Particles/Alpha Blended shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/CoverageQueries/Coverage shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/OcclusionCulling/Culling shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/PostProcessing/PhotoFilter shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/PostProcessing/BlurOptimized shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/PostProcessing/Wiggle shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/PostProcessing/ScreenOverlay shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/PostProcessing/FlashbangEffect shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/PostProcessing/DepthOfFieldEffect shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/PostProcessing/DoubleVision shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/PostProcessing/GodRays shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/PostProcessing/UnderWaterEffect shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/PostProcessing/SkyMask shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/PostProcessing/GreyScale shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/PostProcessing/LensDirtiness shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/PostProcessing/SharpenAndVignette shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/PostProcessing/Frost shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/PostProcessing/ScreenClear shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/OcclusionCulling/DebugMip shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/OcclusionCulling/DepthCopy shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/OcclusionCulling/DepthDownscale shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] WARNING: Shader Unsupported: 'EasyRoads3D/Unity 2018+ Standard' - All subshaders removed
+2025-08-06 18:43:11 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:43:11 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:43:11 [game] ERROR: Shader EasyRoads3D/Unity 2018+ Standard shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] WARNING: Shader Unsupported: 'EasyRoads3D/Unity 2018+ Standard' - All subshaders removed
+2025-08-06 18:43:11 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:43:11 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:43:11 [game] WARNING: Shader Unsupported: 'EasyRoads3D/edit-mode-surfaces' - All subshaders removed
+2025-08-06 18:43:11 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:43:11 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:43:11 [game] ERROR: Shader EasyRoads3D/edit-mode-surfaces shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] WARNING: Shader Unsupported: 'EasyRoads3D/edit-mode-surfaces' - All subshaders removed
+2025-08-06 18:43:11 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:43:11 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:43:11 [game] ERROR: Shader UI/IconOutline shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/Water/Interaction shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/Amplify Occlusion/Occlusion shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/Water/Ocean Underwater Fill shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/PostProcessSubsurface shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/Kino/Motion/Prefilter shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/Kino/Motion/Reconstruction shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/SEScreenSpaceShadowsFallback shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] WARNING: Shader Unsupported: 'Hidden/SEScreenSpaceShadows' - All subshaders removed
+2025-08-06 18:43:11 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:43:11 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/SEScreenSpaceShadows shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] WARNING: Shader Unsupported: 'Hidden/SEScreenSpaceShadows' - All subshaders removed
+2025-08-06 18:43:11 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:43:11 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:43:11 [game] Shader 'TextMeshPro/Distance Field NoZTest': fallback shader 'TextMeshPro/Mobile/Distance Field' not found
+2025-08-06 18:43:11 [game] WARNING: Shader Unsupported: 'TextMeshPro/Distance Field NoZTest' - All subshaders removed
+2025-08-06 18:43:11 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:43:11 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:43:11 [game] ERROR: Shader TextMeshPro/Distance Field NoZTest shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] WARNING: Shader Unsupported: 'TextMeshPro/Distance Field NoZTest' - All subshaders removed
+2025-08-06 18:43:11 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:43:11 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:43:11 [game] Shader 'TextMeshPro/Distance Field Overlay': fallback shader 'TextMeshPro/Mobile/Distance Field' not found
+2025-08-06 18:43:11 [game] WARNING: Shader Unsupported: 'TextMeshPro/Distance Field Overlay' - All subshaders removed
+2025-08-06 18:43:11 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:43:11 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:43:11 [game] ERROR: Shader TextMeshPro/Distance Field Overlay shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] WARNING: Shader Unsupported: 'TextMeshPro/Distance Field Overlay' - All subshaders removed
+2025-08-06 18:43:11 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:43:11 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:43:11 [game] ERROR: Shader TextMeshPro/Distance Field (Surface) shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader TextMeshPro/Sprite shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/CoreTexelDensity shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:11 [game] ERROR: Shader Hidden/TonemappingColorGrading shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:12 [game] ERROR: Shader Sprites/Multiply shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:12 [game] WARNING: Shader Unsupported: 'UI/Default Font' - All subshaders removed
+2025-08-06 18:43:12 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:43:12 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:43:12 [game] WARNING: Shader Unsupported: 'UI/Default Font' - All subshaders removed
+2025-08-06 18:43:12 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:43:12 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:43:12 [game] ERROR: Shader UI/Edge Fade shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:12 [game] ERROR: Shader UI/Unlit/Transparent-Scroll shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:12 [game] ERROR: Shader UI/Unlit/Transparent-TimeScaled shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:12 [game] ERROR: Shader Hidden/UI/Default (UIDissolve) shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:12 [game] ERROR: Shader Hidden/UI/Default (UIEffect) shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:12 [game] ERROR: Shader Hidden/UI/Default (UIHsvModifier) shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:12 [game] ERROR: Shader Hidden/UI/Default (UIShiny) shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:12 [game] ERROR: Shader Hidden/UI/Default (UITransition) shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:43:42 [game] [29.3s] Terrain Erosion
+2025-08-06 18:43:55 [game] [13.3s] Harbors
+2025-08-06 18:44:02 [game] [6.5s] Fishing Villages
+2025-08-06 18:44:06 [game] [4.7s] Desert Military
+2025-08-06 18:44:09 [game] [2.4s] Arctic Bases
+2025-08-06 18:44:45 [game] [36.0s] Main Monuments
+2025-08-06 18:44:47 [game] [2.3s] Tunnel Entrances
+2025-08-06 18:45:27 [game] [39.9s] Tunnels
+2025-08-06 18:45:28 [game] [0.9s] Tiny Monuments
+2025-08-06 18:45:29 [game] [1.0s] Jungle Ruins
+2025-08-06 18:45:30 [game] [0.9s] Swamps
+2025-08-06 18:45:30 [game] [0.3s] Ice Lakes
+2025-08-06 18:45:32 [game] [2.1s] Road Monuments
+2025-08-06 18:45:35 [game] [2.2s] Caves
+2025-08-06 18:45:42 [game] [6.6s] Underwater Labs
+2025-08-06 18:45:43 [game] [0.3s] Cliffs Jutting
+2025-08-06 18:45:44 [game] [0.5s] Coastal Rocks Large Arctic
+2025-08-06 18:45:44 [game] [0.5s] Coastal Rocks Large
+2025-08-06 18:45:48 [game] [4.0s] Coastal Rocks
+2025-08-06 18:45:49 [game] [0.8s] Rock Formations
+2025-08-06 18:45:51 [game] [1.3s] Offshore Monuments
+2025-08-06 18:45:55 [game] [3.9s] Lighthouses
+2025-08-06 18:46:03 [game] [6.8s] Train Track Collation
+2025-08-06 18:46:03 [game] [171.2s] Processing World
+2025-08-06 18:46:09 [game] Generated ocean patrol path with node count: 89
+2025-08-06 18:46:09 [game] [5.4s] Ocean Patrol Paths
+2025-08-06 18:46:11 [game] [2.6s] Finalizing World
+2025-08-06 18:46:17 [game] [6.4s] Cleaning Up
+2025-08-06 18:46:17 [game] Unloading 3 Unused Serialized files (Serialized files now loaded: 171)
+2025-08-06 18:46:22 [game] Unloading 262813 unused Assets to reduce memory usage. Loaded Objects now: 2994612.
+2025-08-06 18:46:22 [game] Total: 4279.948448 ms (FindLiveObjects: 1207.906557 ms CreateObjectMapping: 473.068934 ms MarkObjects: 2235.848639 ms  DeleteObjects: 363.123120 ms)
+2025-08-06 18:46:22 [game] 
+2025-08-06 18:46:22 [game] Starting Navmesh Source Collecting
+2025-08-06 18:46:22 [game] Navmesh Source Collecting took 0.01 seconds
+2025-08-06 18:46:22 [game] Starting Navmesh Build with 1181 sources
+2025-08-06 18:46:22 [game] Calling UpdateNavMesh took 0.112854
+2025-08-06 18:46:22 [game] 9%
+2025-08-06 18:46:32 [game] 98%
+2025-08-06 18:46:32 [game] Navmesh Build took 9.99 seconds
+2025-08-06 18:46:32 [game] Starting Navmesh Source Collecting
+2025-08-06 18:46:32 [game] Navmesh Source Collecting took 0.08 seconds
+2025-08-06 18:46:32 [game] Starting Monument Navmesh Build with 884 sources
+2025-08-06 18:46:32 [game] RuntimeNavMeshBuilder: Source mesh  has invalid vertex data and will be skipped.
+2025-08-06 18:46:32 [game] RuntimeNavMeshBuilder: Source mesh  has invalid vertex data and will be skipped.
+2025-08-06 18:46:32 [game] 48%
+2025-08-06 18:46:33 [game] 96%
+2025-08-06 18:46:33 [game] Monument Navmesh Build took 1.19 seconds
+2025-08-06 18:46:33 [game] Starting Navmesh Source Collecting
+2025-08-06 18:46:33 [game] Navmesh Source Collecting took 0.06 seconds
+2025-08-06 18:46:33 [game] Starting Monument Navmesh Build with 1850 sources
+2025-08-06 18:46:33 [game] RuntimeNavMeshBuilder: Source mesh  has invalid vertex data and will be skipped.
+2025-08-06 18:46:33 [game] RuntimeNavMeshBuilder: Source mesh  has invalid vertex data and will be skipped.
+2025-08-06 18:46:34 [game] 30%
+2025-08-06 18:46:35 [game] 96%
+2025-08-06 18:46:35 [game] Monument Navmesh Build took 1.92 seconds
+2025-08-06 18:46:35 [game] Starting Navmesh Source Collecting
+2025-08-06 18:46:35 [game] Navmesh Source Collecting took 0.00 seconds
+2025-08-06 18:46:35 [game] Starting Dungeon Navmesh Build with 0 sources
+2025-08-06 18:46:35 [game] 100%
+2025-08-06 18:46:36 [game] Monument Navmesh Build took 0.26 seconds
+2025-08-06 18:46:36 [game] Starting Navmesh Source Collecting
+2025-08-06 18:46:36 [game] Navmesh Source Collecting took 0.01 seconds
+2025-08-06 18:46:36 [game] Starting Dungeon Navmesh Build with 1117 sources
+2025-08-06 18:46:36 [game] 36%
+2025-08-06 18:46:36 [game] Monument Navmesh Build took 0.51 seconds
+2025-08-06 18:46:37 [game] Couldn't load server/instance0/proceduralmap.1000.1234.269.sav - file doesn't exist
+2025-08-06 18:46:37 [game] Spawning 267 entities from map
+2025-08-06 18:46:37 [game] 	done.
+2025-08-06 18:46:37 [game] Postprocessing 267 entities from map
+2025-08-06 18:46:37 [game] 	done.
+2025-08-06 18:46:39 [game] Missing EnvSync - creating
+2025-08-06 18:46:39 [game] Missing CommunityEntity - creating
+2025-08-06 18:46:39 [game] Missing ResourceDepositManager - creating
+2025-08-06 18:46:39 [game] Missing RelationshipManager - creating
+2025-08-06 18:46:39 [game] Missing TreeManager - creating
+2025-08-06 18:46:39 [game] Missing GlobalNetworkHandler - creating
+2025-08-06 18:46:39 [game] Starting to load entities into GlobalNetworkHandler...
+2025-08-06 18:46:39 [game] Took 1ms to load entities into GlobalNetworkHandler
+2025-08-06 18:46:39 [game] Missing CopyPasteEntity - creating
+2025-08-06 18:46:39 [game] Initializing 565 entity links
+2025-08-06 18:46:39 [game] 	done.
+2025-08-06 18:46:39 [game] Initializing 63 stability supports
+2025-08-06 18:46:39 [game] 	done.
+2025-08-06 18:46:39 [game] Initializing 298 entity save caches
+2025-08-06 18:46:39 [game] 	done.
+2025-08-06 18:46:39 [game] Gamemode Convar :
+2025-08-06 18:46:39 [game] No Gamemode.
+2025-08-06 18:46:40 [game] Preparing Occlusion Grid (500, 100, 500)
+2025-08-06 18:46:44 [game] Initialized 25000000 occlusion sub-chunks - took 4.2608319 seconds
+2025-08-06 18:46:44 [game] [S_API] SteamAPI_Init(): Loaded local 'steamclient.so' OK.
+2025-08-06 18:46:44 [game] Setting breakpad minidump AppID = 252490
+2025-08-06 18:46:44 [game] SteamInternal_SetMinidumpSteamID:  Caching Steam ID:  76561197960265728 [API loaded no]
+2025-08-06 18:46:44 [game] [S_API FAIL] Tried to access Steam interface SteamNetworkingUtils004 before SteamAPI_Init succeeded.
+2025-08-06 18:46:44 [game] IPC function call IClientUtils::GetSteamRealm took too long: 68 msec
+2025-08-06 18:46:44 [game] SteamServer Initialized
+2025-08-06 18:46:49 [game] Server startup complete
+2025-08-06 18:46:50 [game] SteamServer Connected
+2025-08-06 18:46:50 [rustctl] Transitioned: Launching -> RunningHealthy [server/src/main.rs:908]
+2025-08-06 18:46:50 [game] Invalid Position: oceanwreckbuoysmall[1328] (NaN, NaN, NaN) (destroying)
+2025-08-06 18:46:50 [game] Invalid Position: oceanwreckbuoy[1330] (NaN, NaN, NaN) (destroying)
+2025-08-06 18:46:50 [game] Invalid Position: oceanwreckbuoysmall[1332] (NaN, NaN, NaN) (destroying)
+2025-08-06 18:46:52 [game] [Rust.MapCache] Map uploaded to backend: https://files.facepunch.com/rust/maps/76730559302538f6ad0f8ebddc71887b7726fbeaba950e72c1ffc82f46ee1a04/proceduralmap.1000.1234.269_76730559302538f6ad0f8ebddc71887b.map
+2025-08-06 18:47:00 [game] Checking for new Steam Item Definitions..
+2025-08-06 18:47:12 [game] Warning: failed to set thread priority: set failed for -10: 1:
+2025-08-06 18:47:12 [game] Warning: failed to set thread priority: set failed for -10: 1:
+2025-08-06 18:47:12 [game] Rust+ companion server connectivity test failed! Disabling Rust+ features.
+2025-08-06 18:47:12 [game] 
+2025-08-06 18:47:12 [game] Could not establish a TCP connection to REDACTED:28083
+2025-08-06 18:47:50 [game] Invalid Position: oceanwreckbuoy[2581] (NaN, NaN, NaN) (destroying)
+2025-08-06 18:47:50 [game] Invalid Position: oceanwreckbuoy[2583] (NaN, NaN, NaN) (destroying)
+2025-08-06 18:47:50 [game] Invalid Position: oceanwreckbuoysmall[2585] (NaN, NaN, NaN) (destroying)
+2025-08-06 18:47:50 [game] Invalid Position: oceanwreckbuoy[2587] (NaN, NaN, NaN) (destroying)
+2025-08-06 18:47:50 [game] Invalid Position: oceanwreckbuoy[2589] (NaN, NaN, NaN) (destroying)
+2025-08-06 18:50:00 [game] Saved 317 ents, cache(0.01), write(0.01), disk(0.01).
+2025-08-06 18:50:00 [game] Saving complete
+2025-08-06 18:50:16 [rustctl] Sent signal to game server process: SIGINT: PID 28630 [server/src/main.rs:832]
+2025-08-06 18:50:16 [rustctl] Transitioned: RunningHealthy -> SavingAndClosing [server/src/main.rs:908]
+2025-08-06 18:50:16 [rustctl] Waiting for game server savefile... [server/src/main.rs:860]
+2025-08-06 18:50:16 [rustctl] Game server state saved 15987 milliseconds ago: proceduralmap.1000.1234.269.sav [server/src/main.rs:866]
+2025-08-06 18:50:16 [game] EasyAntiCheat Server Shutting Down
+2025-08-06 18:50:17 [game] [Raknet] Server Shutting Down (Shutting Down)
+2025-08-06 18:50:17 [game] Steamworks Shutting Down
+2025-08-06 18:50:18 [game] Okay
+2025-08-06 18:50:21 [game] Releasing render texture that is set as Camera.targetTexture!
+2025-08-06 18:50:21 [game] Releasing render texture that is set as Camera.targetTexture!
+2025-08-06 18:50:21 [game] Releasing render texture that is set as Camera.targetTexture!
+2025-08-06 18:50:21 [game] Releasing render texture that is set as Camera.targetTexture!
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] JunkPileWaterSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] SpawnGroup: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:23 [game] NPCSpawner: SpawnHandler instance not found.
+2025-08-06 18:50:24 [game] Memory Statistics:
+2025-08-06 18:50:24 [game] [ALLOC_TEMP_TLS] TLS Allocator
+2025-08-06 18:50:24 [game]   StackAllocators :
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_MAIN]
+2025-08-06 18:50:24 [game]       Peak usage frame count: [0-1.0 KB]: 359 frames, [1.0 KB-2.0 KB]: 2 frames, [2.0 KB-4.0 KB]: 2 frames, [4.0 KB-8.0 KB]: 2 frames, [8.0 KB-16.0 KB]: 51 frames, [64.0 KB-128.0 KB]: 2 frames, [128.0 KB-256.0 KB]: 645 frames, [256.0 KB-0.5 MB]: 48758 frames, [0.5 MB-1.0 MB]: 11 frames, [1.0 MB-2.0 MB]: 44 frames, [2.0 MB-4.0 MB]: 45 frames, [4.0 MB-8.0 MB]: 34 frames
+2025-08-06 18:50:24 [game]       Initial Block Size 4.0 MB
+2025-08-06 18:50:24 [game]       Current Block Size 8.0 MB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 7.9 MB
+2025-08-06 18:50:24 [game]       Overflow Count 1536939
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Loading.AsyncRead]
+2025-08-06 18:50:24 [game]       Initial Block Size 64.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 64.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 256 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Loading.PreloadManager]
+2025-08-06 18:50:24 [game]       Initial Block Size 256.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 488.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 474.2 KB
+2025-08-06 18:50:24 [game]       Overflow Count 21
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Background Job.Worker 8]
+2025-08-06 18:50:24 [game]       Initial Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Background Job.Worker 9]
+2025-08-06 18:50:24 [game]       Initial Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Job.Worker 0]
+2025-08-06 18:50:24 [game]       Initial Block Size 256.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 296.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 207.4 KB
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Background Job.Worker 10]
+2025-08-06 18:50:24 [game]       Initial Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Background Job.Worker 14]
+2025-08-06 18:50:24 [game]       Initial Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Background Job.Worker 6]
+2025-08-06 18:50:24 [game]       Initial Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Background Job.Worker 12]
+2025-08-06 18:50:24 [game]       Initial Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_EnlightenWorker] x 2
+2025-08-06 18:50:24 [game]       Initial Block Size 64.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 64.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Background Job.Worker 15]
+2025-08-06 18:50:24 [game]       Initial Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Background Job.Worker 1]
+2025-08-06 18:50:24 [game]       Initial Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 65 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Background Job.Worker 2]
+2025-08-06 18:50:24 [game]       Initial Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 113 B
+2025-08-06 18:50:24 [game]       Overflow Count 1
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Background Job.Worker 7]
+2025-08-06 18:50:24 [game]       Initial Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_AssetGarbageCollectorHelper] x 3
+2025-08-06 18:50:24 [game]       Initial Block Size 64.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 64.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_NavMesh Builder.Worker 0]
+2025-08-06 18:50:24 [game]       Initial Block Size 64.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 64.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Background Job.Worker 5]
+2025-08-06 18:50:24 [game]       Initial Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Background Job.Worker 13]
+2025-08-06 18:50:24 [game]       Initial Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Job.Worker 1]
+2025-08-06 18:50:24 [game]       Initial Block Size 256.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 308.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 221.3 KB
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Job.Worker 2]
+2025-08-06 18:50:24 [game]       Initial Block Size 256.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 280.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 199.0 KB
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Background Job.Worker 3]
+2025-08-06 18:50:24 [game]       Initial Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Background Job.Worker 11]
+2025-08-06 18:50:24 [game]       Initial Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Background Job.Worker 0]
+2025-08-06 18:50:24 [game]       Initial Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_CloudJob.Worker 0]
+2025-08-06 18:50:24 [game]       Initial Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 8.8 KB
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_Background Job.Worker 4]
+2025-08-06 18:50:24 [game]       Initial Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 32.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game]     [ALLOC_TEMP_BatchDeleteObjects]
+2025-08-06 18:50:24 [game]       Initial Block Size 64.0 KB
+2025-08-06 18:50:24 [game]       Current Block Size 64.0 KB
+2025-08-06 18:50:24 [game]       Peak Allocated Bytes 0 B
+2025-08-06 18:50:24 [game]       Overflow Count 0
+2025-08-06 18:50:24 [game] [ALLOC_DEFAULT] Dual Thread Allocator
+2025-08-06 18:50:24 [game]   Peak main deferred allocation count 698223
+2025-08-06 18:50:24 [game]     [ALLOC_BUCKET]
+2025-08-06 18:50:24 [game]       Large Block size 4.0 MB
+2025-08-06 18:50:24 [game]       Used Block count 1
+2025-08-06 18:50:24 [game]       Peak Allocated bytes 4.0 MB
+2025-08-06 18:50:24 [game]       Failed Allocations. Bucket layout:
+2025-08-06 18:50:24 [game]         16B: 4 Subsections = 4096 buckets. Failed count: 6300142
+2025-08-06 18:50:24 [game]         32B: 43 Subsections = 22016 buckets. Failed count: 1443220
+2025-08-06 18:50:24 [game]         48B: 24 Subsections = 8192 buckets. Failed count: 863753
+2025-08-06 18:50:24 [game]         64B: 110 Subsections = 28160 buckets. Failed count: 26614363
+2025-08-06 18:50:24 [game]         80B: 48 Subsections = 9830 buckets. Failed count: 14106031
+2025-08-06 18:50:24 [game]         96B: 10 Subsections = 1706 buckets. Failed count: 3166551
+2025-08-06 18:50:24 [game]         112B: 9 Subsections = 1316 buckets. Failed count: 170081
+2025-08-06 18:50:24 [game]         128B: 8 Subsections = 1024 buckets. Failed count: 2110168
+2025-08-06 18:50:24 [game]     [ALLOC_DEFAULT_MAIN]
+2025-08-06 18:50:24 [game]       Peak usage frame count: [16.0 MB-32.0 MB]: 1 frames, [256.0 MB-0.50 GB]: 42 frames, [0.50 GB-1.00 GB]: 110 frames, [1.00 GB-2.00 GB]: 49802 frames
+2025-08-06 18:50:24 [game]       Requested Block Size 16.0 MB
+2025-08-06 18:50:24 [game]       Peak Block count 80
+2025-08-06 18:50:24 [game]       Peak Allocated memory 1.65 GB
+2025-08-06 18:50:24 [game]       Peak Large allocation bytes 0.88 GB
+2025-08-06 18:50:24 [game]     [ALLOC_DEFAULT_THREAD]
+2025-08-06 18:50:24 [game]       Peak usage frame count: [1.0 MB-2.0 MB]: 20 frames, [2.0 MB-4.0 MB]: 23 frames, [4.0 MB-8.0 MB]: 26 frames, [8.0 MB-16.0 MB]: 30 frames, [16.0 MB-32.0 MB]: 1026 frames, [32.0 MB-64.0 MB]: 48830 frames
+2025-08-06 18:50:24 [game]       Requested Block Size 16.0 MB
+2025-08-06 18:50:24 [game]       Peak Block count 5
+2025-08-06 18:50:24 [game]       Peak Allocated memory 59.5 MB
+2025-08-06 18:50:24 [game]       Peak Large allocation bytes 0 B
+2025-08-06 18:50:24 [game] [ALLOC_TEMP_JOB_1_FRAME]
+2025-08-06 18:50:24 [game]   Initial Block Size 2.0 MB
+2025-08-06 18:50:24 [game]   Used Block Count 0
+2025-08-06 18:50:24 [game]   Overflow Count (too large) 0
+2025-08-06 18:50:24 [game]   Overflow Count (full) 0
+2025-08-06 18:50:24 [game] [ALLOC_TEMP_JOB_2_FRAMES]
+2025-08-06 18:50:24 [game]   Initial Block Size 2.0 MB
+2025-08-06 18:50:24 [game]   Used Block Count 0
+2025-08-06 18:50:24 [game]   Overflow Count (too large) 0
+2025-08-06 18:50:24 [game]   Overflow Count (full) 0
+2025-08-06 18:50:24 [game] [ALLOC_TEMP_JOB_4_FRAMES (JobTemp)]
+2025-08-06 18:50:24 [game]   Initial Block Size 2.0 MB
+2025-08-06 18:50:24 [game]   Used Block Count 1
+2025-08-06 18:50:24 [game]   Overflow Count (too large) 6
+2025-08-06 18:50:24 [game]   Overflow Count (full) 0
+2025-08-06 18:50:24 [game] [ALLOC_TEMP_JOB_ASYNC (Background)]
+2025-08-06 18:50:24 [game]   Initial Block Size 1.0 MB
+2025-08-06 18:50:24 [game]   Used Block Count 1
+2025-08-06 18:50:24 [game]   Overflow Count (too large) 0
+2025-08-06 18:50:24 [game]   Overflow Count (full) 0
+2025-08-06 18:50:24 [game] [ALLOC_GFX] Dual Thread Allocator
+2025-08-06 18:50:24 [game]   Peak main deferred allocation count 12607
+2025-08-06 18:50:24 [game]     [ALLOC_BUCKET]
+2025-08-06 18:50:24 [game]       Large Block size 4.0 MB
+2025-08-06 18:50:24 [game]       Used Block count 1
+2025-08-06 18:50:24 [game]       Peak Allocated bytes 4.0 MB
+2025-08-06 18:50:24 [game]       Failed Allocations. Bucket layout:
+2025-08-06 18:50:24 [game]         16B: 4 Subsections = 4096 buckets. Failed count: 6300142
+2025-08-06 18:50:24 [game]         32B: 43 Subsections = 22016 buckets. Failed count: 1443220
+2025-08-06 18:50:24 [game]         48B: 24 Subsections = 8192 buckets. Failed count: 863753
+2025-08-06 18:50:24 [game]         64B: 110 Subsections = 28160 buckets. Failed count: 26614363
+2025-08-06 18:50:24 [game]         80B: 48 Subsections = 9830 buckets. Failed count: 14106031
+2025-08-06 18:50:24 [game]         96B: 10 Subsections = 1706 buckets. Failed count: 3166551
+2025-08-06 18:50:24 [game]         112B: 9 Subsections = 1316 buckets. Failed count: 170081
+2025-08-06 18:50:24 [game]         128B: 8 Subsections = 1024 buckets. Failed count: 2110168
+2025-08-06 18:50:24 [game]     [ALLOC_GFX_MAIN]
+2025-08-06 18:50:24 [game]       Peak usage frame count: [32.0 KB-64.0 KB]: 14 frames, [64.0 KB-128.0 KB]: 1 frames, [16.0 MB-32.0 MB]: 2 frames, [64.0 MB-128.0 MB]: 9 frames, [128.0 MB-256.0 MB]: 18 frames, [256.0 MB-0.50 GB]: 24 frames, [0.50 GB-1.00 GB]: 49603 frames, [1.00 GB-2.00 GB]: 284 frames
+2025-08-06 18:50:24 [game]       Requested Block Size 16.0 MB
+2025-08-06 18:50:24 [game]       Peak Block count 66
+2025-08-06 18:50:24 [game]       Peak Allocated memory 1.02 GB
+2025-08-06 18:50:24 [game]       Peak Large allocation bytes 0 B
+2025-08-06 18:50:24 [game]     [ALLOC_GFX_THREAD]
+2025-08-06 18:50:24 [game]       Peak usage frame count: [0-1.0 KB]: 15 frames, [16.0 KB-32.0 KB]: 2 frames, [128.0 KB-256.0 KB]: 3 frames, [2.0 MB-4.0 MB]: 33 frames, [4.0 MB-8.0 MB]: 49902 frames
+2025-08-06 18:50:24 [game]       Requested Block Size 16.0 MB
+2025-08-06 18:50:24 [game]       Peak Block count 1
+2025-08-06 18:50:24 [game]       Peak Allocated memory 6.0 MB
+2025-08-06 18:50:24 [game]       Peak Large allocation bytes 0 B
+2025-08-06 18:50:24 [game] [ALLOC_CACHEOBJECTS] Dual Thread Allocator
+2025-08-06 18:50:24 [game]   Peak main deferred allocation count 2674655
+2025-08-06 18:50:24 [game]     [ALLOC_BUCKET]
+2025-08-06 18:50:24 [game]       Large Block size 4.0 MB
+2025-08-06 18:50:24 [game]       Used Block count 1
+2025-08-06 18:50:24 [game]       Peak Allocated bytes 4.0 MB
+2025-08-06 18:50:24 [game]       Failed Allocations. Bucket layout:
+2025-08-06 18:50:24 [game]         16B: 4 Subsections = 4096 buckets. Failed count: 6300142
+2025-08-06 18:50:24 [game]         32B: 43 Subsections = 22016 buckets. Failed count: 1443220
+2025-08-06 18:50:24 [game]         48B: 24 Subsections = 8192 buckets. Failed count: 863753
+2025-08-06 18:50:24 [game]         64B: 110 Subsections = 28160 buckets. Failed count: 26614363
+2025-08-06 18:50:24 [game]         80B: 48 Subsections = 9830 buckets. Failed count: 14106031
+2025-08-06 18:50:24 [game]         96B: 10 Subsections = 1706 buckets. Failed count: 3166551
+2025-08-06 18:50:24 [game]         112B: 9 Subsections = 1316 buckets. Failed count: 170081
+2025-08-06 18:50:24 [game]         128B: 8 Subsections = 1024 buckets. Failed count: 2110168
+2025-08-06 18:50:24 [game]     [ALLOC_CACHEOBJECTS_MAIN]
+2025-08-06 18:50:24 [game]       Peak usage frame count: [8.0 MB-16.0 MB]: 1 frames, [256.0 MB-0.50 GB]: 16 frames, [0.50 GB-1.00 GB]: 58 frames, [1.00 GB-2.00 GB]: 49672 frames, [2.00 GB-4.00 GB]: 208 frames
+2025-08-06 18:50:24 [game]       Requested Block Size 4.0 MB
+2025-08-06 18:50:24 [game]       Peak Block count 517
+2025-08-06 18:50:24 [game]       Peak Allocated memory 2.70 GB
+2025-08-06 18:50:24 [game]       Peak Large allocation bytes 0.96 GB
+2025-08-06 18:50:24 [game]     [ALLOC_CACHEOBJECTS_THREAD]
+2025-08-06 18:50:24 [game]       Peak usage frame count: [64.0 KB-128.0 KB]: 19 frames, [128.0 KB-256.0 KB]: 1 frames, [64.0 MB-128.0 MB]: 49935 frames
+2025-08-06 18:50:24 [game]       Requested Block Size 4.0 MB
+2025-08-06 18:50:24 [game]       Peak Block count 1
+2025-08-06 18:50:24 [game]       Peak Allocated memory 113.6 MB
+2025-08-06 18:50:24 [game]       Peak Large allocation bytes 112.0 MB
+2025-08-06 18:50:24 [game] [ALLOC_TYPETREE] Dual Thread Allocator
+2025-08-06 18:50:24 [game]   Peak main deferred allocation count 2
+2025-08-06 18:50:24 [game]     [ALLOC_BUCKET]
+2025-08-06 18:50:24 [game]       Large Block size 4.0 MB
+2025-08-06 18:50:24 [game]       Used Block count 1
+2025-08-06 18:50:24 [game]       Peak Allocated bytes 4.0 MB
+2025-08-06 18:50:24 [game]       Failed Allocations. Bucket layout:
+2025-08-06 18:50:24 [game]         16B: 4 Subsections = 4096 buckets. Failed count: 6300142
+2025-08-06 18:50:24 [game]         32B: 43 Subsections = 22016 buckets. Failed count: 1443220
+2025-08-06 18:50:24 [game]         48B: 24 Subsections = 8192 buckets. Failed count: 863753
+2025-08-06 18:50:24 [game]         64B: 110 Subsections = 28160 buckets. Failed count: 26614363
+2025-08-06 18:50:24 [game]         80B: 48 Subsections = 9830 buckets. Failed count: 14106031
+2025-08-06 18:50:24 [game]         96B: 10 Subsections = 1706 buckets. Failed count: 3166551
+2025-08-06 18:50:24 [game]         112B: 9 Subsections = 1316 buckets. Failed count: 170081
+2025-08-06 18:50:24 [game]         128B: 8 Subsections = 1024 buckets. Failed count: 2110168
+2025-08-06 18:50:24 [game]     [ALLOC_TYPETREE_MAIN]
+2025-08-06 18:50:24 [game]       Peak usage frame count: [0-1.0 KB]: 1 frames, [32.0 MB-64.0 MB]: 49954 frames
+2025-08-06 18:50:24 [game]       Requested Block Size 2.0 MB
+2025-08-06 18:50:24 [game]       Peak Block count 24
+2025-08-06 18:50:24 [game]       Peak Allocated memory 43.8 MB
+2025-08-06 18:50:24 [game]       Peak Large allocation bytes 0 B
+2025-08-06 18:50:24 [game]     [ALLOC_TYPETREE_THREAD]
+2025-08-06 18:50:24 [game]       Peak usage frame count: [4.0 KB-8.0 KB]: 19 frames, [8.0 KB-16.0 KB]: 1 frames, [256.0 KB-0.5 MB]: 49881 frames, [0.5 MB-1.0 MB]: 54 frames
+2025-08-06 18:50:24 [game]       Requested Block Size 2.0 MB
+2025-08-06 18:50:24 [game]       Peak Block count 1
+2025-08-06 18:50:24 [game]       Peak Allocated memory 0.5 MB
+2025-08-06 18:50:24 [game]       Peak Large allocation bytes 0 B
+2025-08-06 18:50:25 [game] Shutdown handler: cleanup.
+2025-08-06 18:50:25 [rustctl] EOF reached: game server STDERR [server/src/main.rs:759]
+2025-08-06 18:50:25 [rustctl] EOF reached: game server STDOUT [server/src/main.rs:724]
+2025-08-06 18:50:25 [rustctl] game server process exited with exit status: 0 [server/src/main.rs:875]
+2025-08-06 18:50:25 [rustctl] Transitioned: SavingAndClosing -> ClosedManually [server/src/main.rs:908]
+2025-08-06 18:51:14 [rustctl] Transitioned: ClosedManually -> Preparing [server/src/main.rs:908]
+2025-08-06 18:51:44 [rustctl] Installation checked: Game server is up to date: buildid 19176355 [server/src/main.rs:654]
+2025-08-06 18:51:44 [rustctl] Transitioned: Preparing -> InstalledAndConfigured [server/src/main.rs:908]
+2025-08-06 18:51:44 [rustctl] Transitioned: InstalledAndConfigured -> Launching [server/src/main.rs:908]
+2025-08-06 18:51:44 [game] [UnityMemory] Configuration Parameters - Can be set up in boot.config
+2025-08-06 18:51:44 [game]     "memorysetup-bucket-allocator-granularity=16"
+2025-08-06 18:51:44 [game]     "memorysetup-bucket-allocator-bucket-count=8"
+2025-08-06 18:51:44 [game]     "memorysetup-bucket-allocator-block-size=4194304"
+2025-08-06 18:51:44 [game]     "memorysetup-bucket-allocator-block-count=1"
+2025-08-06 18:51:44 [game]     "memorysetup-main-allocator-block-size=16777216"
+2025-08-06 18:51:44 [game]     "memorysetup-thread-allocator-block-size=16777216"
+2025-08-06 18:51:44 [game]     "memorysetup-gfx-main-allocator-block-size=16777216"
+2025-08-06 18:51:44 [game]     "memorysetup-gfx-thread-allocator-block-size=16777216"
+2025-08-06 18:51:44 [game]     "memorysetup-cache-allocator-block-size=4194304"
+2025-08-06 18:51:44 [game]     "memorysetup-typetree-allocator-block-size=2097152"
+2025-08-06 18:51:44 [game]     "memorysetup-profiler-bucket-allocator-granularity=16"
+2025-08-06 18:51:44 [game]     "memorysetup-profiler-bucket-allocator-bucket-count=8"
+2025-08-06 18:51:44 [game]     "memorysetup-profiler-bucket-allocator-block-size=4194304"
+2025-08-06 18:51:44 [game]     "memorysetup-profiler-bucket-allocator-block-count=1"
+2025-08-06 18:51:44 [game]     "memorysetup-profiler-allocator-block-size=16777216"
+2025-08-06 18:51:44 [game]     "memorysetup-profiler-editor-allocator-block-size=1048576"
+2025-08-06 18:51:44 [game]     "memorysetup-temp-allocator-size-main=4194304"
+2025-08-06 18:51:44 [game]     "memorysetup-job-temp-allocator-block-size=2097152"
+2025-08-06 18:51:44 [game]     "memorysetup-job-temp-allocator-block-size-background=1048576"
+2025-08-06 18:51:44 [game]     "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+2025-08-06 18:51:44 [game]     "memorysetup-allocator-temp-initial-block-size-main=262144"
+2025-08-06 18:51:44 [game]     "memorysetup-allocator-temp-initial-block-size-worker=262144"
+2025-08-06 18:51:44 [game]     "memorysetup-temp-allocator-size-background-worker=32768"
+2025-08-06 18:51:44 [game]     "memorysetup-temp-allocator-size-job-worker=262144"
+2025-08-06 18:51:44 [game]     "memorysetup-temp-allocator-size-preload-manager=262144"
+2025-08-06 18:51:44 [game]     "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+2025-08-06 18:51:44 [game]     "memorysetup-temp-allocator-size-audio-worker=65536"
+2025-08-06 18:51:44 [game]     "memorysetup-temp-allocator-size-cloud-worker=32768"
+2025-08-06 18:51:44 [game]     "memorysetup-temp-allocator-size-gfx=262144"
+2025-08-06 18:51:44 [game] Mono path[0] = '/home/rust/RustDedicated_Data/Managed'
+2025-08-06 18:51:44 [game] Mono config path = '/home/rust/RustDedicated_Data/MonoBleedingEdge/etc'
+2025-08-06 18:51:44 [game] Preloaded 'ServerProfiler.Core.so'
+2025-08-06 18:51:44 [game] Shutdown handler: initialize.
+2025-08-06 18:51:44 [game] Preloaded 'libEOSSDK-Linux-Shipping.so'
+2025-08-06 18:51:44 [game] Preloaded 'libRakNet.so'
+2025-08-06 18:51:44 [game] Preloaded 'libRenderer.so'
+2025-08-06 18:51:44 [game] Preloaded 'libRustNative.so'
+2025-08-06 18:51:44 [game] Preloaded 'lib_burst_generated.so'
+2025-08-06 18:51:44 [game] Preloaded 'libdiscord_partner_sdk.so'
+2025-08-06 18:51:44 [game] Preloaded 'libsqlite3.so'
+2025-08-06 18:51:44 [game] Preloaded 'libsqlite3.so.0'
+2025-08-06 18:51:44 [game] Preloaded 'libsteam_api.so'
+2025-08-06 18:51:44 [game] Preloaded 'libsqlite3.so'
+2025-08-06 18:51:44 [game] Preloaded 'libsqlite3.so.0'
+2025-08-06 18:51:44 [game] Preloaded 'libsteam_api.so'
+2025-08-06 18:51:44 [game] Preloaded 'steamclient.so'
+2025-08-06 18:51:44 [game] [PhysX] Initialized MultithreadedTaskDispatcher with 4 workers.
+2025-08-06 18:51:44 [game] Initialize engine version: 2022.3.41f1 (0f988161febf)
+2025-08-06 18:51:44 [game] [Subsystems] Discovering subsystems at path /home/rust/RustDedicated_Data/UnitySubsystems
+2025-08-06 18:51:44 [game] Forcing GfxDevice: Null
+2025-08-06 18:51:44 [game] GfxDevice: creating device client; threaded=0; jobified=0
+2025-08-06 18:51:44 [game] NullGfxDevice:
+2025-08-06 18:51:44 [game]     Version:  NULL 1.0 [1.0]
+2025-08-06 18:51:44 [game]     Renderer: Null Device
+2025-08-06 18:51:44 [game]     Vendor:   Unity Technologies
+2025-08-06 18:51:44 [game] Begin MonoManager ReloadAssembly
+2025-08-06 18:51:44 [game] - Loaded All Assemblies, in  0.260 seconds
+2025-08-06 18:51:44 [game] - Finished resetting the current domain, in  0.014 seconds
+2025-08-06 18:51:45 [game] ERROR: Shader Hidden/PostProcessing/Copy shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:51:45 [game] ERROR: Shader Hidden/PostProcessing/CopyStd shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:51:45 [game] ERROR: Shader Hidden/ViewModel shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:51:45 [game] ERROR: Shader Hidden/DLSSUtils shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:51:45 [game] ERROR: Shader MeshPaintable3D/UVRender shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:51:45 [game] ERROR: Shader Legacy Shaders/VertexLit shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:51:45 [game] WARNING: Shader Unsupported: 'Legacy Shaders/Diffuse' - All subshaders removed
+2025-08-06 18:51:45 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:51:45 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:51:45 [game] ERROR: Shader Legacy Shaders/Diffuse shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:51:45 [game] WARNING: Shader Unsupported: 'Legacy Shaders/Diffuse' - All subshaders removed
+2025-08-06 18:51:45 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:51:45 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:51:45 [game] WARNING: Shader Unsupported: 'Custom/RaycastDepthShader' - All subshaders removed
+2025-08-06 18:51:45 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:51:45 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:51:45 [game] ERROR: Shader Custom/RaycastDepthShader shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:51:45 [game] WARNING: Shader Unsupported: 'Custom/RaycastDepthShader' - All subshaders removed
+2025-08-06 18:51:45 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:51:45 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:51:45 [game] ERROR: Shader Hidden/PostProcessing/NightLightShader shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:51:45 [game] ERROR: Shader Hidden/PostProcessing/RadialBlur shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:51:45 [game] ERROR: Shader Hidden/PostProcessing/RustTemporalAntialiasing shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:51:45 [game] ERROR: Shader Hidden/DeferredIndirectLighting shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:51:45 [game] ERROR: Shader Sprites/Default shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:51:45 [game] ERROR: Shader UI/Default shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:51:45 [game] Profiler Disabled!
+2025-08-06 18:51:45 [game] ERROR: Shader Sprites/Mask shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:51:45 [game] Shader 'TextMeshPro/Distance Field': fallback shader 'TextMeshPro/Mobile/Distance Field' not found
+2025-08-06 18:51:45 [game] WARNING: Shader Unsupported: 'TextMeshPro/Distance Field' - All subshaders removed
+2025-08-06 18:51:45 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:51:45 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:51:45 [game] ERROR: Shader TextMeshPro/Distance Field shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:51:45 [game] WARNING: Shader Unsupported: 'TextMeshPro/Distance Field' - All subshaders removed
+2025-08-06 18:51:45 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:51:45 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:51:45 [game] ERROR: Shader UI/Colourize shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:51:45 [game] [PhysX] Initialized MultithreadedTaskDispatcher with 4 workers.
+2025-08-06 18:51:45 [game] UnloadTime: 12.417045 ms
+2025-08-06 18:51:45 [game] Fallback handler could not load library /home/rust/RustDedicated_Data/MonoBleedingEdge/x86_64/data-0x7f05b3de8010.so
+2025-08-06 18:51:45 [game] Set managed directory to '/home/rust/RustDedicated_Data/Managed'
+2025-08-06 18:51:45 [game] Set harmony directory to '/home/rust/RustDedicated_Data/../HarmonyMods'
+2025-08-06 18:51:45 [game] 3D Noise requires higher shader capabilities (Shader Model 3.5 / OpenGL ES 3.0), which are not available on the current platform: graphicsShaderLevel (current/required) = 30 / 35
+2025-08-06 18:51:45 [game] Bootstrap Startup
+2025-08-06 18:51:45 [game] Loading maps/maps.bundle
+2025-08-06 18:51:45 [game] Loading shared/content.bundle
+2025-08-06 18:51:52 [game] Loading shared/content.private.bundle
+2025-08-06 18:51:52 [game] Loading shared/items.preload.bundle
+2025-08-06 18:51:52 [game] Loading shared/monuments.bundle
+2025-08-06 18:51:54 [game] Loading shared/monuments_scenes.bundle
+2025-08-06 18:51:54 [game] Loading shared/skinnables.preload.bundle
+2025-08-06 18:51:54 [game] System
+2025-08-06 18:51:54 [game] 	Name: felis
+2025-08-06 18:51:54 [game] 	OS:   Linux 6.15 Arch Linux  64bit
+2025-08-06 18:51:54 [game] 
+2025-08-06 18:51:54 [game] CPU
+2025-08-06 18:51:54 [game] 	Model:  Intel(R) Core(TM) i7-7500U CPU @ 2.70GHz
+2025-08-06 18:51:54 [game] 	Cores:  4
+2025-08-06 18:51:54 [game] 	Memory: 7653 MB
+2025-08-06 18:51:54 [game] 
+2025-08-06 18:51:54 [game] GPU
+2025-08-06 18:51:54 [game] 	Model:  Null Device
+2025-08-06 18:51:54 [game] 	API:    NULL 1.0 [1.0]
+2025-08-06 18:51:54 [game] 	Memory: 128 MB
+2025-08-06 18:51:54 [game] 	SM:     30
+2025-08-06 18:51:54 [game] 
+2025-08-06 18:51:54 [game] Process
+2025-08-06 18:51:54 [game] 	Memory:   0 MB
+2025-08-06 18:51:54 [game] 
+2025-08-06 18:51:54 [game] Mono
+2025-08-06 18:51:54 [game] 	Collects: 44
+2025-08-06 18:51:54 [game] 	Memory:   8 MB
+2025-08-06 18:51:54 [game] 
+2025-08-06 18:51:54 [game] 
+2025-08-06 18:51:54 [game] Manifest Metadata Loaded
+2025-08-06 18:51:54 [game] 	33154 pooled strings
+2025-08-06 18:51:54 [game] 	14545 prefab properties
+2025-08-06 18:51:54 [game] 	420 effect categories
+2025-08-06 18:51:54 [game] 	1999 entity names
+2025-08-06 18:51:54 [game] Command Line: "/home/rust/RustDedicated" "-batchmode" "+server.identity" "instance0" "+rcon.port" "28016" "+rcon.web" "1" "+rcon.password" "******" "+server.worldsize" "1000" "+server.seed" "1234"
+2025-08-06 18:51:54 [game] Setup unity update hooks
+2025-08-06 18:51:54 [game] Command 'batchmode' not found
+2025-08-06 18:51:54 [game] server.identity: "instance0"
+2025-08-06 18:51:54 [game] rcon.port: "28016"
+2025-08-06 18:51:54 [game] rcon.web: "True"
+2025-08-06 18:51:54 [game] Command 'rcon.password' not found
+2025-08-06 18:51:54 [game] server.worldsize: "1000"
+2025-08-06 18:51:54 [game] server.seed: "1234"
+2025-08-06 18:51:55 [game] Command 'batchmode' not found
+2025-08-06 18:51:55 [game] server.identity: "instance0"
+2025-08-06 18:51:55 [game] rcon.port: "28016"
+2025-08-06 18:51:55 [game] rcon.web: "True"
+2025-08-06 18:51:55 [game] Command 'rcon.password' not found
+2025-08-06 18:51:55 [game] server.worldsize: "1000"
+2025-08-06 18:51:55 [game] server.seed: "1234"
+2025-08-06 18:51:55 [game] Server Config Loaded
+2025-08-06 18:51:55 [game] Command 'batchmode' not found
+2025-08-06 18:51:55 [game] server.identity: "instance0"
+2025-08-06 18:51:55 [game] rcon.port: "28016"
+2025-08-06 18:51:55 [game] rcon.web: "True"
+2025-08-06 18:51:55 [game] Command 'rcon.password' not found
+2025-08-06 18:51:55 [game] server.worldsize: "1000"
+2025-08-06 18:51:55 [game] server.seed: "1234"
+2025-08-06 18:52:01 [game] Loading Items Took: 6.4075601 seconds
+2025-08-06 18:52:01 [game] Building Items Took: 6.4488538 seconds / Items: 1085 / Blueprints: 565
+2025-08-06 18:52:01 [game] Skinnable Warmup
+2025-08-06 18:52:07 [game] Manifest Assets Loaded
+2025-08-06 18:52:07 [game] 	137 skinnable objects
+2025-08-06 18:52:07 [game] Initializing Nexus
+2025-08-06 18:52:07 [game] Nexus endpoint and/or secret key is not set, not starting nexus connection
+2025-08-06 18:52:07 [game] Loading Scene
+2025-08-06 18:52:07 [game] HDR Render Texture not supported, disabling HDR on reflection probe.
+2025-08-06 18:52:07 [game] Unloading 5 Unused Serialized files (Serialized files now loaded: 171)
+2025-08-06 18:52:07 [game] [PhysX] Initialized MultithreadedTaskDispatcher with 4 workers.
+2025-08-06 18:52:07 [game] UnloadTime: 7.703277 ms
+2025-08-06 18:52:08 [game] Missing shader in Main Camera (TOD_Scattering)
+2025-08-06 18:52:08 [game] Missing shader in Main Camera (TOD_Scattering)
+2025-08-06 18:52:08 [game] Missing shader in Main Camera (TOD_Scattering)
+2025-08-06 18:52:08 [game] Unloading 105849 unused Assets to reduce memory usage. Loaded Objects now: 56461.
+2025-08-06 18:52:08 [game] Total: 141.018552 ms (FindLiveObjects: 7.138437 ms CreateObjectMapping: 18.157264 ms MarkObjects: 85.102815 ms  DeleteObjects: 30.619480 ms)
+2025-08-06 18:52:08 [game] 
+2025-08-06 18:52:09 [game] Asset Warmup (1/13413)
+2025-08-06 18:52:11 [game] Asset Warmup (419/13413)
+2025-08-06 18:52:13 [game] ERROR: Shader Sprites/Default shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:52:13 [game] Asset Warmup (445/13413)
+2025-08-06 18:52:15 [game] Asset Warmup (586/13413)
+2025-08-06 18:52:15 [game] ERROR: Shader Legacy Shaders/Particles/Alpha Blended Premultiply shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:52:15 [game] WARNING: Shader Unsupported: 'Particles/Standard Unlit' - All subshaders removed
+2025-08-06 18:52:15 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:52:15 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:52:15 [game] ERROR: Shader Particles/Standard Unlit shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:52:15 [game] WARNING: Shader Unsupported: 'Particles/Standard Unlit' - All subshaders removed
+2025-08-06 18:52:15 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:52:15 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:52:17 [game] Asset Warmup (1099/13413)
+2025-08-06 18:52:19 [game] Asset Warmup (2399/13413)
+2025-08-06 18:52:21 [game] Asset Warmup (3074/13413)
+2025-08-06 18:52:23 [game] Asset Warmup (3706/13413)
+2025-08-06 18:52:25 [game] Asset Warmup (4385/13413)
+2025-08-06 18:52:27 [game] Asset Warmup (4797/13413)
+2025-08-06 18:52:29 [game] Asset Warmup (5164/13413)
+2025-08-06 18:52:31 [game] Asset Warmup (5321/13413)
+2025-08-06 18:52:34 [game] Asset Warmup (5586/13413)
+2025-08-06 18:52:36 [game] Asset Warmup (5610/13413)
+2025-08-06 18:52:38 [game] Asset Warmup (5791/13413)
+2025-08-06 18:52:40 [game] Asset Warmup (6225/13413)
+2025-08-06 18:52:42 [game] Asset Warmup (6385/13413)
+2025-08-06 18:52:44 [game] Asset Warmup (6606/13413)
+2025-08-06 18:52:45 [game] ERROR: Shader GUI/Text Shader shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:52:46 [game] Asset Warmup (6949/13413)
+2025-08-06 18:52:48 [game] Asset Warmup (7516/13413)
+2025-08-06 18:52:50 [game] Asset Warmup (7879/13413)
+2025-08-06 18:52:52 [game] Asset Warmup (8295/13413)
+2025-08-06 18:52:54 [game] Asset Warmup (8562/13413)
+2025-08-06 18:52:56 [game] Asset Warmup (9004/13413)
+2025-08-06 18:52:56 [game] HDR Render Texture not supported, disabling HDR on reflection probe.
+2025-08-06 18:52:56 [game] WARNING: Shader Unsupported: 'Hidden/TerrainEngine/Details/Vertexlit' - All subshaders removed
+2025-08-06 18:52:56 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:52:56 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:52:56 [game] ERROR: Shader Hidden/TerrainEngine/Details/Vertexlit shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:52:56 [game] WARNING: Shader Unsupported: 'Hidden/TerrainEngine/Details/Vertexlit' - All subshaders removed
+2025-08-06 18:52:56 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:52:56 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:52:59 [game] Asset Warmup (9520/13413)
+2025-08-06 18:53:01 [game] Asset Warmup (9618/13413)
+2025-08-06 18:53:03 [game] Asset Warmup (10044/13413)
+2025-08-06 18:53:05 [game] Asset Warmup (10524/13413)
+2025-08-06 18:53:07 [game] Asset Warmup (10695/13413)
+2025-08-06 18:53:09 [game] Asset Warmup (10850/13413)
+2025-08-06 18:53:11 [game] Asset Warmup (11405/13413)
+2025-08-06 18:53:13 [game] Asset Warmup (11933/13413)
+2025-08-06 18:53:15 [game] Asset Warmup (12386/13413)
+2025-08-06 18:53:17 [game] Asset Warmup (12965/13413)
+2025-08-06 18:53:19 [game] Asset Warmup (13275/13413)
+2025-08-06 18:53:20 [game] Asset Warmup (13413/13413)
+2025-08-06 18:53:20 [game] [70.7s] asset_warmup
+2025-08-06 18:53:20 [game] WebSocket RCON Started on :28016
+2025-08-06 18:53:20 [game] Generating procedural map of size 1000 with seed 1234
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/OcclusionCulling/BlitCopy shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/Water/CombineInteractions shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader UI/CompassStrip shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/VolumetricLightBeam1Pass shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/VolumetricLightBeam2Pass shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Legacy Shaders/Particles/Alpha Blended shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/CoverageQueries/Coverage shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/OcclusionCulling/Culling shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/PostProcessing/PhotoFilter shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/PostProcessing/BlurOptimized shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/PostProcessing/Wiggle shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/PostProcessing/ScreenOverlay shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/PostProcessing/FlashbangEffect shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/PostProcessing/DepthOfFieldEffect shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/PostProcessing/DoubleVision shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/PostProcessing/GodRays shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/PostProcessing/UnderWaterEffect shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/PostProcessing/SkyMask shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/PostProcessing/GreyScale shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/PostProcessing/LensDirtiness shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/PostProcessing/SharpenAndVignette shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/PostProcessing/Frost shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/PostProcessing/ScreenClear shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/OcclusionCulling/DebugMip shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/OcclusionCulling/DepthCopy shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/OcclusionCulling/DepthDownscale shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] WARNING: Shader Unsupported: 'EasyRoads3D/Unity 2018+ Standard' - All subshaders removed
+2025-08-06 18:53:20 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:53:20 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:53:20 [game] ERROR: Shader EasyRoads3D/Unity 2018+ Standard shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] WARNING: Shader Unsupported: 'EasyRoads3D/Unity 2018+ Standard' - All subshaders removed
+2025-08-06 18:53:20 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:53:20 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:53:20 [game] WARNING: Shader Unsupported: 'EasyRoads3D/edit-mode-surfaces' - All subshaders removed
+2025-08-06 18:53:20 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:53:20 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:53:20 [game] ERROR: Shader EasyRoads3D/edit-mode-surfaces shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] WARNING: Shader Unsupported: 'EasyRoads3D/edit-mode-surfaces' - All subshaders removed
+2025-08-06 18:53:20 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:53:20 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:53:20 [game] ERROR: Shader UI/IconOutline shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/Water/Interaction shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/Amplify Occlusion/Occlusion shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/Water/Ocean Underwater Fill shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/PostProcessSubsurface shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/Kino/Motion/Prefilter shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/Kino/Motion/Reconstruction shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/SEScreenSpaceShadowsFallback shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] WARNING: Shader Unsupported: 'Hidden/SEScreenSpaceShadows' - All subshaders removed
+2025-08-06 18:53:20 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:53:20 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/SEScreenSpaceShadows shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] WARNING: Shader Unsupported: 'Hidden/SEScreenSpaceShadows' - All subshaders removed
+2025-08-06 18:53:20 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:53:20 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:53:20 [game] Shader 'TextMeshPro/Distance Field NoZTest': fallback shader 'TextMeshPro/Mobile/Distance Field' not found
+2025-08-06 18:53:20 [game] WARNING: Shader Unsupported: 'TextMeshPro/Distance Field NoZTest' - All subshaders removed
+2025-08-06 18:53:20 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:53:20 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:53:20 [game] ERROR: Shader TextMeshPro/Distance Field NoZTest shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] WARNING: Shader Unsupported: 'TextMeshPro/Distance Field NoZTest' - All subshaders removed
+2025-08-06 18:53:20 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:53:20 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:53:20 [game] Shader 'TextMeshPro/Distance Field Overlay': fallback shader 'TextMeshPro/Mobile/Distance Field' not found
+2025-08-06 18:53:20 [game] WARNING: Shader Unsupported: 'TextMeshPro/Distance Field Overlay' - All subshaders removed
+2025-08-06 18:53:20 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:53:20 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:53:20 [game] ERROR: Shader TextMeshPro/Distance Field Overlay shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] WARNING: Shader Unsupported: 'TextMeshPro/Distance Field Overlay' - All subshaders removed
+2025-08-06 18:53:20 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:53:20 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:53:20 [game] ERROR: Shader TextMeshPro/Distance Field (Surface) shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader TextMeshPro/Sprite shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/CoreTexelDensity shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:20 [game] ERROR: Shader Hidden/TonemappingColorGrading shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:21 [game] ERROR: Shader Sprites/Multiply shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:21 [game] WARNING: Shader Unsupported: 'UI/Default Font' - All subshaders removed
+2025-08-06 18:53:21 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:53:21 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:53:21 [game] WARNING: Shader Unsupported: 'UI/Default Font' - All subshaders removed
+2025-08-06 18:53:21 [game] WARNING: Shader Did you use #pragma only_renderers and omit this platform?
+2025-08-06 18:53:21 [game] WARNING: Shader If subshaders removal was intentional, you may have forgotten turning Fallback off?
+2025-08-06 18:53:21 [game] ERROR: Shader UI/Edge Fade shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:21 [game] ERROR: Shader UI/Unlit/Transparent-Scroll shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:21 [game] ERROR: Shader UI/Unlit/Transparent-TimeScaled shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:21 [game] ERROR: Shader Hidden/UI/Default (UIDissolve) shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:21 [game] ERROR: Shader Hidden/UI/Default (UIEffect) shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:21 [game] ERROR: Shader Hidden/UI/Default (UIHsvModifier) shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:21 [game] ERROR: Shader Hidden/UI/Default (UIShiny) shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:21 [game] ERROR: Shader Hidden/UI/Default (UITransition) shader is not supported on this GPU (none of subshaders/fallbacks are suitable)
+2025-08-06 18:53:25 [game] [3.7s] Spawning World
+2025-08-06 18:53:25 [game] [0.5s] Processing World
+2025-08-06 18:53:29 [game] Generated ocean patrol path with node count: 89
+2025-08-06 18:53:29 [game] [4.2s] Ocean Patrol Paths
+2025-08-06 18:53:32 [game] [2.6s] Finalizing World
+2025-08-06 18:53:35 [game] Unloading 3 Unused Serialized files (Serialized files now loaded: 171)
+2025-08-06 18:53:35 [game] [2.7s] Cleaning Up
+2025-08-06 18:53:36 [game] Unloading 259841 unused Assets to reduce memory usage. Loaded Objects now: 1793222.
+2025-08-06 18:53:36 [game] Total: 1338.807177 ms (FindLiveObjects: 185.180526 ms CreateObjectMapping: 230.037189 ms MarkObjects: 796.530168 ms  DeleteObjects: 127.058321 ms)
+2025-08-06 18:53:36 [game] 
+2025-08-06 18:53:36 [game] Starting Navmesh Source Collecting
+2025-08-06 18:53:36 [game] Navmesh Source Collecting took 0.01 seconds
+2025-08-06 18:53:36 [game] Starting Navmesh Build with 1181 sources
+2025-08-06 18:53:36 [game] 9%
+2025-08-06 18:53:46 [game] 98%
+2025-08-06 18:53:46 [game] Navmesh Build took 9.89 seconds
+2025-08-06 18:53:46 [game] Starting Navmesh Source Collecting
+2025-08-06 18:53:46 [game] Navmesh Source Collecting took 0.07 seconds
+2025-08-06 18:53:46 [game] Starting Monument Navmesh Build with 884 sources
+2025-08-06 18:53:46 [game] RuntimeNavMeshBuilder: Source mesh  has invalid vertex data and will be skipped.
+2025-08-06 18:53:46 [game] RuntimeNavMeshBuilder: Source mesh  has invalid vertex data and will be skipped.
+2025-08-06 18:53:46 [game] 44%
+2025-08-06 18:53:47 [game] 96%
+2025-08-06 18:53:47 [game] Monument Navmesh Build took 1.00 seconds
+2025-08-06 18:53:47 [game] Starting Navmesh Source Collecting
+2025-08-06 18:53:47 [game] Navmesh Source Collecting took 0.04 seconds
+2025-08-06 18:53:47 [game] Starting Monument Navmesh Build with 1850 sources
+2025-08-06 18:53:47 [game] RuntimeNavMeshBuilder: Source mesh  has invalid vertex data and will be skipped.
+2025-08-06 18:53:47 [game] RuntimeNavMeshBuilder: Source mesh  has invalid vertex data and will be skipped.
+2025-08-06 18:53:47 [game] 33%
+2025-08-06 18:53:48 [game] 96%
+2025-08-06 18:53:49 [game] Monument Navmesh Build took 1.50 seconds
+2025-08-06 18:53:49 [game] Starting Navmesh Source Collecting
+2025-08-06 18:53:49 [game] Navmesh Source Collecting took 0.01 seconds
+2025-08-06 18:53:49 [game] Starting Dungeon Navmesh Build with 0 sources
+2025-08-06 18:53:49 [game] 100%
+2025-08-06 18:53:49 [game] Monument Navmesh Build took 0.26 seconds
+2025-08-06 18:53:49 [game] Starting Navmesh Source Collecting
+2025-08-06 18:53:49 [game] Navmesh Source Collecting took 0.00 seconds
+2025-08-06 18:53:49 [game] Starting Dungeon Navmesh Build with 1117 sources
+2025-08-06 18:53:49 [game] 40%
+2025-08-06 18:53:49 [game] Monument Navmesh Build took 0.51 seconds
+2025-08-06 18:53:50 [game] Destroying 267 old entities
+2025-08-06 18:53:50 [game] 	done.
+2025-08-06 18:53:50 [game] Spawning 32 entities from map
+2025-08-06 18:53:50 [game] 	done.
+2025-08-06 18:53:50 [game] Spawning 317 entities from save
+2025-08-06 18:53:50 [game] 	done.
+2025-08-06 18:53:50 [game] Postprocessing 32 entities from map
+2025-08-06 18:53:50 [game] 	done.
+2025-08-06 18:53:50 [game] Postprocessing 32 entities from save
+2025-08-06 18:53:50 [game] Starting to load entities into GlobalNetworkHandler...
+2025-08-06 18:53:50 [game] Took 1ms to load entities into GlobalNetworkHandler
+2025-08-06 18:53:50 [game] 	done.
+2025-08-06 18:53:50 [game] Enforcing SpawnPopulation Limits
+2025-08-06 18:54:01 [game] 	done.
+2025-08-06 18:54:01 [game] Initializing 349 entity links
+2025-08-06 18:54:01 [game] 	done.
+2025-08-06 18:54:01 [game] Initializing 63 stability supports
+2025-08-06 18:54:01 [game] 	done.
+2025-08-06 18:54:01 [game] Initializing 317 entity save caches
+2025-08-06 18:54:01 [game] 	done.
+2025-08-06 18:54:01 [game] Gamemode Convar :
+2025-08-06 18:54:01 [game] No Gamemode.
+2025-08-06 18:54:02 [game] Loaded 25000000 occlusion sub-chunks from file - took 0.0163944 seconds
+2025-08-06 18:54:02 [game] [S_API] SteamAPI_Init(): Loaded local 'steamclient.so' OK.
+2025-08-06 18:54:02 [game] Setting breakpad minidump AppID = 252490
+2025-08-06 18:54:02 [game] SteamInternal_SetMinidumpSteamID:  Caching Steam ID:  76561197960265728 [API loaded no]
+2025-08-06 18:54:02 [game] [S_API FAIL] Tried to access Steam interface SteamNetworkingUtils004 before SteamAPI_Init succeeded.
+2025-08-06 18:54:02 [game] IPC function call IClientUtils::GetSteamRealm took too long: 41 msec
+2025-08-06 18:54:02 [game] SteamServer Initialized
+2025-08-06 18:54:06 [game] Server startup complete
+2025-08-06 18:54:07 [game] SteamServer Connected
+2025-08-06 18:54:07 [rustctl] Transitioned: Launching -> RunningHealthy [server/src/main.rs:908]
+2025-08-06 18:54:07 [game] [Rust.MapCache] Map uploaded to backend: https://files.facepunch.com/rust/maps/76730559302538f6ad0f8ebddc71887b7726fbeaba950e72c1ffc82f46ee1a04/proceduralmap.1000.1234.269_76730559302538f6ad0f8ebddc71887b.map
+2025-08-06 18:54:17 [game] Checking for new Steam Item Definitions..
+2025-08-06 18:54:28 [game] Warning: failed to set thread priority: set failed for -10: 1:
+2025-08-06 18:54:28 [game] Warning: failed to set thread priority: set failed for -10: 1:
+2025-08-06 18:54:28 [game] Rust+ companion server connectivity test failed! Disabling Rust+ features.
+2025-08-06 18:54:28 [game] 
+2025-08-06 18:54:28 [game] Could not establish a TCP connection to REDACTED:28083
+2025-08-06 18:55:07 [game] Invalid Position: oceanwreckbuoy[3184] (NaN, NaN, NaN) (destroying)
+2025-08-06 18:55:07 [game] Invalid Position: oceanwreckbuoy[3186] (NaN, NaN, NaN) (destroying)
+2025-08-06 18:55:07 [game] Invalid Position: oceanwreckbuoy[3188] (NaN, NaN, NaN) (destroying)
+2025-08-06 18:56:08 [game] Invalid Position: oceanwreckbuoy[3307] (NaN, NaN, NaN) (destroying)
+2025-08-06 18:56:08 [game] Invalid Position: oceanwreckbuoy[3309] (NaN, NaN, NaN) (destroying)
+2025-08-06 18:56:08 [game] Invalid Position: oceanwreckbuoy[3311] (NaN, NaN, NaN) (destroying)
+2025-08-06 18:57:09 [game] Invalid Position: oceanwreckbuoysmall[3432] (NaN, NaN, NaN) (destroying)
+2025-08-06 18:57:09 [game] Invalid Position: oceanwreckbuoysmall[3434] (NaN, NaN, NaN) (destroying)
+2025-08-06 19:01:46 [game] Saved 348 ents, cache(0.00), write(0.01), disk(0.01).
+2025-08-06 19:01:46 [game] Saving complete
+2025-08-06 19:03:44 [rustctl] SIGTERM [server/src/main.rs:1086]
