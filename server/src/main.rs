@@ -612,7 +612,7 @@ impl GameServerStateMachine {
                     };
 
                     let mut command = tokio::process::Command::new(cfg.installer_exe);
-                    command.current_dir(&cfg.game_server_root);
+                    command.current_dir(cfg.game_server_root);
                     command.args(cfg.get_installer_args());
                     command.stdout(std::process::Stdio::null());
                     command.stderr(std::process::Stdio::null());
@@ -922,7 +922,7 @@ impl std::fmt::Display for GameServerStateMachine {
             GameServerStateMachine::Launching { .. } => write!(f, "Launching"),
             GameServerStateMachine::RunningHealthy { .. } => write!(f, "RunningHealthy"),
             GameServerStateMachine::SavingAndClosing { .. } => write!(f, "SavingAndClosing"),
-            GameServerStateMachine::ClosedManually { .. } => write!(f, "ClosedManually"),
+            GameServerStateMachine::ClosedManually => write!(f, "ClosedManually"),
             GameServerStateMachine::TerminatedUnexpectedly => write!(f, "TerminatedUnexpectedly"),
         }
     }
@@ -947,7 +947,7 @@ impl From<&GameServerStateMachine> for rustctl_common::snapshot::GameServerState
             GameServerStateMachine::SavingAndClosing { .. } => {
                 rustctl_common::snapshot::GameServerStateExposed::SavingAndClosing
             }
-            GameServerStateMachine::ClosedManually { .. } => {
+            GameServerStateMachine::ClosedManually => {
                 rustctl_common::snapshot::GameServerStateExposed::ClosedManually
             }
             GameServerStateMachine::TerminatedUnexpectedly => {
