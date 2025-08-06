@@ -611,6 +611,19 @@ impl GameServerStateMachine {
                         }
                     };
 
+                    /*
+                     * TODO: Log the installer's version (or all output)? It
+                     *       seems to log its version when any command is run.
+                     *
+                     *       Sample output from 2025-08-06 (after running
+                     *       `steamcmd --version`, which does not only output
+                     *       version, but instead initiates some other sequence
+                     *       of actions...):
+                     *
+                     *       ```
+                     *       Steam Console Client (c) Valve Corporation - version 1751406682
+                     *       ``` 
+                     */
                     let mut command = tokio::process::Command::new(cfg.installer_exe);
                     command.current_dir(cfg.game_server_root);
                     command.args(cfg.get_installer_args());
