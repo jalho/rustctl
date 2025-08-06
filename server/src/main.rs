@@ -1097,6 +1097,10 @@ impl Configuration {
             "1".into(),
             "+rcon.password".into(),
             self.rcon_password.clone(),
+            "+server.worldsize".into(),
+            self.game_world_size.to_string(),
+            "+server.seed".into(),
+            self.game_world_seed.to_string(),
         ]
     }
 }
