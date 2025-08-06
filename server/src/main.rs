@@ -1476,10 +1476,6 @@ impl DownstreamClientReceiver {
                 }
             };
 
-            /*
-             * TODO: Implement graceful disconnect: Unregister the client when
-             *       graceful close message is received!
-             */
             let msg: rustctl_common::command::DownstreamClientMessage = match (&msg).try_into() {
                 Ok(n) => n,
                 Err(err) => {
