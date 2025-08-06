@@ -670,6 +670,7 @@ impl GameServerStateMachine {
                     let mut command = tokio::process::Command::new(cfg.game_server_exe);
                     command.current_dir(cfg.game_server_root);
                     command.args(cfg.get_game_args());
+                    command.env("LD_LIBRARY_PATH", cfg.game_server_libs);
                     command.stdout(std::process::Stdio::piped());
                     command.stderr(std::process::Stdio::piped());
 
@@ -959,11 +960,25 @@ impl From<&GameServerStateMachine> for rustctl_common::snapshot::GameServerState
 
 #[derive(Debug, Clone)]
 struct Configuration {
+    /// Executable: game server installer.
     installer_exe: &'static str,
 
+    /// Directory: game server install location.
     game_server_root: &'static str,
+
+    /// Executable: the game server.
     game_server_exe: &'static str,
+
+    /// File: some Steam thing associated with the game server.
     game_manifest: &'static str,
+
+    /// Directory: location of `steamclient.so`, which the game server requires.
+    /// 
+    /// NOTE: The installer packaged for Arch installs the the `.so` in the game
+    ///       server's root directory, but I feel like on Debian or Ubuntu it
+    ///       got installed somehwere else. Not sure! (Writing this note while
+    ///       testing on Arch...)
+    game_server_libs: &'static str,
 
     game_instance_id: &'static str,
     game_instance_data: &'static str,
@@ -982,6 +997,7 @@ impl Configuration {
             game_server_root: "/home/rust/",
             game_server_exe: "/home/rust/RustDedicated",
             game_manifest: "/home/rust/steamapps/appmanifest_258550.acf",
+            game_server_libs: "/home/rust/",
 
             game_instance_id: "instance0",
             game_instance_data: "/home/rust/server/instance0/",
