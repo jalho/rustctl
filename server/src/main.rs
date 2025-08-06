@@ -31,7 +31,7 @@ fn main() -> std::process::ExitCode {
      */
     let terminator: Terminator = Terminator::new();
 
-    let config: Configuration = Configuration::resolve(cli_args.mock);
+    let config: Configuration = Configuration::resolve();
 
     let aggregator = StateAggregator::new(&terminator);
 
@@ -559,7 +559,6 @@ enum GameServerStateMachine {
     },
     SavingAndClosing {
         process: tokio::process::Child,
-        expected_savefile_dir_absolute: std::path::PathBuf,
     },
     ClosedManually,
     TerminatedUnexpectedly,
@@ -567,11 +566,11 @@ enum GameServerStateMachine {
 
 impl GameServerStateMachine {
     pub fn init(cfg: &Configuration) -> Result<Self, NonRecoverableError> {
-        if let Some(_pid) = is_process_running(cfg.get_installer_absolute()) {
+        if let Some(_pid) = is_process_running(cfg.installer_exe) {
             return Err(NonRecoverableError::ConcurrentGameServerInstaller);
         }
 
-        if let Some(_pid) = is_process_running(cfg.get_game_absolute()) {
+        if let Some(_pid) = is_process_running(cfg.game_server_exe) {
             return Err(NonRecoverableError::ConcurrentGameServer);
         }
 
@@ -605,17 +604,15 @@ impl GameServerStateMachine {
                     }
 
                     let buildid_before: Option<u32> = {
-                        if let Ok(contents) =
-                            tokio::fs::read_to_string(cfg.get_manifest_absolute()).await
-                        {
+                        if let Ok(contents) = tokio::fs::read_to_string(cfg.game_manifest).await {
                             extract_buildid_from_buf(&contents)
                         } else {
                             None
                         }
                     };
 
-                    let mut command = tokio::process::Command::new(cfg.get_installer_absolute());
-                    command.current_dir(&cfg.root_dir_absolute);
+                    let mut command = tokio::process::Command::new(cfg.installer_exe);
+                    command.current_dir(&cfg.game_server_root);
                     command.args(cfg.get_installer_args());
                     command.stdout(std::process::Stdio::null());
                     command.stderr(std::process::Stdio::null());
@@ -625,7 +622,7 @@ impl GameServerStateMachine {
                         Err(err) => {
                             log::error!(
                                 "Failed to spawn game server installer ({path}): {err_fmt}",
-                                path = cfg.get_installer_absolute().to_string_lossy(),
+                                path = cfg.installer_exe,
                                 err_fmt = fmt_source_tree(&err),
                             );
                             return Err(NonRecoverableError::CannotSpawnGameServerInstaller);
@@ -635,9 +632,7 @@ impl GameServerStateMachine {
                     let _output: std::process::Output = process.wait_with_output().await.unwrap();
 
                     let buildid_after: Option<u32> = {
-                        if let Ok(contents) =
-                            tokio::fs::read_to_string(cfg.get_manifest_absolute()).await
-                        {
+                        if let Ok(contents) = tokio::fs::read_to_string(cfg.game_manifest).await {
                             extract_buildid_from_buf(&contents)
                         } else {
                             None
@@ -648,7 +643,7 @@ impl GameServerStateMachine {
                         (_, None) => {
                             log::error!(
                                 "Installing game server failed: Could not extract buildid from game server app manifest after installation: {path}",
-                                path = cfg.get_manifest_absolute().to_string_lossy()
+                                path = cfg.game_manifest
                             );
                         }
                         (None, Some(buildid)) => {
@@ -672,8 +667,8 @@ impl GameServerStateMachine {
 
                 Self::InstalledAndConfigured { cfg } => {
                     let cfg: Configuration = cfg;
-                    let mut command = tokio::process::Command::new(cfg.get_game_absolute());
-                    command.current_dir(cfg.get_game_executable_dir_absolute());
+                    let mut command = tokio::process::Command::new(cfg.game_server_exe);
+                    command.current_dir(cfg.game_server_root);
                     command.args(cfg.get_game_args());
                     command.stdout(std::process::Stdio::piped());
                     command.stderr(std::process::Stdio::piped());
@@ -683,7 +678,7 @@ impl GameServerStateMachine {
                         Err(err) => {
                             log::error!(
                                 "Failed to spawn game server ({path}): {err_fmt}",
-                                path = cfg.get_game_absolute().to_string_lossy(),
+                                path = cfg.game_server_exe,
                                 err_fmt = fmt_source_tree(&err),
                             );
                             return Err(NonRecoverableError::CannotSpawnGameServer);
@@ -831,17 +826,10 @@ impl GameServerStateMachine {
                             let command: rustctl_common::command::DownstreamClientMessage = message;
                             match command {
                                 rustctl_common::command::DownstreamClientMessage::ServerSaveAndClose => {
-                                     let cfg: Configuration;
-                                     {
-                                         let lock  = store.lock().await;
-                                         cfg = lock.get_config().await;
-                                     }
-                                     let expected_savefile_dir_absolute: std::path::PathBuf = cfg.get_game_instance_data_dir_absolute();
-
                                      let signal = nix::sys::signal::Signal::SIGINT;
                                      let pid = send_signal(&process, signal).await;
                                      log::info!("Sent signal to game server process: {signal}: PID {pid}");
-                                     Self::SavingAndClosing { process, expected_savefile_dir_absolute }
+                                     Self::SavingAndClosing { process }
                                 }
                                 _ => {
                                     log::error!(
@@ -859,12 +847,15 @@ impl GameServerStateMachine {
                     }
                 }
 
-                Self::SavingAndClosing {
-                    mut process,
-                    expected_savefile_dir_absolute,
-                } => {
+                Self::SavingAndClosing { mut process } => {
+                    let cfg: Configuration;
+                    {
+                        let lock = store.lock().await;
+                        cfg = lock.get_config().await;
+                    }
+
                     let wait_save =
-                        wait_for_game_savefile(expected_savefile_dir_absolute.as_path());
+                        wait_for_game_savefile(std::path::Path::new(cfg.game_instance_data));
                     log::info!("Waiting for game server savefile...");
                     let maybe_saved =
                         tokio::time::timeout(std::time::Duration::from_secs(15), wait_save).await;
@@ -968,12 +959,14 @@ impl From<&GameServerStateMachine> for rustctl_common::snapshot::GameServerState
 
 #[derive(Debug, Clone)]
 struct Configuration {
-    root_dir_absolute: std::path::PathBuf,
-    installer_relative: std::path::PathBuf,
-    game_relative: std::path::PathBuf,
-    manifest_relative: std::path::PathBuf,
+    installer_exe: &'static str,
 
-    game_instance_id: String,
+    game_server_root: &'static str,
+    game_server_exe: &'static str,
+    game_manifest: &'static str,
+
+    game_instance_id: &'static str,
+    game_instance_data: &'static str,
 
     game_world_size: u16,
     game_world_seed: u32,
@@ -982,74 +975,23 @@ struct Configuration {
     rcon_password: String,
 }
 impl Configuration {
-    pub fn resolve(mock: bool) -> Self {
-        if !mock {
-            todo!("only --mock mode is implemented for now");
-        } else {
-            let game_world_size = 1000;
-            let game_world_seed = 1337;
-            let rcon_port = 28016;
-            let rcon_password = uuid::Uuid::new_v4().to_string();
+    pub fn resolve() -> Self {
+        Self {
+            installer_exe: "/usr/bin/steamcmd",
 
-            let crate_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-            let crate_root_abs = crate_root.canonicalize().unwrap();
-            let workspace_root_abs = crate_root_abs
-                .parent()
-                .expect("crate root should have parent")
-                .to_path_buf();
+            game_server_root: "/home/rust/",
+            game_server_exe: "/home/rust/RustDedicated",
+            game_manifest: "/home/rust/steamapps/appmanifest_258550.acf",
 
-            Self {
-                root_dir_absolute: workspace_root_abs,
-                installer_relative: std::path::Path::new(
-                    "target/x86_64-unknown-linux-musl/debug/steamcmd",
-                )
-                .to_path_buf(),
-                game_relative: std::path::Path::new(
-                    "target/x86_64-unknown-linux-musl/debug/RustDedicated",
-                )
-                .to_path_buf(),
-                manifest_relative: std::path::Path::new("mocks/dummy_manifest.acf").to_path_buf(),
-                game_instance_id: "instance0".into(),
-                game_world_size,
-                game_world_seed,
-                rcon_port,
-                rcon_password,
-            }
+            game_instance_id: "instance0",
+            game_instance_data: "/home/rust/server/instance0/",
+
+            game_world_size: 1000,
+            game_world_seed: 1234,
+
+            rcon_port: 28016,
+            rcon_password: uuid::Uuid::new_v4().to_string(),
         }
-    }
-
-    pub fn get_installer_absolute(&self) -> std::path::PathBuf {
-        let mut path = self.root_dir_absolute.clone();
-        path.push(&self.installer_relative);
-        path
-    }
-
-    pub fn get_game_absolute(&self) -> std::path::PathBuf {
-        let mut path = self.root_dir_absolute.clone();
-        path.push(&self.game_relative);
-        path
-    }
-
-    pub fn get_game_executable_dir_absolute(&self) -> std::path::PathBuf {
-        let mut path = self.root_dir_absolute.clone();
-        path.push(&self.game_relative);
-
-        path.parent()
-            .expect("game executable file should be in a directory")
-            .to_path_buf()
-    }
-
-    pub fn get_game_instance_data_dir_absolute(&self) -> std::path::PathBuf {
-        let mut game_dir: std::path::PathBuf = self.get_game_executable_dir_absolute();
-        game_dir.push("server");
-        game_dir.push(&self.game_instance_id);
-        game_dir
-    }
-
-    pub fn get_manifest_absolute(&self) -> std::path::PathBuf {
-        let mut path = self.root_dir_absolute.clone();
-        path.push(&self.manifest_relative);
-        path
     }
 
     pub fn get_installer_args(&self) -> Vec<String> {
@@ -1060,16 +1002,7 @@ impl Configuration {
              * WONTFIX: "force_install_dir" doesn't really "force" anything:
              *          Instead, SteamCMD seems to just create a new directory
              *          tree in "~/.local/share/Steam/" if it cannot access
-             *          the given "force_install_dir". Therefore, we should
-             *          add some checks to actually know where the installation
-             *          ends up at. However, this is low priority as long as the
-             *          specified directory is owned by the current user and so
-             *          we can assume the command does what it's told to do.
-             *
-             *          Side note (opinionated): For SteamCMD, a more correct
-             *          API would be to exit with failure status if a location
-             *          that was requested "forced" cannot be used, and to NOT
-             *          try to silently use some other location.
+             *          the given "force_install_dir".
              *
              *          Behavior observed in `apt` packaged version:
              *          - Package: steamcmd:i386
@@ -1078,7 +1011,7 @@ impl Configuration {
              *          - Maintainer: Debian Games Team
              */
             "+force_install_dir".into(),
-            self.root_dir_absolute.to_string_lossy().to_string(),
+            self.game_server_root.to_string(),
             "+app_update".into(),
             "258550".into(),
             "validate".into(),
@@ -1225,9 +1158,6 @@ fn init_logging(level: log::LevelFilter) -> log4rs::Handle {
 pub struct CliArgs {
     #[arg(short, long, default_value_t = log::LevelFilter::Debug)]
     pub log_level: log::LevelFilter,
-
-    #[arg(long, default_value_t = false)]
-    pub mock: bool,
 }
 
 #[derive(Clone)]
@@ -1674,8 +1604,8 @@ enum GameCtlEvent {
 
 /// Like `pgrep`: Check if there's a program with given name running. Returns
 /// the running process's ID (PID) if so.
-fn is_process_running(executable: std::path::PathBuf) -> Option<u32> {
-    let name = match executable.file_name() {
+fn is_process_running(executable: &str) -> Option<u32> {
+    let name = match std::path::Path::new(executable).file_name() {
         Some(n) => n,
         None => {
             return None;
