@@ -623,6 +623,11 @@ impl GameServerStateMachine {
                      *       ```
                      *       Steam Console Client (c) Valve Corporation - version 1751406682
                      *       ``` 
+                     *
+                     *       The installer seems to be a self-updating thing.
+                     *       The timestamp above is 2025-07-01 21:51:22 UTC, but
+                     *       the package on my system was installed from AUR way
+                     *       before that (Sat 18 Mar 2023 02:30:50 PM EET).
                      */
                     let mut command = tokio::process::Command::new(cfg.installer_exe);
                     command.current_dir(cfg.game_server_root);
