@@ -877,8 +877,10 @@ impl GameServerStateMachine {
                      * TODO: Remove the wait-for-savefile-at-shutdown mechanism!
                      *       It turns out to be unreliable: For whatever reason,
                      *       the game server does NOT always make a savefile
-                     *       on SIGINT, but instead only does so sometimes!
-                     *       (Behavior observed 2025-08-09.)
+                     *       on SIGINT, but instead only does so sometimes! It
+                     *       MIGHT only make the save if the last save is older
+                     *       than 10 minutes, or something, but that's just
+                     *       speculation! (Behavior observed 2025-08-09.)
                      */
                     let wait_save =
                         wait_for_game_savefile(std::path::Path::new(cfg.game_instance_data));
