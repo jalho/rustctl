@@ -611,24 +611,6 @@ impl GameServerStateMachine {
                         }
                     };
 
-                    /*
-                     * TODO: Log the installer's version (or all output)? It
-                     *       seems to log its version when any command is run.
-                     *
-                     *       Sample output from 2025-08-06 (after running
-                     *       `steamcmd --version`, which does not only output
-                     *       version, but instead initiates some other sequence
-                     *       of actions...):
-                     *
-                     *       ```
-                     *       Steam Console Client (c) Valve Corporation - version 1751406682
-                     *       ```
-                     *
-                     *       The installer seems to be a self-updating thing.
-                     *       The timestamp above is 2025-07-01 21:51:22 UTC, but
-                     *       the package on my system was installed from AUR way
-                     *       before that (Sat 18 Mar 2023 02:30:50 PM EET).
-                     */
                     let mut command = tokio::process::Command::new(cfg.installer_exe);
                     command.current_dir(cfg.game_server_root);
                     command.args(cfg.get_installer_args());
