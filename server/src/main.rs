@@ -622,7 +622,7 @@ impl GameServerStateMachine {
                      *
                      *       ```
                      *       Steam Console Client (c) Valve Corporation - version 1751406682
-                     *       ``` 
+                     *       ```
                      *
                      *       The installer seems to be a self-updating thing.
                      *       The timestamp above is 2025-07-01 21:51:22 UTC, but
@@ -867,36 +867,6 @@ impl GameServerStateMachine {
                 }
 
                 Self::SavingAndClosing { mut process } => {
-                    let cfg: Configuration;
-                    {
-                        let lock = store.lock().await;
-                        cfg = lock.get_config().await;
-                    }
-
-                    /*
-                     * TODO: Remove the wait-for-savefile-at-shutdown mechanism!
-                     *       It turns out to be unreliable: For whatever reason,
-                     *       the game server does NOT always make a savefile
-                     *       on SIGINT, but instead only does so sometimes! It
-                     *       MIGHT only make the save if the last save is older
-                     *       than 10 minutes, or something, but that's just
-                     *       speculation! (Behavior observed 2025-08-09.)
-                     */
-                    let wait_save =
-                        wait_for_game_savefile(std::path::Path::new(cfg.game_instance_data));
-                    log::info!("Waiting for game server savefile...");
-                    let maybe_saved =
-                        tokio::time::timeout(std::time::Duration::from_secs(15), wait_save).await;
-
-                    match maybe_saved {
-                        Ok((savefile_name, modif_age_millis)) => {
-                            log::info!(
-                                "Game server state saved {modif_age_millis} milliseconds ago: {savefile_name}"
-                            );
-                        }
-                        Err(err) => todo!("define non-recoverable error case {err}"),
-                    }
-
                     match process.wait().await {
                         Ok(status) => {
                             log::info!("game server process exited with {status}");
@@ -1000,7 +970,7 @@ struct Configuration {
     game_manifest: &'static str,
 
     /// Directory: location of `steamclient.so`, which the game server requires.
-    /// 
+    ///
     /// NOTE: The installer packaged for Arch installs the the `.so` in the game
     ///       server's root directory, but I feel like on Debian or Ubuntu it
     ///       got installed somehwere else. Not sure! (Writing this note while
@@ -1008,7 +978,6 @@ struct Configuration {
     game_server_libs: &'static str,
 
     game_instance_id: &'static str,
-    game_instance_data: &'static str,
 
     game_world_size: u16,
     game_world_seed: u32,
@@ -1027,7 +996,6 @@ impl Configuration {
             game_server_libs: "/home/rust/",
 
             game_instance_id: "instance0",
-            game_instance_data: "/home/rust/server/instance0/",
 
             game_world_size: 1000,
             game_world_seed: 1234,
@@ -1711,44 +1679,4 @@ async fn send_signal(
     let pid: nix::unistd::Pid = nix::unistd::Pid::from_raw(pid);
     nix::sys::signal::kill(pid, signal).expect("sending a signal should succeed");
     pid
-}
-
-async fn wait_for_game_savefile(dir_path: &std::path::Path) -> (String, u128) {
-    let pattern: regex::Regex =
-        regex::Regex::new(r"^proceduralmap\.\d+\.\d+\.\d+\.sav$").expect("infallible");
-
-    loop {
-        let mut entries: tokio::fs::ReadDir = tokio::fs::read_dir(dir_path)
-            .await
-            .expect("should be able to read dir {dir_path}");
-
-        while let Some(entry) = entries
-            .next_entry()
-            .await
-            .expect("should be able to read dir entry {entry}")
-        {
-            if let Some(filename) = entry.file_name().to_str() {
-                if pattern.is_match(filename) {
-                    let metadata = tokio::fs::metadata(entry.path())
-                        .await
-                        .expect("should be able to read metadata of {filename}");
-                    let modified = metadata
-                        .modified()
-                        .expect("should be able to read modification time of {filename}");
-                    let now = std::time::SystemTime::now();
-
-                    let modif_age_millis: u128 = now
-                        .duration_since(modified)
-                        .expect("time should go forward")
-                        .as_millis();
-
-                    if modif_age_millis < 30000 {
-                        return (filename.to_owned(), modif_age_millis);
-                    }
-                }
-            }
-        }
-
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-    }
 }
