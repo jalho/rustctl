@@ -46,3 +46,18 @@ pub fn initialize_logger(level: log::LevelFilter) -> log4rs::Handle {
 
     log4rs::init_config(config).unwrap()
 }
+
+pub fn build_runtime() -> Result<tokio::runtime::Runtime, std::process::ExitCode> {
+    let runtime: tokio::runtime::Runtime = match tokio::runtime::Builder::new_current_thread()
+        .enable_io()
+        .enable_time()
+        .build()
+    {
+        Ok(n) => n,
+        Err(err) => {
+            log::error!("Failed to build async runtime: {err}");
+            return Err(std::process::ExitCode::FAILURE);
+        }
+    };
+    Ok(runtime)
+}
