@@ -547,17 +547,21 @@ enum GameServerStateMachine {
     Init,
     InstallingUpdates,
     InstalledAndConfigured {
+        game_meta: rustctl_common::snapshot::GameServerMetaExposed,
         cfg: Configuration,
     },
     LaunchingGame {
+        game_meta: rustctl_common::snapshot::GameServerMetaExposed,
         process: tokio::process::Child,
         stdout: tokio::process::ChildStdout,
         stderr: tokio::process::ChildStderr,
     },
     GameRunningHealthy {
+        game_meta: rustctl_common::snapshot::GameServerMetaExposed,
         process: tokio::process::Child,
     },
     SavingAndClosingGame {
+        game_meta: rustctl_common::snapshot::GameServerMetaExposed,
         process: tokio::process::Child,
     },
     GameClosedManually,
@@ -639,15 +643,17 @@ impl GameServerStateMachine {
                         }
                     };
 
-                    match (buildid_before, buildid_after) {
+                    let buildid: u32 = match (buildid_before, buildid_after) {
                         (_, None) => {
                             log::error!(
                                 "Installing game server failed: Could not extract buildid from game server app manifest after installation: {path}",
                                 path = cfg.game_manifest
                             );
+                            return Err(NonRecoverableError::FailedGameServerInstallation);
                         }
                         (None, Some(buildid)) => {
                             log::info!("Installed game server: buildid {buildid}");
+                            buildid
                         }
                         (Some(buildid_before), Some(buildid_after)) => {
                             if buildid_before == buildid_after {
@@ -659,13 +665,17 @@ impl GameServerStateMachine {
                                     "Updated game server: From buildid {buildid_before} to {buildid_after}"
                                 );
                             }
+                            buildid_after
                         }
-                    }
+                    };
 
-                    Self::InstalledAndConfigured { cfg }
+                    Self::InstalledAndConfigured {
+                        cfg,
+                        game_meta: rustctl_common::snapshot::GameServerMetaExposed { buildid },
+                    }
                 }
 
-                Self::InstalledAndConfigured { cfg } => {
+                Self::InstalledAndConfigured { cfg, game_meta } => {
                     let cfg: Configuration = cfg;
                     let mut command = tokio::process::Command::new(cfg.game_server_exe);
                     command.current_dir(cfg.game_server_root);
@@ -690,6 +700,7 @@ impl GameServerStateMachine {
                     let stderr: tokio::process::ChildStderr = process.stderr.take().unwrap();
 
                     Self::LaunchingGame {
+                        game_meta,
                         process,
                         stdout,
                         stderr,
@@ -697,6 +708,7 @@ impl GameServerStateMachine {
                 }
 
                 Self::LaunchingGame {
+                    game_meta,
                     process,
                     stdout,
                     stderr,
@@ -796,7 +808,7 @@ impl GameServerStateMachine {
                     };
 
                     match tokio::time::timeout(timeout, wait_readiness).await {
-                        Ok(_) => Self::GameRunningHealthy { process },
+                        Ok(_) => Self::GameRunningHealthy { process, game_meta },
                         Err(err) => {
                             log::error!(
                                 "Game server did not indicate its readiness within timeout of {timeout_secs} seconds: {err_fmt}",
@@ -808,7 +820,10 @@ impl GameServerStateMachine {
                     }
                 }
 
-                Self::GameRunningHealthy { mut process } => {
+                Self::GameRunningHealthy {
+                    game_meta,
+                    mut process,
+                } => {
                     let event: GameCtlEvent = tokio::select! {
                         msg = command_rx.recv() => {
                             match msg {
@@ -830,13 +845,13 @@ impl GameServerStateMachine {
                                      let signal = nix::sys::signal::Signal::SIGINT;
                                      let pid = send_signal(&process, signal).await;
                                      log::info!("Sent signal to game server process: {signal}: PID {pid}");
-                                     Self::SavingAndClosingGame { process }
+                                     Self::SavingAndClosingGame { game_meta, process }
                                 }
                                 _ => {
                                     log::error!(
                                         "Ignoring unexpected command: {command:?} for current state"
                                     );
-                                    Self::GameRunningHealthy { process }
+                                    Self::GameRunningHealthy { game_meta, process }
                                 }
                             }
                         }
@@ -848,7 +863,10 @@ impl GameServerStateMachine {
                     }
                 }
 
-                Self::SavingAndClosingGame { mut process } => {
+                Self::SavingAndClosingGame {
+                    game_meta: _,
+                    mut process,
+                } => {
                     match process.wait().await {
                         Ok(status) => {
                             log::info!("game server process exited with {status}");
@@ -903,7 +921,9 @@ impl std::fmt::Display for GameServerStateMachine {
             GameServerStateMachine::GameRunningHealthy { .. } => write!(f, "RunningHealthy"),
             GameServerStateMachine::SavingAndClosingGame { .. } => write!(f, "SavingAndClosing"),
             GameServerStateMachine::GameClosedManually => write!(f, "ClosedManually"),
-            GameServerStateMachine::GameTerminatedUnexpectedly => write!(f, "TerminatedUnexpectedly"),
+            GameServerStateMachine::GameTerminatedUnexpectedly => {
+                write!(f, "TerminatedUnexpectedly")
+            }
         }
     }
 }
@@ -913,25 +933,33 @@ impl From<&GameServerStateMachine> for rustctl_common::snapshot::GameServerState
         match value {
             GameServerStateMachine::Init => rustctl_common::snapshot::GameServerStateExposed::Init,
             GameServerStateMachine::InstallingUpdates => {
-                rustctl_common::snapshot::GameServerStateExposed::Preparing
+                rustctl_common::snapshot::GameServerStateExposed::InstallingUpdates
             }
-            GameServerStateMachine::InstalledAndConfigured { .. } => {
-                rustctl_common::snapshot::GameServerStateExposed::InstalledAndConfigured
+            GameServerStateMachine::InstalledAndConfigured { game_meta, .. } => {
+                rustctl_common::snapshot::GameServerStateExposed::InstalledAndConfigured {
+                    game_meta: game_meta.to_owned(),
+                }
             }
-            GameServerStateMachine::LaunchingGame { .. } => {
-                rustctl_common::snapshot::GameServerStateExposed::Launching
+            GameServerStateMachine::LaunchingGame { game_meta, .. } => {
+                rustctl_common::snapshot::GameServerStateExposed::LaunchingGame {
+                    game_meta: game_meta.to_owned(),
+                }
             }
-            GameServerStateMachine::GameRunningHealthy { .. } => {
-                rustctl_common::snapshot::GameServerStateExposed::RunningHealthy
+            GameServerStateMachine::GameRunningHealthy { game_meta, .. } => {
+                rustctl_common::snapshot::GameServerStateExposed::GameRunningHealthy {
+                    game_meta: game_meta.to_owned(),
+                }
             }
-            GameServerStateMachine::SavingAndClosingGame { .. } => {
-                rustctl_common::snapshot::GameServerStateExposed::SavingAndClosing
+            GameServerStateMachine::SavingAndClosingGame { game_meta, .. } => {
+                rustctl_common::snapshot::GameServerStateExposed::SavingAndClosingGame {
+                    game_meta: game_meta.to_owned(),
+                }
             }
             GameServerStateMachine::GameClosedManually => {
-                rustctl_common::snapshot::GameServerStateExposed::ClosedManually
+                rustctl_common::snapshot::GameServerStateExposed::GameClosedManually
             }
             GameServerStateMachine::GameTerminatedUnexpectedly => {
-                rustctl_common::snapshot::GameServerStateExposed::TerminatedUnexpectedly
+                rustctl_common::snapshot::GameServerStateExposed::GameTerminatedUnexpectedly
             }
         }
     }
@@ -1551,6 +1579,9 @@ enum NonRecoverableError {
 
     /// Launched game server did not pass health check within timeout.
     GameServerStartupTimeout,
+
+    /// Installing game server failed.
+    FailedGameServerInstallation,
 }
 
 impl std::error::Error for NonRecoverableError {
@@ -1561,6 +1592,7 @@ impl std::error::Error for NonRecoverableError {
             NonRecoverableError::CannotSpawnGameServerInstaller => None,
             NonRecoverableError::CannotSpawnGameServer => None,
             NonRecoverableError::GameServerStartupTimeout => None,
+            NonRecoverableError::FailedGameServerInstallation => None,
         }
     }
 }
@@ -1582,6 +1614,9 @@ impl std::fmt::Display for NonRecoverableError {
             }
             NonRecoverableError::GameServerStartupTimeout => {
                 write!(f, "game server startup timeout")
+            }
+            NonRecoverableError::FailedGameServerInstallation => {
+                write!(f, "game server installation failed")
             }
         }
     }

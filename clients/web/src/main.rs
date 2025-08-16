@@ -81,29 +81,29 @@ fn App() -> Element {
         });
     });
 
-    let transition_available: Option<DownstreamClientMessage> = match *REMOTE_STATE_SNAPSHOT.read()
-    {
-        Some(ref state) => {
-            let state: &Snapshot = state;
-            match state.game_server_state {
+    let transition_available: Option<DownstreamClientMessage> =
+        match *REMOTE_STATE_SNAPSHOT.read() {
+            Some(ref state) => {
+                let state: &Snapshot = state;
+                match state.game_server_state {
                 rustctl_common::snapshot::GameServerStateExposed::Init
-                | rustctl_common::snapshot::GameServerStateExposed::Preparing
-                | rustctl_common::snapshot::GameServerStateExposed::InstalledAndConfigured
-                | rustctl_common::snapshot::GameServerStateExposed::Launching
-                | rustctl_common::snapshot::GameServerStateExposed::SavingAndClosing => None,
+                | rustctl_common::snapshot::GameServerStateExposed::InstallingUpdates
+                | rustctl_common::snapshot::GameServerStateExposed::InstalledAndConfigured { .. }
+                | rustctl_common::snapshot::GameServerStateExposed::LaunchingGame { .. }
+                | rustctl_common::snapshot::GameServerStateExposed::SavingAndClosingGame { .. } => None,
 
-                rustctl_common::snapshot::GameServerStateExposed::ClosedManually
-                | rustctl_common::snapshot::GameServerStateExposed::TerminatedUnexpectedly => {
+                rustctl_common::snapshot::GameServerStateExposed::GameClosedManually
+                | rustctl_common::snapshot::GameServerStateExposed::GameTerminatedUnexpectedly => {
                     Some(DownstreamClientMessage::ServerInstallOrUpdateAndStart)
                 }
 
-                rustctl_common::snapshot::GameServerStateExposed::RunningHealthy => {
+                rustctl_common::snapshot::GameServerStateExposed::GameRunningHealthy { .. } => {
                     Some(DownstreamClientMessage::ServerSaveAndClose)
                 }
             }
-        }
-        None => None,
-    };
+            }
+            None => None,
+        };
 
     rsx! {
         div {

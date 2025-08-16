@@ -81,15 +81,20 @@ pub mod snapshot {
     }
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct GameServerMetaExposed {
+        pub buildid: u32,
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     pub enum GameServerStateExposed {
         Init,
-        Preparing,
-        InstalledAndConfigured,
-        Launching,
-        RunningHealthy,
-        SavingAndClosing,
-        ClosedManually,
-        TerminatedUnexpectedly,
+        InstallingUpdates,
+        InstalledAndConfigured { game_meta: GameServerMetaExposed },
+        LaunchingGame { game_meta: GameServerMetaExposed },
+        GameRunningHealthy { game_meta: GameServerMetaExposed },
+        SavingAndClosingGame { game_meta: GameServerMetaExposed },
+        GameClosedManually,
+        GameTerminatedUnexpectedly,
     }
 }
 
