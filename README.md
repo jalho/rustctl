@@ -46,6 +46,21 @@ implemented!
 
 ## Cheatsheet
 
+#### Using `steamcmd`
+
+The program assumes `steamcmd` to be installed in `/usr/bin/steamcmd` which
+is where the AUR package installs in. Some other package systems install it
+elsewhere though (e.g. in Debian, `/usr/games/steamcmd` is made). Create a
+symbolic link from the expected installation path to the actual installation
+path if they differ:
+
+```
+$ ln -s /usr/games/steamcmd /usr/bin/steamcmd
+```
+
+The same idea might be useful in case you want to [mock](./mocks/) the
+installer!
+
 #### Running a light game server
 
 It seems the minimum world size (settable with `+server.worldsize`) is 1000. In

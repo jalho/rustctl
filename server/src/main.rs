@@ -9,6 +9,11 @@
 ///
 /// ## More terminology
 ///
+/// - _game server_
+///
+///   An executable named `RustDedicated`, installed from _Steam_ using an
+///   executable named `steamcmd`.
+///
 /// - _downstream WebSocket client_
 ///
 ///   External web clients that connect to this program to e.g. receive state
