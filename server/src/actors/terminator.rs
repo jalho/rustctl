@@ -47,7 +47,13 @@ impl Terminator {
                             self.ctoken.cancel();
                         },
                         None => {
-                            log::error!("BUG: Termination token activation channel closed while Terminator is still working!");
+                            /*
+                             * The `None` variant happens when all the channel's
+                             * senders, i.e. the other actors of the program,
+                             * have been dropped. I guess I'm gonna call that
+                             * "actor exhaust" :D
+                             */
+                            log::debug!("Termination token activation by actor exhaust");
                             self.ctoken.cancel();
                         },
                     }
