@@ -2,7 +2,7 @@ pub struct Aggregator {
     ctoken: tokio_util::sync::CancellationToken,
     tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
     rx_resuse: tokio::sync::mpsc::Receiver<crate::actors::monitor::SystemResourceUsageReading>,
-    aggregated: Aggregated,
+    aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>,
 }
 
 impl Aggregator {
@@ -21,32 +21,55 @@ impl Aggregator {
 
     pub async fn work(self) -> Summary {
         let ctoken = self.ctoken.child_token();
-        let job = self.aggregate();
-        let _done = ctoken.run_until_cancelled(job).await;
+
+        let job_resuse = Self::aggregate_system_resources_usage_readings(self.aggregated.clone(), self.rx_resuse);
+        let job_broadcast = Self::broadcast(self.aggregated.clone());
+
+        let _done = ctoken
+            .run_until_cancelled(async { tokio::join!(job_resuse, job_broadcast) })
+            .await;
         return Summary {};
     }
 
-    async fn aggregate(mut self) -> () {
+    async fn broadcast(aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>) -> () {
+        let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        'broadcast: loop {
+            interval.tick().await;
+            let lock = aggregated.lock().await;
+            dbg!(&lock.last_read);
+            dbg!(&lock.kibibytes_in_use);
+            dbg!(&lock.all_cpus);
+            // TODO: Broadcast the aggregated state for the connected downstream WebSocket clients!
+        }
+    }
+
+    async fn aggregate_system_resources_usage_readings(
+        aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>,
+        mut rx_resuse: tokio::sync::mpsc::Receiver<crate::actors::monitor::SystemResourceUsageReading>,
+    ) -> () {
         'receive: loop {
-            let received = match self.rx_resuse.recv().await {
+            let received = match rx_resuse.recv().await {
                 Some(reading) => reading,
                 None => break 'receive,
             };
+
+            let mut lock = aggregated.lock().await;
             match received {
                 super::monitor::SystemResourceUsageReading::CpuUsage {
                     read_completed_by,
                     all_cpus,
                 } => {
-                    self.aggregated.last_read = Some(read_completed_by);
-                    self.aggregated.all_cpus = all_cpus;
-                },
+                    lock.last_read = Some(read_completed_by);
+                    lock.all_cpus = all_cpus;
+                }
                 super::monitor::SystemResourceUsageReading::MemoryUsage {
                     read_completed_by,
                     kibibytes_in_use,
                 } => {
-                    self.aggregated.last_read = Some(read_completed_by);
-                    self.aggregated.kibibytes_in_use = kibibytes_in_use;
-                },
+                    lock.last_read = Some(read_completed_by);
+                    lock.kibibytes_in_use = kibibytes_in_use;
+                }
             }
         }
     }
@@ -54,6 +77,7 @@ impl Aggregator {
 
 pub struct Summary {}
 
+#[derive(Debug)]
 pub struct Aggregated {
     last_read: Option<std::time::SystemTime>,
     kibibytes_in_use: u64,
@@ -61,11 +85,11 @@ pub struct Aggregated {
 }
 
 impl Aggregated {
-    pub fn init() -> Self {
-        return Self {
+    pub fn init() -> std::sync::Arc<tokio::sync::Mutex<Self>> {
+        return std::sync::Arc::new(tokio::sync::Mutex::new(Self {
             last_read: None,
             kibibytes_in_use: 0,
             all_cpus: Vec::new(),
-        };
+        }));
     }
 }
