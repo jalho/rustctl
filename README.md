@@ -44,6 +44,11 @@ implemented!
 
 <img src="./diagrams/rustctl-server-actors.svg">
 
+A refactored implementation could look e.g. something like the following, in
+terms of _channel primitives_:
+
+<img src="./diagrams/rustctl-software-design-in-terms-of-channel-primitives.svg">
+
 ## Cheatsheet
 
 #### Using `steamcmd`
