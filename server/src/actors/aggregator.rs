@@ -22,11 +22,20 @@ impl Aggregator {
     pub async fn work(self) -> Summary {
         let ctoken = self.ctoken.child_token();
 
-        let job_resuse = Self::aggregate_system_resources_usage_readings(self.aggregated.clone(), self.rx_resuse);
+        /*
+         * Aggregate all kinds of stuff to internal collection as soon as stuff
+         * arrives from the other actors, and broadcast the aggregated on a
+         * regular interval.
+         *
+         * TODO: Add jobs here:
+         * - Aggregate in-game world state updates from RCON actor sent state snapshots
+         * - Aggregate game server state from game server controller actor sent state transition notifications
+         */
+        let job_agg_resuse = Self::aggregate_system_resources_usage_readings(self.aggregated.clone(), self.rx_resuse);
         let job_broadcast = Self::broadcast(self.aggregated.clone());
 
         let _done = ctoken
-            .run_until_cancelled(async { tokio::join!(job_resuse, job_broadcast) })
+            .run_until_cancelled(async { tokio::join!(job_agg_resuse, job_broadcast) })
             .await;
         return Summary {};
     }
