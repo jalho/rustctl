@@ -16,14 +16,26 @@ fn main() -> std::process::ExitCode {
         Err(code) => return code,
     };
 
-    // actors's connectors
+    /*
+     * Actors's connectors.
+     */
+    let cancellation_token: tokio_util::sync::CancellationToken = tokio_util::sync::CancellationToken::new();
+    let (tx_activate, rx_activate): (
+        tokio::sync::mpsc::Sender<actors::terminator::Activator>,
+        tokio::sync::mpsc::Receiver<actors::terminator::Activator>,
+    ) = tokio::sync::mpsc::channel::<actors::terminator::Activator>(1);
 
-    // the actors
-    let terminator: actors::terminator::Terminator = actors::terminator::Terminator::new();
+    /*
+     * The actors.
+     */
+    let terminator: actors::terminator::Terminator =
+        actors::terminator::Terminator::new(cancellation_token, rx_activate);
     let aggregator: actors::aggregator::Aggregator = actors::aggregator::Aggregator::new();
     let res_usage_monitor: actors::monitor::ResUseMonitor = actors::monitor::ResUseMonitor::new();
 
-    // let's go!
+    /*
+     * Let's go!
+     */
     let runtime_job = async { tokio::join!(terminator.work(), aggregator.work(), res_usage_monitor.work()) };
     let _runtime_done: (
         actors::terminator::Summary,
