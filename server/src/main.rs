@@ -1,21 +1,23 @@
-/*
- * Rewrite in terms of the "actor pattern" (a concurrency pattern): There should
- * be _actors_ that own their stuff (such as I/O resources), and that perform
- * work in coroutines (alias "background tasks"), and that may communicate
- * with other actors via various _channels_. The main components of the
- * program should all be actors, and the program's main functionality should be
- * implemented by arranging channels between actors.
- *
- * More terminology:
- *
- * - "downstream WebSocket client": External web clients that connect to this
- *   program to e.g. receive state updates of the managed game server and to
- *   send command messages to be passed through via "upstream RCON WebSocket
- *   client"
- *
- * - "upstream RCON WebSocket client": Command interface of the managed game
- *   server.
- */
+/// ## About the architecture
+///
+/// The "actor pattern" (a concurrency pattern) is attempted: There should be
+/// _actors_ that own their stuff (such as I/O resources), and that perform
+/// work in coroutines (alias "background tasks"), and that may communicate
+/// with other actors via various _channels_. The main components of the
+/// program should all be actors, and the program's main functionality should be
+/// implemented by arranging channels between actors.
+///
+/// ## More terminology
+///
+/// - _downstream WebSocket client_
+///
+///   External web clients that connect to this program to e.g. receive state
+///   updates of the managed game server and to send command messages to be
+///   passed through via _upstream RCON WebSocket client_.
+///
+/// - _upstream RCON WebSocket client_
+///
+///   Command interface of the managed game server.
 fn main() -> std::process::ExitCode {
     let cli_args: CliArgs = <CliArgs as clap::Parser>::parse();
 
