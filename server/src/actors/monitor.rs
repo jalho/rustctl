@@ -1,8 +1,14 @@
-pub struct ResUseMonitor {}
+pub struct Monitor {
+    ctoken: tokio_util::sync::CancellationToken,
+    tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
+}
 
-impl ResUseMonitor {
-    pub fn new() -> Self {
-        Self {}
+impl Monitor {
+    pub fn new(
+        ctoken: tokio_util::sync::CancellationToken,
+        tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
+    ) -> Self {
+        Self { ctoken, tx_activate }
     }
 
     pub async fn work(self) -> Summary {

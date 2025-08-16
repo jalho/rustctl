@@ -19,7 +19,7 @@ fn main() -> std::process::ExitCode {
     /*
      * Actors's connectors.
      */
-    let cancellation_token: tokio_util::sync::CancellationToken = tokio_util::sync::CancellationToken::new();
+    let ctoken: tokio_util::sync::CancellationToken = tokio_util::sync::CancellationToken::new();
     let (tx_activate, rx_activate): (
         tokio::sync::mpsc::Sender<actors::terminator::Activator>,
         tokio::sync::mpsc::Receiver<actors::terminator::Activator>,
@@ -28,15 +28,14 @@ fn main() -> std::process::ExitCode {
     /*
      * The actors.
      */
-    let terminator: actors::terminator::Terminator =
-        actors::terminator::Terminator::new(cancellation_token, rx_activate);
-    let aggregator: actors::aggregator::Aggregator = actors::aggregator::Aggregator::new();
-    let res_usage_monitor: actors::monitor::ResUseMonitor = actors::monitor::ResUseMonitor::new();
+    let aggregator = actors::aggregator::Aggregator::new(ctoken.child_token(), tx_activate.clone());
+    let monitor = actors::monitor::Monitor::new(ctoken.child_token(), tx_activate.clone());
+    let terminator = actors::terminator::Terminator::new(ctoken, rx_activate);
 
     /*
      * Let's go!
      */
-    let runtime_job = async { tokio::join!(terminator.work(), aggregator.work(), res_usage_monitor.work()) };
+    let runtime_job = async { tokio::join!(terminator.work(), aggregator.work(), monitor.work()) };
     let _runtime_done: (
         actors::terminator::Summary,
         actors::aggregator::Summary,
