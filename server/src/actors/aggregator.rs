@@ -18,7 +18,21 @@ impl Aggregator {
     }
 
     pub async fn work(self) -> Summary {
+        let ctoken = self.ctoken.child_token();
+        let job = self.aggregate();
+        let _done = ctoken.run_until_cancelled(job).await;
         return Summary {};
+    }
+
+    async fn aggregate(mut self) -> () {
+        'receive: loop {
+            match self.rx_resuse.recv().await {
+                Some(reading) => {
+                    dbg!(reading);
+                },
+                None => break 'receive,
+            }
+        }
     }
 }
 

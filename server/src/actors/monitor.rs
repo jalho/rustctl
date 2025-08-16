@@ -28,19 +28,38 @@ impl Monitor {
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-        'read: loop {
+        'read_usage: loop {
             interval.tick().await;
-            let memory_usage: u64 = match read_memory_usage_kibibytes().await {
+            let kibibytes_in_use: u64 = match read_memory_usage_kibibytes().await {
                 Some(n) => n,
-                None => break 'read,
+                None => break 'read_usage,
             };
-            dbg!(memory_usage);
+            let read_completed_by: std::time::SystemTime = std::time::SystemTime::now();
+            if let Err(err) = self
+                .tx_resuse
+                .send(SystemResourceUsageReading::MemoryUsage {
+                    read_completed_by,
+                    kibibytes_in_use,
+                })
+                .await
+            {
+                log::error!("Channel for sending system resources usage reading was closed unexpectedly: {err}");
+                if let Err(err) = self
+                    .tx_activate
+                    .send(crate::actors::terminator::Activator::SystemResourcesUsageMonitor)
+                    .await
+                {
+                    log::error!("Failed to initiate graceful shutdown: {err}");
+                }
+                break 'read_usage;
+            };
         }
     }
 }
 
 pub struct Summary {}
 
+#[derive(Debug)]
 pub enum SystemResourceUsageReading {
     CpuUsage {
         read_completed_by: std::time::SystemTime,
@@ -58,6 +77,7 @@ pub enum SystemResourceUsageReading {
 }
 
 /// In range `[0.0, 100.0]`.
+#[derive(Debug)]
 pub struct Percentage(f64);
 
 impl Percentage {

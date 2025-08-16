@@ -70,4 +70,6 @@ pub struct Summary {}
 
 /// Which actor is activating the global termination signal.
 #[derive(Debug)]
-pub enum Activator {}
+pub enum Activator {
+    SystemResourcesUsageMonitor,
+}
