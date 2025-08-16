@@ -1039,6 +1039,12 @@ struct Terminator {
         tokio::sync::mpsc::Receiver<()>,
     ),
 }
+
+/// Provides mechanisms for actors to either activate a global signal
+/// (via `tokio::sync::mpsc::Sender`) for initiating graceful shutdown
+/// of the whole program, or for actors to perform their respective local
+/// graceful shutdown sequence upon detecting the activated global signal
+/// (`tokio_util::sync::CancellationToken`).
 impl Terminator {
     pub fn new() -> Self {
         Self {
