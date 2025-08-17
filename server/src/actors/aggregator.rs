@@ -58,6 +58,7 @@ impl Aggregator {
             }
 
             // TODO: Broadcast the aggregated state for the connected downstream WebSocket clients!
+            dbg!(last_updated_at, memory_used_kibibytes, cpus_usage);
         }
     }
 
