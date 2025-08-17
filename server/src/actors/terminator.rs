@@ -72,4 +72,5 @@ pub struct Summary {}
 #[derive(Debug)]
 pub enum Activator {
     SystemResourcesUsageMonitor,
+    GameServerStateMachine,
 }

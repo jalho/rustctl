@@ -5,8 +5,9 @@ pub struct CliArgs {
     pub log_level: log::LevelFilter,
 }
 
+pub const LOG_TARGET_GAME: &str = "game";
+
 pub fn initialize_logger(level: log::LevelFilter) -> log4rs::Handle {
-    const LOG_TARGET_GAME: &str = "game";
     const APPENDER_NAME_CORE: &str = "core";
     const APPENDER_NAME_GAME: &str = "game_server";
 
