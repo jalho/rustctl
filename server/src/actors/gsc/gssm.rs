@@ -220,8 +220,14 @@ impl GameServerStateMachine {
                         }
                     };
 
-                    let stdout: tokio::process::ChildStdout = process.stdout.take().unwrap();
-                    let stderr: tokio::process::ChildStderr = process.stderr.take().unwrap();
+                    let (stdout, stderr) = match (process.stdout.take(), process.stderr.take()) {
+                        (Some(stdout), Some(stderr)) => (stdout, stderr),
+                        _ => {
+                            log::error!("Failed to get output handle of game server process",);
+                            Self::request_termination(tx_activate).await;
+                            break 'loop_transitions;
+                        }
+                    };
 
                     Self::LaunchingGame {
                         game_meta,
