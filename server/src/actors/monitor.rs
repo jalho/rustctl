@@ -85,6 +85,7 @@ impl Monitor {
                     if let Err(err) = self.send_reading(cpu_reading).await {
                         log::error!("Failed to send reading: {err}");
                         self.request_termination().await;
+                        break 'read_usage;
                     }
                 }
             }
