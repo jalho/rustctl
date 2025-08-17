@@ -192,11 +192,11 @@ fn parse_meminfo_line(line: &str) -> Option<u64> {
 }
 
 #[derive(Debug)]
-enum CpuStatsError {
+enum UsageReadingError {
     InvalidLineFormat {
         invalid_line: String,
     },
-    InvalidValueNotNum {
+    InvalidValue {
         source: std::num::ParseIntError,
         invalid_line: String,
         value_idx_header_excluded: usize,
@@ -207,29 +207,28 @@ enum CpuStatsError {
     },
 }
 
-impl std::error::Error for CpuStatsError {
+impl std::error::Error for UsageReadingError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            CpuStatsError::InvalidLineFormat { invalid_line: _ } => None,
-            CpuStatsError::InvalidValueNotNum { source, .. } => Some(source),
-            CpuStatsError::CannotRead { source, .. } => Some(source),
+            UsageReadingError::InvalidLineFormat { invalid_line: _ } => None,
+            UsageReadingError::InvalidValue { source, .. } => Some(source),
+            UsageReadingError::CannotRead { source, .. } => Some(source),
         }
     }
 }
 
-impl std::fmt::Display for CpuStatsError {
+impl std::fmt::Display for UsageReadingError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CpuStatsError::InvalidLineFormat { invalid_line } => write!(f, r#"invalid line format: "{invalid_line}""#),
-            CpuStatsError::InvalidValueNotNum {
+            UsageReadingError::InvalidLineFormat { invalid_line } => {
+                write!(f, r#"invalid line format: "{invalid_line}""#)
+            }
+            UsageReadingError::InvalidValue {
                 source: _,
                 invalid_line,
                 value_idx_header_excluded: value_idx,
-            } => write!(
-                f,
-                r#"invalid line value at idx {value_idx}: not number: "{invalid_line}""#
-            ),
-            CpuStatsError::CannotRead {
+            } => write!(f, r#"invalid line value at idx {value_idx}: "{invalid_line}""#),
+            UsageReadingError::CannotRead {
                 source: _,
                 attempted_path,
             } => write!(f, r#"failed to read: "{attempted_path}""#),
@@ -301,12 +300,12 @@ struct AllCpusStats(Vec<CpuStats>);
 impl AllCpusStats {
     /// Reading from `/proc/stat`: The amount of time, measured in units of
     /// USER_HZ that specific CPUs spent in various states.
-    async fn read_time_spent() -> Result<Self, CpuStatsError> {
+    async fn read_time_spent() -> Result<Self, UsageReadingError> {
         const PATH: &str = "/proc/stat";
         let stat_content = match tokio::fs::read_to_string(PATH).await {
             Ok(n) => n,
             Err(source) => {
-                return Err(CpuStatsError::CannotRead {
+                return Err(UsageReadingError::CannotRead {
                     source,
                     attempted_path: PATH.to_owned(),
                 });
@@ -348,7 +347,7 @@ impl AllCpusStats {
 }
 
 impl std::str::FromStr for CpuStats {
-    type Err = CpuStatsError;
+    type Err = UsageReadingError;
 
     /// Assuming format:
     /// ```
@@ -361,7 +360,7 @@ impl std::str::FromStr for CpuStats {
         const PARTS_AFTER_HEADER: usize = 10;
 
         if parts.len() != PARTS_AFTER_HEADER {
-            return Err(CpuStatsError::InvalidLineFormat {
+            return Err(UsageReadingError::InvalidLineFormat {
                 invalid_line: line.to_owned(),
             });
         }
@@ -373,7 +372,7 @@ impl std::str::FromStr for CpuStats {
             let parsed: u64 = match part.parse() {
                 Ok(n) => n,
                 Err(source) => {
-                    return Err(CpuStatsError::InvalidValueNotNum {
+                    return Err(UsageReadingError::InvalidValue {
                         source,
                         invalid_line: line.to_owned(),
                         value_idx_header_excluded: idx,
