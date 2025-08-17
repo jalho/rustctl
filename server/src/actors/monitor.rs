@@ -55,8 +55,16 @@ impl Monitor {
                     break 'read_usage;
                 }
             };
+
             // calculate usage for each CPU
+            let cpu_usage: Option<Vec<Percentage>> = match &self.previous_stats {
+                Some(previous) => Some(current_stats.calculate_usage_per_cpu_since(&previous)),
+                None => None,
+            };
             self.previous_stats = Some(current_stats);
+
+            // TODO: Send CPU usage to aggregator!
+            dbg!(cpu_usage);
 
             let read_completed_by: std::time::SystemTime = std::time::SystemTime::now();
 
@@ -107,6 +115,10 @@ pub struct Percentage(f64);
 
 impl Percentage {
     pub fn new(value: f64) -> Self {
+        /*
+         * TODO: Define an error case instead of using an assert?
+         */
+        assert!(value >= 0.0 && value <= 100.0);
         Self(value)
     }
 }
@@ -234,6 +246,34 @@ struct CpuStats {
     iowait: u64,
 }
 
+impl CpuStats {
+    fn total(&self) -> u64 {
+        self.guest
+            + self.guest_nice
+            + self.idle
+            + self.iowait
+            + self.irq
+            + self.nice
+            + self.softirq
+            + self.steal
+            + self.system
+            + self.user
+    }
+
+    fn active(&self) -> u64 {
+        self.guest
+            + self.guest_nice
+            // + self.idle
+            // + self.iowait
+            + self.irq
+            + self.nice
+            + self.softirq
+            + self.steal
+            + self.system
+            + self.user
+    }
+}
+
 struct AllCpusStats(Vec<CpuStats>);
 
 impl AllCpusStats {
@@ -261,6 +301,27 @@ impl AllCpusStats {
         }
 
         Ok(Self(cpu_stats))
+    }
+
+    /// Calculate CPU usage based on two consecutive readings of time spent on
+    /// all CPUs.
+    fn calculate_usage_per_cpu_since(&self, earlier: &Self) -> Vec<Percentage> {
+        let mut usage_per_cpu: Vec<Percentage> = Vec::with_capacity(self.0.len());
+        for (idx, cpu) in self.0.iter().enumerate() {
+            let earlier: CpuStats = earlier.0[idx];
+            let total_diff: u64 = cpu.total() - earlier.total();
+            let active_diff: u64 = cpu.active() - earlier.active();
+
+            /*
+             * TODO: Define error case for "calculated usage percentage not in
+             *       range [0.0, 100.0]"? I.e., make the program log an error
+             *       and terminate if somehow calculating unexpected values.
+             *       Currently just clamping to the expected range...
+             */
+            let usage: f64 = ((active_diff as f64 / total_diff as f64) * 100.0).clamp(0.0, 100.0);
+            usage_per_cpu.push(Percentage::new(usage));
+        }
+        return usage_per_cpu;
     }
 }
 
