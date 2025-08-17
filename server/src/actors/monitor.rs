@@ -143,7 +143,7 @@ pub enum SystemResourceUsageReading {
 pub struct Percentage(f64);
 
 impl Percentage {
-    pub fn calculate(current: &CpuStats, earlier: &CpuStats) -> Result<Self, ErrorReadingUsage> {
+    pub fn calculate(current: &CpuStats, earlier: &CpuStats) -> Result<Self, ErrorDeterminingUsage> {
         let total_diff: u64 = current.total() - earlier.total();
         let active_diff: u64 = current.active() - earlier.active();
         let usage: f64 = (active_diff as f64 / total_diff as f64) * 100.0;
@@ -151,17 +151,17 @@ impl Percentage {
         if usage >= 0.0 && usage <= 100.0 {
             Ok(Self(usage))
         } else {
-            Err(ErrorReadingUsage::InvalidValueOutOfRangePercentage { invalid_value: usage })
+            Err(ErrorDeterminingUsage::InvalidValueOutOfRangePercentage { invalid_value: usage })
         }
     }
 }
 
-async fn read_memory_usage_kibibytes() -> Result<u64, ErrorReadingUsage> {
+async fn read_memory_usage_kibibytes() -> Result<u64, ErrorDeterminingUsage> {
     const PATH: &str = "/proc/meminfo";
     let meminfo_content: String = match tokio::fs::read_to_string(PATH).await {
         Ok(n) => n,
         Err(source) => {
-            return Err(ErrorReadingUsage::CannotRead {
+            return Err(ErrorDeterminingUsage::CannotRead {
                 source,
                 attempted_path: PATH.to_owned(),
             });
@@ -186,11 +186,11 @@ async fn read_memory_usage_kibibytes() -> Result<u64, ErrorReadingUsage> {
 }
 
 /// Parse a line from `/proc/meminfo`.
-fn parse_meminfo_line(line: &str) -> Result<u64, ErrorReadingUsage> {
+fn parse_meminfo_line(line: &str) -> Result<u64, ErrorDeterminingUsage> {
     let parts: Vec<&str> = line.split_whitespace().collect();
 
     if parts.len() < 2 {
-        return Err(ErrorReadingUsage::InvalidLineFormat {
+        return Err(ErrorDeterminingUsage::InvalidLineFormat {
             invalid_line: line.to_owned(),
         });
     }
@@ -200,7 +200,7 @@ fn parse_meminfo_line(line: &str) -> Result<u64, ErrorReadingUsage> {
     match value_str.parse::<u64>() {
         Ok(value) => Ok(value),
         Err(source) => {
-            return Err(ErrorReadingUsage::InvalidValueNotInteger {
+            return Err(ErrorDeterminingUsage::InvalidValueNotInteger {
                 source,
                 invalid_line: line.to_owned(),
             });
@@ -209,7 +209,7 @@ fn parse_meminfo_line(line: &str) -> Result<u64, ErrorReadingUsage> {
 }
 
 #[derive(Debug)]
-enum ErrorReadingUsage {
+pub enum ErrorDeterminingUsage {
     InvalidLineFormat {
         invalid_line: String,
     },
@@ -226,32 +226,32 @@ enum ErrorReadingUsage {
     },
 }
 
-impl std::error::Error for ErrorReadingUsage {
+impl std::error::Error for ErrorDeterminingUsage {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            ErrorReadingUsage::InvalidLineFormat { invalid_line: _ } => None,
-            ErrorReadingUsage::InvalidValueNotInteger { source, .. } => Some(source),
-            ErrorReadingUsage::CannotRead { source, .. } => Some(source),
-            ErrorReadingUsage::InvalidValueOutOfRangePercentage { invalid_value: _ } => None,
+            ErrorDeterminingUsage::InvalidLineFormat { invalid_line: _ } => None,
+            ErrorDeterminingUsage::InvalidValueNotInteger { source, .. } => Some(source),
+            ErrorDeterminingUsage::CannotRead { source, .. } => Some(source),
+            ErrorDeterminingUsage::InvalidValueOutOfRangePercentage { invalid_value: _ } => None,
         }
     }
 }
 
-impl std::fmt::Display for ErrorReadingUsage {
+impl std::fmt::Display for ErrorDeterminingUsage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ErrorReadingUsage::InvalidLineFormat { invalid_line } => {
+            ErrorDeterminingUsage::InvalidLineFormat { invalid_line } => {
                 write!(f, r#"invalid line format: "{invalid_line}""#)
             }
-            ErrorReadingUsage::InvalidValueNotInteger {
+            ErrorDeterminingUsage::InvalidValueNotInteger {
                 source: _,
                 invalid_line,
             } => write!(f, r#"invalid value in line: "{invalid_line}""#),
-            ErrorReadingUsage::CannotRead {
+            ErrorDeterminingUsage::CannotRead {
                 source: _,
                 attempted_path,
             } => write!(f, r#"failed to read: "{attempted_path}""#),
-            ErrorReadingUsage::InvalidValueOutOfRangePercentage { invalid_value } => {
+            ErrorDeterminingUsage::InvalidValueOutOfRangePercentage { invalid_value } => {
                 write!(f, "invalid value for percentage: out of range: {invalid_value}")
             }
         }
@@ -260,7 +260,7 @@ impl std::fmt::Display for ErrorReadingUsage {
 
 /// Docs: `proc_stat(5)` — Linux manual page
 #[derive(Debug, Clone, Copy)]
-struct CpuStats {
+pub struct CpuStats {
     /// Time spent in system mode.
     system: u64,
     /// Time spent in user mode.
@@ -322,12 +322,12 @@ struct AllCpusStats(Vec<CpuStats>);
 impl AllCpusStats {
     /// Reading from `/proc/stat`: The amount of time, measured in units of
     /// USER_HZ that specific CPUs spent in various states.
-    async fn read_time_spent() -> Result<Self, ErrorReadingUsage> {
+    async fn read_time_spent() -> Result<Self, ErrorDeterminingUsage> {
         const PATH: &str = "/proc/stat";
         let stat_content = match tokio::fs::read_to_string(PATH).await {
             Ok(n) => n,
             Err(source) => {
-                return Err(ErrorReadingUsage::CannotRead {
+                return Err(ErrorDeterminingUsage::CannotRead {
                     source,
                     attempted_path: PATH.to_owned(),
                 });
@@ -348,7 +348,7 @@ impl AllCpusStats {
 
     /// Calculate CPU usage based on two consecutive readings of time spent on
     /// all CPUs.
-    fn calculate_usage_per_cpu_since(&self, earlier: &Self) -> Result<Vec<Percentage>, ErrorReadingUsage> {
+    fn calculate_usage_per_cpu_since(&self, earlier: &Self) -> Result<Vec<Percentage>, ErrorDeterminingUsage> {
         let mut usage_per_cpu: Vec<Percentage> = Vec::with_capacity(self.0.len());
         for (idx, cpu) in self.0.iter().enumerate() {
             let earlier: CpuStats = earlier.0[idx];
@@ -359,7 +359,7 @@ impl AllCpusStats {
 }
 
 impl std::str::FromStr for CpuStats {
-    type Err = ErrorReadingUsage;
+    type Err = ErrorDeterminingUsage;
 
     /// Assuming format:
     /// ```
@@ -372,7 +372,7 @@ impl std::str::FromStr for CpuStats {
         const PARTS_AFTER_HEADER: usize = 10;
 
         if parts.len() != PARTS_AFTER_HEADER {
-            return Err(ErrorReadingUsage::InvalidLineFormat {
+            return Err(ErrorDeterminingUsage::InvalidLineFormat {
                 invalid_line: line.to_owned(),
             });
         }
@@ -384,7 +384,7 @@ impl std::str::FromStr for CpuStats {
             let parsed: u64 = match part.parse() {
                 Ok(n) => n,
                 Err(source) => {
-                    return Err(ErrorReadingUsage::InvalidValueNotInteger {
+                    return Err(ErrorDeterminingUsage::InvalidValueNotInteger {
                         source,
                         invalid_line: line.to_owned(),
                     });
