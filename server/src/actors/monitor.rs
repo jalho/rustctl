@@ -153,7 +153,7 @@ impl Percentage {
         } else {
             Err(ErrorDeterminingUsage::InvalidValueOutOfRangePercentage {
                 invalid_value: usage,
-                calculated_from: (earlier.to_owned(), current.to_owned()),
+                calculated_from: Box::new((earlier.to_owned(), current.to_owned())),
             })
         }
     }
@@ -202,12 +202,10 @@ fn parse_meminfo_line(line: &str) -> Result<u64, ErrorDeterminingUsage> {
 
     match value_str.parse::<u64>() {
         Ok(value) => Ok(value),
-        Err(source) => {
-            Err(ErrorDeterminingUsage::InvalidValueNotInteger {
-                source,
-                invalid_line: line.to_owned(),
-            })
-        }
+        Err(source) => Err(ErrorDeterminingUsage::InvalidValueNotInteger {
+            source,
+            invalid_line: line.to_owned(),
+        }),
     }
 }
 
@@ -229,7 +227,7 @@ pub enum ErrorDeterminingUsage {
         /// Two consecutive readings from which the invalid value was
         /// calculated. First one is the earlier, and the second one is the
         /// latter reading.
-        calculated_from: (CpuStats, CpuStats),
+        calculated_from: Box<(CpuStats, CpuStats)>,
     },
 }
 
@@ -265,7 +263,7 @@ impl std::fmt::Display for ErrorDeterminingUsage {
                 invalid_value,
                 calculated_from,
             } => {
-                let (earlier, later) = calculated_from;
+                let (earlier, later) = **calculated_from;
                 write!(
                     f,
                     "invalid value for percentage: out of range: {invalid_value}: calculated from: {earlier:?}, {later:?}"
