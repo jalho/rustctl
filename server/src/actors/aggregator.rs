@@ -43,13 +43,22 @@ impl Aggregator {
     async fn broadcast(aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>) -> () {
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         'broadcast: loop {
             interval.tick().await;
-            let lock = aggregated.lock().await;
-            dbg!(&lock.last_read);
-            dbg!(&lock.kibibytes_in_use);
-            dbg!(&lock.all_cpus);
+
+            let last_updated_at: Option<std::time::SystemTime>;
+            let memory_used_kibibytes: u64;
+            let cpus_usage: Vec<super::monitor::Percentage>;
+            {
+                let lock = aggregated.lock().await;
+                last_updated_at = lock.last_updated_at;
+                memory_used_kibibytes = lock.kibibytes_in_use;
+                cpus_usage = lock.all_cpus.clone();
+            }
+
             // TODO: Broadcast the aggregated state for the connected downstream WebSocket clients!
+            dbg!(last_updated_at, memory_used_kibibytes, cpus_usage);
         }
     }
 
@@ -69,14 +78,14 @@ impl Aggregator {
                     read_completed_by,
                     all_cpus,
                 } => {
-                    lock.last_read = Some(read_completed_by);
+                    lock.last_updated_at = Some(read_completed_by);
                     lock.all_cpus = all_cpus;
                 }
                 super::monitor::SystemResourceUsageReading::MemoryUsage {
                     read_completed_by,
                     kibibytes_in_use,
                 } => {
-                    lock.last_read = Some(read_completed_by);
+                    lock.last_updated_at = Some(read_completed_by);
                     lock.kibibytes_in_use = kibibytes_in_use;
                 }
             }
@@ -88,7 +97,7 @@ pub struct Summary {}
 
 #[derive(Debug)]
 pub struct Aggregated {
-    last_read: Option<std::time::SystemTime>,
+    last_updated_at: Option<std::time::SystemTime>,
     kibibytes_in_use: u64,
     all_cpus: Vec<crate::actors::monitor::Percentage>,
 }
@@ -96,7 +105,7 @@ pub struct Aggregated {
 impl Aggregated {
     pub fn init() -> std::sync::Arc<tokio::sync::Mutex<Self>> {
         std::sync::Arc::new(tokio::sync::Mutex::new(Self {
-            last_read: None,
+            last_updated_at: None,
             kibibytes_in_use: 0,
             all_cpus: Vec::new(),
         }))

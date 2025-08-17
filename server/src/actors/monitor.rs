@@ -132,7 +132,7 @@ pub enum SystemResourceUsageReading {
 }
 
 /// In range `[0.0, 100.0]`.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Percentage(f64);
 
 impl Percentage {
