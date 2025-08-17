@@ -47,7 +47,6 @@ pub enum GameServerStateMachine {
         tx_aggregator: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
         tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
 
-        game_meta: rustctl_common::snapshot::GameServerMetaExposed,
         process: tokio::process::Child,
     },
     GameClosedManually {
@@ -371,7 +370,6 @@ impl GameServerStateMachine {
                                     };
                                     log::info!("Sent signal to game server process: {signal}: PID {pid}");
                                     Self::SavingAndClosingGame {
-                                        game_meta,
                                         process,
                                         cfg_client,
                                         rx_command,
@@ -406,7 +404,6 @@ impl GameServerStateMachine {
                 }
 
                 Self::SavingAndClosingGame {
-                    game_meta: _,
                     mut process,
                     cfg_client,
                     rx_command,
