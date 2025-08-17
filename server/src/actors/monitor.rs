@@ -21,12 +21,13 @@ impl Monitor {
 
     pub async fn work(self) -> Summary {
         let ctoken = self.ctoken.child_token();
-        let job = self.read_resources_usage();
+        let job = self.monitor_system_resources_usage();
         ctoken.run_until_cancelled(job).await;
         Summary {}
     }
 
-    async fn read_resources_usage(mut self) -> () {
+    /// Read system resources's usage (memory, CPU...) and send the readings.
+    async fn monitor_system_resources_usage(mut self) -> () {
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
@@ -34,58 +35,79 @@ impl Monitor {
             interval.tick().await;
 
             /*
-             * TODO: Define an error type for memory usage read operation
-             *       and request termination of the whole program upon seeing
-             *       that! (Refer to the CPU stats reading corresponding
-             *       implementations...)
+             * Memory usage: Read from OS and send (to aggregator).
              */
-            let kibibytes_in_use: u64 = match read_memory_usage_kibibytes().await {
-                Some(n) => n,
-                None => break 'read_usage,
-            };
-
-            // value for each CPU
-            let current_stats: AllCpusStats = match AllCpusStats::read_time_spent().await {
-                Ok(n) => n,
-                Err(err) => {
+            {
+                let kibibytes_in_use: u64 = match read_memory_usage_kibibytes().await {
                     /*
-                     * TODO: Request termination of the whole program upon error!
+                     * TODO: Define an error type (instead of using `Option<>`)
+                     *       for memory usage read operation and request
+                     *       termination of the whole program upon seeing
+                     *       that: Use `self.request_termination()`, see the
+                     *       corresponding CPU reading impl!
                      */
-                    log::error!("Failed to read CPU stats: {err}");
-                    break 'read_usage;
-                }
-            };
-
-            // calculate usage for each CPU
-            let cpu_usage: Option<Vec<Percentage>> = match &self.previous_stats {
-                Some(previous) => Some(current_stats.calculate_usage_per_cpu_since(&previous)),
-                None => None,
-            };
-            self.previous_stats = Some(current_stats);
-
-            // TODO: Send CPU usage to aggregator!
-            dbg!(cpu_usage);
-
-            let read_completed_by: std::time::SystemTime = std::time::SystemTime::now();
-
-            if let Err(err) = self
-                .tx_resuse
-                .send(SystemResourceUsageReading::MemoryUsage {
+                    Some(n) => n,
+                    None => break 'read_usage,
+                };
+                let read_completed_by: std::time::SystemTime = std::time::SystemTime::now();
+                let memory_reading = SystemResourceUsageReading::MemoryUsage {
                     read_completed_by,
                     kibibytes_in_use,
-                })
-                .await
-            {
-                log::error!("Channel for sending system resources usage reading was closed unexpectedly: {err}");
-                if let Err(err) = self
-                    .tx_activate
-                    .send(crate::actors::terminator::Activator::SystemResourcesUsageMonitor)
-                    .await
-                {
-                    log::error!("Failed to initiate graceful shutdown: {err}");
+                };
+                if let Err(err) = self.send_reading(memory_reading).await {
+                    log::error!("Failed to send reading: {err}");
+                    self.request_termination().await;
+                    break 'read_usage;
                 }
-                break 'read_usage;
-            };
+            }
+
+            /*
+             * CPU usage: Read from OS and send (to aggregator).
+             */
+            {
+                let current_stats: AllCpusStats = match AllCpusStats::read_time_spent().await {
+                    Ok(n) => n,
+                    Err(err) => {
+                        log::error!("Failed to read CPU stats: {err}");
+                        self.request_termination().await;
+                        break 'read_usage;
+                    }
+                };
+                let read_completed_by: std::time::SystemTime = std::time::SystemTime::now();
+                // calculate usage for each CPU
+                let cpu_usage: Option<Vec<Percentage>> = match &self.previous_stats {
+                    Some(previous) => Some(current_stats.calculate_usage_per_cpu_since(&previous)),
+                    None => None,
+                };
+                self.previous_stats = Some(current_stats);
+                if let Some(all_cpus) = cpu_usage {
+                    let cpu_reading = SystemResourceUsageReading::CpuUsage {
+                        read_completed_by,
+                        all_cpus,
+                    };
+                    if let Err(err) = self.send_reading(cpu_reading).await {
+                        log::error!("Failed to send reading: {err}");
+                        self.request_termination().await;
+                    }
+                }
+            }
+        }
+    }
+
+    async fn send_reading(
+        &mut self,
+        reading: SystemResourceUsageReading,
+    ) -> Result<(), tokio::sync::mpsc::error::SendError<SystemResourceUsageReading>> {
+        self.tx_resuse.send(reading).await
+    }
+
+    async fn request_termination(&mut self) -> () {
+        let result = self
+            .tx_activate
+            .send(crate::actors::terminator::Activator::SystemResourcesUsageMonitor)
+            .await;
+        if let Err(err) = result {
+            log::error!("Failed to initiate graceful shutdown: {err}");
         }
     }
 }
