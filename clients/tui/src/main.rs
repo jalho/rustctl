@@ -3,8 +3,7 @@ fn main() -> std::process::ExitCode {
     let c1: tokio_util::sync::CancellationToken = c0.child_token();
 
     let (tx_updates, rx_updates) = std::sync::mpsc::channel::<rustctl_common::snapshot::Snapshot>();
-    let (tx_commands, rx_commands) =
-        std::sync::mpsc::channel::<rustctl_common::command::DownstreamClientMessage>();
+    let (tx_commands, rx_commands) = std::sync::mpsc::channel::<rustctl_common::command::DownstreamClientMessage>();
 
     let th_tui = std::thread::spawn(|| tui::work(rx_updates, tx_commands, c0));
     let th_connection = std::thread::spawn(|| connection::work(tx_updates, rx_commands, c1));
@@ -40,11 +39,10 @@ mod connection {
         tx_updates: std::sync::mpsc::Sender<rustctl_common::snapshot::Snapshot>,
         rx_commands: std::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
     ) {
-        let (stream, _response) = tokio_tungstenite::connect_async(format!(
-            "ws://127.0.0.1:8080{WEBSOCKET_CONNECT_URL_PATH}"
-        ))
-        .await
-        .unwrap();
+        let (stream, _response) =
+            tokio_tungstenite::connect_async(format!("ws://127.0.0.1:8080{WEBSOCKET_CONNECT_URL_PATH}"))
+                .await
+                .unwrap();
 
         let (mut write, mut read) = stream.split();
 
@@ -70,8 +68,7 @@ mod connection {
                 }
             };
 
-            let deserialized: rustctl_common::snapshot::Snapshot =
-                serde_json::from_str(&utf8).unwrap();
+            let deserialized: rustctl_common::snapshot::Snapshot = serde_json::from_str(&utf8).unwrap();
 
             if tx_updates.send(deserialized).is_err() {
                 break 'recv_messages;
@@ -93,9 +90,7 @@ mod tui {
         cancel: tokio_util::sync::CancellationToken,
     ) {
         let mut terminal: ratatui::Terminal<_> = ratatui::init();
-        Ctl::new(rx_updates, tx_commands, cancel)
-            .run(&mut terminal)
-            .unwrap();
+        Ctl::new(rx_updates, tx_commands, cancel).run(&mut terminal).unwrap();
     }
 
     pub struct Ctl {
@@ -189,9 +184,7 @@ mod tui {
             // header with game server state
             let header_title = Line::from(vec![Span::styled(
                 " rustctl ",
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
             )]);
 
             let header_block = Block::bordered()
@@ -207,9 +200,7 @@ mod tui {
                     Span::styled("Game Server: ", Style::default().fg(Color::White)),
                     Span::styled(
                         state_text,
-                        Style::default()
-                            .fg(Color::Green)
-                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
                     ),
                 ])])
             } else {
@@ -218,9 +209,7 @@ mod tui {
                     Span::styled("Game Server: ", Style::default().fg(Color::DarkGray)),
                     Span::styled(
                         "Unknown",
-                        Style::default()
-                            .fg(Color::DarkGray)
-                            .add_modifier(Modifier::ITALIC),
+                        Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
                     ),
                 ])])
             };
@@ -235,28 +224,17 @@ mod tui {
                 Span::styled("❌ ", Style::default().fg(Color::Red)),
                 Span::styled("Quit", Style::default().fg(Color::White)),
                 Span::styled(" [", Style::default().fg(Color::DarkGray)),
-                Span::styled(
-                    "Q",
-                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
-                ),
+                Span::styled("Q", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
                 Span::styled("] ", Style::default().fg(Color::DarkGray)),
                 Span::styled("  🚀 ", Style::default().fg(Color::Green)),
                 Span::styled("Launch", Style::default().fg(Color::White)),
                 Span::styled(" [", Style::default().fg(Color::DarkGray)),
-                Span::styled(
-                    "L",
-                    Style::default()
-                        .fg(Color::Green)
-                        .add_modifier(Modifier::BOLD),
-                ),
+                Span::styled("L", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
                 Span::styled("] ", Style::default().fg(Color::DarkGray)),
                 Span::styled("  ⛔ ", Style::default().fg(Color::Red)),
                 Span::styled("Terminate", Style::default().fg(Color::White)),
                 Span::styled(" [", Style::default().fg(Color::DarkGray)),
-                Span::styled(
-                    "T",
-                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
-                ),
+                Span::styled("T", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
                 Span::styled("]", Style::default().fg(Color::DarkGray)),
             ]);
 
@@ -265,9 +243,7 @@ mod tui {
                 .border_set(ROUNDED)
                 .border_style(Style::default().fg(Color::Gray));
 
-            Paragraph::new("")
-                .block(footer_block)
-                .render(main_chunks[2], buf);
+            Paragraph::new("").block(footer_block).render(main_chunks[2], buf);
 
             // dashboard content area
             let content_area = main_chunks[1];
@@ -279,9 +255,7 @@ mod tui {
                         Span::styled("📊 ", Style::default().fg(Color::Yellow)),
                         Span::styled(
                             "System Metrics",
-                            Style::default()
-                                .fg(Color::White)
-                                .add_modifier(Modifier::BOLD),
+                            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
                         ),
                     ]))
                     .border_set(ROUNDED)
@@ -293,9 +267,7 @@ mod tui {
                         Span::styled("🔍 ", Style::default().fg(Color::Yellow)),
                         Span::styled(
                             "No system metrics available yet...",
-                            Style::default()
-                                .fg(Color::Gray)
-                                .add_modifier(Modifier::ITALIC),
+                            Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC),
                         ),
                     ]),
                     Line::from(""),
@@ -328,11 +300,7 @@ mod tui {
     }
 
     impl Ctl {
-        fn render_memory_column(
-            &self,
-            area: &ratatui::layout::Rect,
-            buf: &mut ratatui::buffer::Buffer,
-        ) {
+        fn render_memory_column(&self, area: &ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
             use ratatui::layout::Alignment;
             use ratatui::style::{Color, Modifier, Style};
             use ratatui::symbols::border::ROUNDED;
@@ -344,9 +312,7 @@ mod tui {
                     Span::styled(" 📊 ", Style::default().fg(Color::LightBlue)),
                     Span::styled(
                         "Memory Usage (latest first) ",
-                        Style::default()
-                            .fg(Color::White)
-                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
                     ),
                 ]))
                 .border_set(ROUNDED)
@@ -381,9 +347,7 @@ mod tui {
                     Span::styled("💾 ", Style::default().fg(accent_color)),
                     Span::styled(
                         format!("{mem_value}"),
-                        Style::default()
-                            .fg(accent_color)
-                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(accent_color).add_modifier(Modifier::BOLD),
                     ),
                 ]));
             }
@@ -393,9 +357,7 @@ mod tui {
                     Span::styled("📭 ", Style::default().fg(Color::Gray)),
                     Span::styled(
                         "No memory data",
-                        Style::default()
-                            .fg(Color::Gray)
-                            .add_modifier(Modifier::ITALIC),
+                        Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC),
                     ),
                 ]));
             }
@@ -406,11 +368,7 @@ mod tui {
                 .render(inner_area, buf);
         }
 
-        fn render_cpu_column(
-            &self,
-            area: &ratatui::layout::Rect,
-            buf: &mut ratatui::buffer::Buffer,
-        ) {
+        fn render_cpu_column(&self, area: &ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
             use ratatui::layout::Alignment;
             use ratatui::style::{Color, Modifier, Style};
             use ratatui::symbols::border::ROUNDED;
@@ -422,9 +380,7 @@ mod tui {
                     Span::styled(" 🖥️ ", Style::default().fg(Color::LightGreen)),
                     Span::styled(
                         "CPU Usage (latest first) ",
-                        Style::default()
-                            .fg(Color::White)
-                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
                     ),
                 ]))
                 .border_set(ROUNDED)
@@ -438,8 +394,7 @@ mod tui {
 
             for (idx, snapshot) in self.message_log.iter().rev().enumerate() {
                 let cpu_timestamp = &snapshot.system_cpu_usage_total.read_completed_by;
-                let cpu_values: &Vec<rustctl_common::snapshot::CpuUsage> =
-                    &snapshot.system_cpu_usage_total.read_value;
+                let cpu_values: &Vec<rustctl_common::snapshot::CpuUsage> = &snapshot.system_cpu_usage_total.read_value;
 
                 let timestamp_str = cpu_timestamp.format("%H:%M:%S").to_string();
 
@@ -466,15 +421,10 @@ mod tui {
 
                     content_lines.push(Line::from(vec![
                         Span::styled("⚡ ", Style::default().fg(accent_color)),
-                        Span::styled(
-                            format!("CPU{cpu_idx}: "),
-                            Style::default().fg(Color::DarkGray),
-                        ),
+                        Span::styled(format!("CPU{cpu_idx}: "), Style::default().fg(Color::DarkGray)),
                         Span::styled(
                             format!("{:.1}%", cpu_value.as_percentage()),
-                            Style::default()
-                                .fg(usage_color)
-                                .add_modifier(Modifier::BOLD),
+                            Style::default().fg(usage_color).add_modifier(Modifier::BOLD),
                         ),
                     ]));
                 }
@@ -485,9 +435,7 @@ mod tui {
                     Span::styled("📭 ", Style::default().fg(Color::Gray)),
                     Span::styled(
                         "No CPU data",
-                        Style::default()
-                            .fg(Color::Gray)
-                            .add_modifier(Modifier::ITALIC),
+                        Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC),
                     ),
                 ]));
             }

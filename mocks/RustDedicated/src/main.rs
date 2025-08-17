@@ -50,10 +50,8 @@ async fn launch_game(duration: std::time::Duration) -> std::process::ExitCode {
 }
 
 async fn wait_signal() -> std::process::ExitCode {
-    let mut sigint =
-        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()).unwrap();
-    let mut sigterm =
-        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).unwrap();
+    let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()).unwrap();
+    let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).unwrap();
     tokio::select! {
         _ = sigint.recv() => {
             println!("SIGINT");
@@ -71,9 +69,7 @@ async fn wait_signal() -> std::process::ExitCode {
     tokio::fs::File::create(mock_savefile_path)
         .await
         .expect("failed to create file");
-    let created = std::path::Path::new(mock_savefile_path)
-        .canonicalize()
-        .unwrap();
+    let created = std::path::Path::new(mock_savefile_path).canonicalize().unwrap();
     println!("Created: {}", created.to_string_lossy());
 
     std::process::ExitCode::SUCCESS

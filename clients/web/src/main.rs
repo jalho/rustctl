@@ -2,13 +2,10 @@ use dioxus::prelude::*;
 use futures::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use gloo_net::websocket::{Message, futures::WebSocket};
-use rustctl_common::{
-    command::DownstreamClientMessage, snapshot::Snapshot, web_app::WEBSOCKET_CONNECT_URL_PATH,
-};
+use rustctl_common::{command::DownstreamClientMessage, snapshot::Snapshot, web_app::WEBSOCKET_CONNECT_URL_PATH};
 use wasm_bindgen_futures::spawn_local;
 
-static REMOTE_STATE_SNAPSHOT: GlobalSignal<Option<Snapshot>> =
-    GlobalSignal::<Option<Snapshot>>::new(|| None);
+static REMOTE_STATE_SNAPSHOT: GlobalSignal<Option<Snapshot>> = GlobalSignal::<Option<Snapshot>>::new(|| None);
 
 fn main() {
     dioxus::launch(App);
@@ -16,15 +13,13 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    let mut sender: Signal<Option<futures::channel::mpsc::UnboundedSender<String>>> =
-        use_signal(|| None);
+    let mut sender: Signal<Option<futures::channel::mpsc::UnboundedSender<String>>> = use_signal(|| None);
     let interval = std::time::Duration::from_secs(1);
 
     use_effect(move || {
         spawn_local(async move {
             'connect_websocket: loop {
-                let ws_result =
-                    WebSocket::open(&format!("ws://localhost:8081{WEBSOCKET_CONNECT_URL_PATH}"));
+                let ws_result = WebSocket::open(&format!("ws://localhost:8081{WEBSOCKET_CONNECT_URL_PATH}"));
                 let ws: WebSocket = match ws_result {
                     Ok(ws) => ws,
                     Err(_) => {
@@ -55,8 +50,7 @@ fn App() -> Element {
                     match msg_result {
                         Ok(Message::Text(serialized)) => {
                             REMOTE_STATE_SNAPSHOT.with_mut(|state| {
-                                let deserialized: Snapshot =
-                                    serde_json::from_str(&serialized).unwrap();
+                                let deserialized: Snapshot = serde_json::from_str(&serialized).unwrap();
                                 *state = Some(deserialized);
                             });
                         }
@@ -81,11 +75,10 @@ fn App() -> Element {
         });
     });
 
-    let transition_available: Option<DownstreamClientMessage> =
-        match *REMOTE_STATE_SNAPSHOT.read() {
-            Some(ref state) => {
-                let state: &Snapshot = state;
-                match state.game_server_state {
+    let transition_available: Option<DownstreamClientMessage> = match *REMOTE_STATE_SNAPSHOT.read() {
+        Some(ref state) => {
+            let state: &Snapshot = state;
+            match state.game_server_state {
                 rustctl_common::snapshot::GameServerStateExposed::Init
                 | rustctl_common::snapshot::GameServerStateExposed::InstallingUpdates
                 | rustctl_common::snapshot::GameServerStateExposed::InstalledAndConfigured { .. }
@@ -101,9 +94,9 @@ fn App() -> Element {
                     Some(DownstreamClientMessage::ServerSaveAndClose)
                 }
             }
-            }
-            None => None,
-        };
+        }
+        None => None,
+    };
 
     rsx! {
         div {
