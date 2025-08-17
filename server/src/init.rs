@@ -7,7 +7,7 @@ pub struct CliArgs {
 
 pub const LOG_TARGET_GAME: &str = "game";
 
-pub fn initialize_logger(level: log::LevelFilter) -> log4rs::Handle {
+pub fn initialize_logger(level: log::LevelFilter) -> Result<log4rs::Handle, std::process::ExitCode> {
     const APPENDER_NAME_CORE: &str = "core";
     const APPENDER_NAME_GAME: &str = "game_server";
 
@@ -29,7 +29,7 @@ pub fn initialize_logger(level: log::LevelFilter) -> log4rs::Handle {
     let appender_cfg_game: log4rs::config::Appender =
         log4rs::config::Appender::builder().build(APPENDER_NAME_GAME, Box::new(appender_game));
 
-    let config = log4rs::Config::builder()
+    let config = match log4rs::Config::builder()
         .appender(appender_cfg_core)
         .appender(appender_cfg_game)
         .logger(
@@ -42,10 +42,21 @@ pub fn initialize_logger(level: log::LevelFilter) -> log4rs::Handle {
             log4rs::config::Root::builder()
                 .appender(APPENDER_NAME_CORE)
                 .build(level),
-        )
-        .unwrap();
+        ) {
+        Ok(n) => n,
+        Err(err) => {
+            eprintln!("Building logger config failed: {err}");
+            return Err(std::process::ExitCode::FAILURE);
+        }
+    };
 
-    log4rs::init_config(config).unwrap()
+    match log4rs::init_config(config) {
+        Ok(n) => Ok(n),
+        Err(err) => {
+            eprintln!("Initializing logger failed: {err}");
+            return Err(std::process::ExitCode::FAILURE);
+        }
+    }
 }
 
 pub fn build_runtime() -> Result<tokio::runtime::Runtime, std::process::ExitCode> {
