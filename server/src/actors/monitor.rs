@@ -151,7 +151,10 @@ impl Percentage {
         if usage >= 0.0 && usage <= 100.0 {
             Ok(Self(usage))
         } else {
-            Err(ErrorDeterminingUsage::InvalidValueOutOfRangePercentage { invalid_value: usage })
+            Err(ErrorDeterminingUsage::InvalidValueOutOfRangePercentage {
+                invalid_value: usage,
+                calculated_from: (earlier.to_owned(), current.to_owned()),
+            })
         }
     }
 }
@@ -223,6 +226,10 @@ pub enum ErrorDeterminingUsage {
     },
     InvalidValueOutOfRangePercentage {
         invalid_value: f64,
+        /// Two consecutive readings from which the invalid value was
+        /// calculated. First one is the earlier, and the second one is the
+        /// latter reading.
+        calculated_from: (CpuStats, CpuStats),
     },
 }
 
@@ -232,7 +239,10 @@ impl std::error::Error for ErrorDeterminingUsage {
             ErrorDeterminingUsage::InvalidLineFormat { invalid_line: _ } => None,
             ErrorDeterminingUsage::InvalidValueNotInteger { source, .. } => Some(source),
             ErrorDeterminingUsage::CannotRead { source, .. } => Some(source),
-            ErrorDeterminingUsage::InvalidValueOutOfRangePercentage { invalid_value: _ } => None,
+            ErrorDeterminingUsage::InvalidValueOutOfRangePercentage {
+                invalid_value: _,
+                calculated_from: _,
+            } => None,
         }
     }
 }
@@ -251,8 +261,15 @@ impl std::fmt::Display for ErrorDeterminingUsage {
                 source: _,
                 attempted_path,
             } => write!(f, r#"failed to read: "{attempted_path}""#),
-            ErrorDeterminingUsage::InvalidValueOutOfRangePercentage { invalid_value } => {
-                write!(f, "invalid value for percentage: out of range: {invalid_value}")
+            ErrorDeterminingUsage::InvalidValueOutOfRangePercentage {
+                invalid_value,
+                calculated_from,
+            } => {
+                let (earlier, later) = calculated_from;
+                write!(
+                    f,
+                    "invalid value for percentage: out of range: {invalid_value}: calculated from: {earlier:?}, {later:?}"
+                )
             }
         }
     }
