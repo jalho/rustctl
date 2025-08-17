@@ -92,7 +92,7 @@ pub mod snapshot {
         InstalledAndConfigured { game_meta: GameServerMetaExposed },
         LaunchingGame { game_meta: GameServerMetaExposed },
         GameRunningHealthy { game_meta: GameServerMetaExposed },
-        SavingAndClosingGame { game_meta: GameServerMetaExposed },
+        SavingAndClosingGame {},
         GameClosedManually,
         GameTerminatedUnexpectedly,
     }

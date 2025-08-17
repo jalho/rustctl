@@ -87,7 +87,7 @@ impl GameServerStateMachine {
         }
     }
 
-    pub async fn loop_transitions(mut self) -> () {
+    pub async fn loop_transitions(mut self, tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>) -> () {
         'loop_transitions: loop {
             self = match self {
                 Self::Init {
@@ -505,7 +505,33 @@ impl GameServerStateMachine {
                     tx_activate,
                 },
             };
+
+            if let Err(err) = self.send_state().await {
+                log::error!(
+                    "Failed to send game server state machine transition to aggregator: {err_fmt}",
+                    err_fmt = crate::util::fmt_source_tree(&err),
+                );
+                Self::request_termination(tx_activate).await;
+                break 'loop_transitions;
+            }
         }
+    }
+
+    async fn send_state(
+        &self,
+    ) -> Result<(), tokio::sync::mpsc::error::SendError<rustctl_common::snapshot::GameServerStateExposed>> {
+        let tx = match self {
+            GameServerStateMachine::Init { tx_aggregator, .. }
+            | GameServerStateMachine::InstallingUpdates { tx_aggregator, .. }
+            | GameServerStateMachine::InstalledAndConfigured { tx_aggregator, .. }
+            | GameServerStateMachine::LaunchingGame { tx_aggregator, .. }
+            | GameServerStateMachine::GameRunningHealthy { tx_aggregator, .. }
+            | GameServerStateMachine::SavingAndClosingGame { tx_aggregator, .. }
+            | GameServerStateMachine::GameClosedManually { tx_aggregator, .. }
+            | GameServerStateMachine::GameTerminatedUnexpectedly { tx_aggregator, .. } => tx_aggregator,
+        };
+        let sendable: rustctl_common::snapshot::GameServerStateExposed = self.into();
+        tx.send(sendable).await
     }
 }
 
@@ -611,6 +637,41 @@ impl std::fmt::Display for ErrorSendingSignal {
             ErrorSendingSignal::NoPid => write!(f, "no PID"),
             ErrorSendingSignal::InvalidPid { source: _, invalid_pid } => write!(f, "invalid PID: {invalid_pid}"),
             ErrorSendingSignal::SendFailed { source: _ } => write!(f, "send failed"),
+        }
+    }
+}
+
+impl From<&GameServerStateMachine> for rustctl_common::snapshot::GameServerStateExposed {
+    fn from(value: &GameServerStateMachine) -> Self {
+        match value {
+            GameServerStateMachine::Init { .. } => rustctl_common::snapshot::GameServerStateExposed::Init,
+            GameServerStateMachine::InstallingUpdates { .. } => {
+                rustctl_common::snapshot::GameServerStateExposed::InstallingUpdates
+            }
+            GameServerStateMachine::InstalledAndConfigured { game_meta, .. } => {
+                rustctl_common::snapshot::GameServerStateExposed::InstalledAndConfigured {
+                    game_meta: game_meta.to_owned(),
+                }
+            }
+            GameServerStateMachine::LaunchingGame { game_meta, .. } => {
+                rustctl_common::snapshot::GameServerStateExposed::LaunchingGame {
+                    game_meta: game_meta.to_owned(),
+                }
+            }
+            GameServerStateMachine::GameRunningHealthy { game_meta, .. } => {
+                rustctl_common::snapshot::GameServerStateExposed::GameRunningHealthy {
+                    game_meta: game_meta.to_owned(),
+                }
+            }
+            GameServerStateMachine::SavingAndClosingGame { .. } => {
+                rustctl_common::snapshot::GameServerStateExposed::SavingAndClosingGame {}
+            }
+            GameServerStateMachine::GameClosedManually { .. } => {
+                rustctl_common::snapshot::GameServerStateExposed::GameClosedManually
+            }
+            GameServerStateMachine::GameTerminatedUnexpectedly { .. } => {
+                rustctl_common::snapshot::GameServerStateExposed::GameTerminatedUnexpectedly
+            }
         }
     }
 }
