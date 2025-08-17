@@ -39,15 +39,12 @@ impl Monitor {
              */
             {
                 let kibibytes_in_use: u64 = match read_memory_usage_kibibytes().await {
-                    /*
-                     * TODO: Define an error type (instead of using `Option<>`)
-                     *       for memory usage read operation and request
-                     *       termination of the whole program upon seeing
-                     *       that: Use `self.request_termination()`, see the
-                     *       corresponding CPU reading impl!
-                     */
-                    Some(n) => n,
-                    None => break 'read_usage,
+                    Ok(n) => n,
+                    Err(err) => {
+                        log::error!("Failed to read memory usage: {err}");
+                        self.request_termination().await;
+                        break 'read_usage;
+                    }
                 };
                 let read_completed_by: std::time::SystemTime = std::time::SystemTime::now();
                 let memory_reading = SystemResourceUsageReading::MemoryUsage {
@@ -145,12 +142,15 @@ impl Percentage {
     }
 }
 
-async fn read_memory_usage_kibibytes() -> Option<u64> {
-    let meminfo_content: String = match tokio::fs::read_to_string("/proc/meminfo").await {
+async fn read_memory_usage_kibibytes() -> Result<u64, ErrorReadingUsage> {
+    const PATH: &str = "/proc/meminfo";
+    let meminfo_content: String = match tokio::fs::read_to_string(PATH).await {
         Ok(n) => n,
-        Err(err) => {
-            log::error!("Failed to read memory usage: {err}");
-            return None;
+        Err(source) => {
+            return Err(ErrorReadingUsage::CannotRead {
+                source,
+                attempted_path: PATH.to_owned(),
+            });
         }
     };
 
@@ -168,38 +168,40 @@ async fn read_memory_usage_kibibytes() -> Option<u64> {
         }
     }
 
-    Some(mem_total - mem_available)
+    Ok(mem_total - mem_available)
 }
 
 /// Parse a line from `/proc/meminfo`.
-fn parse_meminfo_line(line: &str) -> Option<u64> {
+fn parse_meminfo_line(line: &str) -> Result<u64, ErrorReadingUsage> {
     let parts: Vec<&str> = line.split_whitespace().collect();
 
     if parts.len() < 2 {
-        log::error!("Unsupported format for /proc/meminfo line: {line}");
-        return None;
+        return Err(ErrorReadingUsage::InvalidLineFormat {
+            invalid_line: line.to_owned(),
+        });
     }
 
     let value_str = parts[1];
 
     match value_str.parse::<u64>() {
-        Ok(value) => Some(value),
-        Err(err) => {
-            log::error!("Unsupported format for /proc/meminfo line: {line}: {err}");
-            None
+        Ok(value) => Ok(value),
+        Err(source) => {
+            return Err(ErrorReadingUsage::InvalidValue {
+                source,
+                invalid_line: line.to_owned(),
+            });
         }
     }
 }
 
 #[derive(Debug)]
-enum UsageReadingError {
+enum ErrorReadingUsage {
     InvalidLineFormat {
         invalid_line: String,
     },
     InvalidValue {
         source: std::num::ParseIntError,
         invalid_line: String,
-        value_idx_header_excluded: usize,
     },
     CannotRead {
         source: std::io::Error,
@@ -207,28 +209,27 @@ enum UsageReadingError {
     },
 }
 
-impl std::error::Error for UsageReadingError {
+impl std::error::Error for ErrorReadingUsage {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            UsageReadingError::InvalidLineFormat { invalid_line: _ } => None,
-            UsageReadingError::InvalidValue { source, .. } => Some(source),
-            UsageReadingError::CannotRead { source, .. } => Some(source),
+            ErrorReadingUsage::InvalidLineFormat { invalid_line: _ } => None,
+            ErrorReadingUsage::InvalidValue { source, .. } => Some(source),
+            ErrorReadingUsage::CannotRead { source, .. } => Some(source),
         }
     }
 }
 
-impl std::fmt::Display for UsageReadingError {
+impl std::fmt::Display for ErrorReadingUsage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            UsageReadingError::InvalidLineFormat { invalid_line } => {
+            ErrorReadingUsage::InvalidLineFormat { invalid_line } => {
                 write!(f, r#"invalid line format: "{invalid_line}""#)
             }
-            UsageReadingError::InvalidValue {
+            ErrorReadingUsage::InvalidValue {
                 source: _,
                 invalid_line,
-                value_idx_header_excluded: value_idx,
-            } => write!(f, r#"invalid line value at idx {value_idx}: "{invalid_line}""#),
-            UsageReadingError::CannotRead {
+            } => write!(f, r#"invalid value in line: "{invalid_line}""#),
+            ErrorReadingUsage::CannotRead {
                 source: _,
                 attempted_path,
             } => write!(f, r#"failed to read: "{attempted_path}""#),
@@ -300,12 +301,12 @@ struct AllCpusStats(Vec<CpuStats>);
 impl AllCpusStats {
     /// Reading from `/proc/stat`: The amount of time, measured in units of
     /// USER_HZ that specific CPUs spent in various states.
-    async fn read_time_spent() -> Result<Self, UsageReadingError> {
+    async fn read_time_spent() -> Result<Self, ErrorReadingUsage> {
         const PATH: &str = "/proc/stat";
         let stat_content = match tokio::fs::read_to_string(PATH).await {
             Ok(n) => n,
             Err(source) => {
-                return Err(UsageReadingError::CannotRead {
+                return Err(ErrorReadingUsage::CannotRead {
                     source,
                     attempted_path: PATH.to_owned(),
                 });
@@ -347,7 +348,7 @@ impl AllCpusStats {
 }
 
 impl std::str::FromStr for CpuStats {
-    type Err = UsageReadingError;
+    type Err = ErrorReadingUsage;
 
     /// Assuming format:
     /// ```
@@ -360,7 +361,7 @@ impl std::str::FromStr for CpuStats {
         const PARTS_AFTER_HEADER: usize = 10;
 
         if parts.len() != PARTS_AFTER_HEADER {
-            return Err(UsageReadingError::InvalidLineFormat {
+            return Err(ErrorReadingUsage::InvalidLineFormat {
                 invalid_line: line.to_owned(),
             });
         }
@@ -372,10 +373,9 @@ impl std::str::FromStr for CpuStats {
             let parsed: u64 = match part.parse() {
                 Ok(n) => n,
                 Err(source) => {
-                    return Err(UsageReadingError::InvalidValue {
+                    return Err(ErrorReadingUsage::InvalidValue {
                         source,
                         invalid_line: line.to_owned(),
-                        value_idx_header_excluded: idx,
                     });
                 }
             };
