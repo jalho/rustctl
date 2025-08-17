@@ -140,7 +140,17 @@ impl GameServerStateMachine {
                         }
                     };
 
-                    let _output: std::process::Output = process.wait_with_output().await.unwrap();
+                    let _output: std::process::Output = match process.wait_with_output().await {
+                        Ok(n) => n,
+                        Err(err) => {
+                            log::error!(
+                                "Failed to run game server installer to termination: {err_fmt}",
+                                err_fmt = crate::util::fmt_source_tree(&err),
+                            );
+                            Self::request_termination(tx_activate).await;
+                            break 'loop_transitions;
+                        }
+                    };
 
                     let buildid_after: Option<u32> = {
                         if let Ok(contents) = tokio::fs::read_to_string(config.game_manifest).await {
