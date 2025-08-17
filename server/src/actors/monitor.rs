@@ -21,7 +21,7 @@ impl Monitor {
         let ctoken = self.ctoken.child_token();
         let job = self.read_resources_usage();
         ctoken.run_until_cancelled(job).await;
-        return Summary {};
+        Summary {}
     }
 
     async fn read_resources_usage(self) -> () {
@@ -127,7 +127,7 @@ fn parse_meminfo_line(line: &str) -> Option<u64> {
         Ok(value) => Some(value),
         Err(err) => {
             log::error!("Unsupported format for /proc/meminfo line: {line}: {err}");
-            return None;
+            None
         }
     }
 }

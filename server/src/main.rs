@@ -40,5 +40,5 @@ fn main() -> std::process::ExitCode {
         actors::monitor::Summary,
     ) = runtime.block_on(runtime_job);
 
-    return std::process::ExitCode::SUCCESS;
+    std::process::ExitCode::SUCCESS
 }

@@ -62,7 +62,7 @@ impl Terminator {
         };
         let _done: () = job.await;
 
-        return Summary {};
+        Summary {}
     }
 }
 

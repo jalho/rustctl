@@ -37,7 +37,7 @@ impl Aggregator {
         let _done = ctoken
             .run_until_cancelled(async { tokio::join!(job_agg_resuse, job_broadcast) })
             .await;
-        return Summary {};
+        Summary {}
     }
 
     async fn broadcast(aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>) -> () {
@@ -95,10 +95,10 @@ pub struct Aggregated {
 
 impl Aggregated {
     pub fn init() -> std::sync::Arc<tokio::sync::Mutex<Self>> {
-        return std::sync::Arc::new(tokio::sync::Mutex::new(Self {
+        std::sync::Arc::new(tokio::sync::Mutex::new(Self {
             last_read: None,
             kibibytes_in_use: 0,
             all_cpus: Vec::new(),
-        }));
+        }))
     }
 }
