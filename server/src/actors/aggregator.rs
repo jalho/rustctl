@@ -42,11 +42,7 @@ impl Aggregator {
 
         let _done = ctoken
             .run_until_cancelled(async {
-                let done: ((), (), ()) = tokio::join!(
-                    job_agg_resuse,
-                    job_agg_gss,
-                    job_broadcast,
-                );
+                let done: ((), (), ()) = tokio::join!(job_agg_resuse, job_agg_gss, job_broadcast,);
                 done
             })
             .await;

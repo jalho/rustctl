@@ -87,7 +87,10 @@ impl GameServerStateMachine {
         }
     }
 
-    pub async fn loop_transitions(mut self, tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>) -> () {
+    pub async fn loop_transitions(
+        mut self,
+        tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
+    ) -> () {
         'loop_transitions: loop {
             self = match self {
                 Self::Init {
