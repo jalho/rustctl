@@ -71,9 +71,18 @@ impl Monitor {
                     }
                 };
                 let read_completed_by: std::time::SystemTime = std::time::SystemTime::now();
-                // calculate usage for each CPU
                 let cpu_usage: Option<Vec<Percentage>> = match &self.previous_stats {
-                    Some(previous) => Some(current_stats.calculate_usage_per_cpu_since(&previous)),
+                    Some(previous) => {
+                        let usage: Vec<Percentage> = match current_stats.calculate_usage_per_cpu_since(&previous) {
+                            Ok(n) => n,
+                            Err(err) => {
+                                log::error!("Failed to calculate CPU usage: {err}");
+                                self.request_termination().await;
+                                break 'read_usage;
+                            }
+                        };
+                        Some(usage)
+                    }
                     None => None,
                 };
                 self.previous_stats = Some(current_stats);
@@ -134,12 +143,16 @@ pub enum SystemResourceUsageReading {
 pub struct Percentage(f64);
 
 impl Percentage {
-    pub fn new(value: f64) -> Self {
-        /*
-         * TODO: Define an error case instead of using an assert?
-         */
-        assert!(value >= 0.0 && value <= 100.0);
-        Self(value)
+    pub fn calculate(current: &CpuStats, earlier: &CpuStats) -> Result<Self, ErrorReadingUsage> {
+        let total_diff: u64 = current.total() - earlier.total();
+        let active_diff: u64 = current.active() - earlier.active();
+        let usage: f64 = (active_diff as f64 / total_diff as f64) * 100.0;
+
+        if usage >= 0.0 && usage <= 100.0 {
+            Ok(Self(usage))
+        } else {
+            Err(ErrorReadingUsage::InvalidValueOutOfRangePercentage { invalid_value: usage })
+        }
     }
 }
 
@@ -187,7 +200,7 @@ fn parse_meminfo_line(line: &str) -> Result<u64, ErrorReadingUsage> {
     match value_str.parse::<u64>() {
         Ok(value) => Ok(value),
         Err(source) => {
-            return Err(ErrorReadingUsage::InvalidValue {
+            return Err(ErrorReadingUsage::InvalidValueNotInteger {
                 source,
                 invalid_line: line.to_owned(),
             });
@@ -200,7 +213,7 @@ enum ErrorReadingUsage {
     InvalidLineFormat {
         invalid_line: String,
     },
-    InvalidValue {
+    InvalidValueNotInteger {
         source: std::num::ParseIntError,
         invalid_line: String,
     },
@@ -208,14 +221,18 @@ enum ErrorReadingUsage {
         source: std::io::Error,
         attempted_path: String,
     },
+    InvalidValueOutOfRangePercentage {
+        invalid_value: f64,
+    },
 }
 
 impl std::error::Error for ErrorReadingUsage {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             ErrorReadingUsage::InvalidLineFormat { invalid_line: _ } => None,
-            ErrorReadingUsage::InvalidValue { source, .. } => Some(source),
+            ErrorReadingUsage::InvalidValueNotInteger { source, .. } => Some(source),
             ErrorReadingUsage::CannotRead { source, .. } => Some(source),
+            ErrorReadingUsage::InvalidValueOutOfRangePercentage { invalid_value: _ } => None,
         }
     }
 }
@@ -226,7 +243,7 @@ impl std::fmt::Display for ErrorReadingUsage {
             ErrorReadingUsage::InvalidLineFormat { invalid_line } => {
                 write!(f, r#"invalid line format: "{invalid_line}""#)
             }
-            ErrorReadingUsage::InvalidValue {
+            ErrorReadingUsage::InvalidValueNotInteger {
                 source: _,
                 invalid_line,
             } => write!(f, r#"invalid value in line: "{invalid_line}""#),
@@ -234,6 +251,9 @@ impl std::fmt::Display for ErrorReadingUsage {
                 source: _,
                 attempted_path,
             } => write!(f, r#"failed to read: "{attempted_path}""#),
+            ErrorReadingUsage::InvalidValueOutOfRangePercentage { invalid_value } => {
+                write!(f, "invalid value for percentage: out of range: {invalid_value}")
+            }
         }
     }
 }
@@ -328,23 +348,13 @@ impl AllCpusStats {
 
     /// Calculate CPU usage based on two consecutive readings of time spent on
     /// all CPUs.
-    fn calculate_usage_per_cpu_since(&self, earlier: &Self) -> Vec<Percentage> {
+    fn calculate_usage_per_cpu_since(&self, earlier: &Self) -> Result<Vec<Percentage>, ErrorReadingUsage> {
         let mut usage_per_cpu: Vec<Percentage> = Vec::with_capacity(self.0.len());
         for (idx, cpu) in self.0.iter().enumerate() {
             let earlier: CpuStats = earlier.0[idx];
-            let total_diff: u64 = cpu.total() - earlier.total();
-            let active_diff: u64 = cpu.active() - earlier.active();
-
-            /*
-             * TODO: Define error case for "calculated usage percentage not in
-             *       range [0.0, 100.0]"? I.e., make the program log an error
-             *       and terminate if somehow calculating unexpected values.
-             *       Currently just clamping to the expected range...
-             */
-            let usage: f64 = ((active_diff as f64 / total_diff as f64) * 100.0).clamp(0.0, 100.0);
-            usage_per_cpu.push(Percentage::new(usage));
+            usage_per_cpu.push(Percentage::calculate(cpu, &earlier)?);
         }
-        return usage_per_cpu;
+        return Ok(usage_per_cpu);
     }
 }
 
@@ -374,7 +384,7 @@ impl std::str::FromStr for CpuStats {
             let parsed: u64 = match part.parse() {
                 Ok(n) => n,
                 Err(source) => {
-                    return Err(ErrorReadingUsage::InvalidValue {
+                    return Err(ErrorReadingUsage::InvalidValueNotInteger {
                         source,
                         invalid_line: line.to_owned(),
                     });
