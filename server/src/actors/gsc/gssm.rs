@@ -342,7 +342,11 @@ impl GameServerStateMachine {
                         msg = rx_command.recv() => {
                             match msg {
                                 Some(message) => GameCtlEvent::MessageReceived { message },
-                                None => GameCtlEvent::MessageChannelClosed,
+                                None => {
+                                    log::error!("Channel for receiving commands closed while game server state machine is still working");
+                                    Self::request_termination(tx_activate).await;
+                                    break 'loop_transitions;
+                                },
                             }
                         }
                         output = process.wait() => {
@@ -390,7 +394,6 @@ impl GameServerStateMachine {
                                 }
                             }
                         }
-                        GameCtlEvent::MessageChannelClosed => todo!(),
                         GameCtlEvent::GameProcessTerminated { exit_status } => {
                             let _exit_status: std::process::ExitStatus = exit_status;
                             Self::GameTerminatedUnexpectedly {
@@ -529,8 +532,6 @@ enum GameCtlEvent {
     MessageReceived {
         message: rustctl_common::command::DownstreamClientMessage,
     },
-
-    MessageChannelClosed,
 
     GameProcessTerminated {
         exit_status: std::process::ExitStatus,
