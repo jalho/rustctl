@@ -36,7 +36,7 @@ fn main() -> std::process::ExitCode {
      * The actors.
      */
     let monitor = actors::monitor::Monitor::new(ctoken.child_token(), tx_activate.clone(), tx_resuse);
-    let aggregator = actors::aggregator::Aggregator::new(ctoken.child_token(), tx_activate.clone(), rx_resuse);
+    let aggregator = actors::aggregator::Aggregator::new(ctoken.child_token(), tx_activate.clone(), rx_resuse, rx_gss);
     let controller = actors::gsc::GameServerController::new(
         ctoken.child_token(),
         tx_activate.clone(),
