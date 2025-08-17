@@ -45,7 +45,7 @@ impl Monitor {
             };
 
             // value for each CPU
-            let cpu_stats: Vec<CpuStats> = match CpuStats::read_all_cpus().await {
+            let cpu_stats: Vec<CpuStats> = match CpuStats::read_spent_hz_all_cpus().await {
                 Ok(n) => n,
                 Err(err) => {
                     /*
@@ -206,25 +206,41 @@ impl std::fmt::Display for CpuStatsError {
     }
 }
 
+/// Docs: `proc_stat(5)` — Linux manual page
 #[derive(Debug, Clone, Copy)]
 struct CpuStats {
+    /// Time spent in system mode.
     system: u64,
+    /// Time spent in user mode.
     user: u64,
+    /// Time spent in user mode with low priority (nice).
     nice: u64,
 
+    /// Time servicing interrupts.
     irq: u64,
+    /// Time servicing softirqs.
     softirq: u64,
 
+    /// Stolen time, which is the time spent in other operating systems when
+    /// running in a virtualized environment.
     steal: u64,
+    /// Time spent running a virtual CPU for guest operating systems under the
+    /// control of the Linux kernel.
     guest: u64,
+    /// Time spent running a niced guest (virtual CPU for guest operating
+    /// systems under the control of the Linux kernel).
     guest_nice: u64,
 
+    /// Time spent in the idle task.
     idle: u64,
+    /// Time waiting for I/O to complete. This value is not reliable...
     iowait: u64,
 }
 
 impl CpuStats {
-    async fn read_all_cpus() -> Result<Vec<Self>, CpuStatsError> {
+    /// Reading from `/proc/stat`: The amount of time, measured in units of
+    /// USER_HZ that specific CPUs spent in various states.
+    async fn read_spent_hz_all_cpus() -> Result<Vec<Self>, CpuStatsError> {
         const PATH: &str = "/proc/stat";
         let stat_content = match tokio::fs::read_to_string(PATH).await {
             Ok(n) => n,
