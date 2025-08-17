@@ -308,9 +308,6 @@ impl GameServerStateMachine {
                             tx_activate,
                         },
                         Ok(Err(err)) => {
-                            /*
-                             * TODO: Figure out can this ever happen and if so, is it worthy of an ERROR log?
-                             */
                             log::error!(
                                 "Readiness signaling channel got teared down while waiting for the signal: {err_fmt}",
                                 err_fmt = crate::util::fmt_source_tree(&err)
