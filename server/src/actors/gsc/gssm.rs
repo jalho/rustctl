@@ -415,7 +415,12 @@ impl GameServerStateMachine {
                             log::info!("game server process exited with {status}");
                         }
                         Err(err) => {
-                            todo!("waiting for game server process to terminate failed: {err}");
+                            log::error!(
+                                "Waiting for game server process to terminate failed: {err_fmt}",
+                                err_fmt = crate::util::fmt_source_tree(&err),
+                            );
+                            Self::request_termination(tx_activate).await;
+                            break 'loop_transitions;
                         }
                     };
 
