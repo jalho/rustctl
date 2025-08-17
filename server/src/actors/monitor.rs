@@ -73,7 +73,7 @@ impl Monitor {
                 let read_completed_by: std::time::SystemTime = std::time::SystemTime::now();
                 let cpu_usage: Option<Vec<Percentage>> = match &self.previous_stats {
                     Some(previous) => {
-                        let usage: Vec<Percentage> = match current_stats.calculate_usage_per_cpu_since(&previous) {
+                        let usage: Vec<Percentage> = match current_stats.calculate_usage_per_cpu_since(previous) {
                             Ok(n) => n,
                             Err(err) => {
                                 log::error!("Failed to calculate CPU usage: {err}");
@@ -148,7 +148,7 @@ impl Percentage {
         let active_diff: u64 = current.active() - earlier.active();
         let usage: f64 = (active_diff as f64 / total_diff as f64) * 100.0;
 
-        if usage >= 0.0 && usage <= 100.0 {
+        if (0.0..=100.0).contains(&usage) {
             Ok(Self(usage))
         } else {
             Err(ErrorDeterminingUsage::InvalidValueOutOfRangePercentage {
@@ -203,10 +203,10 @@ fn parse_meminfo_line(line: &str) -> Result<u64, ErrorDeterminingUsage> {
     match value_str.parse::<u64>() {
         Ok(value) => Ok(value),
         Err(source) => {
-            return Err(ErrorDeterminingUsage::InvalidValueNotInteger {
+            Err(ErrorDeterminingUsage::InvalidValueNotInteger {
                 source,
                 invalid_line: line.to_owned(),
-            });
+            })
         }
     }
 }
@@ -371,7 +371,7 @@ impl AllCpusStats {
             let earlier: CpuStats = earlier.0[idx];
             usage_per_cpu.push(Percentage::calculate(cpu, &earlier)?);
         }
-        return Ok(usage_per_cpu);
+        Ok(usage_per_cpu)
     }
 }
 
@@ -397,7 +397,7 @@ impl std::str::FromStr for CpuStats {
         let mut values: [u64; PARTS_AFTER_HEADER] = [0; PARTS_AFTER_HEADER];
 
         for (idx, part) in parts.iter().enumerate() {
-            let part: &str = *part;
+            let part: &str = part;
             let parsed: u64 = match part.parse() {
                 Ok(n) => n,
                 Err(source) => {

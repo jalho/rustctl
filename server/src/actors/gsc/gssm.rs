@@ -554,7 +554,7 @@ async fn send_signal(
     };
     let pid: nix::unistd::Pid = nix::unistd::Pid::from_raw(pid);
     if let Err(source) = nix::sys::signal::kill(pid, signal) {
-        return Err(ErrorSendingSignal::SendFailed { source });
+        Err(ErrorSendingSignal::SendFailed { source })
     } else {
         Ok(pid)
     }

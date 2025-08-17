@@ -26,7 +26,7 @@ impl GameServerController {
         let ctoken = self.ctoken.child_token();
         let job = self.gssm.loop_transitions();
         let _done: Option<()> = ctoken.run_until_cancelled(job).await;
-        return Summary {};
+        Summary {}
     }
 }
 
