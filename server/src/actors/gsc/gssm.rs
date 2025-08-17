@@ -347,7 +347,14 @@ impl GameServerStateMachine {
                             }
                         }
                         output = process.wait() => {
-                            let exit_status: std::process::ExitStatus = output.unwrap();
+                            let exit_status: std::process::ExitStatus = match output {
+                                Ok(n) => n,
+                                Err(err) => {
+                                    log::error!("Failed to run game server to termination: {err_fmt}", err_fmt = crate::util::fmt_source_tree(&err));
+                                    Self::request_termination(tx_activate).await;
+                                    break 'loop_transitions;
+                                },
+                            };
                             GameCtlEvent::GameProcessTerminated { exit_status }
                         }
                     };
