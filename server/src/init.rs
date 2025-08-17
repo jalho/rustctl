@@ -54,7 +54,7 @@ pub fn initialize_logger(level: log::LevelFilter) -> Result<log4rs::Handle, std:
         Ok(n) => Ok(n),
         Err(err) => {
             eprintln!("Initializing logger failed: {err}");
-            return Err(std::process::ExitCode::FAILURE);
+            Err(std::process::ExitCode::FAILURE)
         }
     }
 }
