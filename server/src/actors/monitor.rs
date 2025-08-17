@@ -2,7 +2,7 @@ pub struct Monitor {
     ctoken: tokio_util::sync::CancellationToken,
     tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
     tx_resuse: tokio::sync::mpsc::Sender<SystemResourceUsageReading>,
-    previous_stats: Vec<CpuStats>,
+    previous_stats: Option<AllCpusStats>,
 }
 
 impl Monitor {
@@ -15,7 +15,7 @@ impl Monitor {
             ctoken,
             tx_activate,
             tx_resuse,
-            previous_stats: Vec::new(),
+            previous_stats: None,
         }
     }
 
@@ -26,7 +26,7 @@ impl Monitor {
         Summary {}
     }
 
-    async fn read_resources_usage(self) -> () {
+    async fn read_resources_usage(mut self) -> () {
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
@@ -45,7 +45,7 @@ impl Monitor {
             };
 
             // value for each CPU
-            let cpu_stats: Vec<CpuStats> = match CpuStats::read_spent_hz_all_cpus().await {
+            let current_stats: AllCpusStats = match AllCpusStats::read_time_spent().await {
                 Ok(n) => n,
                 Err(err) => {
                     /*
@@ -55,11 +55,8 @@ impl Monitor {
                     break 'read_usage;
                 }
             };
-
-            /*
-             * TODO: Calculate "CPU usage" based on comparison with previous reading!
-             */
-            dbg!(cpu_stats);
+            // calculate usage for each CPU
+            self.previous_stats = Some(current_stats);
 
             let read_completed_by: std::time::SystemTime = std::time::SystemTime::now();
 
@@ -237,10 +234,12 @@ struct CpuStats {
     iowait: u64,
 }
 
-impl CpuStats {
+struct AllCpusStats(Vec<CpuStats>);
+
+impl AllCpusStats {
     /// Reading from `/proc/stat`: The amount of time, measured in units of
     /// USER_HZ that specific CPUs spent in various states.
-    async fn read_spent_hz_all_cpus() -> Result<Vec<Self>, CpuStatsError> {
+    async fn read_time_spent() -> Result<Self, CpuStatsError> {
         const PATH: &str = "/proc/stat";
         let stat_content = match tokio::fs::read_to_string(PATH).await {
             Ok(n) => n,
@@ -251,7 +250,7 @@ impl CpuStats {
                 });
             }
         };
-        let mut cpu_stats: Vec<Self> = Vec::new();
+        let mut cpu_stats: Vec<CpuStats> = Vec::new();
 
         for line in stat_content.lines() {
             // look for lines like "cpu0", "cpu1", etc. (not the aggregate "cpu " line)
@@ -261,7 +260,7 @@ impl CpuStats {
             }
         }
 
-        Ok(cpu_stats)
+        Ok(Self(cpu_stats))
     }
 }
 
