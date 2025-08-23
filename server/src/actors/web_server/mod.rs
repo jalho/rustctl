@@ -6,7 +6,6 @@ pub struct WebServer {
 
     listen_addr: (std::net::IpAddr, u16),
     router: axum::Router,
-    tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
 }
 
 impl WebServer {
@@ -16,12 +15,14 @@ impl WebServer {
         listen_addr: (std::net::IpAddr, u16),
         tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
     ) -> Self {
+        let state: State = State::init(tx_cmd_collect.clone());
+
         let router: axum::Router = axum::Router::new()
             .route(
                 rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH,
                 axum::routing::get(handlers::websocket_handler),
             )
-            .with_state(State::init());
+            .with_state(state);
 
         Self {
             ctoken,
@@ -29,8 +30,6 @@ impl WebServer {
 
             listen_addr,
             router,
-
-            tx_cmd_collect,
         }
     }
 
@@ -95,10 +94,12 @@ impl WebServer {
 pub struct Summary {}
 
 #[derive(Clone)]
-pub struct State {}
+pub struct State {
+    tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
+}
 
 impl State {
-    pub fn init() -> Self {
-        Self {}
+    pub fn init(tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>) -> Self {
+        Self { tx_cmd_collect }
     }
 }
