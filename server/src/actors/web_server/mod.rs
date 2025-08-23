@@ -4,6 +4,7 @@ pub struct WebServer {
     ctoken: tokio_util::sync::CancellationToken,
     tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
 
+    listen_addr: (std::net::IpAddr, u16),
     router: axum::Router,
     tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
 }
@@ -12,6 +13,7 @@ impl WebServer {
     pub fn new(
         ctoken: tokio_util::sync::CancellationToken,
         tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
+        listen_addr: (std::net::IpAddr, u16),
         tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
     ) -> Self {
         let router: axum::Router = axum::Router::new()
@@ -25,6 +27,7 @@ impl WebServer {
             ctoken,
             tx_activate,
 
+            listen_addr,
             router,
 
             tx_cmd_collect,
@@ -32,11 +35,14 @@ impl WebServer {
     }
 
     pub async fn work(self) -> Summary {
-        const LISTEN_ADDR: &str = "127.0.0.1:8080";
-        let tcp_listener: tokio::net::TcpListener = match tokio::net::TcpListener::bind(LISTEN_ADDR).await {
+        let tcp_listener: tokio::net::TcpListener = match tokio::net::TcpListener::bind(&self.listen_addr).await {
             Ok(n) => n,
             Err(err) => {
-                log::error!("Failed to bind TCP listener at {LISTEN_ADDR}: {err}");
+                log::error!(
+                    r#"Failed to bind TCP listener at "{host}:{port}": {err}"#,
+                    host = self.listen_addr.0,
+                    port = self.listen_addr.1,
+                );
                 if let Err(err) = self
                     .tx_activate
                     .send(crate::actors::terminator::Activator::WebServer)

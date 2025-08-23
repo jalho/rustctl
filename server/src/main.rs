@@ -54,7 +54,12 @@ fn main() -> std::process::ExitCode {
         rx_command_relay,
         tx_gss,
     );
-    let web_server = actors::web_server::WebServer::new(ctoken.child_token(), tx_activate.clone(), tx_cmd_collect);
+    let web_server = actors::web_server::WebServer::new(
+        ctoken.child_token(),
+        tx_activate.clone(),
+        (cli_args.web_server_listen_ip_addr, cli_args.web_server_listen_port),
+        tx_cmd_collect,
+    );
     let terminator = actors::terminator::Terminator::new(ctoken, rx_activate);
 
     /*
