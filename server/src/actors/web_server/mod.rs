@@ -90,7 +90,7 @@ impl WebServer {
                 log::debug!("Web server job cancelled");
             }
         }
-        return Summary {};
+        Summary {}
     }
 }
 
