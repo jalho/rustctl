@@ -42,14 +42,10 @@ impl Aggregator {
          * Aggregate all kinds of stuff to internal collection as soon as stuff
          * arrives from the other actors, and broadcast the aggregated on a
          * regular interval.
-         *
-         * TODO: Add jobs here:
-         * - Aggregate in-game world state updates from RCON actor sent state snapshots
-         * - Aggregate game server state from game server controller actor sent state transition notifications
          */
         let job_agg_resuse = Self::aggregate_system_resources_usage_readings(self.aggregated.clone(), self.rx_resuse);
         let job_agg_gss = Self::aggregate_game_server_state_machine_transitions(self.aggregated.clone(), self.rx_gss);
-        let job_broadcast = Self::broadcast(self.aggregated.clone());
+        let job_broadcast = Self::broadcast(self.aggregated.clone(), self.tx_broadcast);
 
         let job_cmd_relay = Self::relay_gsc_commands(self.rx_cmd_collect, self.tx_cmd_relay.clone());
 
@@ -86,11 +82,14 @@ impl Aggregator {
         }
     }
 
-    async fn broadcast(aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>) -> () {
+    async fn broadcast(
+        aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>,
+        tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
+    ) -> () {
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-        'broadcast: loop {
+        loop {
             interval.tick().await;
 
             let last_updated_at: Option<std::time::SystemTime>;
@@ -105,8 +104,20 @@ impl Aggregator {
                 game_server_state = lock.game_server_state.clone();
             }
 
-            // TODO: Broadcast the aggregated state for the connected downstream WebSocket clients!
-            dbg!(last_updated_at, memory_used_kibibytes, cpus_usage, game_server_state);
+            let read_completed_by: chrono::DateTime<chrono::Utc> = chrono::Utc::now(); // TODO: Make from `last_updated_at`
+
+            let snapshot: rustctl_common::snapshot::Snapshot = rustctl_common::snapshot::Snapshot {
+                game_server_state,
+                system_memory_usage_total: rustctl_common::snapshot::TimedValue {
+                    read_completed_by,
+                    read_value: rustctl_common::snapshot::MemoryUsage::new(memory_used_kibibytes),
+                },
+                system_cpu_usage_total: rustctl_common::snapshot::TimedValue {
+                    read_completed_by,
+                    read_value: vec![rustctl_common::snapshot::CpuUsage::new(0.0)], // TODO: Make from `cpus_usage`
+                },
+            };
+            _ = tx_broadcast.send(snapshot);
         }
     }
 
