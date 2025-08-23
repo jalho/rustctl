@@ -43,11 +43,11 @@ async fn collect_messages_from_downstream(
             Some(Ok(n)) => n,
             Some(Err(err)) => {
                 log::debug!("Downstream client stream closed: {err}");
-                return ;
+                return;
             }
             None => {
                 log::debug!("Downstream client stream closed");
-                return ;
+                return;
             }
         };
         dbg!(msg_raw);
