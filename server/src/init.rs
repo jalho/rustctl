@@ -4,7 +4,7 @@ pub struct CliArgs {
     #[arg(short, long, default_value_t = log::LevelFilter::Debug)]
     pub log_level: log::LevelFilter,
 
-    #[arg(short = 'i', long, default_value_t = WEB_SERVER_LISTEN_IP_ADDR)]
+    #[arg(short = 'i', long, default_value_t = DEFAULT_WEB_SERVER_LISTEN_IP_ADDR)]
     pub web_server_listen_ip_addr: std::net::IpAddr,
 
     #[arg(short = 'p', long, default_value_t = 8080)]
@@ -80,4 +80,4 @@ pub fn build_runtime() -> Result<tokio::runtime::Runtime, std::process::ExitCode
     Ok(runtime)
 }
 
-const WEB_SERVER_LISTEN_IP_ADDR: std::net::IpAddr = std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1));
+const DEFAULT_WEB_SERVER_LISTEN_IP_ADDR: std::net::IpAddr = std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1));
