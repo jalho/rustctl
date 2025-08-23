@@ -1,3 +1,6 @@
+type DownstreamSink = futures_util::stream::SplitSink<axum::extract::ws::WebSocket, axum::extract::ws::Message>;
+type DownstreamStream = futures_util::stream::SplitStream<axum::extract::ws::WebSocket>;
+
 pub async fn websocket_handler(
     ws: axum::extract::WebSocketUpgrade,
     axum::extract::ConnectInfo(addr): axum::extract::ConnectInfo<std::net::SocketAddr>,
@@ -10,27 +13,40 @@ pub async fn websocket_handler(
 
         log::debug!("Downstream client connected: {addr}");
 
-        let (_tx, _rx) = futures_util::StreamExt::split(socket);
+        let rx_broadcast: tokio::sync::broadcast::Receiver<rustctl_common::snapshot::Snapshot> =
+            state.tx_broadcast.subscribe();
+        let tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage> =
+            state.tx_cmd_collect.clone();
+        let (sink, stream): (DownstreamSink, DownstreamStream) = futures_util::StreamExt::split(socket);
 
-        /*
-         * TODO: Remove this POC send of static command on connect! Instead,
-         *       receive commands from the downstream client's rx end and send
-         *       them!
-         */
-        match state
-            .tx_cmd_collect
-            .send(rustctl_common::command::DownstreamClientMessage::ServerSaveAndClose)
-            .await
-        {
-            Ok(_) => log::debug!("sent mock command"),
-            Err(err) => log::error!("failed to send mock command: {err}"),
-        }
+        let job_collect = collect_messages_from_downstream(stream, tx_cmd_collect);
+        let job_send = send_updates_to_downstream(sink, rx_broadcast);
 
-        /*
-         * TODO: Receive state updates from Aggregator's broadcast channel and
-         *       send them to the downstream client's tx end.
-         */
+        let _done: () = tokio::select! {
+            n = job_collect => n,
+            n = job_send => n,
+        };
 
         log::debug!("Downstream client disconnected: {addr}");
     })
+}
+
+async fn collect_messages_from_downstream(
+    stream: DownstreamStream,
+    tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
+) {
+    /*
+     * TODO: In a loop, read from `stream` and write to `tx_cmd_collect`
+     */
+    todo!();
+}
+
+async fn send_updates_to_downstream(
+    sink: DownstreamSink,
+    rx_broadcast: tokio::sync::broadcast::Receiver<rustctl_common::snapshot::Snapshot>,
+) {
+    /*
+     * TODO: In a loop, read from `rx_broadcast` and write to `sink`
+     */
+    todo!();
 }

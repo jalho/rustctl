@@ -12,10 +12,13 @@ impl WebServer {
     pub fn new(
         ctoken: tokio_util::sync::CancellationToken,
         tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
+
         listen_addr: (std::net::IpAddr, u16),
+
         tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
+        tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
     ) -> Self {
-        let state: State = State::init(tx_cmd_collect.clone());
+        let state: State = State::init(tx_cmd_collect, tx_broadcast);
 
         let router: axum::Router = axum::Router::new()
             .route(
@@ -96,10 +99,17 @@ pub struct Summary {}
 #[derive(Clone)]
 pub struct State {
     tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
+    tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
 }
 
 impl State {
-    pub fn init(tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>) -> Self {
-        Self { tx_cmd_collect }
+    pub fn init(
+        tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
+        tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
+    ) -> Self {
+        Self {
+            tx_cmd_collect,
+            tx_broadcast,
+        }
     }
 }

@@ -34,6 +34,7 @@ fn main() -> std::process::ExitCode {
     let (tx_cmd_relay, rx_command_relay) =
         tokio::sync::mpsc::channel::<rustctl_common::command::DownstreamClientMessage>(1);
     let (tx_gss, rx_gss) = tokio::sync::mpsc::channel::<rustctl_common::snapshot::GameServerStateExposed>(1);
+    let (tx_broadcast, _) = tokio::sync::broadcast::channel::<rustctl_common::snapshot::Snapshot>(1);
 
     /*
      * The actors.
@@ -46,6 +47,7 @@ fn main() -> std::process::ExitCode {
         rx_gss,
         rx_command_collect,
         tx_cmd_relay,
+        tx_broadcast.clone(),
     );
     let controller = actors::gsc::GameServerController::new(
         ctoken.child_token(),
@@ -59,6 +61,7 @@ fn main() -> std::process::ExitCode {
         tx_activate.clone(),
         (cli_args.web_server_listen_ip_addr, cli_args.web_server_listen_port),
         tx_cmd_collect,
+        tx_broadcast,
     );
     let terminator = actors::terminator::Terminator::new(ctoken, rx_activate);
 

@@ -5,6 +5,7 @@ pub struct Aggregator {
     rx_resuse: tokio::sync::mpsc::Receiver<crate::actors::monitor::SystemResourceUsageReading>,
     rx_gss: tokio::sync::mpsc::Receiver<rustctl_common::snapshot::GameServerStateExposed>,
     aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>,
+    tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
 
     rx_cmd_collect: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
     tx_cmd_relay: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
@@ -18,6 +19,7 @@ impl Aggregator {
         rx_gss: tokio::sync::mpsc::Receiver<rustctl_common::snapshot::GameServerStateExposed>,
         rx_cmd_collect: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
         tx_cmd_relay: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
+        tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
     ) -> Self {
         Self {
             ctoken,
@@ -26,6 +28,7 @@ impl Aggregator {
             rx_resuse,
             rx_gss,
             aggregated: Aggregated::init(),
+            tx_broadcast,
 
             rx_cmd_collect,
             tx_cmd_relay,
