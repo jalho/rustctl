@@ -396,8 +396,8 @@ impl GameServerStateMachine {
             };
 
             if let Err(err) = self.send_state().await {
-                log::error!(
-                    "Failed to send game server state machine transition to aggregator: {err_fmt}",
+                log::debug!(
+                    "Channel for sending game server state machine transition to aggregator is closed: {err_fmt} -- Stopping state machine",
                     err_fmt = crate::util::fmt_source_tree(&err),
                 );
                 break 'loop_transitions;
