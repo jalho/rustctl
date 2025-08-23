@@ -2,11 +2,6 @@
 
 mod gssm;
 
-/*
- * TODO: Remove the unnecessary layer of abstraction "GameServerController":
- *       Instead, Use the container "GameServerStateMachine" directly as a top
- *       level actor!
- */
 pub struct GameServerController {
     gssm: gssm::GameServerStateMachine,
     ctoken: tokio_util::sync::CancellationToken,
