@@ -73,4 +73,5 @@ pub struct Summary {}
 pub enum Activator {
     SystemResourcesUsageMonitor,
     GameServerStateMachine,
+    WebServer,
 }

@@ -54,17 +54,27 @@ fn main() -> std::process::ExitCode {
         rx_command_relay,
         tx_gss,
     );
+    let web_server = actors::web_server::WebServer::new(ctoken.child_token(), tx_activate.clone(), tx_cmd_collect);
     let terminator = actors::terminator::Terminator::new(ctoken, rx_activate);
 
     /*
      * Let's go!
      */
-    let runtime_job = async { tokio::join!(terminator.work(), aggregator.work(), monitor.work(), controller.work()) };
+    let runtime_job = async {
+        tokio::join!(
+            terminator.work(),
+            aggregator.work(),
+            monitor.work(),
+            controller.work(),
+            web_server.work()
+        )
+    };
     let _runtime_done: (
         actors::terminator::Summary,
         actors::aggregator::Summary,
         actors::monitor::Summary,
         actors::gsc::Summary,
+        actors::web_server::Summary,
     ) = runtime.block_on(runtime_job);
 
     std::process::ExitCode::SUCCESS
