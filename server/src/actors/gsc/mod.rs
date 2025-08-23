@@ -10,7 +10,6 @@ mod gssm;
 pub struct GameServerController {
     gssm: gssm::GameServerStateMachine,
     ctoken: tokio_util::sync::CancellationToken,
-    tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
 }
 
 impl GameServerController {
@@ -23,15 +22,14 @@ impl GameServerController {
         tx_aggregator: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
     ) -> Self {
         Self {
-            gssm: gssm::GameServerStateMachine::init(cfg_client, rx_command, tx_aggregator, tx_activate.clone()),
+            gssm: gssm::GameServerStateMachine::init(cfg_client, rx_command, tx_aggregator, tx_activate),
             ctoken,
-            tx_activate,
         }
     }
 
     pub async fn work(self) -> Summary {
         let ctoken = self.ctoken.child_token();
-        let job = self.gssm.loop_transitions(self.tx_activate);
+        let job = self.gssm.loop_transitions();
         let _done: Option<()> = ctoken.run_until_cancelled(job).await;
         Summary {}
     }

@@ -1,7 +1,6 @@
 //! Game Server State Machine (GSSM).
 
-/// Shared context data for all state machine variants
-pub struct GameServerContext {
+pub struct Context {
     pub cfg_client: crate::storage::GameServerConfigurationShared,
     pub rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
     pub tx_aggregator: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
@@ -10,36 +9,36 @@ pub struct GameServerContext {
 
 pub enum GameServerStateMachine {
     Init {
-        ctx: GameServerContext,
+        ctx: Context,
     },
     InstallingUpdates {
-        ctx: GameServerContext,
+        ctx: Context,
     },
     InstalledAndConfigured {
-        ctx: GameServerContext,
+        ctx: Context,
         game_meta: rustctl_common::snapshot::GameServerMetaExposed,
     },
     LaunchingGame {
-        ctx: GameServerContext,
+        ctx: Context,
         game_meta: rustctl_common::snapshot::GameServerMetaExposed,
         process: tokio::process::Child,
         stdout: tokio::process::ChildStdout,
         stderr: tokio::process::ChildStderr,
     },
     GameRunningHealthy {
-        ctx: GameServerContext,
+        ctx: Context,
         game_meta: rustctl_common::snapshot::GameServerMetaExposed,
         process: tokio::process::Child,
     },
     SavingAndClosingGame {
-        ctx: GameServerContext,
+        ctx: Context,
         process: tokio::process::Child,
     },
     GameClosedManually {
-        ctx: GameServerContext,
+        ctx: Context,
     },
     GameTerminatedUnexpectedly {
-        ctx: GameServerContext,
+        ctx: Context,
     },
 }
 
@@ -51,7 +50,7 @@ impl GameServerStateMachine {
         tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
     ) -> Self {
         Self::Init {
-            ctx: GameServerContext {
+            ctx: Context {
                 cfg_client,
                 rx_command,
                 tx_aggregator,
@@ -69,10 +68,7 @@ impl GameServerStateMachine {
         }
     }
 
-    pub async fn loop_transitions(
-        mut self,
-        tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
-    ) -> () {
+    pub async fn loop_transitions(mut self) -> () {
         'loop_transitions: loop {
             self = match self {
                 Self::Init { ctx } => Self::InstallingUpdates { ctx },
@@ -105,7 +101,7 @@ impl GameServerStateMachine {
                                 path = config.installer_exe,
                                 err_fmt = crate::util::fmt_source_tree(&err),
                             );
-                            Self::request_termination(ctx.tx_activate).await;
+                            Self::request_termination(ctx.tx_activate.clone()).await;
                             break 'loop_transitions;
                         }
                     };
@@ -117,7 +113,7 @@ impl GameServerStateMachine {
                                 "Failed to run game server installer to termination: {err_fmt}",
                                 err_fmt = crate::util::fmt_source_tree(&err),
                             );
-                            Self::request_termination(ctx.tx_activate).await;
+                            Self::request_termination(ctx.tx_activate.clone()).await;
                             break 'loop_transitions;
                         }
                     };
@@ -136,7 +132,7 @@ impl GameServerStateMachine {
                                 "Installing game server failed: Could not extract buildid from game server app manifest after installation: {path}",
                                 path = config.game_manifest
                             );
-                            Self::request_termination(ctx.tx_activate).await;
+                            Self::request_termination(ctx.tx_activate.clone()).await;
                             break;
                         }
                         (None, Some(buildid)) => {
@@ -176,7 +172,7 @@ impl GameServerStateMachine {
                                 path = cfg.game_server_exe,
                                 err_fmt = crate::util::fmt_source_tree(&err),
                             );
-                            Self::request_termination(ctx.tx_activate).await;
+                            Self::request_termination(ctx.tx_activate.clone()).await;
                             break 'loop_transitions;
                         }
                     };
@@ -185,7 +181,7 @@ impl GameServerStateMachine {
                         (Some(stdout), Some(stderr)) => (stdout, stderr),
                         _ => {
                             log::error!("Failed to get output handle of game server process",);
-                            Self::request_termination(ctx.tx_activate).await;
+                            Self::request_termination(ctx.tx_activate.clone()).await;
                             break 'loop_transitions;
                         }
                     };
@@ -280,7 +276,7 @@ impl GameServerStateMachine {
                                 "Readiness signaling channel got teared down while waiting for the signal: {err_fmt}",
                                 err_fmt = crate::util::fmt_source_tree(&err)
                             );
-                            Self::request_termination(ctx.tx_activate).await;
+                            Self::request_termination(ctx.tx_activate.clone()).await;
                             break 'loop_transitions;
                         }
                         Err(err) => {
@@ -289,7 +285,7 @@ impl GameServerStateMachine {
                                 timeout_secs = timeout.as_secs(),
                                 err_fmt = crate::util::fmt_source_tree(&err)
                             );
-                            Self::request_termination(ctx.tx_activate).await;
+                            Self::request_termination(ctx.tx_activate.clone()).await;
                             break 'loop_transitions;
                         }
                     }
@@ -306,7 +302,7 @@ impl GameServerStateMachine {
                                 Some(message) => GameCtlEvent::MessageReceived { message },
                                 None => {
                                     log::error!("Channel for receiving commands closed while game server state machine is still working");
-                                    Self::request_termination(ctx.tx_activate).await;
+                                    Self::request_termination(ctx.tx_activate.clone()).await;
                                     break 'loop_transitions;
                                 },
                             }
@@ -316,7 +312,7 @@ impl GameServerStateMachine {
                                 Ok(n) => n,
                                 Err(err) => {
                                     log::error!("Failed to run game server to termination: {err_fmt}", err_fmt = crate::util::fmt_source_tree(&err));
-                                    Self::request_termination(ctx.tx_activate).await;
+                                    Self::request_termination(ctx.tx_activate.clone()).await;
                                     break 'loop_transitions;
                                 },
                             };
@@ -337,7 +333,7 @@ impl GameServerStateMachine {
                                                 "Failed to send signal to game server: {err_fmt}",
                                                 err_fmt = crate::util::fmt_source_tree(&err)
                                             );
-                                            Self::request_termination(ctx.tx_activate).await;
+                                            Self::request_termination(ctx.tx_activate.clone()).await;
                                             break 'loop_transitions;
                                         }
                                     };
@@ -371,7 +367,7 @@ impl GameServerStateMachine {
                                 "Waiting for game server process to terminate failed: {err_fmt}",
                                 err_fmt = crate::util::fmt_source_tree(&err),
                             );
-                            Self::request_termination(ctx.tx_activate).await;
+                            Self::request_termination(ctx.tx_activate.clone()).await;
                             break 'loop_transitions;
                         }
                     };
@@ -405,6 +401,16 @@ impl GameServerStateMachine {
                     "Failed to send game server state machine transition to aggregator: {err_fmt}",
                     err_fmt = crate::util::fmt_source_tree(&err),
                 );
+                let tx_activate = match &self {
+                    GameServerStateMachine::Init { ctx, .. }
+                    | GameServerStateMachine::InstallingUpdates { ctx, .. }
+                    | GameServerStateMachine::InstalledAndConfigured { ctx, .. }
+                    | GameServerStateMachine::LaunchingGame { ctx, .. }
+                    | GameServerStateMachine::GameRunningHealthy { ctx, .. }
+                    | GameServerStateMachine::SavingAndClosingGame { ctx, .. }
+                    | GameServerStateMachine::GameClosedManually { ctx, .. }
+                    | GameServerStateMachine::GameTerminatedUnexpectedly { ctx, .. } => ctx.tx_activate.clone(),
+                };
                 Self::request_termination(tx_activate).await;
                 break 'loop_transitions;
             }
