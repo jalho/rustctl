@@ -4,8 +4,10 @@ pub struct Aggregator {
 
     rx_resuse: tokio::sync::mpsc::Receiver<crate::actors::monitor::SystemResourceUsageReading>,
     rx_gss: tokio::sync::mpsc::Receiver<rustctl_common::snapshot::GameServerStateExposed>,
-
     aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>,
+
+    rx_cmd_collect: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
+    tx_cmd_relay: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
 }
 
 impl Aggregator {
@@ -14,13 +16,19 @@ impl Aggregator {
         tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
         rx_resuse: tokio::sync::mpsc::Receiver<crate::actors::monitor::SystemResourceUsageReading>,
         rx_gss: tokio::sync::mpsc::Receiver<rustctl_common::snapshot::GameServerStateExposed>,
+        rx_cmd_collect: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
+        tx_cmd_relay: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
     ) -> Self {
         Self {
-            tx_activate,
             ctoken,
+            tx_activate,
+
             rx_resuse,
-            aggregated: Aggregated::init(),
             rx_gss,
+            aggregated: Aggregated::init(),
+
+            rx_cmd_collect,
+            tx_cmd_relay,
         }
     }
 
@@ -40,13 +48,39 @@ impl Aggregator {
         let job_agg_gss = Self::aggregate_game_server_state_machine_transitions(self.aggregated.clone(), self.rx_gss);
         let job_broadcast = Self::broadcast(self.aggregated.clone());
 
+        let job_cmd_relay = Self::relay_gsc_commands(self.rx_cmd_collect, self.tx_cmd_relay.clone());
+
         let _done = ctoken
             .run_until_cancelled(async {
-                let done: ((), (), ()) = tokio::join!(job_agg_resuse, job_agg_gss, job_broadcast,);
+                let done: ((), (), (), ()) = tokio::join!(job_agg_resuse, job_agg_gss, job_broadcast, job_cmd_relay);
                 done
             })
             .await;
         Summary {}
+    }
+
+    /// Relay commands from downstream WebSocket clients to Game Server Controller (GSC).
+    async fn relay_gsc_commands(
+        mut rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
+        tx_command: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
+    ) -> () {
+        'relay: loop {
+            let foo: rustctl_common::command::DownstreamClientMessage = match rx_command.recv().await {
+                Some(n) => n,
+                None => {
+                    log::debug!(
+                        "Channel for receiving relayable commands from downstream clients is closed (all senders dropped) -- Stopping relaying"
+                    );
+                    break 'relay;
+                }
+            };
+            if let Err(err) = tx_command.send(foo).await {
+                log::debug!(
+                    "Channel for relaying commands to game server controller is closed -- Stopping relaying: {err}"
+                );
+                break 'relay;
+            }
+        }
     }
 
     async fn broadcast(aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>) -> () {
