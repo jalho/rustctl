@@ -301,8 +301,7 @@ impl GameServerStateMachine {
                             match msg {
                                 Some(message) => GameCtlEvent::MessageReceived { message },
                                 None => {
-                                    log::error!("Channel for receiving commands closed while game server state machine is still working");
-                                    Self::request_termination(ctx.tx_activate.clone()).await;
+                                    log::debug!("Channel for receiving commands closed -- Stopping game server state machine");
                                     break 'loop_transitions;
                                 },
                             }
@@ -401,17 +400,6 @@ impl GameServerStateMachine {
                     "Failed to send game server state machine transition to aggregator: {err_fmt}",
                     err_fmt = crate::util::fmt_source_tree(&err),
                 );
-                let tx_activate = match &self {
-                    GameServerStateMachine::Init { ctx, .. }
-                    | GameServerStateMachine::InstallingUpdates { ctx, .. }
-                    | GameServerStateMachine::InstalledAndConfigured { ctx, .. }
-                    | GameServerStateMachine::LaunchingGame { ctx, .. }
-                    | GameServerStateMachine::GameRunningHealthy { ctx, .. }
-                    | GameServerStateMachine::SavingAndClosingGame { ctx, .. }
-                    | GameServerStateMachine::GameClosedManually { ctx, .. }
-                    | GameServerStateMachine::GameTerminatedUnexpectedly { ctx, .. } => ctx.tx_activate.clone(),
-                };
-                Self::request_termination(tx_activate).await;
                 break 'loop_transitions;
             }
         }
