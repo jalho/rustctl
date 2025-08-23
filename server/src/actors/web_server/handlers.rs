@@ -32,21 +32,47 @@ pub async fn websocket_handler(
 }
 
 async fn collect_messages_from_downstream(
-    stream: DownstreamStream,
+    mut stream: DownstreamStream,
     tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
-) {
+) -> () {
     /*
      * TODO: In a loop, read from `stream` and write to `tx_cmd_collect`
      */
-    todo!();
+    loop {
+        let msg_raw: axum::extract::ws::Message = match futures_util::StreamExt::next(&mut stream).await {
+            Some(Ok(n)) => n,
+            Some(Err(err)) => {
+                log::debug!("Downstream client stream closed: {err}");
+                return ();
+            }
+            None => {
+                log::debug!("Downstream client stream closed");
+                return ();
+            }
+        };
+        dbg!(msg_raw);
+    }
 }
 
 async fn send_updates_to_downstream(
-    sink: DownstreamSink,
-    rx_broadcast: tokio::sync::broadcast::Receiver<rustctl_common::snapshot::Snapshot>,
+    mut sink: DownstreamSink,
+    mut rx_broadcast: tokio::sync::broadcast::Receiver<rustctl_common::snapshot::Snapshot>,
 ) {
-    /*
-     * TODO: In a loop, read from `rx_broadcast` and write to `sink`
-     */
-    todo!();
+    loop {
+        let snapshot: rustctl_common::snapshot::Snapshot = match rx_broadcast.recv().await {
+            Ok(n) => n,
+            Err(_err) => todo!(),
+        };
+
+        let serialized: String = match serde_json::to_string(&snapshot) {
+            Ok(n) => n,
+            Err(_err) => todo!(),
+        };
+        let serialized: axum::extract::ws::Utf8Bytes = serialized.into();
+
+        let msg: axum::extract::ws::Message = axum::extract::ws::Message::Text(serialized);
+        if let Err(_err) = futures_util::SinkExt::send(&mut sink, msg).await {
+            todo!();
+        }
+    }
 }
