@@ -64,7 +64,7 @@ impl Aggregator {
         tx_command: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
     ) -> () {
         'relay: loop {
-            let foo: rustctl_common::command::DownstreamClientMessage = match rx_command.recv().await {
+            let msg: rustctl_common::command::DownstreamClientMessage = match rx_command.recv().await {
                 Some(n) => n,
                 None => {
                     log::debug!(
@@ -73,7 +73,7 @@ impl Aggregator {
                     break 'relay;
                 }
             };
-            if let Err(err) = tx_command.send(foo).await {
+            if let Err(err) = tx_command.send(msg).await {
                 log::debug!(
                     "Channel for relaying commands to game server controller is closed -- Stopping relaying: {err}"
                 );
