@@ -1,65 +1,45 @@
 //! Game Server State Machine (GSSM).
 
+/// Shared context data for all state machine variants
+pub struct GameServerContext {
+    pub cfg_client: crate::storage::GameServerConfigurationShared,
+    pub rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
+    pub tx_aggregator: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
+    pub tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
+}
+
 pub enum GameServerStateMachine {
     Init {
-        cfg_client: crate::storage::GameServerConfigurationShared,
-        rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
-        tx_aggregator: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
-        tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
+        ctx: GameServerContext,
     },
     InstallingUpdates {
-        cfg_client: crate::storage::GameServerConfigurationShared,
-        rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
-        tx_aggregator: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
-        tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
+        ctx: GameServerContext,
     },
     InstalledAndConfigured {
-        cfg_client: crate::storage::GameServerConfigurationShared,
-        rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
-        tx_aggregator: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
-        tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
-
+        ctx: GameServerContext,
         game_meta: rustctl_common::snapshot::GameServerMetaExposed,
     },
     LaunchingGame {
-        cfg_client: crate::storage::GameServerConfigurationShared,
-        rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
-        tx_aggregator: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
-        tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
-
+        ctx: GameServerContext,
         game_meta: rustctl_common::snapshot::GameServerMetaExposed,
         process: tokio::process::Child,
         stdout: tokio::process::ChildStdout,
         stderr: tokio::process::ChildStderr,
     },
     GameRunningHealthy {
-        cfg_client: crate::storage::GameServerConfigurationShared,
-        rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
-        tx_aggregator: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
-        tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
-
+        ctx: GameServerContext,
         game_meta: rustctl_common::snapshot::GameServerMetaExposed,
         process: tokio::process::Child,
     },
     SavingAndClosingGame {
-        cfg_client: crate::storage::GameServerConfigurationShared,
-        rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
-        tx_aggregator: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
-        tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
-
+        ctx: GameServerContext,
         process: tokio::process::Child,
     },
     GameClosedManually {
-        cfg_client: crate::storage::GameServerConfigurationShared,
-        rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
-        tx_aggregator: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
-        tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
+        ctx: GameServerContext,
     },
     GameTerminatedUnexpectedly {
-        cfg_client: crate::storage::GameServerConfigurationShared,
-        rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
-        tx_aggregator: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
-        tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
+        ctx: GameServerContext,
     },
 }
 
@@ -71,10 +51,12 @@ impl GameServerStateMachine {
         tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
     ) -> Self {
         Self::Init {
-            cfg_client,
-            rx_command,
-            tx_aggregator,
-            tx_activate,
+            ctx: GameServerContext {
+                cfg_client,
+                rx_command,
+                tx_aggregator,
+                tx_activate,
+            },
         }
     }
 
@@ -93,28 +75,13 @@ impl GameServerStateMachine {
     ) -> () {
         'loop_transitions: loop {
             self = match self {
-                Self::Init {
-                    cfg_client,
-                    rx_command,
-                    tx_aggregator,
-                    tx_activate,
-                } => Self::InstallingUpdates {
-                    cfg_client,
-                    rx_command,
-                    tx_aggregator,
-                    tx_activate,
-                },
+                Self::Init { ctx } => Self::InstallingUpdates { ctx },
 
                 /*
                  * Install or update `RustDedicated` using `steamcmd`.
                  */
-                Self::InstallingUpdates {
-                    cfg_client,
-                    rx_command,
-                    tx_aggregator,
-                    tx_activate,
-                } => {
-                    let config = cfg_client.get_config().await;
+                Self::InstallingUpdates { ctx } => {
+                    let config = ctx.cfg_client.get_config().await;
 
                     let buildid_before: Option<u32> = {
                         if let Ok(contents) = tokio::fs::read_to_string(config.game_manifest).await {
@@ -138,7 +105,7 @@ impl GameServerStateMachine {
                                 path = config.installer_exe,
                                 err_fmt = crate::util::fmt_source_tree(&err),
                             );
-                            Self::request_termination(tx_activate).await;
+                            Self::request_termination(ctx.tx_activate).await;
                             break 'loop_transitions;
                         }
                     };
@@ -150,7 +117,7 @@ impl GameServerStateMachine {
                                 "Failed to run game server installer to termination: {err_fmt}",
                                 err_fmt = crate::util::fmt_source_tree(&err),
                             );
-                            Self::request_termination(tx_activate).await;
+                            Self::request_termination(ctx.tx_activate).await;
                             break 'loop_transitions;
                         }
                     };
@@ -169,7 +136,7 @@ impl GameServerStateMachine {
                                 "Installing game server failed: Could not extract buildid from game server app manifest after installation: {path}",
                                 path = config.game_manifest
                             );
-                            Self::request_termination(tx_activate).await;
+                            Self::request_termination(ctx.tx_activate).await;
                             break;
                         }
                         (None, Some(buildid)) => {
@@ -188,21 +155,12 @@ impl GameServerStateMachine {
 
                     Self::InstalledAndConfigured {
                         game_meta: rustctl_common::snapshot::GameServerMetaExposed { buildid },
-                        cfg_client,
-                        rx_command,
-                        tx_aggregator,
-                        tx_activate,
+                        ctx,
                     }
                 }
 
-                Self::InstalledAndConfigured {
-                    cfg_client,
-                    rx_command,
-                    tx_aggregator,
-                    tx_activate,
-                    game_meta,
-                } => {
-                    let cfg = cfg_client.get_config().await;
+                Self::InstalledAndConfigured { ctx, game_meta } => {
+                    let cfg = ctx.cfg_client.get_config().await;
                     let mut command = tokio::process::Command::new(cfg.game_server_exe);
                     command.current_dir(cfg.game_server_root);
                     command.args(cfg.get_game_args());
@@ -218,7 +176,7 @@ impl GameServerStateMachine {
                                 path = cfg.game_server_exe,
                                 err_fmt = crate::util::fmt_source_tree(&err),
                             );
-                            Self::request_termination(tx_activate).await;
+                            Self::request_termination(ctx.tx_activate).await;
                             break 'loop_transitions;
                         }
                     };
@@ -227,7 +185,7 @@ impl GameServerStateMachine {
                         (Some(stdout), Some(stderr)) => (stdout, stderr),
                         _ => {
                             log::error!("Failed to get output handle of game server process",);
-                            Self::request_termination(tx_activate).await;
+                            Self::request_termination(ctx.tx_activate).await;
                             break 'loop_transitions;
                         }
                     };
@@ -237,10 +195,7 @@ impl GameServerStateMachine {
                         process,
                         stdout,
                         stderr,
-                        cfg_client,
-                        rx_command,
-                        tx_aggregator,
-                        tx_activate,
+                        ctx,
                     }
                 }
 
@@ -249,10 +204,7 @@ impl GameServerStateMachine {
                     process,
                     stdout,
                     stderr,
-                    cfg_client,
-                    rx_command,
-                    tx_aggregator,
-                    tx_activate,
+                    ctx,
                 } => {
                     let timeout = std::time::Duration::from_secs(60 * 30); // 30 minutes
                     let mut stdout_reader = tokio::io::BufReader::new(stdout);
@@ -321,17 +273,14 @@ impl GameServerStateMachine {
                         Ok(Ok(_)) => Self::GameRunningHealthy {
                             process,
                             game_meta,
-                            cfg_client,
-                            rx_command,
-                            tx_aggregator,
-                            tx_activate,
+                            ctx,
                         },
                         Ok(Err(err)) => {
                             log::error!(
                                 "Readiness signaling channel got teared down while waiting for the signal: {err_fmt}",
                                 err_fmt = crate::util::fmt_source_tree(&err)
                             );
-                            Self::request_termination(tx_activate).await;
+                            Self::request_termination(ctx.tx_activate).await;
                             break 'loop_transitions;
                         }
                         Err(err) => {
@@ -340,7 +289,7 @@ impl GameServerStateMachine {
                                 timeout_secs = timeout.as_secs(),
                                 err_fmt = crate::util::fmt_source_tree(&err)
                             );
-                            Self::request_termination(tx_activate).await;
+                            Self::request_termination(ctx.tx_activate).await;
                             break 'loop_transitions;
                         }
                     }
@@ -349,18 +298,15 @@ impl GameServerStateMachine {
                 Self::GameRunningHealthy {
                     game_meta,
                     mut process,
-                    cfg_client,
-                    mut rx_command,
-                    tx_aggregator,
-                    tx_activate,
+                    mut ctx,
                 } => {
                     let event: GameCtlEvent = tokio::select! {
-                        msg = rx_command.recv() => {
+                        msg = ctx.rx_command.recv() => {
                             match msg {
                                 Some(message) => GameCtlEvent::MessageReceived { message },
                                 None => {
                                     log::error!("Channel for receiving commands closed while game server state machine is still working");
-                                    Self::request_termination(tx_activate).await;
+                                    Self::request_termination(ctx.tx_activate).await;
                                     break 'loop_transitions;
                                 },
                             }
@@ -370,7 +316,7 @@ impl GameServerStateMachine {
                                 Ok(n) => n,
                                 Err(err) => {
                                     log::error!("Failed to run game server to termination: {err_fmt}", err_fmt = crate::util::fmt_source_tree(&err));
-                                    Self::request_termination(tx_activate).await;
+                                    Self::request_termination(ctx.tx_activate).await;
                                     break 'loop_transitions;
                                 },
                             };
@@ -391,51 +337,31 @@ impl GameServerStateMachine {
                                                 "Failed to send signal to game server: {err_fmt}",
                                                 err_fmt = crate::util::fmt_source_tree(&err)
                                             );
-                                            Self::request_termination(tx_activate).await;
+                                            Self::request_termination(ctx.tx_activate).await;
                                             break 'loop_transitions;
                                         }
                                     };
                                     log::info!("Sent signal to game server process: {signal}: PID {pid}");
-                                    Self::SavingAndClosingGame {
-                                        process,
-                                        cfg_client,
-                                        rx_command,
-                                        tx_aggregator,
-                                        tx_activate,
-                                    }
+                                    Self::SavingAndClosingGame { process, ctx }
                                 }
                                 _ => {
                                     log::error!("Ignoring unexpected command: {command:?} for current state");
                                     Self::GameRunningHealthy {
                                         game_meta,
                                         process,
-                                        cfg_client,
-                                        rx_command,
-                                        tx_aggregator,
-                                        tx_activate,
+                                        ctx,
                                     }
                                 }
                             }
                         }
                         GameCtlEvent::GameProcessTerminated { exit_status } => {
                             let _exit_status: std::process::ExitStatus = exit_status;
-                            Self::GameTerminatedUnexpectedly {
-                                cfg_client,
-                                rx_command,
-                                tx_aggregator,
-                                tx_activate,
-                            }
+                            Self::GameTerminatedUnexpectedly { ctx }
                         }
                     }
                 }
 
-                Self::SavingAndClosingGame {
-                    mut process,
-                    cfg_client,
-                    rx_command,
-                    tx_aggregator,
-                    tx_activate,
-                } => {
+                Self::SavingAndClosingGame { mut process, ctx } => {
                     match process.wait().await {
                         Ok(status) => {
                             log::info!("game server process exited with {status}");
@@ -445,68 +371,33 @@ impl GameServerStateMachine {
                                 "Waiting for game server process to terminate failed: {err_fmt}",
                                 err_fmt = crate::util::fmt_source_tree(&err),
                             );
-                            Self::request_termination(tx_activate).await;
+                            Self::request_termination(ctx.tx_activate).await;
                             break 'loop_transitions;
                         }
                     };
 
-                    Self::GameClosedManually {
-                        cfg_client,
-                        rx_command,
-                        tx_aggregator,
-                        tx_activate,
-                    }
+                    Self::GameClosedManually { ctx }
                 }
 
-                Self::GameClosedManually {
-                    cfg_client,
-                    mut rx_command,
-                    tx_aggregator,
-                    tx_activate,
-                } => {
-                    let msg = rx_command.recv().await;
+                Self::GameClosedManually { mut ctx } => {
+                    let msg = ctx.rx_command.recv().await;
                     if let Some(command) = msg {
                         let command: rustctl_common::command::DownstreamClientMessage = command;
                         match command {
                             rustctl_common::command::DownstreamClientMessage::ServerInstallOrUpdateAndStart => {
-                                Self::InstallingUpdates {
-                                    cfg_client,
-                                    rx_command,
-                                    tx_aggregator,
-                                    tx_activate,
-                                }
+                                Self::InstallingUpdates { ctx }
                             }
                             _ => {
                                 log::error!("Ignoring unexpected command: {command:?} for current state");
-                                Self::GameClosedManually {
-                                    cfg_client,
-                                    rx_command,
-                                    tx_aggregator,
-                                    tx_activate,
-                                }
+                                Self::GameClosedManually { ctx }
                             }
                         }
                     } else {
-                        Self::GameClosedManually {
-                            cfg_client,
-                            rx_command,
-                            tx_aggregator,
-                            tx_activate,
-                        }
+                        Self::GameClosedManually { ctx }
                     }
                 }
 
-                Self::GameTerminatedUnexpectedly {
-                    cfg_client,
-                    rx_command,
-                    tx_aggregator,
-                    tx_activate,
-                } => Self::InstallingUpdates {
-                    cfg_client,
-                    rx_command,
-                    tx_aggregator,
-                    tx_activate,
-                },
+                Self::GameTerminatedUnexpectedly { ctx } => Self::InstallingUpdates { ctx },
             };
 
             if let Err(err) = self.send_state().await {
@@ -524,14 +415,14 @@ impl GameServerStateMachine {
         &self,
     ) -> Result<(), tokio::sync::mpsc::error::SendError<rustctl_common::snapshot::GameServerStateExposed>> {
         let tx = match self {
-            GameServerStateMachine::Init { tx_aggregator, .. }
-            | GameServerStateMachine::InstallingUpdates { tx_aggregator, .. }
-            | GameServerStateMachine::InstalledAndConfigured { tx_aggregator, .. }
-            | GameServerStateMachine::LaunchingGame { tx_aggregator, .. }
-            | GameServerStateMachine::GameRunningHealthy { tx_aggregator, .. }
-            | GameServerStateMachine::SavingAndClosingGame { tx_aggregator, .. }
-            | GameServerStateMachine::GameClosedManually { tx_aggregator, .. }
-            | GameServerStateMachine::GameTerminatedUnexpectedly { tx_aggregator, .. } => tx_aggregator,
+            GameServerStateMachine::Init { ctx, .. }
+            | GameServerStateMachine::InstallingUpdates { ctx, .. }
+            | GameServerStateMachine::InstalledAndConfigured { ctx, .. }
+            | GameServerStateMachine::LaunchingGame { ctx, .. }
+            | GameServerStateMachine::GameRunningHealthy { ctx, .. }
+            | GameServerStateMachine::SavingAndClosingGame { ctx, .. }
+            | GameServerStateMachine::GameClosedManually { ctx, .. }
+            | GameServerStateMachine::GameTerminatedUnexpectedly { ctx, .. } => &ctx.tx_aggregator,
         };
         let sendable: rustctl_common::snapshot::GameServerStateExposed = self.into();
         tx.send(sendable).await
