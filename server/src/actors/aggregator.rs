@@ -98,10 +98,7 @@ impl Aggregator {
             let game_server_state: rustctl_common::snapshot::GameServerStateExposed;
             {
                 let lock = aggregated.lock().await;
-                last_updated_at = match lock.last_updated_at {
-                    Some(n) => Some(n.into()),
-                    None => None,
-                };
+                last_updated_at = lock.last_updated_at.map(|n| n.into());
                 memory_used_kibibytes = lock.kibibytes_in_use;
                 cpus_usage = lock.all_cpus.clone();
                 game_server_state = lock.game_server_state.clone();
