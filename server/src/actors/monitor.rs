@@ -159,6 +159,12 @@ impl Percentage {
     }
 }
 
+impl From<&Percentage> for f64 {
+    fn from(value: &Percentage) -> Self {
+        value.0
+    }
+}
+
 async fn read_memory_usage_kibibytes() -> Result<u64, ErrorDeterminingUsage> {
     const PATH: &str = "/proc/meminfo";
     let meminfo_content: String = match tokio::fs::read_to_string(PATH).await {

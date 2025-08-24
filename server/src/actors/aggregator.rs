@@ -120,7 +120,15 @@ impl Aggregator {
                 },
                 system_cpu_usage_total: rustctl_common::snapshot::TimedValue {
                     read_completed_by,
-                    read_value: vec![rustctl_common::snapshot::CpuUsage::new(0.0)], // TODO: Make from `cpus_usage`
+                    read_value: cpus_usage
+                        .iter()
+                        .map(|n| {
+                            let perc: &super::monitor::Percentage = n;
+                            let float: f64 = perc.into();
+                            let usage: rustctl_common::snapshot::CpuUsage = rustctl_common::snapshot::CpuUsage::new(float);
+                            usage
+                        })
+                        .collect::<Vec<rustctl_common::snapshot::CpuUsage>>(),
                 },
             };
             _ = tx_broadcast.send(snapshot);
