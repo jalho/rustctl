@@ -122,7 +122,8 @@ impl Aggregator {
                         .map(|n| {
                             let perc: &super::monitor::Percentage = n;
                             let float: f64 = perc.into();
-                            let usage: rustctl_common::snapshot::CpuUsage = rustctl_common::snapshot::CpuUsage::new(float);
+                            let usage: rustctl_common::snapshot::CpuUsage =
+                                rustctl_common::snapshot::CpuUsage::new(float);
                             usage
                         })
                         .collect::<Vec<rustctl_common::snapshot::CpuUsage>>(),
