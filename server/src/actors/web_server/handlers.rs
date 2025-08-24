@@ -35,10 +35,7 @@ async fn collect_messages_from_downstream(
     mut stream: DownstreamStream,
     tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
 ) -> () {
-    /*
-     * TODO: In a loop, read from `stream` and write to `tx_cmd_collect`
-     */
-    loop {
+    'collect: loop {
         let msg_raw: axum::extract::ws::Message = match futures_util::StreamExt::next(&mut stream).await {
             Some(Ok(n)) => n,
             Some(Err(err)) => {
@@ -50,7 +47,19 @@ async fn collect_messages_from_downstream(
                 return;
             }
         };
-        dbg!(msg_raw);
+
+        let msg: rustctl_common::command::DownstreamClientMessage = match (&msg_raw).try_into() {
+            Ok(n) => n,
+            Err(err) => {
+                log::error!("Ignoring message from downstream client: {err}: {msg_raw:?}");
+                continue 'collect;
+            }
+        };
+
+        if let Err(err) = tx_cmd_collect.send(msg).await {
+            log::debug!("Channel for collecting downstream client messages closed -- Stopping collecting: {err}");
+            break 'collect;
+        }
     }
 }
 
