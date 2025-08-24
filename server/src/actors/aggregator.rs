@@ -89,22 +89,28 @@ impl Aggregator {
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-        loop {
+        'broadcast: loop {
             interval.tick().await;
 
-            let last_updated_at: Option<std::time::SystemTime>;
+            let last_updated_at: Option<chrono::DateTime<chrono::Utc>>;
             let memory_used_kibibytes: u64;
             let cpus_usage: Vec<super::monitor::Percentage>;
             let game_server_state: rustctl_common::snapshot::GameServerStateExposed;
             {
                 let lock = aggregated.lock().await;
-                last_updated_at = lock.last_updated_at;
+                last_updated_at = match lock.last_updated_at {
+                    Some(n) => Some(n.into()),
+                    None => None,
+                };
                 memory_used_kibibytes = lock.kibibytes_in_use;
                 cpus_usage = lock.all_cpus.clone();
                 game_server_state = lock.game_server_state.clone();
             }
 
-            let read_completed_by: chrono::DateTime<chrono::Utc> = chrono::Utc::now(); // TODO: Make from `last_updated_at`
+            let read_completed_by: chrono::DateTime<chrono::Utc> = match last_updated_at {
+                Some(n) => n,
+                None => continue 'broadcast,
+            };
 
             let snapshot: rustctl_common::snapshot::Snapshot = rustctl_common::snapshot::Snapshot {
                 game_server_state,
