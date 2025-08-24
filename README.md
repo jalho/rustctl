@@ -36,16 +36,7 @@ Features are listed in the [`./CHANGELOG.md`](./CHANGELOG.md).
 
 ## Actors in the server
 
-The below diagram is an approximation as of commit `bbec67ba` (2025-07-27). This
-is _not_ a clean, intentional design. Instead, this is a note about the emergent
-structure that just happened. Some cleanup and restructuring would probably be
-a good idea, at least once all the minimum required features have been somewhat
-implemented!
-
-<img src="./diagrams/rustctl-server-actors.svg">
-
-A refactored implementation could look e.g. something like the following, in
-terms of _channel primitives_:
+Design diagram in terms of _channel primitives_:
 
 <img src="./diagrams/rustctl-software-design-in-terms-of-channel-primitives.svg">
 
