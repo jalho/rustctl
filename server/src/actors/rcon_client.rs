@@ -181,7 +181,7 @@ type Response = axum::http::Response<Option<Vec<u8>>>;
 #[derive(Debug, serde::Serialize)]
 #[allow(non_snake_case)]
 struct RconCommand {
-    Identifier: u32,
+    Identifier: i32,
     Message: String,
 }
 
@@ -193,9 +193,16 @@ impl RconCommand {
         }
     }
 
-    fn generate_message_identifier() -> u32 {
+    /// The RCON identifier must presumably fit in a signed 32-bit integer.
+    ///
+    /// Evidence: Error seen in `RustDedicated` buildid `19600410` (latest as
+    /// of 2025-08-27):
+    /// ```
+    /// JsonReaderException: JSON integer 3921165172 is too large or small for an Int32. Path 'Identifier', line 1, position 24.
+    /// ```
+    fn generate_message_identifier() -> i32 {
         let mut rng = rand::rng();
-        let message_id: u32 = rand::Rng::random_range(&mut rng, 1..=u32::MAX);
+        let message_id: i32 = rand::Rng::random_range(&mut rng, 1..=i32::MAX);
         message_id
     }
 }
@@ -203,6 +210,6 @@ impl RconCommand {
 #[derive(Debug, serde::Deserialize)]
 #[allow(non_snake_case)]
 struct RconResponse {
-    Identifier: u32,
+    Identifier: i32,
     Message: String,
 }
