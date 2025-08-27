@@ -31,11 +31,8 @@ impl RconClient {
         let ctoken = self.ctoken.child_token();
         let job = self.loop_reconnect();
         let done = ctoken.run_until_cancelled(job).await;
-        match done {
-            Some(done) => {
-                let _done: () = done;
-            }
-            None => {}
+        if let Some(done) = done {
+            let _done: () = done;
         }
         Summary {}
     }
