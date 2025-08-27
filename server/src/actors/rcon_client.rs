@@ -53,7 +53,7 @@ impl RconClient {
 
     async fn loop_query_rcon(
         mut ws_sink: WebSocketSink,
-        ws_stream: WebSocketStream,
+        mut ws_stream: WebSocketStream,
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
     ) -> () {
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
@@ -73,7 +73,40 @@ impl RconClient {
                 break 'query;
             };
 
-            todo!("await response for the sent RCON command, then deserialize and send over `tx_agg_igs`");
+            // TODO: Add timeout!
+            let response = Self::wait_response(&cmd, &mut ws_stream).await;
+            // TODO: Send the queried in-game state to aggregator over `tx_agg_igs`
+            dbg!(response);
+        }
+    }
+
+    async fn wait_response(command: &RconCommand, ws_stream: &mut WebSocketStream) -> RconResponse {
+        'collect_response: loop {
+            let msg: tokio_tungstenite::tungstenite::Message = match futures_util::StreamExt::next(ws_stream).await {
+                Some(Ok(msg)) => msg,
+                Some(Err(err)) => todo!(),
+                None => todo!(),
+            };
+            let msg: String = match msg {
+                tokio_tungstenite::tungstenite::Message::Text(utf8_bytes) => utf8_bytes.to_string(),
+                tokio_tungstenite::tungstenite::Message::Binary(bytes) => todo!(),
+                tokio_tungstenite::tungstenite::Message::Ping(bytes) => todo!(),
+                tokio_tungstenite::tungstenite::Message::Pong(bytes) => todo!(),
+                tokio_tungstenite::tungstenite::Message::Close(close_frame) => todo!(),
+                tokio_tungstenite::tungstenite::Message::Frame(frame) => todo!(),
+            };
+            let rcon_msg: RconResponse = match serde_json::from_str(&msg) {
+                Ok(n) => n,
+                Err(err) => todo!(),
+            };
+
+            log::debug!("Received RCON message: {rcon_msg:?}");
+
+            if rcon_msg.Identifier == command.Identifier {
+                return rcon_msg;
+            } else {
+                continue 'collect_response;
+            }
         }
     }
 }
