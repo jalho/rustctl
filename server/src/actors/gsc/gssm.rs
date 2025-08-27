@@ -1,10 +1,14 @@
 //! Game Server State Machine (GSSM).
 
 pub struct Context {
-    pub cfg_client: crate::storage::GameServerConfigurationShared,
-    pub rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
-    pub tx_aggregator: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
     pub tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
+
+    pub cfg_client: crate::storage::GameServerConfigurationShared,
+
+    pub rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
+
+    /// "GSS" = "Game Server State"
+    pub tx_agg_gss: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
 }
 
 pub enum GameServerStateMachine {
@@ -44,17 +48,23 @@ pub enum GameServerStateMachine {
 
 impl GameServerStateMachine {
     pub fn init(
-        cfg_client: crate::storage::GameServerConfigurationShared,
-        rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
-        tx_aggregator: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
         tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
+
+        cfg_client: crate::storage::GameServerConfigurationShared,
+
+        rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
+
+        tx_agg_gss: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
     ) -> Self {
         Self::Init {
             ctx: Context {
-                cfg_client,
-                rx_command,
-                tx_aggregator,
                 tx_activate,
+
+                cfg_client,
+
+                rx_command,
+
+                tx_agg_gss,
             },
         }
     }
@@ -416,7 +426,7 @@ impl GameServerStateMachine {
             | GameServerStateMachine::GameRunningHealthy { ctx, .. }
             | GameServerStateMachine::SavingAndClosingGame { ctx, .. }
             | GameServerStateMachine::GameClosedManually { ctx, .. }
-            | GameServerStateMachine::GameTerminatedUnexpectedly { ctx, .. } => &ctx.tx_aggregator,
+            | GameServerStateMachine::GameTerminatedUnexpectedly { ctx, .. } => &ctx.tx_agg_gss,
         };
         let sendable: rustctl_common::snapshot::GameServerStateExposed = self.into();
         tx.send(sendable).await

@@ -92,6 +92,14 @@ impl GameServerConfiguration {
             self.game_world_seed.to_string(),
         ]
     }
+
+    pub fn get_rcon_connection_string(&self) -> String {
+        format!(
+            "ws://127.0.0.1:{port}/{password}",
+            port = self.rcon_port,
+            password = self.rcon_password,
+        )
+    }
 }
 
 impl Default for GameServerConfiguration {

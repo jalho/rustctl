@@ -13,11 +13,13 @@ impl GameServerController {
         tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
 
         cfg_client: crate::storage::GameServerConfigurationShared,
+
         rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
-        tx_aggregator: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
+
+        tx_agg_gss: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
     ) -> Self {
         Self {
-            gssm: gssm::GameServerStateMachine::init(cfg_client, rx_command, tx_aggregator, tx_activate),
+            gssm: gssm::GameServerStateMachine::init(tx_activate, cfg_client, rx_command, tx_agg_gss),
             ctoken,
         }
     }

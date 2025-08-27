@@ -34,6 +34,7 @@ fn main() -> std::process::ExitCode {
     let (tx_cmd_relay, rx_command_relay) =
         tokio::sync::mpsc::channel::<rustctl_common::command::DownstreamClientMessage>(1);
     let (tx_gss, rx_gss) = tokio::sync::mpsc::channel::<rustctl_common::snapshot::GameServerStateExposed>(1);
+    let (tx_igs, rx_igs) = tokio::sync::mpsc::channel::<rustctl_common::snapshot::InGameStateExposed>(1);
     let (tx_broadcast, _) = tokio::sync::broadcast::channel::<rustctl_common::snapshot::Snapshot>(1);
 
     /*
@@ -56,6 +57,8 @@ fn main() -> std::process::ExitCode {
         rx_command_relay,
         tx_gss,
     );
+    let rcon_client =
+        actors::rcon_client::RconClient::new(ctoken.child_token(), tx_activate.clone(), config_shared.clone(), tx_igs);
     let web_server = actors::web_server::WebServer::new(
         ctoken.child_token(),
         tx_activate.clone(),
@@ -74,7 +77,8 @@ fn main() -> std::process::ExitCode {
             aggregator.work(),
             monitor.work(),
             controller.work(),
-            web_server.work()
+            rcon_client.work(),
+            web_server.work(),
         )
     };
     let _runtime_done: (
@@ -82,6 +86,7 @@ fn main() -> std::process::ExitCode {
         actors::aggregator::Summary,
         actors::monitor::Summary,
         actors::gsc::Summary,
+        actors::rcon_client::Summary,
         actors::web_server::Summary,
     ) = runtime.block_on(runtime_job);
 

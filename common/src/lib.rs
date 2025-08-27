@@ -96,6 +96,9 @@ pub mod snapshot {
         GameClosedManually,
         GameTerminatedUnexpectedly,
     }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct InGameStateExposed {}
 }
 
 pub mod web_app {
