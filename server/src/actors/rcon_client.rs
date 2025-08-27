@@ -30,6 +30,52 @@ impl RconClient {
     pub async fn work(self) -> Summary {
         const RECONNECT_DELAY: std::time::Duration = std::time::Duration::from_secs(5);
 
+        /*
+         * TODO: Investigate: Why does the RCON WebSocket connection keep dropping?
+         *
+         * $ grep "RCON client connected" out.log
+         * 2025-08-27 18:21:46 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:21:54 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:21:59 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:22:04 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:22:09 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:22:14 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:22:20 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:22:26 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:22:33 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:22:38 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:22:43 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:22:48 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:22:54 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:22:59 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:23:04 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:23:09 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:23:14 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:23:19 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:23:24 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:23:30 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:23:35 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:23:40 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:23:46 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:23:51 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:23:56 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:24:01 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:24:06 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:24:11 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:24:16 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:24:21 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:24:26 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:24:31 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:24:36 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:24:41 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:24:46 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         * 2025-08-27 18:24:52 [rustctl] RCON client connected [server/src/actors/rcon_client.rs:39]
+         */
+
+        /*
+         * TODO: Run only until canceled! (Use self.ctoken: tokio_util::sync::CancellationToken)
+         */
+
         'reconnect: loop {
             tokio::time::sleep(RECONNECT_DELAY).await;
 
@@ -73,27 +119,35 @@ impl RconClient {
                 break 'query;
             };
 
-            // TODO: Add timeout!
-            let response = Self::wait_response(&cmd, &mut ws_stream).await;
+            // TODO: Add timeout for waiting for the response!
+            let response: RconResponse = match Self::wait_response(&cmd, &mut ws_stream).await {
+                Some(n) => n,
+                None => {
+                    break 'query;
+                }
+            };
             // TODO: Send the queried in-game state to aggregator over `tx_agg_igs`
             dbg!(response);
         }
     }
 
-    async fn wait_response(command: &RconCommand, ws_stream: &mut WebSocketStream) -> RconResponse {
+    async fn wait_response(command: &RconCommand, ws_stream: &mut WebSocketStream) -> Option<RconResponse> {
         'collect_response: loop {
             let msg: tokio_tungstenite::tungstenite::Message = match futures_util::StreamExt::next(ws_stream).await {
                 Some(Ok(msg)) => msg,
                 Some(Err(err)) => todo!(),
                 None => todo!(),
             };
-            let msg: String = match msg {
+            let msg: String = match &msg {
                 tokio_tungstenite::tungstenite::Message::Text(utf8_bytes) => utf8_bytes.to_string(),
-                tokio_tungstenite::tungstenite::Message::Binary(bytes) => todo!(),
-                tokio_tungstenite::tungstenite::Message::Ping(bytes) => todo!(),
-                tokio_tungstenite::tungstenite::Message::Pong(bytes) => todo!(),
-                tokio_tungstenite::tungstenite::Message::Close(close_frame) => todo!(),
-                tokio_tungstenite::tungstenite::Message::Frame(frame) => todo!(),
+                tokio_tungstenite::tungstenite::Message::Binary(_)
+                | tokio_tungstenite::tungstenite::Message::Ping(_)
+                | tokio_tungstenite::tungstenite::Message::Pong(_)
+                | tokio_tungstenite::tungstenite::Message::Close(_)
+                | tokio_tungstenite::tungstenite::Message::Frame(_) => {
+                    log::error!("Received a non-text message from RCON WebSocket: {msg:?}");
+                    return None;
+                }
             };
             let rcon_msg: RconResponse = match serde_json::from_str(&msg) {
                 Ok(n) => n,
@@ -103,7 +157,7 @@ impl RconClient {
             log::debug!("Received RCON message: {rcon_msg:?}");
 
             if rcon_msg.Identifier == command.Identifier {
-                return rcon_msg;
+                return Some(rcon_msg);
             } else {
                 continue 'collect_response;
             }
