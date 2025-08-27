@@ -75,7 +75,7 @@ impl RconClient {
         'query: loop {
             interval.tick().await;
 
-            let cmd: RconCommand = RconCommand::env_time();
+            let cmd: RconMessage = RconMessage::env_time();
             let cmd_serialized: String =
                 serde_json::to_string(&cmd).expect("infallible: RconCommand should be serializable as JSON");
             let cmd_msg: tokio_tungstenite::tungstenite::Message =
@@ -87,9 +87,10 @@ impl RconClient {
             };
 
             // TODO: Add timeout for waiting for the response!
-            let response: RconResponse = match Self::wait_response(&cmd, &mut ws_stream).await {
-                Some(n) => n,
-                None => {
+            let response: RconMessage = match Self::wait_response(&cmd, &mut ws_stream).await {
+                Ok(n) => n,
+                Err(err) => {
+                    log::error!("Error while waiting for RCON response: {err}");
                     break 'query;
                 }
             };
@@ -98,14 +99,14 @@ impl RconClient {
         }
     }
 
-    async fn wait_response(command: &RconCommand, ws_stream: &mut WebSocketStream) -> Option<RconResponse> {
+    async fn wait_response(command: &RconMessage, ws_stream: &mut WebSocketStream) -> Result<RconMessage, Error> {
         'collect_response: loop {
             let msg: tokio_tungstenite::tungstenite::Message = match futures_util::StreamExt::next(ws_stream).await {
                 Some(Ok(msg)) => msg,
-                Some(Err(err)) => todo!(),
-                None => todo!(),
+                Some(Err(source)) => return Err(Error::SocketFailed { source }),
+                None => return Err(Error::SocketClosed),
             };
-            let msg: String = match &msg {
+            let utf8_payload: String = match &msg {
                 tokio_tungstenite::tungstenite::Message::Text(utf8_bytes) => utf8_bytes.to_string(),
                 tokio_tungstenite::tungstenite::Message::Binary(_)
                 | tokio_tungstenite::tungstenite::Message::Ping(_)
@@ -113,18 +114,19 @@ impl RconClient {
                 | tokio_tungstenite::tungstenite::Message::Close(_)
                 | tokio_tungstenite::tungstenite::Message::Frame(_) => {
                     log::error!("Received a non-text message from RCON WebSocket: {msg:?}");
-                    return None;
+                    return Err(Error::UnexpectedWebSocketMessage { msg });
                 }
             };
-            let rcon_msg: RconResponse = match serde_json::from_str(&msg) {
+            let rcon_msg: RconMessage = match serde_json::from_str(&utf8_payload) {
                 Ok(n) => n,
-                Err(err) => todo!(),
+                Err(source) => {
+                    return Err(Error::InvalidRconMessage { source, utf8_payload });
+                }
             };
-
             log::debug!("Received RCON message: {rcon_msg:?}");
 
             if rcon_msg.Identifier == command.Identifier {
-                return Some(rcon_msg);
+                return Ok(rcon_msg);
             } else {
                 continue 'collect_response;
             }
@@ -145,14 +147,14 @@ type WebSocketStream = futures_util::stream::SplitStream<
 
 type Response = axum::http::Response<Option<Vec<u8>>>;
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[allow(non_snake_case)]
-struct RconCommand {
+struct RconMessage {
     Identifier: i32,
     Message: String,
 }
 
-impl RconCommand {
+impl RconMessage {
     pub fn env_time() -> Self {
         Self {
             Identifier: Self::generate_message_identifier(),
@@ -174,9 +176,34 @@ impl RconCommand {
     }
 }
 
-#[derive(Debug, serde::Deserialize)]
-#[allow(non_snake_case)]
-struct RconResponse {
-    Identifier: i32,
-    Message: String,
+#[derive(Debug)]
+enum Error {
+    SocketFailed {
+        source: tokio_tungstenite::tungstenite::Error,
+    },
+
+    SocketClosed,
+
+    UnexpectedWebSocketMessage {
+        msg: tokio_tungstenite::tungstenite::Message,
+    },
+
+    InvalidRconMessage {
+        source: serde_json::Error,
+        utf8_payload: String,
+    },
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::SocketFailed { source: _ } => write!(f, "{self:?}"),
+            Error::SocketClosed => write!(f, "{self:?}"),
+            Error::UnexpectedWebSocketMessage { msg: _ } => write!(f, "{self:?}"),
+            Error::InvalidRconMessage {
+                source: _,
+                utf8_payload: _,
+            } => write!(f, "{self:?}"),
+        }
+    }
 }
