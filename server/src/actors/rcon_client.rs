@@ -185,13 +185,24 @@ enum Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::SocketFailed { source: _ } => write!(f, "{self:?}"),
-            Error::SocketClosed => write!(f, "{self:?}"),
-            Error::UnexpectedWebSocketMessage { msg: _ } => write!(f, "{self:?}"),
+            Error::SocketFailed { source: _ } => write!(f, r#"socket failed"#),
+            Error::SocketClosed => write!(f, r#"socket closed"#),
+            Error::UnexpectedWebSocketMessage { msg } => write!(f, r#"unexpected WebSocket message: {msg:?}"#),
             Error::InvalidRconMessage {
                 source: _,
-                utf8_payload: _,
-            } => write!(f, "{self:?}"),
+                utf8_payload,
+            } => write!(f, r#"invalid RCON message: "{utf8_payload}""#),
+        }
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::SocketFailed { source } => Some(source),
+            Error::SocketClosed => None,
+            Error::UnexpectedWebSocketMessage { msg: _ } => None,
+            Error::InvalidRconMessage { source, .. } => Some(source),
         }
     }
 }
