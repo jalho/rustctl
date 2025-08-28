@@ -182,9 +182,7 @@ mod tui {
                 Span::styled(" to terminate", Style::default().fg(Color::Gray)),
             ])]);
 
-            Paragraph::new(header_text)
-                .block(header_block)
-                .render(chunks[0], buf);
+            Paragraph::new(header_text).block(header_block).render(chunks[0], buf);
 
             // Content area
             let content_block = Block::default()
@@ -193,9 +191,8 @@ mod tui {
                 .border_style(Style::default().fg(Color::White));
 
             let content_text = if let Some(snapshot) = &self.latest_snapshot {
-                let json_output = serde_json::to_string_pretty(snapshot).unwrap_or_else(|e| {
-                    format!("Failed to serialize snapshot: {e}")
-                });
+                let json_output = serde_json::to_string_pretty(snapshot)
+                    .unwrap_or_else(|e| format!("Failed to serialize snapshot: {e}"));
                 Text::from(json_output)
             } else {
                 Text::from(vec![
