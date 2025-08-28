@@ -260,9 +260,9 @@ impl TryFrom<&RconMessage> for rustctl_common::snapshot::EnvTime {
         match unquoted.parse::<f64>() {
             Ok(time_value) => Ok(rustctl_common::snapshot::EnvTime(time_value)),
             Err(err) => {
-                return Err(Error::InvalidRconMessagePayload {
+                Err(Error::InvalidRconMessagePayload {
                     rationale_display: format!(r#"failed to parse time value "{unquoted}": {err}"#),
-                });
+                })
             }
         }
     }
