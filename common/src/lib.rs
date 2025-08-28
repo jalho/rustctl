@@ -3,6 +3,7 @@ pub mod snapshot {
     /// interval).
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub struct Snapshot {
+        pub ingame_state: InGameStateExposed,
         pub game_server_state: GameServerStateExposed,
         pub system_memory_usage_total: TimedValue<MemoryUsage>,
         pub system_cpu_usage_total: TimedValue<Vec<CpuUsage>>,
@@ -64,6 +65,7 @@ pub mod snapshot {
                     read_completed_by: timestamp,
                     read_value: Vec::new(),
                 },
+                ingame_state: InGameStateExposed::init(),
             }
         }
     }
@@ -98,7 +100,15 @@ pub mod snapshot {
     }
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct InGameStateExposed {}
+    pub struct InGameStateExposed {
+        env_time: f64,
+    }
+
+    impl InGameStateExposed {
+        pub fn init() -> Self {
+            Self { env_time: 0.0 }
+        }
+    }
 }
 
 pub mod web_app {

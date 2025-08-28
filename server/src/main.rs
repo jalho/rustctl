@@ -43,9 +43,9 @@ fn main() -> std::process::ExitCode {
     let monitor = actors::monitor::Monitor::new(ctoken.child_token(), tx_activate.clone(), tx_resuse);
     let aggregator = actors::aggregator::Aggregator::new(
         ctoken.child_token(),
-        tx_activate.clone(),
         rx_resuse,
         rx_gss,
+        rx_igs,
         rx_command_collect,
         tx_cmd_relay,
         tx_broadcast.clone(),

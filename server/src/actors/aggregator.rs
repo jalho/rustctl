@@ -1,9 +1,9 @@
 pub struct Aggregator {
     ctoken: tokio_util::sync::CancellationToken,
-    tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
 
     rx_resuse: tokio::sync::mpsc::Receiver<crate::actors::monitor::SystemResourceUsageReading>,
     rx_gss: tokio::sync::mpsc::Receiver<rustctl_common::snapshot::GameServerStateExposed>,
+    rx_igs: tokio::sync::mpsc::Receiver<rustctl_common::snapshot::InGameStateExposed>,
     aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>,
     tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
 
@@ -14,19 +14,19 @@ pub struct Aggregator {
 impl Aggregator {
     pub fn new(
         ctoken: tokio_util::sync::CancellationToken,
-        tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
         rx_resuse: tokio::sync::mpsc::Receiver<crate::actors::monitor::SystemResourceUsageReading>,
         rx_gss: tokio::sync::mpsc::Receiver<rustctl_common::snapshot::GameServerStateExposed>,
+        rx_igs: tokio::sync::mpsc::Receiver<rustctl_common::snapshot::InGameStateExposed>,
         rx_cmd_collect: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
         tx_cmd_relay: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
         tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
     ) -> Self {
         Self {
             ctoken,
-            tx_activate,
 
             rx_resuse,
             rx_gss,
+            rx_igs,
             aggregated: Aggregated::init(),
             tx_broadcast,
 
@@ -45,13 +45,15 @@ impl Aggregator {
          */
         let job_agg_resuse = Self::aggregate_system_resources_usage_readings(self.aggregated.clone(), self.rx_resuse);
         let job_agg_gss = Self::aggregate_game_server_state_machine_transitions(self.aggregated.clone(), self.rx_gss);
+        let job_agg_igs = Self::aggregate_ingame_state(self.aggregated.clone(), self.rx_igs);
         let job_broadcast = Self::broadcast(self.aggregated.clone(), self.tx_broadcast);
 
         let job_cmd_relay = Self::relay_gsc_commands(self.rx_cmd_collect, self.tx_cmd_relay.clone());
 
         let _done = ctoken
             .run_until_cancelled(async {
-                let done: ((), (), (), ()) = tokio::join!(job_agg_resuse, job_agg_gss, job_broadcast, job_cmd_relay);
+                let done: ((), (), (), (), ()) =
+                    tokio::join!(job_agg_resuse, job_agg_gss, job_agg_igs, job_broadcast, job_cmd_relay);
                 done
             })
             .await;
@@ -96,12 +98,15 @@ impl Aggregator {
             let memory_used_kibibytes: u64;
             let cpus_usage: Vec<super::monitor::Percentage>;
             let game_server_state: rustctl_common::snapshot::GameServerStateExposed;
+            let ingame_state: rustctl_common::snapshot::InGameStateExposed;
             {
                 let lock = aggregated.lock().await;
+
                 last_updated_at = lock.last_updated_at.map(|n| n.into());
                 memory_used_kibibytes = lock.kibibytes_in_use;
                 cpus_usage = lock.all_cpus.clone();
                 game_server_state = lock.game_server_state.clone();
+                ingame_state = lock.ingame_state.clone();
             }
 
             let read_completed_by: chrono::DateTime<chrono::Utc> = match last_updated_at {
@@ -111,6 +116,7 @@ impl Aggregator {
 
             let snapshot: rustctl_common::snapshot::Snapshot = rustctl_common::snapshot::Snapshot {
                 game_server_state,
+                ingame_state,
                 system_memory_usage_total: rustctl_common::snapshot::TimedValue {
                     read_completed_by,
                     read_value: rustctl_common::snapshot::MemoryUsage::new(memory_used_kibibytes),
@@ -177,6 +183,21 @@ impl Aggregator {
             lock.game_server_state = received;
         }
     }
+
+    async fn aggregate_ingame_state(
+        aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>,
+        mut rx_igs: tokio::sync::mpsc::Receiver<rustctl_common::snapshot::InGameStateExposed>,
+    ) -> () {
+        'receive: loop {
+            let received: rustctl_common::snapshot::InGameStateExposed = match rx_igs.recv().await {
+                Some(n) => n,
+                None => break 'receive,
+            };
+
+            let mut lock = aggregated.lock().await;
+            lock.ingame_state = received;
+        }
+    }
 }
 
 pub struct Summary {}
@@ -187,6 +208,7 @@ pub struct Aggregated {
     kibibytes_in_use: u64,
     all_cpus: Vec<crate::actors::monitor::Percentage>,
     game_server_state: rustctl_common::snapshot::GameServerStateExposed,
+    ingame_state: rustctl_common::snapshot::InGameStateExposed,
 }
 
 impl Aggregated {
@@ -196,6 +218,7 @@ impl Aggregated {
             kibibytes_in_use: 0,
             all_cpus: Vec::new(),
             game_server_state: rustctl_common::snapshot::GameServerStateExposed::Init,
+            ingame_state: rustctl_common::snapshot::InGameStateExposed::init(),
         }))
     }
 }
