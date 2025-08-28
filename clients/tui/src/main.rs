@@ -82,8 +82,6 @@ mod connection {
 mod tui {
     use ratatui::prelude::Widget;
 
-    const MSG_STORE_SIZE: usize = 4;
-
     pub fn work(
         rx_updates: std::sync::mpsc::Receiver<rustctl_common::snapshot::Snapshot>,
         tx_commands: std::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
@@ -97,7 +95,7 @@ mod tui {
         should_terminate: tokio_util::sync::CancellationToken,
         rx_updates: std::sync::mpsc::Receiver<rustctl_common::snapshot::Snapshot>,
         tx_commands: std::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
-        message_log: std::collections::VecDeque<rustctl_common::snapshot::Snapshot>,
+        latest_snapshot: Option<rustctl_common::snapshot::Snapshot>,
     }
 
     impl Ctl {
@@ -110,25 +108,23 @@ mod tui {
                 should_terminate: cancel,
                 rx_updates,
                 tx_commands,
-                message_log: std::collections::VecDeque::with_capacity(MSG_STORE_SIZE),
+                latest_snapshot: None,
             }
         }
 
         pub fn run(&mut self, terminal: &mut ratatui::DefaultTerminal) -> std::io::Result<()> {
             while !self.should_terminate.is_cancelled() {
-                while let Ok(msg) = self.rx_updates.try_recv() {
-                    if self.message_log.len() >= self.message_log.capacity() {
-                        self.message_log.pop_front();
-                    }
-                    self.message_log.push_back(msg);
+                // Update with latest snapshot if available
+                while let Ok(snapshot) = self.rx_updates.try_recv() {
+                    self.latest_snapshot = Some(snapshot);
                 }
 
                 terminal.draw(|frame| self.draw(frame))?;
 
                 if crossterm::event::poll(std::time::Duration::from_millis(100))? {
-                    let key_event = crossterm::event::read()?;
-                    if let crossterm::event::Event::Key(key_event) = key_event {
-                        self.handle_key_event(key_event)
+                    let event = crossterm::event::read()?;
+                    if let crossterm::event::Event::Key(key_event) = event {
+                        self.handle_key_event(key_event);
                     }
                 }
             }
@@ -140,310 +136,86 @@ mod tui {
         }
 
         fn handle_key_event(&mut self, key_event: crossterm::event::KeyEvent) {
-            let cmd_launch: rustctl_common::command::DownstreamClientMessage =
-                rustctl_common::command::DownstreamClientMessage::ServerInstallOrUpdateAndStart;
-
-            let cmd_terminate: rustctl_common::command::DownstreamClientMessage =
-                rustctl_common::command::DownstreamClientMessage::ServerSaveAndClose;
-
             match key_event.code {
-                crossterm::event::KeyCode::Char('q') => self.app_quit(),
+                crossterm::event::KeyCode::Char('q') => {
+                    self.should_terminate.cancel();
+                }
                 crossterm::event::KeyCode::Char('l') => {
-                    let _ = self.tx_commands.send(cmd_launch);
+                    let cmd = rustctl_common::command::DownstreamClientMessage::ServerInstallOrUpdateAndStart;
+                    let _ = self.tx_commands.send(cmd);
                 }
                 crossterm::event::KeyCode::Char('t') => {
-                    let _ = self.tx_commands.send(cmd_terminate);
+                    let cmd = rustctl_common::command::DownstreamClientMessage::ServerSaveAndClose;
+                    let _ = self.tx_commands.send(cmd);
                 }
                 _ => {}
             }
         }
-
-        fn app_quit(&mut self) {
-            self.should_terminate.cancel();
-        }
     }
 
-    impl ratatui::widgets::Widget for &Ctl {
+    impl Widget for &Ctl {
         fn render(self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
-            use ratatui::layout::{Alignment, Constraint, Direction, Layout};
+            use ratatui::layout::{Constraint, Direction, Layout};
             use ratatui::style::{Color, Modifier, Style};
-            use ratatui::symbols::border::ROUNDED;
             use ratatui::text::{Line, Span, Text};
-            use ratatui::widgets::{Block, Paragraph};
+            use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 
-            // main layout: header + dashboard + footer
-            let main_chunks = Layout::default()
+            // Split into header and content
+            let chunks = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Length(3), // header
-                    Constraint::Min(0),    // dashboard content
-                    Constraint::Length(3), // footer
-                ])
+                .constraints([Constraint::Length(3), Constraint::Min(0)])
                 .split(area);
 
-            // header with game server state
-            let header_title = Line::from(vec![Span::styled(
-                " rustctl ",
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
-            )]);
-
-            let header_block = Block::bordered()
-                .title(header_title.centered())
-                .border_set(ROUNDED)
+            // Header
+            let header_block = Block::default()
+                .title(" rustctl Debug Client ")
+                .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan));
 
-            // game server state content for header
-            let game_server_content = if let Some(latest_snapshot) = self.message_log.back() {
-                let state_text = format!("{:?}", latest_snapshot.game_server_state);
-                Text::from(vec![Line::from(vec![
-                    Span::styled("🎮 ", Style::default().fg(Color::Magenta)),
-                    Span::styled("Game Server: ", Style::default().fg(Color::White)),
-                    Span::styled(
-                        state_text,
-                        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
-                    ),
-                ])])
+            let header_text = Text::from(vec![Line::from(vec![
+                Span::styled("Press ", Style::default().fg(Color::Gray)),
+                Span::styled("Q", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+                Span::styled(" to quit, ", Style::default().fg(Color::Gray)),
+                Span::styled("L", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(" to launch, ", Style::default().fg(Color::Gray)),
+                Span::styled("T", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled(" to terminate", Style::default().fg(Color::Gray)),
+            ])]);
+
+            Paragraph::new(header_text)
+                .block(header_block)
+                .render(chunks[0], buf);
+
+            // Content area
+            let content_block = Block::default()
+                .title(" Snapshot Debug Output ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::White));
+
+            let content_text = if let Some(snapshot) = &self.latest_snapshot {
+                let json_output = serde_json::to_string_pretty(snapshot).unwrap_or_else(|e| {
+                    format!("Failed to serialize snapshot: {}", e)
+                });
+                Text::from(json_output)
             } else {
-                Text::from(vec![Line::from(vec![
-                    Span::styled("🎮 ", Style::default().fg(Color::DarkGray)),
-                    Span::styled("Game Server: ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(
-                        "Unknown",
-                        Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
-                    ),
-                ])])
+                Text::from(vec![
+                    Line::from(""),
+                    Line::from(vec![Span::styled(
+                        "Waiting for snapshot data...",
+                        Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC),
+                    )]),
+                    Line::from(""),
+                    Line::from(vec![Span::styled(
+                        "WebSocket connection should be established automatically.",
+                        Style::default().fg(Color::DarkGray),
+                    )]),
+                ])
             };
 
-            Paragraph::new(game_server_content)
-                .block(header_block)
-                .alignment(Alignment::Center)
-                .render(main_chunks[0], buf);
-
-            // footer with controls
-            let instructions = Line::from(vec![
-                Span::styled("❌ ", Style::default().fg(Color::Red)),
-                Span::styled("Quit", Style::default().fg(Color::White)),
-                Span::styled(" [", Style::default().fg(Color::DarkGray)),
-                Span::styled("Q", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
-                Span::styled("] ", Style::default().fg(Color::DarkGray)),
-                Span::styled("  🚀 ", Style::default().fg(Color::Green)),
-                Span::styled("Launch", Style::default().fg(Color::White)),
-                Span::styled(" [", Style::default().fg(Color::DarkGray)),
-                Span::styled("L", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-                Span::styled("] ", Style::default().fg(Color::DarkGray)),
-                Span::styled("  ⛔ ", Style::default().fg(Color::Red)),
-                Span::styled("Terminate", Style::default().fg(Color::White)),
-                Span::styled(" [", Style::default().fg(Color::DarkGray)),
-                Span::styled("T", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
-                Span::styled("]", Style::default().fg(Color::DarkGray)),
-            ]);
-
-            let footer_block = Block::bordered()
-                .title_bottom(instructions.centered())
-                .border_set(ROUNDED)
-                .border_style(Style::default().fg(Color::Gray));
-
-            Paragraph::new("").block(footer_block).render(main_chunks[2], buf);
-
-            // dashboard content area
-            let content_area = main_chunks[1];
-
-            if self.message_log.is_empty() {
-                // empty state
-                let empty_block = Block::bordered()
-                    .title(Line::from(vec![
-                        Span::styled("📊 ", Style::default().fg(Color::Yellow)),
-                        Span::styled(
-                            "System Metrics",
-                            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
-                        ),
-                    ]))
-                    .border_set(ROUNDED)
-                    .border_style(Style::default().fg(Color::DarkGray));
-
-                let empty_text = Text::from(vec![
-                    Line::from(""),
-                    Line::from(vec![
-                        Span::styled("🔍 ", Style::default().fg(Color::Yellow)),
-                        Span::styled(
-                            "No system metrics available yet...",
-                            Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC),
-                        ),
-                    ]),
-                    Line::from(""),
-                    Line::from(vec![
-                        Span::styled("⏳ ", Style::default().fg(Color::Blue)),
-                        Span::styled(
-                            "Waiting for data collection to begin",
-                            Style::default().fg(Color::DarkGray),
-                        ),
-                    ]),
-                ]);
-
-                Paragraph::new(empty_text)
-                    .block(empty_block)
-                    .alignment(Alignment::Center)
-                    .render(content_area, buf);
-                return;
-            }
-
-            let cols = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .margin(1)
-                .split(content_area);
-
-            self.render_memory_column(&cols[0], buf);
-
-            self.render_cpu_column(&cols[1], buf);
-        }
-    }
-
-    impl Ctl {
-        fn render_memory_column(&self, area: &ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
-            use ratatui::layout::Alignment;
-            use ratatui::style::{Color, Modifier, Style};
-            use ratatui::symbols::border::ROUNDED;
-            use ratatui::text::{Line, Span, Text};
-            use ratatui::widgets::{Block, Paragraph};
-
-            let memory_block = Block::bordered()
-                .title(Line::from(vec![
-                    Span::styled(" 📊 ", Style::default().fg(Color::LightBlue)),
-                    Span::styled(
-                        "Memory Usage (latest first) ",
-                        Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
-                    ),
-                ]))
-                .border_set(ROUNDED)
-                .border_style(Style::default().fg(Color::Blue));
-
-            let inner_area = memory_block.inner(*area);
-
-            memory_block.render(*area, buf);
-
-            let mut content_lines = Vec::new();
-
-            for (idx, snapshot) in self.message_log.iter().rev().enumerate() {
-                let mem_timestamp = &snapshot.system_memory_usage_total.read_completed_by;
-                let mem_value = &snapshot.system_memory_usage_total.read_value;
-
-                let timestamp_str = mem_timestamp.format("%H:%M:%S").to_string();
-
-                let accent_color = if idx % 2 == 0 {
-                    Color::LightBlue
-                } else {
-                    Color::LightCyan
-                };
-
-                content_lines.push(Line::from("")); // spacing
-
-                content_lines.push(Line::from(vec![
-                    Span::styled("⏰ ", Style::default().fg(Color::Yellow)),
-                    Span::styled(timestamp_str, Style::default().fg(Color::DarkGray)),
-                ]));
-
-                content_lines.push(Line::from(vec![
-                    Span::styled("💾 ", Style::default().fg(accent_color)),
-                    Span::styled(
-                        format!("{mem_value}"),
-                        Style::default().fg(accent_color).add_modifier(Modifier::BOLD),
-                    ),
-                ]));
-            }
-
-            if content_lines.is_empty() {
-                content_lines.push(Line::from(vec![
-                    Span::styled("📭 ", Style::default().fg(Color::Gray)),
-                    Span::styled(
-                        "No memory data",
-                        Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC),
-                    ),
-                ]));
-            }
-
-            let memory_text = Text::from(content_lines);
-            Paragraph::new(memory_text)
-                .alignment(Alignment::Left)
-                .render(inner_area, buf);
-        }
-
-        fn render_cpu_column(&self, area: &ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
-            use ratatui::layout::Alignment;
-            use ratatui::style::{Color, Modifier, Style};
-            use ratatui::symbols::border::ROUNDED;
-            use ratatui::text::{Line, Span, Text};
-            use ratatui::widgets::{Block, Paragraph};
-
-            let cpu_block = Block::bordered()
-                .title(Line::from(vec![
-                    Span::styled(" 🖥️ ", Style::default().fg(Color::LightGreen)),
-                    Span::styled(
-                        "CPU Usage (latest first) ",
-                        Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
-                    ),
-                ]))
-                .border_set(ROUNDED)
-                .border_style(Style::default().fg(Color::Green));
-
-            let inner_area = cpu_block.inner(*area);
-
-            cpu_block.render(*area, buf);
-
-            let mut content_lines = Vec::new();
-
-            for (idx, snapshot) in self.message_log.iter().rev().enumerate() {
-                let cpu_timestamp = &snapshot.system_cpu_usage_total.read_completed_by;
-                let cpu_values: &Vec<rustctl_common::snapshot::CpuUsage> = &snapshot.system_cpu_usage_total.read_value;
-
-                let timestamp_str = cpu_timestamp.format("%H:%M:%S").to_string();
-
-                let accent_color = if idx % 2 == 0 {
-                    Color::LightGreen
-                } else {
-                    Color::LightYellow
-                };
-
-                content_lines.push(Line::from("")); // spacing
-
-                content_lines.push(Line::from(vec![
-                    Span::styled("⏰ ", Style::default().fg(Color::Yellow)),
-                    Span::styled(timestamp_str, Style::default().fg(Color::DarkGray)),
-                ]));
-
-                for (cpu_idx, cpu_value) in cpu_values.iter().enumerate() {
-                    let usage_color = match cpu_value.as_percentage() {
-                        p if p >= 80.0 => Color::Red,
-                        p if p >= 60.0 => Color::Yellow,
-                        p if p >= 40.0 => Color::LightYellow,
-                        _ => accent_color,
-                    };
-
-                    content_lines.push(Line::from(vec![
-                        Span::styled("⚡ ", Style::default().fg(accent_color)),
-                        Span::styled(format!("CPU{cpu_idx}: "), Style::default().fg(Color::DarkGray)),
-                        Span::styled(
-                            format!("{:.1}%", cpu_value.as_percentage()),
-                            Style::default().fg(usage_color).add_modifier(Modifier::BOLD),
-                        ),
-                    ]));
-                }
-            }
-
-            if content_lines.is_empty() {
-                content_lines.push(Line::from(vec![
-                    Span::styled("📭 ", Style::default().fg(Color::Gray)),
-                    Span::styled(
-                        "No CPU data",
-                        Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC),
-                    ),
-                ]));
-            }
-
-            let cpu_text = Text::from(content_lines);
-            Paragraph::new(cpu_text)
-                .alignment(Alignment::Left)
-                .render(inner_area, buf);
+            Paragraph::new(content_text)
+                .block(content_block)
+                .wrap(Wrap { trim: false })
+                .render(chunks[1], buf);
         }
     }
 }
