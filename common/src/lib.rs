@@ -5,8 +5,8 @@ pub mod snapshot {
     pub struct Snapshot {
         pub ingame_state: InGameStateExposed,
         pub game_server_state: GameServerStateExposed,
-        pub memory_used_kibibytes: TimedValue<MemoryUsage>,
-        pub cpus_utilization_percentage: TimedValue<Vec<CpuUsage>>,
+        pub memory_used_kibibytes: MemoryUsage,
+        pub cpus_utilization_percentage: Vec<CpuUsage>,
     }
 
     /// A single CPU's utilization rate in some time window.
@@ -54,26 +54,13 @@ pub mod snapshot {
 
     impl Snapshot {
         pub fn init() -> Self {
-            let timestamp = chrono::Utc::now();
             Self {
                 game_server_state: GameServerStateExposed::Init,
-                memory_used_kibibytes: TimedValue {
-                    read_completed_by: timestamp,
-                    read_value: MemoryUsage(0),
-                },
-                cpus_utilization_percentage: TimedValue {
-                    read_completed_by: timestamp,
-                    read_value: Vec::new(),
-                },
+                memory_used_kibibytes: MemoryUsage(0),
+                cpus_utilization_percentage: Vec::new(),
                 ingame_state: InGameStateExposed::init(),
             }
         }
-    }
-
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
-    pub struct TimedValue<ReadValue> {
-        pub read_completed_by: chrono::DateTime<chrono::Utc>,
-        pub read_value: ReadValue,
     }
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]

@@ -91,10 +91,9 @@ impl Aggregator {
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-        'broadcast: loop {
+        loop {
             interval.tick().await;
 
-            let last_updated_at: Option<chrono::DateTime<chrono::Utc>>;
             let memory_used_kibibytes: u64;
             let cpus_usage: Vec<super::monitor::Percentage>;
             let game_server_state: rustctl_common::snapshot::GameServerStateExposed;
@@ -102,38 +101,25 @@ impl Aggregator {
             {
                 let lock = aggregated.lock().await;
 
-                last_updated_at = lock.last_updated_at.map(|n| n.into());
                 memory_used_kibibytes = lock.kibibytes_in_use;
                 cpus_usage = lock.all_cpus.clone();
                 game_server_state = lock.game_server_state.clone();
                 ingame_state = lock.ingame_state.clone();
             }
 
-            let read_completed_by: chrono::DateTime<chrono::Utc> = match last_updated_at {
-                Some(n) => n,
-                None => continue 'broadcast,
-            };
-
             let snapshot: rustctl_common::snapshot::Snapshot = rustctl_common::snapshot::Snapshot {
                 game_server_state,
                 ingame_state,
-                memory_used_kibibytes: rustctl_common::snapshot::TimedValue {
-                    read_completed_by,
-                    read_value: rustctl_common::snapshot::MemoryUsage::new(memory_used_kibibytes),
-                },
-                cpus_utilization_percentage: rustctl_common::snapshot::TimedValue {
-                    read_completed_by,
-                    read_value: cpus_usage
-                        .iter()
-                        .map(|n| {
-                            let perc: &super::monitor::Percentage = n;
-                            let float: f64 = perc.into();
-                            let usage: rustctl_common::snapshot::CpuUsage =
-                                rustctl_common::snapshot::CpuUsage::new(float);
-                            usage
-                        })
-                        .collect::<Vec<rustctl_common::snapshot::CpuUsage>>(),
-                },
+                memory_used_kibibytes: rustctl_common::snapshot::MemoryUsage::new(memory_used_kibibytes),
+                cpus_utilization_percentage: cpus_usage
+                    .iter()
+                    .map(|n| {
+                        let perc: &super::monitor::Percentage = n;
+                        let float: f64 = perc.into();
+                        let usage: rustctl_common::snapshot::CpuUsage = rustctl_common::snapshot::CpuUsage::new(float);
+                        usage
+                    })
+                    .collect::<Vec<rustctl_common::snapshot::CpuUsage>>(),
             };
             _ = tx_broadcast.send(snapshot);
         }
