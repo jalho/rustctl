@@ -194,7 +194,7 @@ mod tui {
 
             let content_text = if let Some(snapshot) = &self.latest_snapshot {
                 let json_output = serde_json::to_string_pretty(snapshot).unwrap_or_else(|e| {
-                    format!("Failed to serialize snapshot: {}", e)
+                    format!("Failed to serialize snapshot: {e}")
                 });
                 Text::from(json_output)
             } else {
