@@ -1,9 +1,6 @@
 pub struct RconClient {
     ctoken: tokio_util::sync::CancellationToken,
-    tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
-
     cfg_client: crate::storage::GameServerConfigurationShared,
-
     /// "IGS" = "In-Game State"
     tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
 }
@@ -11,18 +8,12 @@ pub struct RconClient {
 impl RconClient {
     pub fn new(
         ctoken: tokio_util::sync::CancellationToken,
-        tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
-
         cfg_client: crate::storage::GameServerConfigurationShared,
-
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
     ) -> Self {
         Self {
             ctoken,
-            tx_activate,
-
             cfg_client,
-
             tx_agg_igs,
         }
     }

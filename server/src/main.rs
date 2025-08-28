@@ -57,8 +57,7 @@ fn main() -> std::process::ExitCode {
         rx_command_relay,
         tx_gss,
     );
-    let rcon_client =
-        actors::rcon_client::RconClient::new(ctoken.child_token(), tx_activate.clone(), config_shared.clone(), tx_igs);
+    let rcon_client = actors::rcon_client::RconClient::new(ctoken.child_token(), config_shared.clone(), tx_igs);
     let web_server = actors::web_server::WebServer::new(
         ctoken.child_token(),
         tx_activate.clone(),
