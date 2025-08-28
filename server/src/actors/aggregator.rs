@@ -117,11 +117,11 @@ impl Aggregator {
             let snapshot: rustctl_common::snapshot::Snapshot = rustctl_common::snapshot::Snapshot {
                 game_server_state,
                 ingame_state,
-                system_memory_usage_total: rustctl_common::snapshot::TimedValue {
+                memory_used_kibibytes: rustctl_common::snapshot::TimedValue {
                     read_completed_by,
                     read_value: rustctl_common::snapshot::MemoryUsage::new(memory_used_kibibytes),
                 },
-                system_cpu_usage_total: rustctl_common::snapshot::TimedValue {
+                cpus_utilization_percentage: rustctl_common::snapshot::TimedValue {
                     read_completed_by,
                     read_value: cpus_usage
                         .iter()
