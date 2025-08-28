@@ -1,3 +1,5 @@
+use futures_util::SinkExt;
+
 pub struct RconClient {
     ctoken: tokio_util::sync::CancellationToken,
     cfg_client: crate::storage::GameServerConfigurationShared,
@@ -48,7 +50,10 @@ impl RconClient {
 
             let (ws_sink, ws_stream): (WebSocketSink, WebSocketStream) = futures_util::StreamExt::split(websocket);
 
-            Self::loop_query_rcon(ws_sink, ws_stream, self.tx_agg_igs.clone()).await;
+            if let Err(err) = Self::loop_query_rcon(ws_sink, ws_stream, self.tx_agg_igs.clone()).await {
+                log::error!("Failed to query RCON: {err}");
+                continue 'reconnect;
+            }
         }
     }
 
@@ -56,68 +61,18 @@ impl RconClient {
         mut ws_sink: WebSocketSink,
         mut ws_stream: WebSocketStream,
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
-    ) -> () {
+    ) -> Result<(), Error> {
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-        'query: loop {
+        loop {
             interval.tick().await;
 
             let cmd: RconMessage = RconMessage::env_time();
-            let cmd_serialized: String =
-                serde_json::to_string(&cmd).expect("infallible: RconCommand should be serializable as JSON");
-            let cmd_msg: tokio_tungstenite::tungstenite::Message =
-                tokio_tungstenite::tungstenite::Message::Text(cmd_serialized.into());
+            let response: RconMessage = cmd.send(&mut ws_sink, &mut ws_stream).await?;
 
-            if let Err(err) = futures_util::SinkExt::send(&mut ws_sink, cmd_msg).await {
-                log::error!("Failed to send RCON command: {err}");
-                break 'query;
-            };
-
-            // TODO: Add timeout for waiting for the response!
-            let response: RconMessage = match Self::wait_response(&cmd, &mut ws_stream).await {
-                Ok(n) => n,
-                Err(err) => {
-                    log::error!("Error while waiting for RCON response: {err}");
-                    break 'query;
-                }
-            };
             // TODO: Send the queried in-game state to aggregator over `tx_agg_igs`
             dbg!(response);
-        }
-    }
-
-    async fn wait_response(command: &RconMessage, ws_stream: &mut WebSocketStream) -> Result<RconMessage, Error> {
-        'collect_response: loop {
-            let msg: tokio_tungstenite::tungstenite::Message = match futures_util::StreamExt::next(ws_stream).await {
-                Some(Ok(msg)) => msg,
-                Some(Err(source)) => return Err(Error::SocketFailed { source }),
-                None => return Err(Error::SocketClosed),
-            };
-            let utf8_payload: String = match &msg {
-                tokio_tungstenite::tungstenite::Message::Text(utf8_bytes) => utf8_bytes.to_string(),
-                tokio_tungstenite::tungstenite::Message::Binary(_)
-                | tokio_tungstenite::tungstenite::Message::Ping(_)
-                | tokio_tungstenite::tungstenite::Message::Pong(_)
-                | tokio_tungstenite::tungstenite::Message::Close(_)
-                | tokio_tungstenite::tungstenite::Message::Frame(_) => {
-                    log::error!("Received a non-text message from RCON WebSocket: {msg:?}");
-                    return Err(Error::UnexpectedWebSocketMessage { msg });
-                }
-            };
-            let rcon_msg: RconMessage = match serde_json::from_str(&utf8_payload) {
-                Ok(n) => n,
-                Err(source) => {
-                    return Err(Error::InvalidRconMessage { source, utf8_payload });
-                }
-            };
-            log::debug!("Received RCON message: {rcon_msg:?}");
-
-            if rcon_msg.Identifier == command.Identifier {
-                return Ok(rcon_msg);
-            } else {
-                continue 'collect_response;
-            }
         }
     }
 }
@@ -147,6 +102,67 @@ impl RconMessage {
         Self {
             Identifier: Self::generate_message_identifier(),
             Message: "env.time".to_owned(),
+        }
+    }
+
+    pub async fn send(
+        &self,
+        ws_sink: &mut WebSocketSink,
+        ws_stream: &mut WebSocketStream,
+    ) -> Result<RconMessage, Error> {
+        let cmd_serialized: String =
+            serde_json::to_string(&self).expect("infallible: RconCommand should be serializable as JSON");
+        let cmd_msg: tokio_tungstenite::tungstenite::Message =
+            tokio_tungstenite::tungstenite::Message::Text(cmd_serialized.into());
+
+        if let Err(source) = ws_sink.send(cmd_msg).await {
+            log::error!("Failed to send RCON command: {source}");
+            return Err(Error::SocketFailed { source });
+        };
+
+        // TODO: Add timeout for waiting for the response!
+        let response: RconMessage = match self.wait_response(ws_stream).await {
+            Ok(n) => n,
+            Err(err) => {
+                log::error!("Error while waiting for RCON response: {err}");
+                return Err(err);
+            }
+        };
+
+        Ok(response)
+    }
+
+    async fn wait_response(&self, ws_stream: &mut WebSocketStream) -> Result<RconMessage, Error> {
+        'collect_response: loop {
+            let msg: tokio_tungstenite::tungstenite::Message = match futures_util::StreamExt::next(ws_stream).await {
+                Some(Ok(msg)) => msg,
+                Some(Err(source)) => return Err(Error::SocketFailed { source }),
+                None => return Err(Error::SocketClosed),
+            };
+            let utf8_payload: String = match &msg {
+                tokio_tungstenite::tungstenite::Message::Text(utf8_bytes) => utf8_bytes.to_string(),
+                tokio_tungstenite::tungstenite::Message::Binary(_)
+                | tokio_tungstenite::tungstenite::Message::Ping(_)
+                | tokio_tungstenite::tungstenite::Message::Pong(_)
+                | tokio_tungstenite::tungstenite::Message::Close(_)
+                | tokio_tungstenite::tungstenite::Message::Frame(_) => {
+                    log::error!("Received a non-text message from RCON WebSocket: {msg:?}");
+                    return Err(Error::UnexpectedWebSocketMessage { msg });
+                }
+            };
+            let rcon_msg: RconMessage = match serde_json::from_str(&utf8_payload) {
+                Ok(n) => n,
+                Err(source) => {
+                    return Err(Error::InvalidRconMessage { source, utf8_payload });
+                }
+            };
+            log::debug!("Received RCON message: {rcon_msg:?}");
+
+            if rcon_msg.Identifier == self.Identifier {
+                return Ok(rcon_msg);
+            } else {
+                continue 'collect_response;
+            }
         }
     }
 
