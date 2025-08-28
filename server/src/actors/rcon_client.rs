@@ -70,9 +70,16 @@ impl RconClient {
 
             let cmd: RconMessage = RconMessage::env_time();
             let response: RconMessage = cmd.send(&mut ws_sink, &mut ws_stream).await?;
+            let env_time: rustctl_common::snapshot::EnvTime = (&response).try_into()?;
 
-            // TODO: Send the queried in-game state to aggregator over `tx_agg_igs`
-            dbg!(response);
+            let total = rustctl_common::snapshot::InGameStateExposed { env_time };
+
+            if let Err(err) = tx_agg_igs.send(total).await {
+                log::debug!(
+                    "Channel for sending in-game state snapshots to aggregator closed -- Stopping querying: {err}"
+                );
+                return Ok(());
+            }
         }
     }
 }
@@ -156,7 +163,6 @@ impl RconMessage {
                     return Err(Error::InvalidRconMessage { source, utf8_payload });
                 }
             };
-            log::debug!("Received RCON message: {rcon_msg:?}");
 
             if rcon_msg.Identifier == self.Identifier {
                 return Ok(rcon_msg);
@@ -196,6 +202,10 @@ enum Error {
         source: serde_json::Error,
         utf8_payload: String,
     },
+
+    InvalidRconMessagePayload {
+        rationale_display: String,
+    },
 }
 
 impl std::fmt::Display for Error {
@@ -208,6 +218,9 @@ impl std::fmt::Display for Error {
                 source: _,
                 utf8_payload,
             } => write!(f, r#"invalid RCON message: "{utf8_payload}""#),
+            Error::InvalidRconMessagePayload { rationale_display } => {
+                write!(f, r#"invalid RCON message payload: {rationale_display}"#)
+            }
         }
     }
 }
@@ -219,6 +232,38 @@ impl std::error::Error for Error {
             Error::SocketClosed => None,
             Error::UnexpectedWebSocketMessage { msg: _ } => None,
             Error::InvalidRconMessage { source, .. } => Some(source),
+            Error::InvalidRconMessagePayload { rationale_display: _ } => None,
+        }
+    }
+}
+
+impl TryFrom<&RconMessage> for rustctl_common::snapshot::EnvTime {
+    type Error = Error;
+
+    /// Example value:
+    /// ```
+    /// env.time: "2.369943"
+    /// ```
+    fn try_from(msg: &RconMessage) -> Result<Self, Self::Error> {
+        let value: &String = &msg.Message;
+
+        const PREFIX: &str = "env.time: ";
+        if !value.starts_with(PREFIX) {
+            return Err(Error::InvalidRconMessagePayload {
+                rationale_display: format!(r#"invalid env.time format: expected "{PREFIX}" prefix, got "{value}""#),
+            });
+        }
+
+        let quoted = &value[PREFIX.len()..];
+        let unquoted = quoted.trim_matches('"').trim();
+
+        match unquoted.parse::<f64>() {
+            Ok(time_value) => Ok(rustctl_common::snapshot::EnvTime(time_value)),
+            Err(err) => {
+                return Err(Error::InvalidRconMessagePayload {
+                    rationale_display: format!(r#"failed to parse time value "{unquoted}": {err}"#),
+                });
+            }
         }
     }
 }

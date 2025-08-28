@@ -100,13 +100,16 @@ pub mod snapshot {
     }
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct EnvTime(pub f64);
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     pub struct InGameStateExposed {
-        env_time: f64,
+        pub env_time: EnvTime,
     }
 
     impl InGameStateExposed {
         pub fn init() -> Self {
-            Self { env_time: 0.0 }
+            Self { env_time: EnvTime(0.0) }
         }
     }
 }
