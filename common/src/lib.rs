@@ -122,11 +122,19 @@ pub mod snapshot {
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     pub struct InGameStateExposed {
         pub env_time: EnvTime,
+        pub players_pos: Vec<PlayerPos>,
+        pub players: Vec<Player>,
+        pub toolcupboards: Vec<Toolcupboard>,
     }
 
     impl InGameStateExposed {
         pub fn init() -> Self {
-            Self { env_time: EnvTime(0.0) }
+            Self {
+                env_time: EnvTime(0.0),
+                players_pos: Vec::new(),
+                players: Vec::new(),
+                toolcupboards: Vec::new(),
+            }
         }
     }
 }

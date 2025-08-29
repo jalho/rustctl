@@ -80,53 +80,28 @@ impl RconClient {
              */
             let cmd: RconMessage = RconMessage::new("playerlistpos");
             let response: RconMessage = cmd.send(&mut ws_sink, &mut ws_stream).await?;
-            /*
-             * Example response: Case no players on the server -- Only header line:
-             * ```
-             * RconMessage {
-             *     Identifier: 1000000001,
-             *     Message: "SteamID DisplayName POS ROT \n",
-             * }
-             * ```
-             */
-            dbg!(response);
-            // let todo: rustctl_common::snapshot::PlayerListPos = (&response).try_into()?;
+            let players_pos: Vec<rustctl_common::snapshot::PlayerPos> = (&response).try_into()?;
 
             /*
              * playerlist
              */
             let cmd: RconMessage = RconMessage::new("playerlist");
             let response: RconMessage = cmd.send(&mut ws_sink, &mut ws_stream).await?;
-            /*
-             * Example response: Case no players on the server -- Empty JSON array:
-             * ```
-             * RconMessage {
-             *     Identifier: 100000002,
-             *     Message: "[]",
-             * }
-             * ```
-             */
-            dbg!(response);
-            // let todo: rustctl_common::snapshot::PlayerList = (&response).try_into()?;
+            let players: Vec<rustctl_common::snapshot::Player> = (&response).try_into()?;
 
             /*
              * listtoolcupboards
              */
             let cmd: RconMessage = RconMessage::new("listtoolcupboards");
             let response: RconMessage = cmd.send(&mut ws_sink, &mut ws_stream).await?;
-            /*
-             * Example response: Case no toolcupboards on the server -- Only header line:
-             * ```
-             * RconMessage {
-             *     Identifier: 1000000003,
-             *     Message: "EntityId Position Authed \n",
-             * }
-             * ```
-             */
-            dbg!(response);
-            // let todo: rustctl_common::snapshot::ListToolcupboards = (&response).try_into()?;
+            let toolcupboards: Vec<rustctl_common::snapshot::Toolcupboard> = (&response).try_into()?;
 
-            let total = rustctl_common::snapshot::InGameStateExposed { env_time };
+            let total = rustctl_common::snapshot::InGameStateExposed {
+                env_time,
+                players_pos,
+                players,
+                toolcupboards,
+            };
 
             if let Err(err) = tx_agg_igs.send(total).await {
                 log::debug!(
