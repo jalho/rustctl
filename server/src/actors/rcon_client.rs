@@ -65,6 +65,13 @@ impl RconClient {
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
+        /*
+         * TODO: Get "ownerid" (and other "default admins") from the "shared
+         *       config client"?
+         */
+        let cmd: RconMessage = RconMessage::new("ownerid 76561198135242017");
+        cmd.send_without_waiting_response(&mut ws_sink).await?;
+
         loop {
             interval.tick().await;
 
@@ -72,28 +79,28 @@ impl RconClient {
              * env.time
              */
             let cmd: RconMessage = RconMessage::new("env.time");
-            let response: RconMessage = cmd.send(&mut ws_sink, &mut ws_stream).await?;
+            let response: RconMessage = cmd.send_and_wait_response(&mut ws_sink, &mut ws_stream).await?;
             let env_time: rustctl_common::snapshot::EnvTime = (&response).try_into()?;
 
             /*
              * playerlistpos
              */
             let cmd: RconMessage = RconMessage::new("playerlistpos");
-            let response: RconMessage = cmd.send(&mut ws_sink, &mut ws_stream).await?;
+            let response: RconMessage = cmd.send_and_wait_response(&mut ws_sink, &mut ws_stream).await?;
             let players_pos: Vec<rustctl_common::snapshot::PlayerPos> = (&response).try_into()?;
 
             /*
              * playerlist
              */
             let cmd: RconMessage = RconMessage::new("playerlist");
-            let response: RconMessage = cmd.send(&mut ws_sink, &mut ws_stream).await?;
+            let response: RconMessage = cmd.send_and_wait_response(&mut ws_sink, &mut ws_stream).await?;
             let players: Vec<rustctl_common::snapshot::Player> = (&response).try_into()?;
 
             /*
              * listtoolcupboards
              */
             let cmd: RconMessage = RconMessage::new("listtoolcupboards");
-            let response: RconMessage = cmd.send(&mut ws_sink, &mut ws_stream).await?;
+            let response: RconMessage = cmd.send_and_wait_response(&mut ws_sink, &mut ws_stream).await?;
             let toolcupboards: Vec<rustctl_common::snapshot::Toolcupboard> = (&response).try_into()?;
 
             let total = rustctl_common::snapshot::InGameStateExposed {
@@ -141,7 +148,7 @@ impl RconMessage {
         }
     }
 
-    pub async fn send(
+    pub async fn send_and_wait_response(
         &self,
         ws_sink: &mut WebSocketSink,
         ws_stream: &mut WebSocketStream,
@@ -166,6 +173,23 @@ impl RconMessage {
         };
 
         Ok(response)
+    }
+
+    pub async fn send_without_waiting_response(
+        &self,
+        ws_sink: &mut WebSocketSink,
+    ) -> Result<(), Error> {
+        let cmd_serialized: String =
+            serde_json::to_string(&self).expect("infallible: RconCommand should be serializable as JSON");
+        let cmd_msg: tokio_tungstenite::tungstenite::Message =
+            tokio_tungstenite::tungstenite::Message::Text(cmd_serialized.into());
+
+        if let Err(source) = ws_sink.send(cmd_msg).await {
+            log::error!("Failed to send RCON command: {source}");
+            return Err(Error::SocketFailed { source });
+        };
+
+        Ok(())
     }
 
     async fn wait_response(&self, ws_stream: &mut WebSocketStream) -> Result<RconMessage, Error> {
