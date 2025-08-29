@@ -87,26 +87,7 @@ pub mod snapshot {
     }
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct Toolcupboard {
-        pub entity_id: String,
-        pub position: (f64, f64, f64),
-        pub auth_count: u32,
-    }
-
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    #[allow(non_snake_case)]
-    pub struct Player {
-        Address: String,
-        ConnectedSeconds: u32,
-        CurrentLevel: f64,
-        DisplayName: String,
-        Health: f64,
-        OwnerSteamID: String,
-        Ping: u32,
-        SteamID: String,
-        UnspentXp: f64,
-        VoiationLevel: f64,
-    }
+    pub struct EnvTime(pub f64);
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     pub struct PlayerPos {
@@ -117,7 +98,37 @@ pub mod snapshot {
     }
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct EnvTime(pub f64);
+    pub struct Player {
+        #[serde(rename = "SteamID")]
+        pub steam_id: String,
+        #[serde(rename = "OwnerSteamID")]
+        pub owner_steam_id: String,
+        #[serde(rename = "DisplayName")]
+        pub display_name: String,
+        #[serde(rename = "Ping")]
+        pub ping: i32,
+        #[serde(rename = "Address")]
+        pub address: String,
+        #[serde(rename = "EntityId")]
+        pub entity_id: i32,
+        #[serde(rename = "ConnectedSeconds")]
+        pub connected_seconds: i32,
+        #[serde(rename = "ViolationLevel")]
+        pub violation_level: f64,
+        #[serde(rename = "CurrentLevel")]
+        pub current_level: f64,
+        #[serde(rename = "UnspentXp")]
+        pub unspent_xp: f64,
+        #[serde(rename = "Health")]
+        pub health: f64,
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct Toolcupboard {
+        pub entity_id: i32,
+        pub position: (f64, f64, f64),
+        pub auth_count: u32,
+    }
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     pub struct InGameStateExposed {
