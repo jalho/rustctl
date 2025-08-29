@@ -114,8 +114,17 @@ impl Default for GameServerConfiguration {
 
             game_instance_id: "instance0",
 
-            game_world_size: 1000,
-            game_world_seed: 1234,
+            /*
+             * Some observed maps as of 2025-08-29, buildid 19776612, world
+             * size 1000:
+             *
+             * - seed "1": Has some land. Useful for testing because stuff can
+             *   be built which requires land.
+             *
+             * - seed "1234": Has no land, only water.
+             */
+            game_world_seed: 1,
+            game_world_size: 1000, // minimum world size AFAIK
 
             rcon_port: 28016,
             rcon_password: uuid::Uuid::new_v4().to_string(),
