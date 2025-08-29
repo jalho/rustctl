@@ -271,6 +271,7 @@ impl TryFrom<&RconMessage> for rustctl_common::snapshot::EnvTime {
 
     fn try_from(msg: &RconMessage) -> Result<Self, Self::Error> {
         let value: &String = &msg.Message;
+        log::debug!("{value}");
 
         const PREFIX: &str = "env.time: ";
         if !value.starts_with(PREFIX) {
@@ -296,6 +297,7 @@ impl TryFrom<&RconMessage> for Vec<rustctl_common::snapshot::PlayerPos> {
 
     fn try_from(msg: &RconMessage) -> Result<Self, Self::Error> {
         let value: &String = &msg.Message;
+        log::debug!("{value}");
 
         const HEADER: &str = "SteamID DisplayName POS ROT \n";
         if !value.starts_with(HEADER) {
@@ -385,6 +387,7 @@ impl TryFrom<&RconMessage> for Vec<rustctl_common::snapshot::Player> {
 
     fn try_from(msg: &RconMessage) -> Result<Self, Self::Error> {
         let value: &String = &msg.Message;
+        log::debug!("{value}");
 
         let players: Vec<rustctl_common::snapshot::Player> =
             serde_json::from_str(value).map_err(|source| Error::InvalidRconMessage {
@@ -401,6 +404,7 @@ impl TryFrom<&RconMessage> for Vec<rustctl_common::snapshot::Toolcupboard> {
 
     fn try_from(msg: &RconMessage) -> Result<Self, Self::Error> {
         let value: &String = &msg.Message;
+        log::debug!("{value}");
 
         const HEADER: &str = "EntityId Position Authed \n";
         if !value.starts_with(HEADER) {
