@@ -87,6 +87,36 @@ pub mod snapshot {
     }
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct Toolcupboard {
+        pub entity_id: String,
+        pub position: (f64, f64, f64),
+        pub auth_count: u32,
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    #[allow(non_snake_case)]
+    pub struct Player {
+        Address: String,
+        ConnectedSeconds: u32,
+        CurrentLevel: f64,
+        DisplayName: String,
+        Health: f64,
+        OwnerSteamID: String,
+        Ping: u32,
+        SteamID: String,
+        UnspentXp: f64,
+        VoiationLevel: f64,
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct PlayerPos {
+        pub steam_id: String,
+        pub display_name: String,
+        pub position: (f64, f64, f64),
+        pub rotation: (f64, f64, f64),
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     pub struct EnvTime(pub f64);
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
