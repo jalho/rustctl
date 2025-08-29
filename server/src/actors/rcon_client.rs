@@ -175,10 +175,7 @@ impl RconMessage {
         Ok(response)
     }
 
-    pub async fn send_without_waiting_response(
-        &self,
-        ws_sink: &mut WebSocketSink,
-    ) -> Result<(), Error> {
+    pub async fn send_without_waiting_response(&self, ws_sink: &mut WebSocketSink) -> Result<(), Error> {
         let cmd_serialized: String =
             serde_json::to_string(&self).expect("infallible: RconCommand should be serializable as JSON");
         let cmd_msg: tokio_tungstenite::tungstenite::Message =
@@ -317,31 +314,68 @@ impl TryFrom<&RconMessage> for Vec<rustctl_common::snapshot::PlayerPos> {
         let value: &String = &msg.Message;
         let mut lines = value.lines();
         let header = lines.next().unwrap_or("");
-        let header_has_all = ["SteamID", "DisplayName", "POS", "ROT"].into_iter().all(|h| header.contains(h));
+        let header_has_all = ["SteamID", "DisplayName", "POS", "ROT"]
+            .into_iter()
+            .all(|h| header.contains(h));
         if !header_has_all {
-            return Err(Error::InvalidRconMessagePayload { rationale_display: format!(r#"invalid playerlistpos header: got "{header}""#) });
+            return Err(Error::InvalidRconMessagePayload {
+                rationale_display: format!(r#"invalid playerlistpos header: got "{header}""#),
+            });
         }
         let mut out = Vec::new();
-        let re = regex::Regex::new(r#"^(\d{17})\s+(.*?)\s+\(([^)]*)\)\s+\(([^)]*)\)\s*$"#).map_err(|err| Error::InvalidRconMessagePayload { rationale_display: format!(r#"failed to compile regex for playerlistpos parsing: {err}"#) })?;
+        let re = regex::Regex::new(r#"^(\d{17})\s+(.*?)\s+\(([^)]*)\)\s+\(([^)]*)\)\s*$"#).map_err(|err| {
+            Error::InvalidRconMessagePayload {
+                rationale_display: format!(r#"failed to compile regex for playerlistpos parsing: {err}"#),
+            }
+        })?;
         for line in lines {
             let line = line.trim();
-            if line.is_empty() { continue; }
-            let caps = re.captures(line).ok_or_else(|| Error::InvalidRconMessagePayload { rationale_display: format!(r#"invalid playerlistpos line: "{line}""#) })?;
+            if line.is_empty() {
+                continue;
+            }
+            let caps = re.captures(line).ok_or_else(|| Error::InvalidRconMessagePayload {
+                rationale_display: format!(r#"invalid playerlistpos line: "{line}""#),
+            })?;
             let steam_id = caps.get(1).unwrap().as_str().to_string();
             let display_name = caps.get(2).unwrap().as_str().trim().to_string();
             let pos_raw = caps.get(3).unwrap().as_str();
             let rot_raw = caps.get(4).unwrap().as_str();
             let pos_parts: Vec<&str> = pos_raw.split(',').map(|s| s.trim()).collect();
-            if pos_parts.len() != 3 { return Err(Error::InvalidRconMessagePayload { rationale_display: format!(r#"invalid POS format in "{line}""#) }); }
-            let x: f64 = pos_parts[0].parse().map_err(|err| Error::InvalidRconMessagePayload { rationale_display: format!(r#"failed to parse x "{}" in "{line}": {err}"#, pos_parts[0]) })?;
-            let y: f64 = pos_parts[1].parse().map_err(|err| Error::InvalidRconMessagePayload { rationale_display: format!(r#"failed to parse y "{}" in "{line}": {err}"#, pos_parts[1]) })?;
-            let z: f64 = pos_parts[2].parse().map_err(|err| Error::InvalidRconMessagePayload { rationale_display: format!(r#"failed to parse z "{}" in "{line}": {err}"#, pos_parts[2]) })?;
+            if pos_parts.len() != 3 {
+                return Err(Error::InvalidRconMessagePayload {
+                    rationale_display: format!(r#"invalid POS format in "{line}""#),
+                });
+            }
+            let x: f64 = pos_parts[0].parse().map_err(|err| Error::InvalidRconMessagePayload {
+                rationale_display: format!(r#"failed to parse x "{}" in "{line}": {err}"#, pos_parts[0]),
+            })?;
+            let y: f64 = pos_parts[1].parse().map_err(|err| Error::InvalidRconMessagePayload {
+                rationale_display: format!(r#"failed to parse y "{}" in "{line}": {err}"#, pos_parts[1]),
+            })?;
+            let z: f64 = pos_parts[2].parse().map_err(|err| Error::InvalidRconMessagePayload {
+                rationale_display: format!(r#"failed to parse z "{}" in "{line}": {err}"#, pos_parts[2]),
+            })?;
             let rot_parts: Vec<&str> = rot_raw.split(',').map(|s| s.trim()).collect();
-            if rot_parts.len() != 3 { return Err(Error::InvalidRconMessagePayload { rationale_display: format!(r#"invalid ROT format in "{line}""#) }); }
-            let pitch: f64 = rot_parts[0].parse().map_err(|err| Error::InvalidRconMessagePayload { rationale_display: format!(r#"failed to parse pitch "{}" in "{line}": {err}"#, rot_parts[0]) })?;
-            let yaw: f64 = rot_parts[1].parse().map_err(|err| Error::InvalidRconMessagePayload { rationale_display: format!(r#"failed to parse yaw "{}" in "{line}": {err}"#, rot_parts[1]) })?;
-            let roll: f64 = rot_parts[2].parse().map_err(|err| Error::InvalidRconMessagePayload { rationale_display: format!(r#"failed to parse roll "{}" in "{line}": {err}"#, rot_parts[2]) })?;
-            out.push(rustctl_common::snapshot::PlayerPos { steam_id, display_name, position: (x, y, z), rotation: (pitch, yaw, roll) });
+            if rot_parts.len() != 3 {
+                return Err(Error::InvalidRconMessagePayload {
+                    rationale_display: format!(r#"invalid ROT format in "{line}""#),
+                });
+            }
+            let pitch: f64 = rot_parts[0].parse().map_err(|err| Error::InvalidRconMessagePayload {
+                rationale_display: format!(r#"failed to parse pitch "{}" in "{line}": {err}"#, rot_parts[0]),
+            })?;
+            let yaw: f64 = rot_parts[1].parse().map_err(|err| Error::InvalidRconMessagePayload {
+                rationale_display: format!(r#"failed to parse yaw "{}" in "{line}": {err}"#, rot_parts[1]),
+            })?;
+            let roll: f64 = rot_parts[2].parse().map_err(|err| Error::InvalidRconMessagePayload {
+                rationale_display: format!(r#"failed to parse roll "{}" in "{line}": {err}"#, rot_parts[2]),
+            })?;
+            out.push(rustctl_common::snapshot::PlayerPos {
+                steam_id,
+                display_name,
+                position: (x, y, z),
+                rotation: (pitch, yaw, roll),
+            });
         }
         Ok(out)
     }
@@ -352,7 +386,11 @@ impl TryFrom<&RconMessage> for Vec<rustctl_common::snapshot::Player> {
 
     fn try_from(msg: &RconMessage) -> Result<Self, Self::Error> {
         let value: &String = &msg.Message;
-        let players: Vec<rustctl_common::snapshot::Player> = serde_json::from_str(value).map_err(|source| Error::InvalidRconMessage { source, utf8_payload: value.clone() })?;
+        let players: Vec<rustctl_common::snapshot::Player> =
+            serde_json::from_str(value).map_err(|source| Error::InvalidRconMessage {
+                source,
+                utf8_payload: value.clone(),
+            })?;
         Ok(players)
     }
 }
@@ -364,28 +402,62 @@ impl TryFrom<&RconMessage> for Vec<rustctl_common::snapshot::Toolcupboard> {
         let value: &String = &msg.Message;
         let mut lines = value.lines();
         let header = lines.next().unwrap_or("");
-        let header_has_all = ["EntityId", "Position", "Authed"].into_iter().all(|h| header.contains(h));
+        let header_has_all = ["EntityId", "Position", "Authed"]
+            .into_iter()
+            .all(|h| header.contains(h));
         if !header_has_all {
-            return Err(Error::InvalidRconMessagePayload { rationale_display: format!(r#"invalid listtoolcupboards header: got "{header}""#) });
+            return Err(Error::InvalidRconMessagePayload {
+                rationale_display: format!(r#"invalid listtoolcupboards header: got "{header}""#),
+            });
         }
         let mut out = Vec::new();
-        let re = regex::Regex::new(r#"^(\d+)\s+\(([^)]*)\)\s+(\d+)\s*$"#).map_err(|err| Error::InvalidRconMessagePayload { rationale_display: format!(r#"failed to compile regex for toolcupboard parsing: {err}"#) })?;
+        let re = regex::Regex::new(r#"^(\d+)\s+\(([^)]*)\)\s+(\d+)\s*$"#).map_err(|err| {
+            Error::InvalidRconMessagePayload {
+                rationale_display: format!(r#"failed to compile regex for toolcupboard parsing: {err}"#),
+            }
+        })?;
         for line in lines {
             let line = line.trim();
-            if line.is_empty() { continue; }
-            let caps = re.captures(line).ok_or_else(|| Error::InvalidRconMessagePayload { rationale_display: format!(r#"invalid listtoolcupboards line: "{line}""#) })?;
-            let entity_id: i32 = caps.get(1).unwrap().as_str().parse().map_err(|err| Error::InvalidRconMessagePayload { rationale_display: format!(r#"failed to parse EntityId in "{line}": {err}"#) })?;
+            if line.is_empty() {
+                continue;
+            }
+            let caps = re.captures(line).ok_or_else(|| Error::InvalidRconMessagePayload {
+                rationale_display: format!(r#"invalid listtoolcupboards line: "{line}""#),
+            })?;
+            let entity_id: i32 =
+                caps.get(1)
+                    .unwrap()
+                    .as_str()
+                    .parse()
+                    .map_err(|err| Error::InvalidRconMessagePayload {
+                        rationale_display: format!(r#"failed to parse EntityId in "{line}": {err}"#),
+                    })?;
             let pos_raw = caps.get(2).unwrap().as_str();
             let auth_raw = caps.get(3).unwrap().as_str();
             let parts: Vec<&str> = pos_raw.split(',').map(|s| s.trim()).collect();
-            if parts.len() != 3 { return Err(Error::InvalidRconMessagePayload { rationale_display: format!(r#"invalid Position format in "{line}""#) }); }
-            let x: f64 = parts[0].parse().map_err(|err| Error::InvalidRconMessagePayload { rationale_display: format!(r#"failed to parse x "{}" in "{line}": {err}"#, parts[0]) })?;
-            let y: f64 = parts[1].parse().map_err(|err| Error::InvalidRconMessagePayload { rationale_display: format!(r#"failed to parse y "{}" in "{line}": {err}"#, parts[1]) })?;
-            let z: f64 = parts[2].parse().map_err(|err| Error::InvalidRconMessagePayload { rationale_display: format!(r#"failed to parse z "{}" in "{line}": {err}"#, parts[2]) })?;
-            let auth_count: u32 = auth_raw.parse().map_err(|err| Error::InvalidRconMessagePayload { rationale_display: format!(r#"failed to parse Authed "{auth_raw}" in "{line}": {err}"#) })?;
-            out.push(rustctl_common::snapshot::Toolcupboard { entity_id, position: (x, y, z), auth_count });
+            if parts.len() != 3 {
+                return Err(Error::InvalidRconMessagePayload {
+                    rationale_display: format!(r#"invalid Position format in "{line}""#),
+                });
+            }
+            let x: f64 = parts[0].parse().map_err(|err| Error::InvalidRconMessagePayload {
+                rationale_display: format!(r#"failed to parse x "{}" in "{line}": {err}"#, parts[0]),
+            })?;
+            let y: f64 = parts[1].parse().map_err(|err| Error::InvalidRconMessagePayload {
+                rationale_display: format!(r#"failed to parse y "{}" in "{line}": {err}"#, parts[1]),
+            })?;
+            let z: f64 = parts[2].parse().map_err(|err| Error::InvalidRconMessagePayload {
+                rationale_display: format!(r#"failed to parse z "{}" in "{line}": {err}"#, parts[2]),
+            })?;
+            let auth_count: u32 = auth_raw.parse().map_err(|err| Error::InvalidRconMessagePayload {
+                rationale_display: format!(r#"failed to parse Authed "{auth_raw}" in "{line}": {err}"#),
+            })?;
+            out.push(rustctl_common::snapshot::Toolcupboard {
+                entity_id,
+                position: (x, y, z),
+                auth_count,
+            });
         }
         Ok(out)
     }
 }
-
