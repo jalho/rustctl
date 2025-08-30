@@ -80,28 +80,28 @@ impl RconClient {
              */
             let cmd: RconMessage = RconMessage::new("env.time");
             let response: RconMessage = cmd.send_and_wait_response(&mut ws_sink, &mut ws_stream).await?;
-            let env_time: rustctl_common::snapshot::EnvTime = (&response).try_into()?;
+            let env_time: rustctl_common::rcon::EnvTime = (&response).try_into()?;
 
             /*
              * playerlistpos
              */
             let cmd: RconMessage = RconMessage::new("playerlistpos");
             let response: RconMessage = cmd.send_and_wait_response(&mut ws_sink, &mut ws_stream).await?;
-            let players_pos: Vec<rustctl_common::snapshot::PlayerPos> = (&response).try_into()?;
+            let players_pos: Vec<rustctl_common::rcon::PlayerPos> = (&response).try_into()?;
 
             /*
              * playerlist
              */
             let cmd: RconMessage = RconMessage::new("playerlist");
             let response: RconMessage = cmd.send_and_wait_response(&mut ws_sink, &mut ws_stream).await?;
-            let players: Vec<rustctl_common::snapshot::Player> = (&response).try_into()?;
+            let players: Vec<rustctl_common::rcon::Player> = (&response).try_into()?;
 
             /*
              * listtoolcupboards
              */
             let cmd: RconMessage = RconMessage::new("listtoolcupboards");
             let response: RconMessage = cmd.send_and_wait_response(&mut ws_sink, &mut ws_stream).await?;
-            let toolcupboards: Vec<rustctl_common::snapshot::Toolcupboard> = (&response).try_into()?;
+            let toolcupboards: Vec<rustctl_common::rcon::Toolcupboard> = (&response).try_into()?;
 
             let total = rustctl_common::snapshot::InGameStateExposed {
                 env_time,
@@ -287,7 +287,7 @@ impl std::error::Error for Error {
     }
 }
 
-impl TryFrom<&RconMessage> for rustctl_common::snapshot::EnvTime {
+impl TryFrom<&RconMessage> for rustctl_common::rcon::EnvTime {
     type Error = Error;
 
     fn try_from(msg: &RconMessage) -> Result<Self, Self::Error> {
@@ -303,11 +303,11 @@ impl TryFrom<&RconMessage> for rustctl_common::snapshot::EnvTime {
         let time_value: f64 = unquoted.parse().map_err(|err| Error::InvalidRconMessagePayload {
             rationale_display: format!(r#"failed to parse time value "{unquoted}": {err}"#),
         })?;
-        Ok(rustctl_common::snapshot::EnvTime(time_value))
+        Ok(rustctl_common::rcon::EnvTime(time_value))
     }
 }
 
-impl TryFrom<&RconMessage> for Vec<rustctl_common::snapshot::PlayerPos> {
+impl TryFrom<&RconMessage> for Vec<rustctl_common::rcon::PlayerPos> {
     type Error = Error;
 
     fn try_from(msg: &RconMessage) -> Result<Self, Self::Error> {
@@ -370,7 +370,7 @@ impl TryFrom<&RconMessage> for Vec<rustctl_common::snapshot::PlayerPos> {
             let roll: f64 = rot_parts[2].parse().map_err(|err| Error::InvalidRconMessagePayload {
                 rationale_display: format!(r#"failed to parse roll "{}" in "{line}": {err}"#, rot_parts[2]),
             })?;
-            out.push(rustctl_common::snapshot::PlayerPos {
+            out.push(rustctl_common::rcon::PlayerPos {
                 steam_id,
                 display_name,
                 position: (x, y, z),
@@ -381,12 +381,12 @@ impl TryFrom<&RconMessage> for Vec<rustctl_common::snapshot::PlayerPos> {
     }
 }
 
-impl TryFrom<&RconMessage> for Vec<rustctl_common::snapshot::Player> {
+impl TryFrom<&RconMessage> for Vec<rustctl_common::rcon::Player> {
     type Error = Error;
 
     fn try_from(msg: &RconMessage) -> Result<Self, Self::Error> {
         let value: &String = &msg.Message;
-        let players: Vec<rustctl_common::snapshot::Player> =
+        let players: Vec<rustctl_common::rcon::Player> =
             serde_json::from_str(value).map_err(|source| Error::InvalidRconMessage {
                 source,
                 utf8_payload: value.clone(),
@@ -395,7 +395,7 @@ impl TryFrom<&RconMessage> for Vec<rustctl_common::snapshot::Player> {
     }
 }
 
-impl TryFrom<&RconMessage> for Vec<rustctl_common::snapshot::Toolcupboard> {
+impl TryFrom<&RconMessage> for Vec<rustctl_common::rcon::Toolcupboard> {
     type Error = Error;
 
     fn try_from(msg: &RconMessage) -> Result<Self, Self::Error> {
@@ -452,7 +452,7 @@ impl TryFrom<&RconMessage> for Vec<rustctl_common::snapshot::Toolcupboard> {
             let auth_count: u32 = auth_raw.parse().map_err(|err| Error::InvalidRconMessagePayload {
                 rationale_display: format!(r#"failed to parse Authed "{auth_raw}" in "{line}": {err}"#),
             })?;
-            out.push(rustctl_common::snapshot::Toolcupboard {
+            out.push(rustctl_common::rcon::Toolcupboard {
                 entity_id,
                 position: (x, y, z),
                 auth_count,

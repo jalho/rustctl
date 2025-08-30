@@ -1,3 +1,5 @@
+pub mod rcon;
+
 pub mod snapshot {
     /// Snapshot of the remote (server) state sent to each client (on a regular
     /// interval).
@@ -87,61 +89,17 @@ pub mod snapshot {
     }
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct EnvTime(pub f64);
-
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct PlayerPos {
-        pub steam_id: String,
-        pub display_name: String,
-        pub position: (f64, f64, f64),
-        pub rotation: (f64, f64, f64),
-    }
-
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct Player {
-        #[serde(rename = "SteamID")]
-        pub steam_id: String,
-        #[serde(rename = "OwnerSteamID")]
-        pub owner_steam_id: String,
-        #[serde(rename = "DisplayName")]
-        pub display_name: String,
-        #[serde(rename = "Ping")]
-        pub ping: i32,
-        #[serde(rename = "Address")]
-        pub address: String,
-        #[serde(rename = "EntityId")]
-        pub entity_id: i32,
-        #[serde(rename = "ConnectedSeconds")]
-        pub connected_seconds: i32,
-        #[serde(rename = "ViolationLevel")]
-        pub violation_level: f64,
-        #[serde(rename = "CurrentLevel")]
-        pub current_level: f64,
-        #[serde(rename = "UnspentXp")]
-        pub unspent_xp: f64,
-        #[serde(rename = "Health")]
-        pub health: f64,
-    }
-
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct Toolcupboard {
-        pub entity_id: i32,
-        pub position: (f64, f64, f64),
-        pub auth_count: u32,
-    }
-
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     pub struct InGameStateExposed {
-        pub env_time: EnvTime,
-        pub players_pos: Vec<PlayerPos>,
-        pub players: Vec<Player>,
-        pub toolcupboards: Vec<Toolcupboard>,
+        pub env_time: crate::rcon::EnvTime,
+        pub players_pos: Vec<crate::rcon::PlayerPos>,
+        pub players: Vec<crate::rcon::Player>,
+        pub toolcupboards: Vec<crate::rcon::Toolcupboard>,
     }
 
     impl InGameStateExposed {
         pub fn init() -> Self {
             Self {
-                env_time: EnvTime(0.0),
+                env_time: crate::rcon::EnvTime(0.0),
                 players_pos: Vec::new(),
                 players: Vec::new(),
                 toolcupboards: Vec::new(),
