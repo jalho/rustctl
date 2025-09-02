@@ -419,6 +419,42 @@ impl std::error::Error for Error {
     }
 }
 
+/*
+ * TODO: Add unit tests for:
+ * - TryFrom<&RconMessage> for rustctl_common::rcon::EnvTime
+ * - TryFrom<&RconMessage> for Vec<rustctl_common::rcon::PlayerPos>
+ * - TryFrom<&RconMessage> for Vec<rustctl_common::rcon::Player>
+ * - TryFrom<&RconMessage> for Vec<rustctl_common::rcon::Toolcupboard>
+ *
+ * Here are sample responses copied from in-game RCON client:
+ *
+ *       ```
+ *       > listtoolcupboards
+ *       EntityId Position              Authed
+ *       4363     (81.60, 2.78, -32.58) 1
+ *       > playerlistpos
+ *       SteamID           DisplayName  POS                   ROT
+ *       76561198135242017 [YKÄ]TompXXX (81.79, 2.78, -30.90) (-0.14, -0.33, -0.93)
+ *       > playerlist
+ *       [
+ *         {
+ *           "SteamID": "76561198135242017",
+ *           "OwnerSteamID": "0",
+ *           "DisplayName": "[YKÄ]TompXXX",
+ *           "Ping": 2,
+ *           "Address": "192.168.0.104:64009",
+ *           "EntityId": 4335,
+ *           "ConnectedSeconds": 80,
+ *           "ViolationLevel": 0.0,
+ *           "CurrentLevel": 0.0,
+ *           "UnspentXp": 0.0,
+ *           "Health": 58.4493828
+ *         }
+ *       ]
+ *       > env.time
+ *       env.time: "12.28928"
+ *       ```
+ */
 impl TryFrom<&RconMessage> for rustctl_common::rcon::EnvTime {
     type Error = Error;
 
