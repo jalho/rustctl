@@ -50,7 +50,13 @@ impl RconClient {
                 }
             };
 
-            let (ws_sink, ws_stream): (WebSocketSink, WebSocketStream) = futures_util::StreamExt::split(websocket);
+            let (mut ws_sink, mut ws_stream): (WebSocketSink, WebSocketStream) =
+                futures_util::StreamExt::split(websocket);
+
+            if let Err(err) = Self::prepare_via_rcon(&mut ws_sink, &mut ws_stream).await {
+                log::error!("Failed to prepare via RCON: {err}");
+                continue 'reconnect;
+            }
 
             if let Err(err) = Self::loop_query_rcon(ws_sink, ws_stream, self.tx_agg_igs.clone()).await {
                 log::error!("Failed to query RCON: {err}");
@@ -59,14 +65,11 @@ impl RconClient {
         }
     }
 
-    async fn loop_query_rcon(
-        mut ws_sink: WebSocketSink,
-        mut ws_stream: WebSocketStream,
-        tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
-    ) -> Result<(), Error> {
-        let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-
+    /// Do any preparation that needs to be done via RCON once its up, like
+    /// render the in-game world map. This is as opposed to the continuously
+    /// looping state queries done via RCON that shall only start once the
+    /// preparation phase is done.
+    async fn prepare_via_rcon(ws_sink: &mut WebSocketSink, ws_stream: &mut WebSocketStream) -> Result<(), Error> {
         /*
          * TODO: Move the rendered PNG file to some static path so that the web
          *       server can serve it.
@@ -83,7 +86,7 @@ impl RconClient {
          */
         let cmd: RconMessage = RconMessage::new("world.rendermap");
         let response: RconMessage = cmd
-            .send_and_wait_response(&mut ws_sink, &mut ws_stream, std::time::Duration::from_secs(10))
+            .send_and_wait_response(ws_sink, ws_stream, std::time::Duration::from_secs(10))
             .await?;
 
         /*
@@ -91,7 +94,29 @@ impl RconClient {
          *       config client"?
          */
         let cmd: RconMessage = RconMessage::new("ownerid 76561198135242017");
-        cmd.send_without_waiting_response(&mut ws_sink).await?;
+        cmd.send_without_waiting_response(ws_sink).await?;
+
+        /*
+         * TODO: Set up any necessary plugins and apply their necessary config commands, if any:
+         *
+         *       - Set up the custom plugin for transmitting
+         *         in-game event data via Unix domain socket (from
+         *         https://github.com/jalho/rds-plugins, see `activity_sock.cs`)
+         *
+         *       - Carbon (the framework of the plugins) may also require a
+         *         command that sets the server's status as "not modded"
+         */
+
+        return Ok(());
+    }
+
+    async fn loop_query_rcon(
+        mut ws_sink: WebSocketSink,
+        mut ws_stream: WebSocketStream,
+        tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
+    ) -> Result<(), Error> {
+        let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         loop {
             interval.tick().await;
