@@ -66,6 +66,23 @@ impl RconClient {
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         /*
+         * TODO: Move the rendered PNG file to some static path so that the web
+         *       server can serve it.
+         *
+         *       Example response for the rendering RCON command as of buildid
+         *       19776612 (2025-09-02):
+         *
+         *       ```
+         *       RconMessage {
+         *           Identifier: 1045695881,
+         *           Message: "Saved map render to: /home/rust/map_1000_1.png",
+         *       }
+         *       ```
+         */
+        let cmd: RconMessage = RconMessage::new("world.rendermap");
+        let response: RconMessage = cmd.send_and_wait_response(&mut ws_sink, &mut ws_stream).await?;
+
+        /*
          * TODO: Get "ownerid" (and other "default admins") from the "shared
          *       config client"?
          */
