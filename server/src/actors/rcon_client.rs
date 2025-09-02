@@ -71,23 +71,42 @@ impl RconClient {
     /// preparation phase is done.
     async fn prepare_via_rcon(ws_sink: &mut WebSocketSink, ws_stream: &mut WebSocketStream) -> Result<(), Error> {
         /*
-         * TODO: Move the rendered PNG file to some static path so that the web
-         *       server can serve it.
-         *
-         *       Example response for the rendering RCON command as of buildid
-         *       19776612 (2025-09-02):
-         *
-         *       ```
-         *       RconMessage {
-         *           Identifier: 1045695881,
-         *           Message: "Saved map render to: /home/rust/map_1000_1.png",
-         *       }
-         *       ```
+         * Render in-game world map as a .PNG file, and then move the file to a
+         * static path (to be served by a web server).
          */
-        let cmd: RconMessage = RconMessage::new("world.rendermap");
-        let response: RconMessage = cmd
-            .send_and_wait_response(ws_sink, ws_stream, std::time::Duration::from_secs(10))
-            .await?;
+        {
+            let cmd: RconMessage = RconMessage::new("world.rendermap");
+
+            let cmd_start: std::time::Instant = std::time::Instant::now();
+            let response: RconMessage = cmd
+                .send_and_wait_response(ws_sink, ws_stream, std::time::Duration::from_secs(10))
+                .await?;
+            let cmd_time: std::time::Duration = cmd_start.elapsed();
+
+            let rendered: &str = match response.Message.strip_prefix("Saved map render to: ") {
+                Some(n) => n,
+                None => todo!(),
+            };
+
+            let absolute: std::path::PathBuf = match std::path::Path::new(rendered).canonicalize() {
+                Ok(n) => n,
+                Err(_) => todo!(),
+            };
+
+            if let Err(err) = tokio::fs::rename(&absolute, crate::actors::web_server::CURRENT_MAP_PATH).await {
+                todo!();
+            };
+            let metadata: std::fs::Metadata =
+                match tokio::fs::metadata(crate::actors::web_server::CURRENT_MAP_PATH).await {
+                    Ok(n) => n,
+                    Err(_) => todo!(),
+                };
+            log::info!(
+                r#"In-game world map rendered in {time_ms} ms as "{path}": {metadata:?}"#,
+                time_ms = cmd_time.as_millis(),
+                path = crate::actors::web_server::CURRENT_MAP_PATH,
+            );
+        }
 
         /*
          * TODO: Get "ownerid" (and other "default admins") from the "shared

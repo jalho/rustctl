@@ -1,5 +1,8 @@
 mod handlers;
 
+/// Static path in filesystem where a render of current in-game world is expected.
+pub const CURRENT_MAP_PATH: &'static str = "/home/rust/current-world-map.png";
+
 pub struct WebServer {
     ctoken: tokio_util::sync::CancellationToken,
     tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
