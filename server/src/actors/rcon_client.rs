@@ -44,17 +44,18 @@ impl RconClient {
         Summary {}
     }
 
-    pub async fn loop_reconnect(self) -> () {
-        const RECONNECT_DELAY: std::time::Duration = std::time::Duration::from_secs(5);
-
-        /*
-         * TODO: Connect smarter: Only try to connect RCON if the server startup
-         *       seems completed by some heuristic... Maybe drive connection
-         *       from the "game server state machine" instead of using a dumb
-         *       loop with delay?
-         */
+    pub async fn loop_reconnect(mut self) -> () {
         'reconnect: loop {
-            tokio::time::sleep(RECONNECT_DELAY).await;
+            match self.rx_rconready.recv().await {
+                Some(ready) => {
+                    let _ready: super::gsc::gssm::ReadyForRcon = ready;
+                    log::debug!("Game server state machine signaled readiness for RCON");
+                }
+                None => {
+                    log::debug!("Channel for receiving RCON readiness signal closed -- Stopping reconnect loop");
+                    break 'reconnect;
+                }
+            };
 
             let connection_string: String = self.cfg_client.get_config().await.get_rcon_connection_string();
             let websocket: WebSocket = match tokio_tungstenite::connect_async(connection_string).await {
