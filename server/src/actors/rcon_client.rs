@@ -132,7 +132,7 @@ impl RconClient {
          *         command that sets the server's status as "not modded"
          */
 
-        return Ok(());
+        Ok(())
     }
 
     async fn loop_query_rcon(
