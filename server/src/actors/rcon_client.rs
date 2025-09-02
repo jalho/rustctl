@@ -215,6 +215,7 @@ impl RconMessage {
             };
             let utf8_payload: String = match &msg {
                 tokio_tungstenite::tungstenite::Message::Text(utf8_bytes) => utf8_bytes.to_string(),
+
                 tokio_tungstenite::tungstenite::Message::Binary(_)
                 | tokio_tungstenite::tungstenite::Message::Ping(_)
                 | tokio_tungstenite::tungstenite::Message::Pong(_)
