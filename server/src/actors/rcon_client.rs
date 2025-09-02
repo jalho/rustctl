@@ -8,6 +8,8 @@ pub struct RconClient {
 }
 
 impl RconClient {
+    const RCON_INGAME_STATE_QUERY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
     pub fn new(
         ctoken: tokio_util::sync::CancellationToken,
         cfg_client: crate::storage::GameServerConfigurationShared,
@@ -80,7 +82,9 @@ impl RconClient {
          *       ```
          */
         let cmd: RconMessage = RconMessage::new("world.rendermap");
-        let response: RconMessage = cmd.send_and_wait_response(&mut ws_sink, &mut ws_stream).await?;
+        let response: RconMessage = cmd
+            .send_and_wait_response(&mut ws_sink, &mut ws_stream, std::time::Duration::from_secs(10))
+            .await?;
 
         /*
          * TODO: Get "ownerid" (and other "default admins") from the "shared
@@ -96,28 +100,36 @@ impl RconClient {
              * env.time
              */
             let cmd: RconMessage = RconMessage::new("env.time");
-            let response: RconMessage = cmd.send_and_wait_response(&mut ws_sink, &mut ws_stream).await?;
+            let response: RconMessage = cmd
+                .send_and_wait_response(&mut ws_sink, &mut ws_stream, Self::RCON_INGAME_STATE_QUERY_TIMEOUT)
+                .await?;
             let env_time: rustctl_common::rcon::EnvTime = (&response).try_into()?;
 
             /*
              * playerlistpos
              */
             let cmd: RconMessage = RconMessage::new("playerlistpos");
-            let response: RconMessage = cmd.send_and_wait_response(&mut ws_sink, &mut ws_stream).await?;
+            let response: RconMessage = cmd
+                .send_and_wait_response(&mut ws_sink, &mut ws_stream, Self::RCON_INGAME_STATE_QUERY_TIMEOUT)
+                .await?;
             let players_pos: Vec<rustctl_common::rcon::PlayerPos> = (&response).try_into()?;
 
             /*
              * playerlist
              */
             let cmd: RconMessage = RconMessage::new("playerlist");
-            let response: RconMessage = cmd.send_and_wait_response(&mut ws_sink, &mut ws_stream).await?;
+            let response: RconMessage = cmd
+                .send_and_wait_response(&mut ws_sink, &mut ws_stream, Self::RCON_INGAME_STATE_QUERY_TIMEOUT)
+                .await?;
             let players: Vec<rustctl_common::rcon::Player> = (&response).try_into()?;
 
             /*
              * listtoolcupboards
              */
             let cmd: RconMessage = RconMessage::new("listtoolcupboards");
-            let response: RconMessage = cmd.send_and_wait_response(&mut ws_sink, &mut ws_stream).await?;
+            let response: RconMessage = cmd
+                .send_and_wait_response(&mut ws_sink, &mut ws_stream, Self::RCON_INGAME_STATE_QUERY_TIMEOUT)
+                .await?;
             let toolcupboards: Vec<rustctl_common::rcon::Toolcupboard> = (&response).try_into()?;
 
             let total = rustctl_common::snapshot::InGameStateExposed {
@@ -150,11 +162,22 @@ type WebSocketStream = futures_util::stream::SplitStream<
 
 type Response = axum::http::Response<Option<Vec<u8>>>;
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[allow(non_snake_case)]
 struct RconMessage {
     Identifier: i32,
     Message: String,
+}
+
+impl std::fmt::Display for RconMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{message} (identifier {identifier})",
+            message = self.Message,
+            identifier = self.Identifier,
+        )
+    }
 }
 
 impl RconMessage {
@@ -169,6 +192,7 @@ impl RconMessage {
         &self,
         ws_sink: &mut WebSocketSink,
         ws_stream: &mut WebSocketStream,
+        timeout: std::time::Duration,
     ) -> Result<RconMessage, Error> {
         let cmd_serialized: String =
             serde_json::to_string(&self).expect("infallible: RconCommand should be serializable as JSON");
@@ -180,12 +204,21 @@ impl RconMessage {
             return Err(Error::SocketFailed { source });
         };
 
-        // TODO: Add timeout for waiting for the response!
-        let response: RconMessage = match self.wait_response(ws_stream).await {
-            Ok(n) => n,
-            Err(err) => {
+        let job_wait_response = self.wait_response(ws_stream);
+        let job_with_timeout = tokio::time::timeout(timeout, job_wait_response);
+        let response: RconMessage = match job_with_timeout.await {
+            Ok(Ok(n)) => n,
+            Ok(Err(err)) => {
                 log::error!("Error while waiting for RCON response: {err}");
                 return Err(err);
+            }
+            Err(source) => {
+                log::error!("Timeout while waiting for RCON response: {source}");
+                return Err(Error::RconCommandResponseTimeout {
+                    source,
+                    command: self.to_owned(),
+                    timeout,
+                });
             }
         };
 
@@ -274,6 +307,12 @@ enum Error {
     InvalidRconMessagePayload {
         rationale_display: String,
     },
+
+    RconCommandResponseTimeout {
+        source: tokio::time::error::Elapsed,
+        command: RconMessage,
+        timeout: std::time::Duration,
+    },
 }
 
 impl std::fmt::Display for Error {
@@ -289,6 +328,14 @@ impl std::fmt::Display for Error {
             Error::InvalidRconMessagePayload { rationale_display } => {
                 write!(f, r#"invalid RCON message payload: {rationale_display}"#)
             }
+            Error::RconCommandResponseTimeout {
+                source: _,
+                command,
+                timeout,
+            } => write!(
+                f,
+                r#"timeout of {timeout:?} reached while waiting for response for RCON command "{command}""#
+            ),
         }
     }
 }
@@ -301,6 +348,7 @@ impl std::error::Error for Error {
             Error::UnexpectedWebSocketMessage { msg: _ } => None,
             Error::InvalidRconMessage { source, .. } => Some(source),
             Error::InvalidRconMessagePayload { rationale_display: _ } => None,
+            Error::RconCommandResponseTimeout { source, .. } => Some(source),
         }
     }
 }
