@@ -454,6 +454,15 @@ impl std::error::Error for Error {
  *       > env.time
  *       env.time: "12.28928"
  *       ```
+ *
+ * Doctests would be nice but for that these RCON things should be moved to a
+ * "library" crate as opposed to "application" crate because running doctests of
+ * an app is only planned as of 2025-09-02:
+ * - GitHub issue:
+ *   https://github.com/rust-lang/rust/issues/50784
+ * - comment about the plan:
+ *   https://github.com/rust-lang/rust/issues/50784#issuecomment-3155115522
+ *   > ...unlikely we'll get there before the end of the year
  */
 impl TryFrom<&RconMessage> for rustctl_common::rcon::EnvTime {
     type Error = Error;
