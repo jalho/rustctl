@@ -9,6 +9,8 @@ pub struct Context {
 
     /// "GSS" = "Game Server State"
     pub tx_agg_gss: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
+
+    pub tx_rconready: tokio::sync::mpsc::Sender<crate::actors::gsc::gssm::ReadyForRcon>,
 }
 
 pub enum GameServerStateMachine {
@@ -55,6 +57,8 @@ impl GameServerStateMachine {
         rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
 
         tx_agg_gss: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
+
+        tx_rconready: tokio::sync::mpsc::Sender<crate::actors::gsc::gssm::ReadyForRcon>,
     ) -> Self {
         Self::Init {
             ctx: Context {
@@ -65,6 +69,8 @@ impl GameServerStateMachine {
                 rx_command,
 
                 tx_agg_gss,
+
+                tx_rconready,
             },
         }
     }
@@ -577,3 +583,5 @@ impl From<&GameServerStateMachine> for rustctl_common::snapshot::GameServerState
         }
     }
 }
+
+pub struct ReadyForRcon;

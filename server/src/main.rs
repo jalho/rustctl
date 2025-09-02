@@ -36,6 +36,7 @@ fn main() -> std::process::ExitCode {
     let (tx_gss, rx_gss) = tokio::sync::mpsc::channel::<rustctl_common::snapshot::GameServerStateExposed>(1);
     let (tx_igs, rx_igs) = tokio::sync::mpsc::channel::<rustctl_common::snapshot::InGameStateExposed>(1);
     let (tx_broadcast, _) = tokio::sync::broadcast::channel::<rustctl_common::snapshot::Snapshot>(1);
+    let (tx_rconready, rx_rconready) = tokio::sync::mpsc::channel::<actors::gsc::gssm::ReadyForRcon>(1);
 
     /*
      * The actors.
@@ -56,8 +57,10 @@ fn main() -> std::process::ExitCode {
         config_shared.clone(),
         rx_command_relay,
         tx_gss,
+        tx_rconready,
     );
-    let rcon_client = actors::rcon_client::RconClient::new(ctoken.child_token(), config_shared.clone(), tx_igs);
+    let rcon_client =
+        actors::rcon_client::RconClient::new(ctoken.child_token(), config_shared.clone(), tx_igs, rx_rconready);
     let web_server = actors::web_server::WebServer::new(
         ctoken.child_token(),
         tx_activate.clone(),
