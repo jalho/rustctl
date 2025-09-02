@@ -226,7 +226,12 @@ impl GameServerStateMachine {
                     let mut stdout_reader = tokio::io::BufReader::new(stdout);
                     let mut stderr_reader = tokio::io::BufReader::new(stderr);
 
-                    // channel for signaling readiness from coroutine
+                    /*
+                     * An "in-actor" channel for signaling readiness based on
+                     * spawned game server process's output. Not to be confused
+                     * with the other, "inter-actor" readiness signaling
+                     * channel!
+                     */
                     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<()>();
 
                     let _read_stdout = tokio::spawn(async move {
@@ -286,11 +291,20 @@ impl GameServerStateMachine {
                     });
 
                     match tokio::time::timeout(timeout, ready_rx).await {
-                        Ok(Ok(_)) => Self::GameRunningHealthy {
-                            process,
-                            game_meta,
-                            ctx,
-                        },
+                        Ok(Ok(_)) => {
+                            if let Err(err) = ctx.tx_rconready.send(ReadyForRcon).await {
+                                log::error!(
+                                    "Inter-actor readiness signaling channel between GSSM and RCON client closed unexpectedly: {err}"
+                                );
+                                Self::request_termination(ctx.tx_activate.clone()).await;
+                                break 'loop_transitions;
+                            }
+                            Self::GameRunningHealthy {
+                                process,
+                                game_meta,
+                                ctx,
+                            }
+                        }
                         Ok(Err(err)) => {
                             log::error!(
                                 "Readiness signaling channel got teared down while waiting for the signal: {err_fmt}",
