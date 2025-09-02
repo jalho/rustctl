@@ -35,6 +35,12 @@ impl RconClient {
     pub async fn loop_reconnect(self) -> () {
         const RECONNECT_DELAY: std::time::Duration = std::time::Duration::from_secs(5);
 
+        /*
+         * TODO: Connect smarter: Only try to connect RCON if the server startup
+         *       seems completed by some heuristic... Maybe drive connection
+         *       from the "game server state machine" instead of using a dumb
+         *       loop with delay?
+         */
         'reconnect: loop {
             tokio::time::sleep(RECONNECT_DELAY).await;
 
