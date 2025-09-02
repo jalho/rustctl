@@ -221,12 +221,7 @@ struct RconMessage {
 
 impl std::fmt::Display for RconMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{message} (identifier {identifier})",
-            message = self.Message,
-            identifier = self.Identifier,
-        )
+        write!(f, "{message}", message = self.Message)
     }
 }
 
