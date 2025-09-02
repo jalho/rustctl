@@ -119,11 +119,15 @@ impl RconClient {
         }
 
         /*
-         * TODO: Get "ownerid" (and other "default admins") from the "shared
-         *       config client"?
+         * Set some privileged in-game identities, such as the "owner" of the
+         * server.
+         *
+         * TODO: Get "ownerid" (and other "default admins") from config?
          */
-        let cmd: RconMessage = RconMessage::new("ownerid 76561198135242017");
-        cmd.send_without_waiting_response(ws_sink).await?;
+        {
+            let cmd: RconMessage = RconMessage::new("ownerid 76561198135242017");
+            cmd.send_without_waiting_response(ws_sink).await?;
+        }
 
         /*
          * TODO: Set up any necessary plugins and apply their necessary config commands, if any:
