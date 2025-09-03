@@ -125,6 +125,11 @@ impl GameServerStateMachine {
                         }
                     }
 
+                    let carbon_installed: () = match install_or_update_carbon(&config).await {
+                        Ok(n) => n,
+                        Err(_) => todo!(),
+                    };
+
                     Self::InstalledAndConfigured {
                         game_meta: rustctl_common::snapshot::GameServerMetaExposed { buildid: buildid_after },
                         ctx,
@@ -599,4 +604,9 @@ async fn install_or_update_game_server(config: &crate::storage::GameServerConfig
             path = config.game_manifest
         )),
     }
+}
+
+/// Install or update Carbon Modding Framework (https://carbonmod.gg/).
+async fn install_or_update_carbon(config: &crate::storage::GameServerConfiguration) -> Result<(), String> {
+    todo!();
 }
