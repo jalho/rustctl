@@ -610,9 +610,15 @@ async fn install_or_update_game_server(config: &crate::storage::Configuration) -
 async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Result<String, String> {
     let download_url: &str = &config.carbon_download_url;
     let install_location: &str = config.game_server_root;
+    let rustctl_temp_dir: std::path::PathBuf = std::env::temp_dir().join("rustctl");
 
-    let temp_dir: std::path::PathBuf =
-        std::env::temp_dir().join(format!("rustctl-download-carbon_{}", uuid::Uuid::new_v4()));
+    if tokio::fs::try_exists(&rustctl_temp_dir).await.unwrap_or(false) {
+        if let Err(err) = tokio::fs::remove_dir_all(&rustctl_temp_dir).await {
+            log::warn!("failed to wipe existing rustctl temp directory: {err}");
+        }
+    }
+
+    let temp_dir: std::path::PathBuf = rustctl_temp_dir.join(format!("download-carbon_{}", uuid::Uuid::new_v4()));
     tokio::fs::create_dir_all(&temp_dir)
         .await
         .map_err(|err| format!("failed to create temporary directory: {err}"))?;
@@ -627,7 +633,6 @@ async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Res
         .output()
         .await
         .map_err(|err| format!("failed to execute wget: {err}"))?;
-
     if !output.status.success() {
         let error_msg = String::from_utf8_lossy(&output.stderr);
         return Err(format!("wget failed: {}", error_msg));
@@ -636,7 +641,8 @@ async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Res
     let metadata: std::fs::Metadata = tokio::fs::metadata(&archive_path)
         .await
         .map_err(|err| format!("failed to get archive metadata: {err}"))?;
-    let bytes = metadata.len();
+
+    let bytes: u64 = metadata.len();
     if bytes == 0 {
         return Err("downloaded archive is empty".to_string());
     }
@@ -702,7 +708,7 @@ async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Res
         ));
     }
 
-    if let Err(err) = tokio::fs::remove_dir_all(&temp_dir).await {
+    if let Err(err) = tokio::fs::remove_dir_all(&rustctl_temp_dir).await {
         return Err(format!("failed to clean up temporary directory: {err}"));
     }
 
