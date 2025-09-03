@@ -125,7 +125,7 @@ impl GameServerStateMachine {
                         }
                     }
 
-                    let carbon_installed: () = match install_or_update_carbon(&config).await {
+                    let carbon_installation_checksum: String = match install_or_update_carbon(&config).await {
                         Ok(n) => n,
                         Err(_) => todo!(),
                     };
@@ -607,8 +607,9 @@ async fn install_or_update_game_server(config: &crate::storage::Configuration) -
 }
 
 /// Install or update Carbon Modding Framework (https://carbonmod.gg/).
-async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Result<(), String> {
+async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Result<String, String> {
     let download_url: &str = &config.carbon_download_url; // e.g. "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz"
+    let install_location: &str = config.game_server_root; // e.g. "/home/rust"
 
     /*
      * TODO:
@@ -718,6 +719,13 @@ async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Res
      *    ├── Carbon.targets
      *    └── libdoorstop.so
      *    ```
+     *
+     *    N.B.: Extract the installation into `install_location`, instead of in
+     *    `./extracted/` that is used in the above example.
+     *
+     * 3. Return SHA256 checksum of the installation archive as Result::Ok(String) if all went good.
+     *
+     * N.B.: Upon any errors, return Result::Error(format!("description of what went wrong")).
      */
 
     todo!();

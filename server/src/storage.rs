@@ -24,18 +24,43 @@ impl ConfigurationClient {
 #[derive(Clone)]
 pub struct Configuration {
     /// Executable: game server installer.
+    ///
+    /// For example:
+    /// ```
+    /// "/usr/bin/steamcmd"
+    /// ```
     pub installer_exe: &'static str,
 
     /// Directory: game server install location.
+    ///
+    /// For example:
+    /// ```
+    /// "/home/rust/"
+    /// ```
     pub game_server_root: &'static str,
 
     /// Executable: the game server.
+    ///
+    /// For example:
+    /// ```
+    /// "/home/rust/RustDedicated"
+    /// ```
     pub game_server_exe: &'static str,
 
     /// File: some Steam thing associated with the game server.
+    ///
+    /// For example:
+    /// ```
+    /// "/home/rust/steamapps/appmanifest_258550.acf"
+    /// ```
     pub game_manifest: &'static str,
 
     /// Directory: location of `steamclient.so`, which the game server requires.
+    ///
+    /// For example:
+    /// ```
+    /// "/home/rust/"
+    /// ```
     pub game_server_libs: &'static str,
 
     game_instance_id: &'static str,
@@ -50,7 +75,7 @@ pub struct Configuration {
     ///
     /// For example:
     /// ```
-    /// https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz
+    /// "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz"
     /// ```
     pub carbon_download_url: String,
 }
