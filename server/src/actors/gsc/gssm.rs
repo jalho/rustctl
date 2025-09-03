@@ -23,6 +23,7 @@ pub enum GameServerStateMachine {
     InstalledAndConfigured {
         ctx: Context,
         game_meta: rustctl_common::snapshot::GameServerMetaExposed,
+        startup_script: String,
     },
     LaunchingGame {
         ctx: Context,
@@ -135,18 +136,30 @@ impl GameServerStateMachine {
                     };
                     log::info!("Carbon Modding Framework installed or updated: SHA256: {carbon_installation_checksum}");
 
+                    let startup_script: String = match generate_game_server_startup_script(&config).await {
+                        Ok(n) => n,
+                        Err(err) => {
+                            log::error!("Failed to generate game server startup script: {err}");
+                            Self::request_termination(ctx.tx_activate.clone()).await;
+                            break 'loop_transitions;
+                        }
+                    };
+
                     Self::InstalledAndConfigured {
                         game_meta: rustctl_common::snapshot::GameServerMetaExposed { buildid: buildid_after },
                         ctx,
+                        startup_script,
                     }
                 }
 
-                Self::InstalledAndConfigured { ctx, game_meta } => {
+                Self::InstalledAndConfigured {
+                    ctx,
+                    game_meta,
+                    startup_script,
+                } => {
                     let cfg = ctx.cfg_client.get_config().await;
-                    let mut command = tokio::process::Command::new(cfg.game_server_exe);
+                    let mut command = tokio::process::Command::new(startup_script);
                     command.current_dir(cfg.game_server_root);
-                    command.args(cfg.get_game_args());
-                    command.env("LD_LIBRARY_PATH", cfg.game_server_libs);
                     command.stdout(std::process::Stdio::piped());
                     command.stderr(std::process::Stdio::piped());
 
@@ -718,4 +731,55 @@ async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Res
     }
 
     Ok(sha256)
+}
+
+/// Generate a Bash script to be used as game server's entry point.
+async fn generate_game_server_startup_script(config: &crate::storage::Configuration) -> Result<String, String> {
+    let startup_script: &str = &config.game_server_startup_script; // e.g. `"/home/rust/rustctl-run-with-carbon.sh"`
+    /*
+     * TODO: Do the Carbon Modding Framework loading in the generated script:
+     *       "source carbon/tools/environments.sh" etc...
+     */
+    let script_content: String = format!(
+        r#"#!/bin/bash
+
+set -e
+
+LD_LIBRARY_PATH="{game_server_libs}"
+
+/home/rust/RustDedicated \
+    -batchmode \
+    +server.identity "{game_instance_id}" \
+    +rcon.port "{rcon_port}" \
+    +rcon.web "1" \
+    +rcon.password "{rcon_password}" \
+    +server.worldsize "{game_world_size}" \
+    +server.seed "{game_world_seed}"
+"#,
+        game_server_libs = config.game_server_libs,
+        game_instance_id = config.game_instance_id,
+        rcon_port = config.rcon_port,
+        rcon_password = config.rcon_password,
+        game_world_size = config.game_world_size,
+        game_world_seed = config.game_world_seed,
+    );
+
+    tokio::fs::write(startup_script, &script_content)
+        .await
+        .map_err(|err| format!("failed to write startup script: {err}"))?;
+
+    let chmod_output: std::process::Output = tokio::process::Command::new("chmod")
+        .arg("+x")
+        .arg(startup_script)
+        .output()
+        .await
+        .map_err(|err| format!("failed to make startup script executable: {err}"))?;
+    if !chmod_output.status.success() {
+        return Err(format!(
+            "failed to make startup script executable: chmod {status}",
+            status = chmod_output.status,
+        ));
+    }
+
+    Ok(startup_script.to_string())
 }
