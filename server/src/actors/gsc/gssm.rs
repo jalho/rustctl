@@ -127,8 +127,13 @@ impl GameServerStateMachine {
 
                     let carbon_installation_checksum: String = match install_or_update_carbon(&config).await {
                         Ok(n) => n,
-                        Err(_) => todo!(),
+                        Err(err) => {
+                            log::error!("Installing or updating Carbon Modding Framework failed: {err}");
+                            Self::request_termination(ctx.tx_activate.clone()).await;
+                            break 'loop_transitions;
+                        }
                     };
+                    log::info!("Carbon Modding Framework installed or updated: SHA256: {carbon_installation_checksum}");
 
                     Self::InstalledAndConfigured {
                         game_meta: rustctl_common::snapshot::GameServerMetaExposed { buildid: buildid_after },
