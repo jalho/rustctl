@@ -159,6 +159,22 @@ impl GameServerStateMachine {
                 } => {
                     let cfg = ctx.cfg_client.get_config().await;
                     let mut command = tokio::process::Command::new(startup_script);
+
+                    /*
+                     * SAFETY: Trust be bro.
+                     */
+                    unsafe {
+                        command.pre_exec(|| {
+                            /*
+                             * Make the forked process the leader of a new
+                             * process group, where the process group's ID
+                             * (pgid) equals to the forked process’s ID (pid).
+                             */
+                            libc::setpgid(0, 0);
+                            Ok(())
+                        });
+                    }
+
                     command.current_dir(cfg.game_server_root);
                     command.stdout(std::process::Stdio::piped());
                     command.stderr(std::process::Stdio::piped());
@@ -502,11 +518,23 @@ async fn send_signal(
             });
         }
     };
-    let pid: nix::unistd::Pid = nix::unistd::Pid::from_raw(pid);
-    if let Err(source) = nix::sys::signal::kill(pid, signal) {
+
+    /*
+     * SAFETY: Trust me bro.
+     */
+    let pgid: i32 = unsafe { libc::getpgid(pid) };
+
+    if pgid < 0 {
+        return Err(ErrorSendingSignal::SendFailed {
+            source: nix::Error::last(),
+        });
+    }
+
+    let pgid: nix::unistd::Pid = nix::unistd::Pid::from_raw(pgid);
+    if let Err(source) = nix::sys::signal::killpg(pgid, signal) {
         Err(ErrorSendingSignal::SendFailed { source })
     } else {
-        Ok(pid)
+        Ok(pgid)
     }
 }
 
@@ -736,6 +764,7 @@ async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Res
 /// Generate a Bash script to be used as game server's entry point.
 async fn generate_game_server_startup_script(config: &crate::storage::Configuration) -> Result<String, String> {
     let startup_script: &str = &config.game_server_startup_script; // e.g. `"/home/rust/rustctl-run-with-carbon.sh"`
+
     /*
      * TODO: Do the Carbon Modding Framework loading in the generated script:
      *       "source carbon/tools/environments.sh" etc...
