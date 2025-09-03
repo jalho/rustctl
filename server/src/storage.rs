@@ -1,17 +1,15 @@
 /// Shared client for getting config args for the game server from e.g. a
 /// database.
 #[derive(Clone)]
-pub struct GameServerConfigurationShared(std::sync::Arc<tokio::sync::Mutex<GameServerConfiguration>>);
+pub struct ConfigurationClient(std::sync::Arc<tokio::sync::Mutex<Configuration>>);
 
-impl GameServerConfigurationShared {
+impl ConfigurationClient {
     pub fn init() -> Self {
-        Self(std::sync::Arc::new(tokio::sync::Mutex::new(
-            GameServerConfiguration::default(),
-        )))
+        Self(std::sync::Arc::new(tokio::sync::Mutex::new(Configuration::default())))
     }
 
-    pub async fn get_config(&self) -> GameServerConfiguration {
-        let config: GameServerConfiguration;
+    pub async fn get_config(&self) -> Configuration {
+        let config: Configuration;
 
         {
             let lock = self.0.lock().await;
@@ -24,32 +22,74 @@ impl GameServerConfigurationShared {
 
 /// Parameters for spawning a game server process.
 #[derive(Clone)]
-pub struct GameServerConfiguration {
+pub struct Configuration {
     /// Executable: game server installer.
+    ///
+    /// For example:
+    /// ```
+    /// "/usr/bin/steamcmd"
+    /// ```
     pub installer_exe: &'static str,
 
     /// Directory: game server install location.
+    ///
+    /// For example:
+    /// ```
+    /// "/home/rust/"
+    /// ```
     pub game_server_root: &'static str,
 
     /// Executable: the game server.
+    ///
+    /// For example:
+    /// ```
+    /// "/home/rust/RustDedicated"
+    /// ```
     pub game_server_exe: &'static str,
 
     /// File: some Steam thing associated with the game server.
+    ///
+    /// For example:
+    /// ```
+    /// "/home/rust/steamapps/appmanifest_258550.acf"
+    /// ```
     pub game_manifest: &'static str,
 
     /// Directory: location of `steamclient.so`, which the game server requires.
+    ///
+    /// For example:
+    /// ```
+    /// "/home/rust/"
+    /// ```
     pub game_server_libs: &'static str,
 
-    game_instance_id: &'static str,
+    pub game_instance_id: &'static str,
 
-    game_world_size: u16,
-    game_world_seed: u32,
+    pub game_world_size: u16,
+    pub game_world_seed: u32,
 
-    rcon_port: u16,
-    rcon_password: String,
+    pub rcon_port: u16,
+    pub rcon_password: String,
+
+    /// URL from where _Carbon Modding Framework_ shall be downloaded from.
+    ///
+    /// For example:
+    /// ```
+    /// "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz"
+    /// ```
+    pub carbon_download_url: String,
+
+    /// Startup script that shall be generated at runtime. The script is the
+    /// entry point for the game server.
+    ///
+    /// For example:
+    /// ```
+    /// "/home/rust/rustctl-run-with-carbon.sh"
+    /// ```
+    pub game_server_startup_script: String,
 }
 
-impl GameServerConfiguration {
+impl Configuration {
     pub fn get_installer_args(&self) -> Vec<String> {
         vec![
             "+login".into(),
@@ -75,24 +115,6 @@ impl GameServerConfiguration {
         ]
     }
 
-    pub fn get_game_args(&self) -> Vec<String> {
-        vec![
-            "-batchmode".into(),
-            "+server.identity".into(),
-            self.game_instance_id.to_owned(),
-            "+rcon.port".into(),
-            self.rcon_port.to_string(),
-            "+rcon.web".into(),
-            "1".into(),
-            "+rcon.password".into(),
-            self.rcon_password.clone(),
-            "+server.worldsize".into(),
-            self.game_world_size.to_string(),
-            "+server.seed".into(),
-            self.game_world_seed.to_string(),
-        ]
-    }
-
     pub fn get_rcon_connection_string(&self) -> String {
         format!(
             "ws://127.0.0.1:{port}/{password}",
@@ -102,7 +124,7 @@ impl GameServerConfiguration {
     }
 }
 
-impl Default for GameServerConfiguration {
+impl Default for Configuration {
     fn default() -> Self {
         Self {
             installer_exe: "/usr/bin/steamcmd",
@@ -128,6 +150,9 @@ impl Default for GameServerConfiguration {
 
             rcon_port: 28016,
             rcon_password: uuid::Uuid::new_v4().to_string(),
+
+            carbon_download_url: "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz".to_string(),
+            game_server_startup_script: "/home/rust/rustctl-run-with-carbon.sh".to_string(),
         }
     }
 }

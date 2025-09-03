@@ -16,7 +16,7 @@ fn main() -> std::process::ExitCode {
         version = env!("CARGO_PKG_VERSION"),
     );
 
-    let config_shared: storage::GameServerConfigurationShared = storage::GameServerConfigurationShared::init();
+    let config_client: storage::ConfigurationClient = storage::ConfigurationClient::init();
 
     let runtime: tokio::runtime::Runtime = match init::build_runtime() {
         Ok(n) => n,
@@ -54,13 +54,13 @@ fn main() -> std::process::ExitCode {
     let controller = actors::gsc::GameServerController::new(
         ctoken.child_token(),
         tx_activate.clone(),
-        config_shared.clone(),
+        config_client.clone(),
         rx_command_relay,
         tx_gss,
         tx_rconready,
     );
     let rcon_client =
-        actors::rcon_client::RconClient::new(ctoken.child_token(), config_shared.clone(), tx_igs, rx_rconready);
+        actors::rcon_client::RconClient::new(ctoken.child_token(), config_client.clone(), tx_igs, rx_rconready);
     let web_server = actors::web_server::WebServer::new(
         ctoken.child_token(),
         tx_activate.clone(),

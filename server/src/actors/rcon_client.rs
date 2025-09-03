@@ -3,7 +3,7 @@ use futures_util::SinkExt;
 pub struct RconClient {
     ctoken: tokio_util::sync::CancellationToken,
 
-    cfg_client: crate::storage::GameServerConfigurationShared,
+    cfg_client: crate::storage::ConfigurationClient,
 
     /// "IGS" = "In-Game State"
     tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
@@ -17,7 +17,7 @@ impl RconClient {
     pub fn new(
         ctoken: tokio_util::sync::CancellationToken,
 
-        cfg_client: crate::storage::GameServerConfigurationShared,
+        cfg_client: crate::storage::ConfigurationClient,
 
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
 
@@ -144,6 +144,13 @@ impl RconClient {
 
         /*
          * TODO: Set up any necessary plugins and apply their necessary config commands, if any:
+         *
+         *       - Assert Carbon is loaded: Query its version via RCON and log
+         *         it. Example response from in-game console:
+         *         ```
+         *         > carbon.version
+         *         Carbon Minimal <color=#d14419>2.0.203.0/linux/2025.08.07.0 [production] [production_build] on Rust <color=#d14419>898/2594.270.1 (08/28/2025 23:22:54).
+         *         ```
          *
          *       - Set up the custom plugin for transmitting
          *         in-game event data via Unix domain socket (from

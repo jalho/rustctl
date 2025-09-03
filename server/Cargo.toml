@@ -97,3 +97,6 @@ workspace = true
 features  = [
   "signal",
 ]
+
+[dependencies.libc]
+workspace = true

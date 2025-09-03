@@ -3,7 +3,7 @@
 pub struct Context {
     pub tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
 
-    pub cfg_client: crate::storage::GameServerConfigurationShared,
+    pub cfg_client: crate::storage::ConfigurationClient,
 
     pub rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
 
@@ -23,6 +23,7 @@ pub enum GameServerStateMachine {
     InstalledAndConfigured {
         ctx: Context,
         game_meta: rustctl_common::snapshot::GameServerMetaExposed,
+        startup_script: String,
     },
     LaunchingGame {
         ctx: Context,
@@ -52,7 +53,7 @@ impl GameServerStateMachine {
     pub fn init(
         tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
 
-        cfg_client: crate::storage::GameServerConfigurationShared,
+        cfg_client: crate::storage::ConfigurationClient,
 
         rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
 
@@ -93,7 +94,7 @@ impl GameServerStateMachine {
                  * Install or update `RustDedicated` using `steamcmd`.
                  */
                 Self::InstallingUpdates { ctx } => {
-                    let config = ctx.cfg_client.get_config().await;
+                    let config: crate::storage::Configuration = ctx.cfg_client.get_config().await;
 
                     let buildid_before: Option<u32> = {
                         if let Ok(contents) = tokio::fs::read_to_string(config.game_manifest).await {
@@ -103,84 +104,87 @@ impl GameServerStateMachine {
                         }
                     };
 
-                    let mut command = tokio::process::Command::new(config.installer_exe);
-                    command.current_dir(config.game_server_root);
-                    command.args(config.get_installer_args());
-                    command.stdout(std::process::Stdio::null());
-                    command.stderr(std::process::Stdio::null());
-
-                    let process: tokio::process::Child = match command.spawn() {
+                    let buildid_after: u32 = match install_or_update_game_server(&config).await {
                         Ok(n) => n,
                         Err(err) => {
-                            log::error!(
-                                "Failed to spawn game server installer ({path}): {err_fmt}",
-                                path = config.installer_exe,
-                                err_fmt = crate::util::fmt_source_tree(&err),
-                            );
+                            log::error!("Installing game server failed: {err}");
                             Self::request_termination(ctx.tx_activate.clone()).await;
                             break 'loop_transitions;
                         }
                     };
 
-                    /*
-                     * TODO: Consider case "offline": Check status code of
-                     *       installer process exit?
-                     */
-                    let _output: std::process::Output = match process.wait_with_output().await {
-                        Ok(n) => n,
-                        Err(err) => {
-                            log::error!(
-                                "Failed to run game server installer to termination: {err_fmt}",
-                                err_fmt = crate::util::fmt_source_tree(&err),
-                            );
-                            Self::request_termination(ctx.tx_activate.clone()).await;
-                            break 'loop_transitions;
+                    match buildid_before {
+                        None => {
+                            log::info!("Installed game server: buildid {buildid_after}");
                         }
-                    };
-
-                    let buildid_after: Option<u32> = {
-                        if let Ok(contents) = tokio::fs::read_to_string(config.game_manifest).await {
-                            extract_buildid_from_buf(&contents)
-                        } else {
-                            None
-                        }
-                    };
-
-                    let buildid: u32 = match (buildid_before, buildid_after) {
-                        (_, None) => {
-                            log::error!(
-                                "Installing game server failed: Could not extract buildid from game server app manifest after installation: {path}",
-                                path = config.game_manifest
-                            );
-                            Self::request_termination(ctx.tx_activate.clone()).await;
-                            break;
-                        }
-                        (None, Some(buildid)) => {
-                            log::info!("Installed game server: buildid {buildid}");
-                            buildid
-                        }
-                        (Some(buildid_before), Some(buildid_after)) => {
+                        Some(buildid_before) => {
                             if buildid_before == buildid_after {
                                 log::info!("Installation checked: Game server is up to date: buildid {buildid_after}");
                             } else {
                                 log::info!("Updated game server: From buildid {buildid_before} to {buildid_after}");
                             }
-                            buildid_after
+                        }
+                    }
+
+                    let carbon_installation_checksum: String = match install_or_update_carbon(&config).await {
+                        Ok(n) => n,
+                        Err(err) => {
+                            log::error!("Installing or updating Carbon Modding Framework failed: {err}");
+                            Self::request_termination(ctx.tx_activate.clone()).await;
+                            break 'loop_transitions;
+                        }
+                    };
+                    log::info!("Carbon Modding Framework installed or updated: SHA256: {carbon_installation_checksum}");
+
+                    let startup_script: String = match generate_game_server_startup_script(&config).await {
+                        Ok(n) => n,
+                        Err(err) => {
+                            log::error!("Failed to generate game server startup script: {err}");
+                            Self::request_termination(ctx.tx_activate.clone()).await;
+                            break 'loop_transitions;
                         }
                     };
 
                     Self::InstalledAndConfigured {
-                        game_meta: rustctl_common::snapshot::GameServerMetaExposed { buildid },
+                        game_meta: rustctl_common::snapshot::GameServerMetaExposed { buildid: buildid_after },
                         ctx,
+                        startup_script,
                     }
                 }
 
-                Self::InstalledAndConfigured { ctx, game_meta } => {
+                Self::InstalledAndConfigured {
+                    ctx,
+                    game_meta,
+                    startup_script,
+                } => {
                     let cfg = ctx.cfg_client.get_config().await;
-                    let mut command = tokio::process::Command::new(cfg.game_server_exe);
+                    let mut command = tokio::process::Command::new(startup_script);
+
+                    /*
+                     * Spawn the game server in a new process group so that
+                     * the whole child process tree can be terminated via the
+                     * group. The process tree as a whole looks something like
+                     * the following:
+                     *
+                     * 1. RUSTCTL -- this app (native executable)
+                     * 2. STARTUP SCRIPT -- a Bash script generated at runtime by RUSTCTL
+                     * 3. RUSTDEDICATED -- the actual game server process spawned by the startup script
+                     *
+                     * SAFETY: Trust be bro.
+                     */
+                    unsafe {
+                        command.pre_exec(|| {
+                            /*
+                             * Make the child process the leader of a new
+                             * process group, where the process group's ID
+                             * (pgid) equals to the forked process’s ID (pid).
+                             */
+                            libc::setpgid(0, 0);
+                            Ok(())
+                        });
+                    }
+
                     command.current_dir(cfg.game_server_root);
-                    command.args(cfg.get_game_args());
-                    command.env("LD_LIBRARY_PATH", cfg.game_server_libs);
                     command.stdout(std::process::Stdio::piped());
                     command.stderr(std::process::Stdio::piped());
 
@@ -523,11 +527,23 @@ async fn send_signal(
             });
         }
     };
-    let pid: nix::unistd::Pid = nix::unistd::Pid::from_raw(pid);
-    if let Err(source) = nix::sys::signal::kill(pid, signal) {
+
+    /*
+     * SAFETY: Trust me bro.
+     */
+    let pgid: i32 = unsafe { libc::getpgid(pid) };
+
+    if pgid < 0 {
+        return Err(ErrorSendingSignal::SendFailed {
+            source: nix::Error::last(),
+        });
+    }
+
+    let pgid: nix::unistd::Pid = nix::unistd::Pid::from_raw(pgid);
+    if let Err(source) = nix::sys::signal::killpg(pgid, signal) {
         Err(ErrorSendingSignal::SendFailed { source })
     } else {
-        Ok(pid)
+        Ok(pgid)
     }
 }
 
@@ -599,3 +615,211 @@ impl From<&GameServerStateMachine> for rustctl_common::snapshot::GameServerState
 }
 
 pub struct ReadyForRcon;
+
+/// Install or update game server (`RustDedicated`) using installer
+/// (`steamcmd`). Return the installed game server's _buildid_ parsed from the
+/// installation's associated manifest file.
+async fn install_or_update_game_server(config: &crate::storage::Configuration) -> Result<u32, String> {
+    let mut command = tokio::process::Command::new(config.installer_exe);
+    command.current_dir(config.game_server_root);
+    command.args(config.get_installer_args());
+    command.stdout(std::process::Stdio::null());
+    command.stderr(std::process::Stdio::null());
+
+    let process: tokio::process::Child = match command.spawn() {
+        Ok(n) => n,
+        Err(err) => {
+            return Err(format!("failed to spawn game server installer: {err}"));
+        }
+    };
+
+    /*
+     * TODO: Consider case "offline": Check status code of
+     *       installer process exit?
+     */
+    let _output: std::process::Output = match process.wait_with_output().await {
+        Ok(n) => n,
+        Err(err) => {
+            return Err(format!("failed to run game server installer to termination: {err}"));
+        }
+    };
+
+    let buildid: Option<u32> = {
+        if let Ok(contents) = tokio::fs::read_to_string(config.game_manifest).await {
+            extract_buildid_from_buf(&contents)
+        } else {
+            None
+        }
+    };
+
+    match buildid {
+        Some(n) => Ok(n),
+        None => Err(format!(
+            r#"failed to extract buildid from manifest "{path}""#,
+            path = config.game_manifest
+        )),
+    }
+}
+
+/// Install or update Carbon Modding Framework (https://carbonmod.gg/).
+async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Result<String, String> {
+    let download_url: &str = &config.carbon_download_url;
+    let install_location: &str = config.game_server_root;
+    let rustctl_temp_dir: std::path::PathBuf = std::env::temp_dir().join("rustctl");
+
+    if tokio::fs::try_exists(&rustctl_temp_dir).await.unwrap_or(false) {
+        if let Err(err) = tokio::fs::remove_dir_all(&rustctl_temp_dir).await {
+            log::warn!("failed to wipe existing rustctl temp directory: {err}");
+        }
+    }
+
+    let temp_dir: std::path::PathBuf = rustctl_temp_dir.join(format!("download-carbon_{}", uuid::Uuid::new_v4()));
+    tokio::fs::create_dir_all(&temp_dir)
+        .await
+        .map_err(|err| format!("failed to create temporary directory: {err}"))?;
+
+    let archive_path: std::path::PathBuf = temp_dir.join("carbon.tar.gz");
+
+    log::debug!("Downloading Carbon from: {download_url}");
+    let output: std::process::Output = tokio::process::Command::new("wget")
+        .arg("-O")
+        .arg(&archive_path)
+        .arg(download_url)
+        .output()
+        .await
+        .map_err(|err| format!("failed to execute wget: {err}"))?;
+    if !output.status.success() {
+        let error_msg = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("wget failed: {error_msg}"));
+    }
+
+    let metadata: std::fs::Metadata = tokio::fs::metadata(&archive_path)
+        .await
+        .map_err(|err| format!("failed to get archive metadata: {err}"))?;
+
+    let bytes: u64 = metadata.len();
+    if bytes == 0 {
+        return Err("downloaded archive is empty".to_string());
+    }
+
+    let checksum_output: std::process::Output = tokio::process::Command::new("sha256sum")
+        .arg(&archive_path)
+        .output()
+        .await
+        .map_err(|err| format!("failed to calculate SHA256: {err}"))?;
+    if !checksum_output.status.success() {
+        return Err("failed to calculate SHA256 checksum".to_string());
+    }
+
+    let checksum_str = String::from_utf8_lossy(&checksum_output.stdout);
+    let sha256: String = checksum_str
+        .split_whitespace()
+        .next()
+        .ok_or("invalid SHA256 output format")?
+        .to_string();
+    log::info!(
+        r#"Downloaded Carbon Modding Framework: {bytes} bytes (~{kibibytes} KiB): "{archive_path}" (SHA256: {sha256})"#,
+        kibibytes = bytes / 1024,
+        archive_path = archive_path.to_string_lossy(),
+    );
+
+    log::debug!("Extracting Carbon Modding Framework to: {install_location}");
+    tokio::fs::create_dir_all(install_location)
+        .await
+        .map_err(|err| format!("failed to create install directory: {err}"))?;
+
+    let extract_output: std::process::Output = tokio::process::Command::new("tar")
+        .arg("-xzf")
+        .arg(&archive_path)
+        .arg("-C")
+        .arg(install_location)
+        .output()
+        .await
+        .map_err(|err| format!("failed to execute tar: {err}"))?;
+    if !extract_output.status.success() {
+        let error_msg = String::from_utf8_lossy(&extract_output.stderr);
+        return Err(format!("tar extraction failed: {error_msg}"));
+    }
+
+    let carbon_script = std::path::Path::new(install_location).join("carbon.sh");
+    let carbon_dir = std::path::Path::new(install_location).join("carbon");
+    if !tokio::fs::try_exists(&carbon_script).await.unwrap_or(false) {
+        return Err("extraction failed: carbon.sh not found".to_string());
+    }
+    if !tokio::fs::try_exists(&carbon_dir).await.unwrap_or(false) {
+        return Err("extraction failed: carbon directory not found".to_string());
+    }
+
+    let chmod_output: std::process::Output = tokio::process::Command::new("chmod")
+        .arg("+x")
+        .arg(&carbon_script)
+        .output()
+        .await
+        .map_err(|err| format!("failed to make carbon.sh executable: {err}"))?;
+    if !chmod_output.status.success() {
+        return Err(format!(
+            "failed to make carbon.sh executable: chmod {status}",
+            status = chmod_output.status,
+        ));
+    }
+
+    if let Err(err) = tokio::fs::remove_dir_all(&rustctl_temp_dir).await {
+        return Err(format!("failed to clean up temporary directory: {err}"));
+    }
+
+    Ok(sha256)
+}
+
+/// Generate a Bash script to be used as game server's entry point.
+async fn generate_game_server_startup_script(config: &crate::storage::Configuration) -> Result<String, String> {
+    let startup_script: &str = &config.game_server_startup_script; // e.g. `"/home/rust/rustctl-run-with-carbon.sh"`
+
+    let mut carbon_env_init = std::path::Path::new(config.game_server_root).to_path_buf();
+    carbon_env_init.push("carbon/tools/environment.sh");
+    let carbon_env_init: String = carbon_env_init.to_string_lossy().to_string();
+
+    let script_content: String = format!(
+        r#"#!/bin/bash
+
+set -e
+
+export LD_LIBRARY_PATH="{game_server_libs}"
+
+source {carbon_env_init}
+
+/home/rust/RustDedicated \
+    -batchmode \
+    +server.identity "{game_instance_id}" \
+    +rcon.port "{rcon_port}" \
+    +rcon.web "1" \
+    +rcon.password "{rcon_password}" \
+    +server.worldsize "{game_world_size}" \
+    +server.seed "{game_world_seed}"
+"#,
+        game_server_libs = config.game_server_libs,
+        game_instance_id = config.game_instance_id,
+        rcon_port = config.rcon_port,
+        rcon_password = config.rcon_password,
+        game_world_size = config.game_world_size,
+        game_world_seed = config.game_world_seed,
+    );
+
+    tokio::fs::write(startup_script, &script_content)
+        .await
+        .map_err(|err| format!("failed to write startup script: {err}"))?;
+
+    let chmod_output: std::process::Output = tokio::process::Command::new("chmod")
+        .arg("+x")
+        .arg(startup_script)
+        .output()
+        .await
+        .map_err(|err| format!("failed to make startup script executable: {err}"))?;
+    if !chmod_output.status.success() {
+        return Err(format!(
+            "failed to make startup script executable: chmod {status}",
+            status = chmod_output.status,
+        ));
+    }
+
+    Ok(startup_script.to_string())
+}

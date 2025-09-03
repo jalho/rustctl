@@ -12,7 +12,7 @@ impl GameServerController {
         ctoken: tokio_util::sync::CancellationToken,
         tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
 
-        cfg_client: crate::storage::GameServerConfigurationShared,
+        cfg_client: crate::storage::ConfigurationClient,
 
         rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
 
