@@ -3,7 +3,7 @@ use futures_util::SinkExt;
 pub struct RconClient {
     ctoken: tokio_util::sync::CancellationToken,
 
-    cfg_client: crate::storage::GameServerConfigurationShared,
+    cfg_client: crate::storage::ConfigurationClient,
 
     /// "IGS" = "In-Game State"
     tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
@@ -17,7 +17,7 @@ impl RconClient {
     pub fn new(
         ctoken: tokio_util::sync::CancellationToken,
 
-        cfg_client: crate::storage::GameServerConfigurationShared,
+        cfg_client: crate::storage::ConfigurationClient,
 
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
 

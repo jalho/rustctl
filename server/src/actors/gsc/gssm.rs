@@ -3,7 +3,7 @@
 pub struct Context {
     pub tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
 
-    pub cfg_client: crate::storage::GameServerConfigurationShared,
+    pub cfg_client: crate::storage::ConfigurationClient,
 
     pub rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
 
@@ -52,7 +52,7 @@ impl GameServerStateMachine {
     pub fn init(
         tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
 
-        cfg_client: crate::storage::GameServerConfigurationShared,
+        cfg_client: crate::storage::ConfigurationClient,
 
         rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
 
@@ -93,7 +93,7 @@ impl GameServerStateMachine {
                  * Install or update `RustDedicated` using `steamcmd`.
                  */
                 Self::InstallingUpdates { ctx } => {
-                    let config: crate::storage::GameServerConfiguration = ctx.cfg_client.get_config().await;
+                    let config: crate::storage::Configuration = ctx.cfg_client.get_config().await;
 
                     let buildid_before: Option<u32> = {
                         if let Ok(contents) = tokio::fs::read_to_string(config.game_manifest).await {
@@ -564,7 +564,7 @@ pub struct ReadyForRcon;
 /// Install or update game server (`RustDedicated`) using installer
 /// (`steamcmd`). Return the installed game server's _buildid_ parsed from the
 /// installation's associated manifest file.
-async fn install_or_update_game_server(config: &crate::storage::GameServerConfiguration) -> Result<u32, String> {
+async fn install_or_update_game_server(config: &crate::storage::Configuration) -> Result<u32, String> {
     let mut command = tokio::process::Command::new(config.installer_exe);
     command.current_dir(config.game_server_root);
     command.args(config.get_installer_args());
@@ -607,6 +607,6 @@ async fn install_or_update_game_server(config: &crate::storage::GameServerConfig
 }
 
 /// Install or update Carbon Modding Framework (https://carbonmod.gg/).
-async fn install_or_update_carbon(config: &crate::storage::GameServerConfiguration) -> Result<(), String> {
+async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Result<(), String> {
     todo!();
 }

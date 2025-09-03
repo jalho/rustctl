@@ -1,17 +1,17 @@
 /// Shared client for getting config args for the game server from e.g. a
 /// database.
 #[derive(Clone)]
-pub struct GameServerConfigurationShared(std::sync::Arc<tokio::sync::Mutex<GameServerConfiguration>>);
+pub struct ConfigurationClient(std::sync::Arc<tokio::sync::Mutex<Configuration>>);
 
-impl GameServerConfigurationShared {
+impl ConfigurationClient {
     pub fn init() -> Self {
         Self(std::sync::Arc::new(tokio::sync::Mutex::new(
-            GameServerConfiguration::default(),
+            Configuration::default(),
         )))
     }
 
-    pub async fn get_config(&self) -> GameServerConfiguration {
-        let config: GameServerConfiguration;
+    pub async fn get_config(&self) -> Configuration {
+        let config: Configuration;
 
         {
             let lock = self.0.lock().await;
@@ -24,7 +24,7 @@ impl GameServerConfigurationShared {
 
 /// Parameters for spawning a game server process.
 #[derive(Clone)]
-pub struct GameServerConfiguration {
+pub struct Configuration {
     /// Executable: game server installer.
     pub installer_exe: &'static str,
 
@@ -49,7 +49,7 @@ pub struct GameServerConfiguration {
     rcon_password: String,
 }
 
-impl GameServerConfiguration {
+impl Configuration {
     pub fn get_installer_args(&self) -> Vec<String> {
         vec![
             "+login".into(),
@@ -102,7 +102,7 @@ impl GameServerConfiguration {
     }
 }
 
-impl Default for GameServerConfiguration {
+impl Default for Configuration {
     fn default() -> Self {
         Self {
             installer_exe: "/usr/bin/steamcmd",
