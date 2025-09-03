@@ -608,5 +608,117 @@ async fn install_or_update_game_server(config: &crate::storage::Configuration) -
 
 /// Install or update Carbon Modding Framework (https://carbonmod.gg/).
 async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Result<(), String> {
+    let download_url: &str = &config.carbon_download_url; // e.g. "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz"
+
+    /*
+     * TODO:
+     *
+     * 1. Download Carbon Modding Framework, i.e. a `.tar.gz` file, from `download_url`.
+     *
+     * 2. Extract the `.tar.gz` file. Example of contents:
+     *
+     *    ```
+     *    $ wget https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz
+     *
+     *    $ ls -l
+     *    Carbon.Linux.Minimal.tar.gz
+     *
+     *    $ mkdir extracted
+     *
+     *    $ tar -xzf Carbon.Linux.Minimal.tar.gz -C extracted
+     *
+     *    $ tree extracted/
+     *    extracted/
+     *    ├── carbon
+     *    │   ├── configs
+     *    │   ├── data
+     *    │   ├── extensions
+     *    │   ├── managed
+     *    │   │   ├── Carbon.Bootstrap.dll
+     *    │   │   ├── Carbon.Common.dll
+     *    │   │   ├── Carbon.Compat.dll
+     *    │   │   ├── Carbon.dll
+     *    │   │   ├── Carbon.Preloader.dll
+     *    │   │   ├── Carbon.Profiler.dll
+     *    │   │   ├── Carbon.SDK.dll
+     *    │   │   ├── Carbon.Startup.dll
+     *    │   │   ├── Carbon.Test.dll
+     *    │   │   ├── Carbon.UniTask.dll
+     *    │   │   ├── hooks
+     *    │   │   │   ├── Carbon.Hooks.Base.dll
+     *    │   │   │   ├── Carbon.Hooks.Community.dll
+     *    │   │   │   └── Carbon.Hooks.Oxide.dll
+     *    │   │   ├── lib
+     *    │   │   │   ├── 0Harmony.dll
+     *    │   │   │   ├── AsmResolver.dll
+     *    │   │   │   ├── AsmResolver.DotNet.dll
+     *    │   │   │   ├── AsmResolver.PE.dll
+     *    │   │   │   ├── AsmResolver.PE.File.dll
+     *    │   │   │   ├── Ben.Demystifier.dll
+     *    │   │   │   ├── BouncyCastle.Crypto.dll
+     *    │   │   │   ├── EntityFramework.dll
+     *    │   │   │   ├── EntityFramework.SqlServer.dll
+     *    │   │   │   ├── Google.Protobuf.dll
+     *    │   │   │   ├── Humanizer.dll
+     *    │   │   │   ├── ICSharpCode.Decompiler.dll
+     *    │   │   │   ├── K4os.Compression.LZ4.dll
+     *    │   │   │   ├── K4os.Compression.LZ4.Streams.dll
+     *    │   │   │   ├── K4os.Hash.xxHash.dll
+     *    │   │   │   ├── Microsoft.Bcl.AsyncInterfaces.dll
+     *    │   │   │   ├── Microsoft.CodeAnalysis.CSharp.dll
+     *    │   │   │   ├── Microsoft.CodeAnalysis.CSharp.Workspaces.dll
+     *    │   │   │   ├── Microsoft.CodeAnalysis.dll
+     *    │   │   │   ├── Microsoft.CodeAnalysis.Workspaces.dll
+     *    │   │   │   ├── Mono.Cecil.dll
+     *    │   │   │   ├── Mono.Cecil.Mdb.dll
+     *    │   │   │   ├── Mono.Cecil.Pdb.dll
+     *    │   │   │   ├── Mono.Cecil.Rocks.dll
+     *    │   │   │   ├── Mono.Data.Sqlite.dll
+     *    │   │   │   ├── MySql.Data.dll
+     *    │   │   │   ├── protobuf-net.Core.dll
+     *    │   │   │   ├── protobuf-net.dll
+     *    │   │   │   ├── QRCoder.dll
+     *    │   │   │   ├── Roslynator.Core.dll
+     *    │   │   │   ├── Roslynator.CSharp.dll
+     *    │   │   │   ├── SharpCompress.dll
+     *    │   │   │   ├── System.Buffers.dll
+     *    │   │   │   ├── System.Collections.Immutable.dll
+     *    │   │   │   ├── System.Composition.AttributedModel.dll
+     *    │   │   │   ├── System.Composition.Convention.dll
+     *    │   │   │   ├── System.Composition.Hosting.dll
+     *    │   │   │   ├── System.Composition.Runtime.dll
+     *    │   │   │   ├── System.Composition.TypedParts.dll
+     *    │   │   │   ├── System.Data.SQLite.dll
+     *    │   │   │   ├── System.Data.SQLite.EF6.dll
+     *    │   │   │   ├── System.Data.SQLite.Linq.dll
+     *    │   │   │   ├── System.IO.Pipelines.dll
+     *    │   │   │   ├── System.Memory.dll
+     *    │   │   │   ├── System.Numerics.Vectors.dll
+     *    │   │   │   ├── System.Reflection.Metadata.dll
+     *    │   │   │   ├── System.Runtime.CompilerServices.Unsafe.dll
+     *    │   │   │   ├── System.Text.Encoding.CodePages.dll
+     *    │   │   │   ├── System.Text.Encodings.Web.dll
+     *    │   │   │   ├── System.Text.Json.dll
+     *    │   │   │   ├── System.Threading.Channels.dll
+     *    │   │   │   ├── System.Threading.Tasks.Extensions.dll
+     *    │   │   │   ├── System.ValueTuple.dll
+     *    │   │   │   ├── websocket-sharp.dll
+     *    │   │   │   ├── x64
+     *    │   │   │   │   └── SQLite.Interop.dll
+     *    │   │   │   ├── x86
+     *    │   │   │   │   └── SQLite.Interop.dll
+     *    │   │   │   └── ZstdSharp.dll
+     *    │   │   └── modules
+     *    │   ├── native
+     *    │   │   └── libCarbonNative.so
+     *    │   ├── plugins
+     *    │   └── tools
+     *    │       └── environment.sh
+     *    ├── carbon.sh
+     *    ├── Carbon.targets
+     *    └── libdoorstop.so
+     *    ```
+     */
+
     todo!();
 }

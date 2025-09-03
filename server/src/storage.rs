@@ -5,9 +5,7 @@ pub struct ConfigurationClient(std::sync::Arc<tokio::sync::Mutex<Configuration>>
 
 impl ConfigurationClient {
     pub fn init() -> Self {
-        Self(std::sync::Arc::new(tokio::sync::Mutex::new(
-            Configuration::default(),
-        )))
+        Self(std::sync::Arc::new(tokio::sync::Mutex::new(Configuration::default())))
     }
 
     pub async fn get_config(&self) -> Configuration {
@@ -47,6 +45,14 @@ pub struct Configuration {
 
     rcon_port: u16,
     rcon_password: String,
+
+    /// URL from where _Carbon Modding Framework_ shall be downloaded from.
+    ///
+    /// For example:
+    /// ```
+    /// https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz
+    /// ```
+    pub carbon_download_url: String,
 }
 
 impl Configuration {
@@ -128,6 +134,8 @@ impl Default for Configuration {
 
             rcon_port: 28016,
             rcon_password: uuid::Uuid::new_v4().to_string(),
+
+            carbon_download_url: "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz".to_string(),
         }
     }
 }
