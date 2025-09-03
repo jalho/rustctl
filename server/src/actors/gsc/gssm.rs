@@ -161,12 +161,21 @@ impl GameServerStateMachine {
                     let mut command = tokio::process::Command::new(startup_script);
 
                     /*
+                     * Spawn the game server in a new process group so that
+                     * the whole child process tree can be terminated via the
+                     * group. The process tree as a whole looks something like
+                     * the following:
+                     *
+                     * 1. RUSTCTL -- this app (native executable)
+                     * 2. STARTUP SCRIPT -- a Bash script generated at runtime by RUSTCTL
+                     * 3. RUSTDEDICATED -- the actual game server process spawned by the startup script
+                     *
                      * SAFETY: Trust be bro.
                      */
                     unsafe {
                         command.pre_exec(|| {
                             /*
-                             * Make the forked process the leader of a new
+                             * Make the child process the leader of a new
                              * process group, where the process group's ID
                              * (pgid) equals to the forked process’s ID (pid).
                              */
