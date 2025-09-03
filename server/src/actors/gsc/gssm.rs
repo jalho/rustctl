@@ -93,7 +93,7 @@ impl GameServerStateMachine {
                  * Install or update `RustDedicated` using `steamcmd`.
                  */
                 Self::InstallingUpdates { ctx } => {
-                    let config = ctx.cfg_client.get_config().await;
+                    let config: crate::storage::GameServerConfiguration = ctx.cfg_client.get_config().await;
 
                     let buildid_before: Option<u32> = {
                         if let Ok(contents) = tokio::fs::read_to_string(config.game_manifest).await {
@@ -103,74 +103,30 @@ impl GameServerStateMachine {
                         }
                     };
 
-                    let mut command = tokio::process::Command::new(config.installer_exe);
-                    command.current_dir(config.game_server_root);
-                    command.args(config.get_installer_args());
-                    command.stdout(std::process::Stdio::null());
-                    command.stderr(std::process::Stdio::null());
-
-                    let process: tokio::process::Child = match command.spawn() {
+                    let buildid_after: u32 = match install_or_update_game_server(&config).await {
                         Ok(n) => n,
                         Err(err) => {
-                            log::error!(
-                                "Failed to spawn game server installer ({path}): {err_fmt}",
-                                path = config.installer_exe,
-                                err_fmt = crate::util::fmt_source_tree(&err),
-                            );
+                            log::error!("Installing game server failed: {err}");
                             Self::request_termination(ctx.tx_activate.clone()).await;
                             break 'loop_transitions;
                         }
                     };
 
-                    /*
-                     * TODO: Consider case "offline": Check status code of
-                     *       installer process exit?
-                     */
-                    let _output: std::process::Output = match process.wait_with_output().await {
-                        Ok(n) => n,
-                        Err(err) => {
-                            log::error!(
-                                "Failed to run game server installer to termination: {err_fmt}",
-                                err_fmt = crate::util::fmt_source_tree(&err),
-                            );
-                            Self::request_termination(ctx.tx_activate.clone()).await;
-                            break 'loop_transitions;
+                    match buildid_before {
+                        None => {
+                            log::info!("Installed game server: buildid {buildid_after}");
                         }
-                    };
-
-                    let buildid_after: Option<u32> = {
-                        if let Ok(contents) = tokio::fs::read_to_string(config.game_manifest).await {
-                            extract_buildid_from_buf(&contents)
-                        } else {
-                            None
-                        }
-                    };
-
-                    let buildid: u32 = match (buildid_before, buildid_after) {
-                        (_, None) => {
-                            log::error!(
-                                "Installing game server failed: Could not extract buildid from game server app manifest after installation: {path}",
-                                path = config.game_manifest
-                            );
-                            Self::request_termination(ctx.tx_activate.clone()).await;
-                            break;
-                        }
-                        (None, Some(buildid)) => {
-                            log::info!("Installed game server: buildid {buildid}");
-                            buildid
-                        }
-                        (Some(buildid_before), Some(buildid_after)) => {
+                        Some(buildid_before) => {
                             if buildid_before == buildid_after {
                                 log::info!("Installation checked: Game server is up to date: buildid {buildid_after}");
                             } else {
                                 log::info!("Updated game server: From buildid {buildid_before} to {buildid_after}");
                             }
-                            buildid_after
                         }
-                    };
+                    }
 
                     Self::InstalledAndConfigured {
-                        game_meta: rustctl_common::snapshot::GameServerMetaExposed { buildid },
+                        game_meta: rustctl_common::snapshot::GameServerMetaExposed { buildid: buildid_after },
                         ctx,
                     }
                 }
@@ -599,3 +555,48 @@ impl From<&GameServerStateMachine> for rustctl_common::snapshot::GameServerState
 }
 
 pub struct ReadyForRcon;
+
+/// Install or update game server (`RustDedicated`) using installer
+/// (`steamcmd`). Return the installed game server's _buildid_ parsed from the
+/// installation's associated manifest file.
+async fn install_or_update_game_server(config: &crate::storage::GameServerConfiguration) -> Result<u32, String> {
+    let mut command = tokio::process::Command::new(config.installer_exe);
+    command.current_dir(config.game_server_root);
+    command.args(config.get_installer_args());
+    command.stdout(std::process::Stdio::null());
+    command.stderr(std::process::Stdio::null());
+
+    let process: tokio::process::Child = match command.spawn() {
+        Ok(n) => n,
+        Err(err) => {
+            return Err(format!("failed to spawn game server installer: {err}"));
+        }
+    };
+
+    /*
+     * TODO: Consider case "offline": Check status code of
+     *       installer process exit?
+     */
+    let _output: std::process::Output = match process.wait_with_output().await {
+        Ok(n) => n,
+        Err(err) => {
+            return Err(format!("failed to run game server installer to termination: {err}"));
+        }
+    };
+
+    let buildid: Option<u32> = {
+        if let Ok(contents) = tokio::fs::read_to_string(config.game_manifest).await {
+            extract_buildid_from_buf(&contents)
+        } else {
+            None
+        }
+    };
+
+    match buildid {
+        Some(n) => Ok(n),
+        None => Err(format!(
+            r#"failed to extract buildid from manifest "{path}""#,
+            path = config.game_manifest
+        )),
+    }
+}
