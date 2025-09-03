@@ -680,7 +680,7 @@ async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Res
 
     let archive_path: std::path::PathBuf = temp_dir.join("carbon.tar.gz");
 
-    log::debug!("Downloading Carbon from: {}", download_url);
+    log::debug!("Downloading Carbon from: {download_url}");
     let output: std::process::Output = tokio::process::Command::new("wget")
         .arg("-O")
         .arg(&archive_path)
@@ -690,7 +690,7 @@ async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Res
         .map_err(|err| format!("failed to execute wget: {err}"))?;
     if !output.status.success() {
         let error_msg = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("wget failed: {}", error_msg));
+        return Err(format!("wget failed: {error_msg}"));
     }
 
     let metadata: std::fs::Metadata = tokio::fs::metadata(&archive_path)
@@ -738,7 +738,7 @@ async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Res
         .map_err(|err| format!("failed to execute tar: {err}"))?;
     if !extract_output.status.success() {
         let error_msg = String::from_utf8_lossy(&extract_output.stderr);
-        return Err(format!("tar extraction failed: {}", error_msg));
+        return Err(format!("tar extraction failed: {error_msg}"));
     }
 
     let carbon_script = std::path::Path::new(install_location).join("carbon.sh");
