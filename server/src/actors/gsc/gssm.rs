@@ -608,125 +608,103 @@ async fn install_or_update_game_server(config: &crate::storage::Configuration) -
 
 /// Install or update Carbon Modding Framework (https://carbonmod.gg/).
 async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Result<String, String> {
-    let download_url: &str = &config.carbon_download_url; // e.g. "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz"
-    let install_location: &str = config.game_server_root; // e.g. "/home/rust"
+    let download_url: &str = &config.carbon_download_url;
+    let install_location: &str = config.game_server_root;
 
-    /*
-     * TODO:
-     *
-     * 1. Download Carbon Modding Framework, i.e. a `.tar.gz` file, from `download_url`.
-     *
-     * 2. Extract the `.tar.gz` file. Example of contents:
-     *
-     *    ```
-     *    $ wget https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz
-     *
-     *    $ ls -l
-     *    Carbon.Linux.Minimal.tar.gz
-     *
-     *    $ mkdir extracted
-     *
-     *    $ tar -xzf Carbon.Linux.Minimal.tar.gz -C extracted
-     *
-     *    $ tree extracted/
-     *    extracted/
-     *    ├── carbon
-     *    │   ├── configs
-     *    │   ├── data
-     *    │   ├── extensions
-     *    │   ├── managed
-     *    │   │   ├── Carbon.Bootstrap.dll
-     *    │   │   ├── Carbon.Common.dll
-     *    │   │   ├── Carbon.Compat.dll
-     *    │   │   ├── Carbon.dll
-     *    │   │   ├── Carbon.Preloader.dll
-     *    │   │   ├── Carbon.Profiler.dll
-     *    │   │   ├── Carbon.SDK.dll
-     *    │   │   ├── Carbon.Startup.dll
-     *    │   │   ├── Carbon.Test.dll
-     *    │   │   ├── Carbon.UniTask.dll
-     *    │   │   ├── hooks
-     *    │   │   │   ├── Carbon.Hooks.Base.dll
-     *    │   │   │   ├── Carbon.Hooks.Community.dll
-     *    │   │   │   └── Carbon.Hooks.Oxide.dll
-     *    │   │   ├── lib
-     *    │   │   │   ├── 0Harmony.dll
-     *    │   │   │   ├── AsmResolver.dll
-     *    │   │   │   ├── AsmResolver.DotNet.dll
-     *    │   │   │   ├── AsmResolver.PE.dll
-     *    │   │   │   ├── AsmResolver.PE.File.dll
-     *    │   │   │   ├── Ben.Demystifier.dll
-     *    │   │   │   ├── BouncyCastle.Crypto.dll
-     *    │   │   │   ├── EntityFramework.dll
-     *    │   │   │   ├── EntityFramework.SqlServer.dll
-     *    │   │   │   ├── Google.Protobuf.dll
-     *    │   │   │   ├── Humanizer.dll
-     *    │   │   │   ├── ICSharpCode.Decompiler.dll
-     *    │   │   │   ├── K4os.Compression.LZ4.dll
-     *    │   │   │   ├── K4os.Compression.LZ4.Streams.dll
-     *    │   │   │   ├── K4os.Hash.xxHash.dll
-     *    │   │   │   ├── Microsoft.Bcl.AsyncInterfaces.dll
-     *    │   │   │   ├── Microsoft.CodeAnalysis.CSharp.dll
-     *    │   │   │   ├── Microsoft.CodeAnalysis.CSharp.Workspaces.dll
-     *    │   │   │   ├── Microsoft.CodeAnalysis.dll
-     *    │   │   │   ├── Microsoft.CodeAnalysis.Workspaces.dll
-     *    │   │   │   ├── Mono.Cecil.dll
-     *    │   │   │   ├── Mono.Cecil.Mdb.dll
-     *    │   │   │   ├── Mono.Cecil.Pdb.dll
-     *    │   │   │   ├── Mono.Cecil.Rocks.dll
-     *    │   │   │   ├── Mono.Data.Sqlite.dll
-     *    │   │   │   ├── MySql.Data.dll
-     *    │   │   │   ├── protobuf-net.Core.dll
-     *    │   │   │   ├── protobuf-net.dll
-     *    │   │   │   ├── QRCoder.dll
-     *    │   │   │   ├── Roslynator.Core.dll
-     *    │   │   │   ├── Roslynator.CSharp.dll
-     *    │   │   │   ├── SharpCompress.dll
-     *    │   │   │   ├── System.Buffers.dll
-     *    │   │   │   ├── System.Collections.Immutable.dll
-     *    │   │   │   ├── System.Composition.AttributedModel.dll
-     *    │   │   │   ├── System.Composition.Convention.dll
-     *    │   │   │   ├── System.Composition.Hosting.dll
-     *    │   │   │   ├── System.Composition.Runtime.dll
-     *    │   │   │   ├── System.Composition.TypedParts.dll
-     *    │   │   │   ├── System.Data.SQLite.dll
-     *    │   │   │   ├── System.Data.SQLite.EF6.dll
-     *    │   │   │   ├── System.Data.SQLite.Linq.dll
-     *    │   │   │   ├── System.IO.Pipelines.dll
-     *    │   │   │   ├── System.Memory.dll
-     *    │   │   │   ├── System.Numerics.Vectors.dll
-     *    │   │   │   ├── System.Reflection.Metadata.dll
-     *    │   │   │   ├── System.Runtime.CompilerServices.Unsafe.dll
-     *    │   │   │   ├── System.Text.Encoding.CodePages.dll
-     *    │   │   │   ├── System.Text.Encodings.Web.dll
-     *    │   │   │   ├── System.Text.Json.dll
-     *    │   │   │   ├── System.Threading.Channels.dll
-     *    │   │   │   ├── System.Threading.Tasks.Extensions.dll
-     *    │   │   │   ├── System.ValueTuple.dll
-     *    │   │   │   ├── websocket-sharp.dll
-     *    │   │   │   ├── x64
-     *    │   │   │   │   └── SQLite.Interop.dll
-     *    │   │   │   ├── x86
-     *    │   │   │   │   └── SQLite.Interop.dll
-     *    │   │   │   └── ZstdSharp.dll
-     *    │   │   └── modules
-     *    │   ├── native
-     *    │   │   └── libCarbonNative.so
-     *    │   ├── plugins
-     *    │   └── tools
-     *    │       └── environment.sh
-     *    ├── carbon.sh
-     *    ├── Carbon.targets
-     *    └── libdoorstop.so
-     *    ```
-     *
-     *    N.B.: Extract the installation into `install_location`, instead of in
-     *    `./extracted/` that is used in the above example.
-     *
-     * 3. Return SHA256 checksum of the installation archive as Result::Ok(String) if all went good.
-     *
-     * N.B.: Upon any errors, return Result::Error(format!("description of what went wrong")).
-     */
+    let temp_dir: std::path::PathBuf =
+        std::env::temp_dir().join(format!("rustctl-download-carbon_{}", uuid::Uuid::new_v4()));
+    tokio::fs::create_dir_all(&temp_dir)
+        .await
+        .map_err(|err| format!("failed to create temporary directory: {err}"))?;
 
-    todo!();
+    let archive_path: std::path::PathBuf = temp_dir.join("carbon.tar.gz");
+
+    log::debug!("Downloading Carbon from: {}", download_url);
+    let output: std::process::Output = tokio::process::Command::new("wget")
+        .arg("-O")
+        .arg(&archive_path)
+        .arg(download_url)
+        .output()
+        .await
+        .map_err(|err| format!("failed to execute wget: {err}"))?;
+
+    if !output.status.success() {
+        let error_msg = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("wget failed: {}", error_msg));
+    }
+
+    let metadata: std::fs::Metadata = tokio::fs::metadata(&archive_path)
+        .await
+        .map_err(|err| format!("failed to get archive metadata: {err}"))?;
+    let bytes = metadata.len();
+    if bytes == 0 {
+        return Err("downloaded archive is empty".to_string());
+    }
+
+    let checksum_output: std::process::Output = tokio::process::Command::new("sha256sum")
+        .arg(&archive_path)
+        .output()
+        .await
+        .map_err(|err| format!("failed to calculate SHA256: {err}"))?;
+    if !checksum_output.status.success() {
+        return Err("failed to calculate SHA256 checksum".to_string());
+    }
+
+    let checksum_str = String::from_utf8_lossy(&checksum_output.stdout);
+    let sha256: String = checksum_str
+        .split_whitespace()
+        .next()
+        .ok_or("invalid SHA256 output format")?
+        .to_string();
+    log::info!(
+        r#"Downloaded Carbon Modding Framework: {bytes} bytes (~{kibibytes} KiB): "{archive_path}" (SHA256: {sha256})"#,
+        kibibytes = bytes / 1024,
+        archive_path = archive_path.to_string_lossy(),
+    );
+
+    log::debug!("Extracting Carbon Modding Framework to: {install_location}");
+    tokio::fs::create_dir_all(install_location)
+        .await
+        .map_err(|err| format!("failed to create install directory: {err}"))?;
+
+    let extract_output: std::process::Output = tokio::process::Command::new("tar")
+        .arg("-xzf")
+        .arg(&archive_path)
+        .arg("-C")
+        .arg(install_location)
+        .output()
+        .await
+        .map_err(|err| format!("failed to execute tar: {err}"))?;
+    if !extract_output.status.success() {
+        let error_msg = String::from_utf8_lossy(&extract_output.stderr);
+        return Err(format!("tar extraction failed: {}", error_msg));
+    }
+
+    let carbon_script = std::path::Path::new(install_location).join("carbon.sh");
+    let carbon_dir = std::path::Path::new(install_location).join("carbon");
+    if !tokio::fs::try_exists(&carbon_script).await.unwrap_or(false) {
+        return Err("extraction failed: carbon.sh not found".to_string());
+    }
+    if !tokio::fs::try_exists(&carbon_dir).await.unwrap_or(false) {
+        return Err("extraction failed: carbon directory not found".to_string());
+    }
+
+    let chmod_output: std::process::Output = tokio::process::Command::new("chmod")
+        .arg("+x")
+        .arg(&carbon_script)
+        .output()
+        .await
+        .map_err(|err| format!("failed to make carbon.sh executable: {err}"))?;
+    if !chmod_output.status.success() {
+        return Err(format!(
+            "failed to make carbon.sh executable: chmod {status}",
+            status = chmod_output.status,
+        ));
+    }
+
+    if let Err(err) = tokio::fs::remove_dir_all(&temp_dir).await {
+        return Err(format!("failed to clean up temporary directory: {err}"));
+    }
+
+    Ok(sha256)
 }
