@@ -774,16 +774,18 @@ async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Res
 async fn generate_game_server_startup_script(config: &crate::storage::Configuration) -> Result<String, String> {
     let startup_script: &str = &config.game_server_startup_script; // e.g. `"/home/rust/rustctl-run-with-carbon.sh"`
 
-    /*
-     * TODO: Do the Carbon Modding Framework loading in the generated script:
-     *       "source carbon/tools/environments.sh" etc...
-     */
+    let mut carbon_env_init = std::path::Path::new(config.game_server_root).to_path_buf();
+    carbon_env_init.push("carbon/tools/environment.sh");
+    let carbon_env_init: String = carbon_env_init.to_string_lossy().to_string();
+
     let script_content: String = format!(
         r#"#!/bin/bash
 
 set -e
 
-LD_LIBRARY_PATH="{game_server_libs}"
+export LD_LIBRARY_PATH="{game_server_libs}"
+
+source {carbon_env_init}
 
 /home/rust/RustDedicated \
     -batchmode \
