@@ -116,9 +116,7 @@ pub mod command {
     #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
     pub enum DownstreamClientMessage {
         ServerSaveAndClose,
-        ServerConfigure { cfg: GameServerConfigurationPatch },
         ServerInstallOrUpdateAndStart,
-        GameWorldKillPlayer { id: String },
         WebSocketProtocolOther,
     }
 
@@ -137,7 +135,4 @@ pub mod command {
             Ok(message)
         }
     }
-
-    #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-    pub struct GameServerConfigurationPatch {}
 }
