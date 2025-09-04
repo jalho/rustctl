@@ -824,7 +824,7 @@ source {carbon_env_init}
 
     tokio::fs::write(startup_script, &script_content)
         .await
-        .map_err(|err| format!("failed to write startup script: {err}"))?;
+        .map_err(|err| format!("failed to write startup script {startup_script}: {err}"))?;
 
     let chmod_output: std::process::Output = tokio::process::Command::new("chmod")
         .arg("+x")
