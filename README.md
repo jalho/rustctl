@@ -2,7 +2,7 @@ Work in progress!
 
 # `rustctl`
 
-Tooling for running a _Rust_ (the game) server and an integrated web service
+Tooling for running a *Rust* (the game) server and an integrated web service
 on Linux.
 
 ## Features
@@ -14,10 +14,10 @@ Features are listed in the [`./CHANGELOG.md`](./CHANGELOG.md).
 ```
 .
 ├── clients
-│   │
-│   ├── tui ............. Terminal app intended as a dev tool.
-│   │
-│   └── web ............. Web app intended as an actual deployment.
+│   │
+│   ├── tui ............. Terminal app intended as a dev tool.
+│   │
+│   └── web ............. Web app intended as an actual deployment.
 │
 ├── server .............. Backend for the clients.
 │
@@ -44,19 +44,25 @@ interesting. (Not in any meaningful order!)
 
 ```
 /tmp/
-└── rustctl.sock ................ Unix domain socket. Created at runtime.
+│
+├── rustctl.sock ................ Unix domain socket. Created at runtime.
+│
+└── rustctl/ .................... Temporary directory. Created at runtime as needed.
 
 /usr/bin/
+│
+├── carbon
 │
 └── steamcmd .................... "SteamCMD": Game server installer. Presumed
                                   pre-installed. It's available via e.g. Debian,
                                   Ubuntu and Arch package managers.
 
-/home/rust/ ..................... Presumed pre-existing.
+/var/lib/rustctl/
 │
 ├── carbon
-│   ├── tools
-│   │   └── environment.sh ...... Included in "Carbon" installation, which is
+│   │
+│   ├── tools
+│   │   └── environment.sh ...... Included in "Carbon" installation, which is
 │   │                             downloaded from internet at runtime.
 │   └── plugins
 │       └── rustctl_sock.cs ..... Generated at runtime.
@@ -68,12 +74,13 @@ interesting. (Not in any meaningful order!)
 ├── rustctl-run-with-carbon.sh .. Generated at runtime.
 │
 ├── RustDedicated ............... The game server. Installed at runtime from
-│                                 internet using "SteamCMD".
+│                                 internet using "SteamCMD". Contains state
+│                                 information relative to itself.
 │
 ├── server
-│   └── instance0 ............... Generated at runtime (by the game, automatically).
-│       ├── cfg
-│       │   └── users.cfg
+│   └── instance0 ............... Generated at runtime (by the game, automatically).
+│       ├── cfg
+│       │   └── users.cfg
 │       └── *.sav
 │
 └── steamapps
