@@ -37,13 +37,6 @@ impl GameServerController {
      *       SIGINT. Termination of the child group works as intended when done
      *       via commanding downstream WebSocket clients though, because there
      *       the group ID is used accordingly!
-     *
-     * TODO: At startup (of the game server state machine?), it should be
-     *       asserted that none of the spawnable workloads are not already
-     *       running: `steamcmd`, `RustDedicated` etc. That should act as a
-     *       sanity check: This program is intended to manage a single instance
-     *       of the game at a time, and therefore concurrent instances should be
-     *       considered undefined behavior!
      */
     pub async fn work(self) -> Summary {
         let ctoken = self.ctoken.child_token();

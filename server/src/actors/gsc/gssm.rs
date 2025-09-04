@@ -88,7 +88,26 @@ impl GameServerStateMachine {
     pub async fn loop_transitions(mut self) -> () {
         'loop_transitions: loop {
             self = match self {
-                Self::Init { ctx } => Self::InstallingUpdates { ctx },
+                Self::Init { ctx } => {
+                    let config: crate::storage::Configuration = ctx.cfg_client.get_config().await;
+
+                    let running_already: Vec<u32> = is_running_already(&config).await;
+                    if !running_already.is_empty() {
+                        log::error!(
+                            "Running already -- Process(es) ({count} pcs) {pids} should be terminated!",
+                            count = running_already.len(),
+                            pids = running_already
+                                .iter()
+                                .map(|pid| pid.to_string())
+                                .collect::<Vec<String>>()
+                                .join(", "),
+                        );
+                        Self::request_termination(ctx.tx_activate.clone()).await;
+                        break 'loop_transitions;
+                    }
+
+                    Self::InstallingUpdates { ctx }
+                }
 
                 /*
                  * Install or update `RustDedicated` using `steamcmd`.
@@ -834,4 +853,68 @@ source {carbon_env_init}
     }
 
     Ok(startup_script.to_string())
+}
+
+/// Returns process IDs (PIDs) of workloads running already: game server
+/// installer (`steamcmd`), the game server itself (`RustDedicated`)...
+async fn is_running_already(config: &crate::storage::Configuration) -> Vec<u32> {
+    let mut running: Vec<u32> = Vec::new();
+
+    /*
+     * Check "installer".
+     */
+    {
+        if let Some(executable) = std::path::Path::new(config.installer_exe).file_name() {
+            if let Ok(output) = tokio::process::Command::new("pgrep").arg(executable).output().await {
+                if output.status.success() {
+                    if let Ok(stdout) = String::from_utf8(output.stdout) {
+                        if let Ok(pid) = stdout.trim().parse::<u32>() {
+                            running.push(pid);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /*
+     * Check "generated launcher script".
+     */
+    {
+        if let Some(executable) = std::path::Path::new(&config.game_server_startup_script).file_name() {
+            if let Ok(output) = tokio::process::Command::new("pgrep")
+                .arg("-f")
+                .arg(executable)
+                .output()
+                .await
+            {
+                if output.status.success() {
+                    if let Ok(stdout) = String::from_utf8(output.stdout) {
+                        if let Ok(pid) = stdout.trim().parse::<u32>() {
+                            running.push(pid);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /*
+     * Check "game server".
+     */
+    {
+        if let Some(executable) = std::path::Path::new(config.game_server_exe).file_name() {
+            if let Ok(output) = tokio::process::Command::new("pgrep").arg(executable).output().await {
+                if output.status.success() {
+                    if let Ok(stdout) = String::from_utf8(output.stdout) {
+                        if let Ok(pid) = stdout.trim().parse::<u32>() {
+                            running.push(pid);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return running;
 }
