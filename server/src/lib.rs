@@ -64,7 +64,7 @@ impl PresumedFilesystemHierarchy {
     }
 
     fn startup_script_abs(&self) -> std::path::PathBuf {
-        let mut path = self.game_abs().to_path_buf();
+        let mut path = self.root_dir_abs().to_path_buf();
         path.push("rustctl-run-with-carbon.sh");
         path
     }
