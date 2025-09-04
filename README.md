@@ -40,6 +40,50 @@ Design diagram in terms of _channel primitives_:
 
 <img src="./diagrams/rustctl-software-design-in-terms-of-channel-primitives.svg">
 
+## Presumed filesystem hierarchy
+
+Various filesystem entries are presumed pre-existing or created at runtime
+at specific paths. Below is a non-exhaustive list of some that might be
+interesting. (Not in any meaningful order!)
+
+```
+/tmp/
+└── rustctl.sock ................ Unix domain socket. Created at runtime.
+
+/usr/bin/
+│
+└── steamcmd .................... "SteamCMD": Game server installer. Presumed
+                                  pre-installed. It's available via e.g. Debian,
+                                  Ubuntu and Arch package managers.
+
+/home/rust/ ..................... Presumed pre-existing.
+│
+├── carbon
+│   ├── tools
+│   │   └── environment.sh ...... Included in "Carbon" installation, which is
+│   │                             downloaded from internet at runtime.
+│   └── plugins
+│       └── rustctl_sock.cs ..... Generated at runtime.
+│
+├── current-world-map.png ....... Generated at runtime.
+│
+├── libdoorstop.so .............. Included in the "Carbon" installation.
+│
+├── rustctl-run-with-carbon.sh .. Generated at runtime.
+│
+├── RustDedicated ............... The game server. Installed at runtime from
+│                                 internet using "SteamCMD".
+│
+├── server
+│   └── instance0 ............... Generated at runtime (by the game, automatically).
+│       ├── cfg
+│       │   └── users.cfg
+│       └── *.sav
+│
+└── steamapps
+    └── appmanifest_258550.acf .. Included in the "RustDedicated" installation.
+```
+
 ## Cheatsheet
 
 #### Using `steamcmd`
