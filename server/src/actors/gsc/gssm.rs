@@ -916,5 +916,5 @@ async fn is_running_already(config: &crate::storage::Configuration) -> Vec<u32> 
         }
     }
 
-    return running;
+    running
 }
