@@ -7,9 +7,6 @@ members = [
   "./clients/web",
 
   "./common",
-
-  "./mocks/RustDedicated",
-  "./mocks/steamcmd",
 ]
 
 [workspace.dependencies]
