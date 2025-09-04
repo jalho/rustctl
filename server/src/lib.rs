@@ -63,6 +63,18 @@ impl PresumedFilesystemHierarchy {
         path
     }
 
+    fn startup_script_abs(&self) -> std::path::PathBuf {
+        let mut path = self.game_abs().to_path_buf();
+        path.push("rustctl-run-with-carbon.sh");
+        path
+    }
+
+    fn carbon_init_script_abs(&self) -> std::path::PathBuf {
+        let mut path = self.game_abs().to_path_buf();
+        path.push("carbon/tools/environment.sh");
+        path
+    }
+
     /// Returns the temporary directory path as a UTF-8 string.
     ///
     /// The directory is intended as e.g. temporary storage location for Carbon
@@ -110,5 +122,19 @@ impl PresumedFilesystemHierarchy {
     /// The file contains some metadata of the game server installation.
     pub fn manifest_abs_utf8(&self) -> String {
         self.manifest_abs().to_string_lossy().to_string()
+    }
+
+    /// Returns the game server startup script path as a UTF-8 string.
+    ///
+    /// The script is generated at runtime.
+    pub fn startup_script_abs_utf8(&self) -> String {
+        self.startup_script_abs().to_string_lossy().to_string()
+    }
+
+    /// Returns the Carbon env init script path as a UTF-8 string.
+    ///
+    /// The script is included in the Carbon installation.
+    pub fn carbon_init_script_abs_utf8(&self) -> String {
+        self.carbon_init_script_abs().to_string_lossy().to_string()
     }
 }

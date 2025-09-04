@@ -116,7 +116,7 @@ impl GameServerStateMachine {
                     let config: crate::storage::Configuration = ctx.cfg_client.get_config().await;
 
                     let buildid_before: Option<u32> = {
-                        if let Ok(contents) = tokio::fs::read_to_string(config.game_manifest).await {
+                        if let Ok(contents) = tokio::fs::read_to_string(config.fs.manifest_abs_utf8()).await {
                             extract_buildid_from_buf(&contents)
                         } else {
                             None
@@ -203,7 +203,7 @@ impl GameServerStateMachine {
                         });
                     }
 
-                    command.current_dir(cfg.game_server_root);
+                    command.current_dir(cfg.fs.root_dir_abs_utf8());
                     command.stdout(std::process::Stdio::piped());
                     command.stderr(std::process::Stdio::piped());
 
@@ -211,8 +211,7 @@ impl GameServerStateMachine {
                         Ok(n) => n,
                         Err(err) => {
                             log::error!(
-                                "Failed to spawn game server ({path}): {err_fmt}",
-                                path = cfg.game_server_exe,
+                                "Failed to spawn game server: {err_fmt}",
                                 err_fmt = crate::util::fmt_source_tree(&err),
                             );
                             Self::request_termination(ctx.tx_activate.clone()).await;
@@ -639,8 +638,8 @@ pub struct ReadyForRcon;
 /// (`steamcmd`). Return the installed game server's _buildid_ parsed from the
 /// installation's associated manifest file.
 async fn install_or_update_game_server(config: &crate::storage::Configuration) -> Result<u32, String> {
-    let mut command = tokio::process::Command::new(config.installer_exe);
-    command.current_dir(config.game_server_root);
+    let mut command = tokio::process::Command::new(config.fs.installer_abs_utf8());
+    command.current_dir(config.fs.root_dir_abs_utf8());
     command.args(config.get_installer_args());
     command.stdout(std::process::Stdio::null());
     command.stderr(std::process::Stdio::null());
@@ -664,7 +663,7 @@ async fn install_or_update_game_server(config: &crate::storage::Configuration) -
     };
 
     let buildid: Option<u32> = {
-        if let Ok(contents) = tokio::fs::read_to_string(config.game_manifest).await {
+        if let Ok(contents) = tokio::fs::read_to_string(config.fs.manifest_abs_utf8()).await {
             extract_buildid_from_buf(&contents)
         } else {
             None
@@ -675,7 +674,7 @@ async fn install_or_update_game_server(config: &crate::storage::Configuration) -
         Some(n) => Ok(n),
         None => Err(format!(
             r#"failed to extract buildid from manifest "{path}""#,
-            path = config.game_manifest
+            path = config.fs.manifest_abs_utf8()
         )),
     }
 }
@@ -683,7 +682,7 @@ async fn install_or_update_game_server(config: &crate::storage::Configuration) -
 /// Install or update Carbon Modding Framework (https://carbonmod.gg/).
 async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Result<String, String> {
     let download_url: &str = &config.carbon_download_url;
-    let install_location: &str = config.game_server_root;
+    let install_location: &str = &config.fs.root_dir_abs_utf8();
     let rustctl_temp_dir: std::path::PathBuf = std::env::temp_dir().join("rustctl");
 
     if tokio::fs::try_exists(&rustctl_temp_dir).await.unwrap_or(false) {
@@ -791,11 +790,7 @@ async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Res
 
 /// Generate a Bash script to be used as game server's entry point.
 async fn generate_game_server_startup_script(config: &crate::storage::Configuration) -> Result<String, String> {
-    let startup_script: &str = &config.game_server_startup_script; // e.g. `"/home/rust/rustctl-run-with-carbon.sh"`
-
-    let mut carbon_env_init = std::path::Path::new(config.game_server_root).to_path_buf();
-    carbon_env_init.push("carbon/tools/environment.sh");
-    let carbon_env_init: String = carbon_env_init.to_string_lossy().to_string();
+    let startup_script: &str = &config.fs.startup_script_abs_utf8();
 
     let script_content: String = format!(
         r#"#!/bin/bash
@@ -806,7 +801,7 @@ export LD_LIBRARY_PATH="{game_server_libs}"
 
 source {carbon_env_init}
 
-/home/rust/RustDedicated \
+{game_executable} \
     -batchmode \
     +server.hostname "{game_name}" \
     +server.description "{game_description}" \
@@ -822,12 +817,14 @@ source {carbon_env_init}
     +server.worldsize "{game_world_size}" \
     +server.seed "{game_world_seed}"
 "#,
+        carbon_env_init = config.fs.carbon_init_script_abs_utf8(),
+        game_executable = config.fs.game_abs_utf8(),
         game_name = config.game_name,
         game_description = config.game_description,
         game_url_home = config.game_url_home,
         game_url_header = config.game_url_header,
         game_url_logo = config.game_url_logo,
-        game_server_libs = config.game_server_libs,
+        game_server_libs = config.fs.root_dir_abs_utf8(),
         game_instance_id = config.game_instance_id,
         rcon_port = config.rcon_port,
         rcon_password = config.rcon_password,
@@ -864,7 +861,7 @@ async fn is_running_already(config: &crate::storage::Configuration) -> Vec<u32> 
      * Check "installer".
      */
     {
-        if let Some(executable) = std::path::Path::new(config.installer_exe).file_name() {
+        if let Some(executable) = std::path::Path::new(&config.fs.installer_abs_utf8()).file_name() {
             if let Ok(output) = tokio::process::Command::new("pgrep").arg(executable).output().await {
                 if output.status.success() {
                     if let Ok(stdout) = String::from_utf8(output.stdout) {
@@ -881,7 +878,7 @@ async fn is_running_already(config: &crate::storage::Configuration) -> Vec<u32> 
      * Check "generated launcher script".
      */
     {
-        if let Some(executable) = std::path::Path::new(&config.game_server_startup_script).file_name() {
+        if let Some(executable) = std::path::Path::new(&config.fs.startup_script_abs_utf8()).file_name() {
             if let Ok(output) = tokio::process::Command::new("pgrep")
                 .arg("-f")
                 .arg(executable)
@@ -903,7 +900,7 @@ async fn is_running_already(config: &crate::storage::Configuration) -> Vec<u32> 
      * Check "game server".
      */
     {
-        if let Some(executable) = std::path::Path::new(config.game_server_exe).file_name() {
+        if let Some(executable) = std::path::Path::new(&config.fs.game_abs_utf8()).file_name() {
             if let Ok(output) = tokio::process::Command::new("pgrep").arg(executable).output().await {
                 if output.status.success() {
                     if let Ok(stdout) = String::from_utf8(output.stdout) {
