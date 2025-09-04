@@ -640,7 +640,7 @@ pub struct ReadyForRcon;
 async fn install_or_update_game_server(config: &crate::storage::Configuration) -> Result<u32, String> {
     let executable: String = config.fs.installer_abs_utf8();
     let working_directory: String = config.fs.root_dir_abs_utf8();
-    
+
     let mut command = tokio::process::Command::new(&executable);
     command.current_dir(&working_directory);
     command.args(config.get_installer_args());
@@ -650,7 +650,7 @@ async fn install_or_update_game_server(config: &crate::storage::Configuration) -
     let process: tokio::process::Child = match command.spawn() {
         Ok(n) => n,
         Err(err) => {
-            return Err(format!("failed to spawn game server installer: {executable} (working directory {working_directory}): {err}"));
+            return Err(format!("failed to spawn game server installer: {command:?}: {err}"));
         }
     };
 
