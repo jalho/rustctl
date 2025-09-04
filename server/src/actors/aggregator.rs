@@ -197,22 +197,23 @@ impl Aggregator {
     async fn aggregate_ingame_events(aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>) -> () {
         let _ = tokio::fs::remove_file(Self::SOCKET_PATH).await;
 
-        let listener =
-            match tokio::net::UnixListener::from_std(match std::os::unix::net::UnixListener::bind(Self::SOCKET_PATH) {
-                Ok(listener) => listener,
-                Err(err) => {
-                    todo!(
-                        "terminate gracefully: failed to bind Unix socket {}: {}",
-                        Self::SOCKET_PATH,
-                        err
-                    );
-                }
-            }) {
-                Ok(listener) => listener,
-                Err(e) => {
-                    todo!("terminate gracefully: failed to convert Unix listener: {}", e);
-                }
-            };
+        let listener: std::os::unix::net::UnixListener = match std::os::unix::net::UnixListener::bind(Self::SOCKET_PATH) {
+            Ok(listener) => listener,
+            Err(err) => {
+                todo!(
+                    "terminate gracefully: failed to bind Unix socket {}: {}",
+                    Self::SOCKET_PATH,
+                    err
+                );
+            }
+        };
+
+        let listener = match tokio::net::UnixListener::from_std(listener) {
+            Ok(listener) => listener,
+            Err(e) => {
+                todo!("terminate gracefully: failed to convert Unix listener: {}", e);
+            }
+        };
         log::debug!("Unix domain socket listening on {}", Self::SOCKET_PATH);
 
         loop {
