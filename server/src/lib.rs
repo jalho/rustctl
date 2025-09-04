@@ -29,20 +29,12 @@ impl PresumedFilesystemHierarchy {
     /// Created at runtime as needed.
     const SOCKET_ABS: &'static str = "/tmp/rustctl.sock";
 
+    /*
+     * Private methods derived from constants.
+     */
+
     fn temp_dir_abs(&self) -> &std::path::Path {
         std::path::Path::new(Self::TEMP_DIR_ABS)
-    }
-
-    fn root_dir_abs(&self) -> &std::path::Path {
-        std::path::Path::new(Self::GAME_ABS)
-            .parent()
-            .expect("game server executable is in a directory")
-    }
-
-    fn plugins_dir_abs(&self) -> std::path::PathBuf {
-        let mut path = self.game_abs().to_path_buf();
-        path.push("carbon/plugins");
-        path
     }
 
     fn socket_abs(&self) -> &std::path::Path {
@@ -55,6 +47,22 @@ impl PresumedFilesystemHierarchy {
 
     fn game_abs(&self) -> &std::path::Path {
         std::path::Path::new(Self::GAME_ABS)
+    }
+
+    /*
+     * Private methods derived from other private methods.
+     */
+
+    fn root_dir_abs(&self) -> &std::path::Path {
+        self.game_abs()
+            .parent()
+            .expect("game server executable is in a directory")
+    }
+
+    fn plugins_dir_abs(&self) -> std::path::PathBuf {
+        let mut path = self.root_dir_abs().to_path_buf();
+        path.push("carbon/plugins");
+        path
     }
 
     fn manifest_abs(&self) -> std::path::PathBuf {
@@ -80,6 +88,10 @@ impl PresumedFilesystemHierarchy {
         path.push("current-game-world-map.png");
         path
     }
+
+    /*
+     * Public methods derived from private methods.
+     */
 
     /// Returns the temporary directory path as a UTF-8 string.
     ///
