@@ -142,7 +142,16 @@ impl RconClient {
             let response: RconMessage = cmd
                 .send_and_wait_response(ws_sink, ws_stream, std::time::Duration::from_secs(3))
                 .await?;
-            dbg!(response.Message);
+            /*
+             * Example:
+             * ```
+             * "Carbon Minimal 2.0.203.0/linux/2025.08.07.0 [production] [production_build] on Rust 898/2594.270.1 (08/28/2025 23:22:54)"
+             * ```
+             */
+            log::info!(
+                "Carbon Modding Framework version: {version}",
+                version = response.Message
+            );
 
             /*
              * From docs:
@@ -153,7 +162,7 @@ impl RconClient {
             let response: RconMessage = cmd
                 .send_and_wait_response(ws_sink, ws_stream, std::time::Duration::from_secs(3))
                 .await?;
-            dbg!(response.Message);
+            log::debug!("carbon.whymodded:\n{rationale}", rationale = response.Message);
 
             /*
              * From docs:
@@ -165,7 +174,7 @@ impl RconClient {
             let response: RconMessage = cmd
                 .send_and_wait_response(ws_sink, ws_stream, std::time::Duration::from_secs(3))
                 .await?;
-            dbg!(response.Message);
+            log::debug!("carbon.gocommunity:\n{result}", result = response.Message);
         }
 
         /*
@@ -182,19 +191,9 @@ impl RconClient {
         /*
          * TODO: Set up any necessary plugins and apply their necessary config commands, if any:
          *
-         *       - Assert Carbon is loaded: Query its version via RCON and log
-         *         it. Example response from in-game console:
-         *         ```
-         *         > carbon.version
-         *         Carbon Minimal <color=#d14419>2.0.203.0/linux/2025.08.07.0 [production] [production_build] on Rust <color=#d14419>898/2594.270.1 (08/28/2025 23:22:54).
-         *         ```
-         *
          *       - Set up the custom plugin for transmitting
          *         in-game event data via Unix domain socket (from
          *         https://github.com/jalho/rds-plugins, see `activity_sock.cs`)
-         *
-         *       - Carbon (the framework of the plugins) may also require a
-         *         command that sets the server's status as "not modded"
          */
 
         Ok(())
