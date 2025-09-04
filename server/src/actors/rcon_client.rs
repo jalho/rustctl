@@ -200,15 +200,10 @@ impl RconClient {
          * TODO: Set up any necessary plugins and apply their necessary config
          *       commands, if any.
          *
-         *       ```
-         *       $ cp $SOMEWHERE/rustctl_sock.cs /home/rust/carbon/plugins/
-         *       ```
-         *
-         *       Maybe wget the plugin from GitHub? Or maybe define the script
-         *       (327 lines (277 loc) · 11.1 KB) in-mem and write to disk at
-         *       runtime? The latter would also have the advantage of being able
-         *       to reuse the constant "Unix socket's name" i.e. the filesystem
-         *       path... Use `include_str!` macro?
+         *       Define the plugin script (327 lines (277 loc) · 11.1 KB)
+         *       in-mem and write to disk at runtime. That way we can reuse the
+         *       constant "Unix socket's name" i.e. its filesystem path... Use
+         *       `include_str!` macro?
          *
          *       N.B.: As of `Carbon Minimal 2.0.203.0/linux/2025.08.07.0`,
          *       any plugin seems to be automatically loaded into a running
@@ -271,7 +266,7 @@ impl RconClient {
              *           "CompileTime": "00:00:00.0138936",
              *           "InternalCallHookGenTime": "00:00:00.0059257",
              *           "CompileWarnings": null,
-             *           "FilePath": "/home/rust/carbon/plugins/rustctl_poc.cs",
+             *           "FilePath": "/aaaaaaaaa/carbon/plugins/rustctl_poc.cs",
              *           "FileName": "rustctl_poc.cs",
              *           "Name": "rustctl_poc",
              *           "Version": {
