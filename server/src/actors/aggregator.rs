@@ -12,6 +12,8 @@ pub struct Aggregator {
 }
 
 impl Aggregator {
+    const SOCKET_PATH: &str = "/tmp/rustctl.sock";
+
     pub fn new(
         ctoken: tokio_util::sync::CancellationToken,
         rx_resuse: tokio::sync::mpsc::Receiver<crate::actors::monitor::SystemResourceUsageReading>,
@@ -46,14 +48,21 @@ impl Aggregator {
         let job_agg_resuse = Self::aggregate_system_resources_usage_readings(self.aggregated.clone(), self.rx_resuse);
         let job_agg_gss = Self::aggregate_game_server_state_machine_transitions(self.aggregated.clone(), self.rx_gss);
         let job_agg_igs = Self::aggregate_ingame_state(self.aggregated.clone(), self.rx_igs);
+        let job_agg_ige = Self::aggregate_ingame_events(self.aggregated.clone());
         let job_broadcast = Self::broadcast(self.aggregated.clone(), self.tx_broadcast);
 
         let job_cmd_relay = Self::relay_gsc_commands(self.rx_cmd_collect, self.tx_cmd_relay.clone());
 
         let _done = ctoken
             .run_until_cancelled(async {
-                let done: ((), (), (), (), ()) =
-                    tokio::join!(job_agg_resuse, job_agg_gss, job_agg_igs, job_broadcast, job_cmd_relay);
+                let done: ((), (), (), (), (), ()) = tokio::join!(
+                    job_agg_resuse,
+                    job_agg_gss,
+                    job_agg_igs,
+                    job_agg_ige,
+                    job_broadcast,
+                    job_cmd_relay,
+                );
                 done
             })
             .await;
@@ -182,6 +191,58 @@ impl Aggregator {
 
             let mut lock = aggregated.lock().await;
             lock.ingame_state = received;
+        }
+    }
+
+    async fn aggregate_ingame_events(aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>) -> () {
+        let _ = tokio::fs::remove_file(Self::SOCKET_PATH).await;
+
+        let listener =
+            match tokio::net::UnixListener::from_std(match std::os::unix::net::UnixListener::bind(Self::SOCKET_PATH) {
+                Ok(listener) => listener,
+                Err(err) => {
+                    todo!(
+                        "terminate gracefully: failed to bind Unix socket {}: {}",
+                        Self::SOCKET_PATH,
+                        err
+                    );
+                }
+            }) {
+                Ok(listener) => listener,
+                Err(e) => {
+                    todo!("terminate gracefully: failed to convert Unix listener: {}", e);
+                }
+            };
+        log::debug!("Unix domain socket listening on {}", Self::SOCKET_PATH);
+
+        loop {
+            match listener.accept().await {
+                Ok((stream, _)) => {
+                    log::debug!("New Unix domain socket connection established");
+
+                    let mut reader = tokio::io::BufReader::new(stream);
+                    let mut line = String::new();
+
+                    'receive: loop {
+                        line.clear();
+                        match tokio::io::AsyncBufReadExt::read_line(&mut reader, &mut line).await {
+                            Ok(0) => {
+                                todo!("terminate gracefully: connection closed");
+                            }
+                            Ok(bytes) => {
+                                let payload: &str = line.trim();
+                                log::debug!("Received {bytes} bytes: trimmed: {payload}");
+                            }
+                            Err(err) => {
+                                todo!("terminate gracefully: error reading from socket: {}", err);
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error accepting connection: {}", e);
+                }
+            }
         }
     }
 }
