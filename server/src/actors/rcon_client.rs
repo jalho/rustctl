@@ -202,15 +202,19 @@ impl RconClient {
          *       commands, if any.
          *
          *       ```
-         *       $ cp rds-plugins/rustctl_poc.cs /home/rust/carbon/plugins/
+         *       $ cp $SOMEWHERE/rustctl_sock.cs /home/rust/carbon/plugins/
          *       ```
          *
-         *       Maybe wget the plugins from GitHub?
+         *       Maybe wget the plugin from GitHub? Or maybe define the script
+         *       (327 lines (277 loc) · 11.1 KB) in-mem and write to disk at
+         *       runtime? The latter would also have the advantage of being able
+         *       to reuse the constant "Unix socket's name" i.e. the filesystem
+         *       path...
          *
          *       N.B.: As of `Carbon Minimal 2.0.203.0/linux/2025.08.07.0`,
          *       any plugin seems to be automatically loaded into a running
          *       game when the corresponding `.cs` file is written to the
-         *       `carbon/pluging/` directory, and also automatically unloaded
+         *       `carbon/plugins/` directory, and also automatically unloaded
          *       when the file is removed from the directory.
          */
         {
