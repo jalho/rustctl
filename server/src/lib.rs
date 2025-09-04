@@ -70,13 +70,13 @@ impl PresumedFilesystemHierarchy {
     }
 
     fn carbon_init_script_abs(&self) -> std::path::PathBuf {
-        let mut path = self.game_abs().to_path_buf();
+        let mut path = self.root_dir_abs().to_path_buf();
         path.push("carbon/tools/environment.sh");
         path
     }
 
     fn current_game_map_abs(&self) -> std::path::PathBuf {
-        let mut path = self.game_abs().to_path_buf();
+        let mut path = self.root_dir_abs().to_path_buf();
         path.push("current-game-world-map.png");
         path
     }
