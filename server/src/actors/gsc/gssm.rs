@@ -665,8 +665,9 @@ async fn install_or_update_game_server(config: &crate::storage::Configuration) -
         }
     };
 
+    let manifest_path: String = config.fs.manifest_abs_utf8();
     let buildid: Option<u32> = {
-        if let Ok(contents) = tokio::fs::read_to_string(config.fs.manifest_abs_utf8()).await {
+        if let Ok(contents) = tokio::fs::read_to_string(&manifest_path).await {
             extract_buildid_from_buf(&contents)
         } else {
             None
@@ -675,10 +676,7 @@ async fn install_or_update_game_server(config: &crate::storage::Configuration) -
 
     match buildid {
         Some(n) => Ok(n),
-        None => Err(format!(
-            r#"failed to extract buildid from manifest "{path}""#,
-            path = config.fs.manifest_abs_utf8()
-        )),
+        None => Err(format!(r#"failed to extract buildid from manifest "{manifest_path}""#,)),
     }
 }
 

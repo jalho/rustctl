@@ -58,7 +58,7 @@ impl PresumedFilesystemHierarchy {
     }
 
     fn manifest_abs(&self) -> std::path::PathBuf {
-        let mut path = self.game_abs().to_path_buf();
+        let mut path = self.root_dir_abs().to_path_buf();
         path.push("steamapps/appmanifest_258550.acf");
         path
     }
