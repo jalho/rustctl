@@ -686,7 +686,7 @@ async fn install_or_update_game_server(config: &crate::storage::Configuration) -
 async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Result<String, String> {
     let download_url: &str = &config.carbon_download_url;
     let install_location: &str = &config.fs.root_dir_abs_utf8();
-    let mut temp_dir = std::path::Path::new(&config.fs.temp_dir_abs_utf8()).to_path_buf();
+    let temp_dir = std::path::Path::new(&config.fs.temp_dir_abs_utf8()).to_path_buf();
 
     tokio::fs::create_dir_all(&temp_dir)
         .await
@@ -775,10 +775,6 @@ async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Res
             "failed to make carbon.sh executable: chmod {status}",
             status = chmod_output.status,
         ));
-    }
-
-    if let Err(err) = tokio::fs::remove_dir_all(&rustctl_temp_dir).await {
-        return Err(format!("failed to clean up temporary directory: {err}"));
     }
 
     Ok(sha256)
