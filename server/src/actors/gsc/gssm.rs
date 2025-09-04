@@ -789,6 +789,13 @@ source {carbon_env_init}
 
 /home/rust/RustDedicated \
     -batchmode \
+    +server.hostname "{game_name}" \
+    +server.description "{game_description}" \
+    +server.url "{game_url_home}" \
+    +server.headerimage "{game_url_header}" \
+    +server.logoimage "{game_url_logo}" \
+    +server.maxplayers "42" \
+    +server.premium "1" \
     +server.identity "{game_instance_id}" \
     +rcon.port "{rcon_port}" \
     +rcon.web "1" \
@@ -796,6 +803,11 @@ source {carbon_env_init}
     +server.worldsize "{game_world_size}" \
     +server.seed "{game_world_seed}"
 "#,
+        game_name = config.game_name,
+        game_description = config.game_description,
+        game_url_home = config.game_url_home,
+        game_url_header = config.game_url_header,
+        game_url_logo = config.game_url_logo,
         game_server_libs = config.game_server_libs,
         game_instance_id = config.game_instance_id,
         rcon_port = config.rcon_port,

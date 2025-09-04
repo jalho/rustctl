@@ -87,6 +87,12 @@ pub struct Configuration {
     /// "/home/rust/rustctl-run-with-carbon.sh"
     /// ```
     pub game_server_startup_script: String,
+
+    pub game_name: String,
+    pub game_description: String,
+    pub game_url_home: String,
+    pub game_url_header: String,
+    pub game_url_logo: String,
 }
 
 impl Configuration {
@@ -153,6 +159,12 @@ impl Default for Configuration {
 
             carbon_download_url: "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz".to_string(),
             game_server_startup_script: "/home/rust/rustctl-run-with-carbon.sh".to_string(),
+
+            game_name: "rustctl".to_string(),
+            game_description: "rustctl managed server".to_string(),
+            game_url_home: "https://github.com/jalho/rustctl".to_string(),
+            game_url_header: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Vexillum_aboense.jpg/1280px-Vexillum_aboense.jpg".to_string(),
+            game_url_logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Flag_of_Finland.svg/60px-Flag_of_Finland.svg.png".to_string(),
         }
     }
 }
