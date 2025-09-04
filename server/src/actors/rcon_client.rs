@@ -217,6 +217,80 @@ impl RconClient {
             /*
              * From docs:
              * > Prints the list of mods and their loaded plugins.
+             *
+             * Example response:
+             * ```json
+             * {
+             *   "Plugins": [
+             *     {
+             *       "Name": "Carbon Community",
+             *       "File": null,
+             *       "IsCoreMod": true,
+             *       "Plugins": [
+             *         {
+             *           "TotalHookTime": "00:00:00",
+             *           "TotalHookFires": 34,
+             *           "TotalMemoryUsed": 204800.0,
+             *           "TotalHookLagSpikes": 0,
+             *           "TotalHookExceptions": 0,
+             *           "Title": "Core",
+             *           "Description": "",
+             *           "Author": "Carbon Community",
+             *           "CompileTime": "00:00:00",
+             *           "InternalCallHookGenTime": "00:00:00",
+             *           "CompileWarnings": null,
+             *           "FilePath": null,
+             *           "FileName": null,
+             *           "Name": "CorePlugin",
+             *           "Version": {
+             *             "Major": 1,
+             *             "Minor": 0,
+             *             "Patch": 0
+             *           },
+             *           "Uptime": 1892.87939453125
+             *         }
+             *       ]
+             *     },
+             *     {
+             *       "Name": "Scripts",
+             *       "File": null,
+             *       "IsCoreMod": false,
+             *       "Plugins": [
+             *         {
+             *           "TotalHookTime": "00:00:00.0001323",
+             *           "TotalHookFires": 4,
+             *           "TotalMemoryUsed": 4096.0,
+             *           "TotalHookLagSpikes": 0,
+             *           "TotalHookExceptions": 0,
+             *           "Title": "rustctl_poc",
+             *           "Description": "Proof of concept plugin for testing lifecycle.",
+             *           "Author": "<jalho>",
+             *           "CompileTime": "00:00:00.0138936",
+             *           "InternalCallHookGenTime": "00:00:00.0059257",
+             *           "CompileWarnings": null,
+             *           "FilePath": "/home/rust/carbon/plugins/rustctl_poc.cs",
+             *           "FileName": "rustctl_poc.cs",
+             *           "Name": "rustctl_poc",
+             *           "Version": {
+             *             "Major": 0,
+             *             "Minor": 1,
+             *             "Patch": 0
+             *           },
+             *           "Uptime": 366.4718017578125
+             *         }
+             *       ]
+             *     },
+             *     {
+             *       "Name": "Zip Scripts",
+             *       "File": null,
+             *       "IsCoreMod": false,
+             *       "Plugins": []
+             *     }
+             *   ],
+             *   "Unloaded": [],
+             *   "Failed": []
+             * }
+             * ```
              */
             let cmd: RconMessage = RconMessage::new("carbon.plugins --json");
             let response: RconMessage = cmd
