@@ -132,6 +132,43 @@ impl RconClient {
         }
 
         /*
+         * Check Carbon and do some post-start setup. Namely, set the server's
+         * "moddedness status" (to false). There's also some "IsModded"
+         * (boolean) JSON filesystem config, but IIRC the `carbon.gocommunity`
+         * RCON command is more reliable.
+         */
+        {
+            let cmd: RconMessage = RconMessage::new("carbon.version");
+            let response: RconMessage = cmd
+                .send_and_wait_response(ws_sink, ws_stream, std::time::Duration::from_secs(3))
+                .await?;
+            dbg!(response.Message);
+
+            /*
+             * From docs:
+             * > Prints an intricate list of all the reasons why the server is
+             * > set to modded and solutions to fix it.
+             */
+            let cmd: RconMessage = RconMessage::new("carbon.whymodded");
+            let response: RconMessage = cmd
+                .send_and_wait_response(ws_sink, ws_stream, std::time::Duration::from_secs(3))
+                .await?;
+            dbg!(response.Message);
+
+            /*
+             * From docs:
+             * > Executes a variety of changes necessary to set the server
+             * > viable for the Community section. Run 'c.whymodded' to see what
+             * > will be changed.
+             */
+            let cmd: RconMessage = RconMessage::new("carbon.gocommunity");
+            let response: RconMessage = cmd
+                .send_and_wait_response(ws_sink, ws_stream, std::time::Duration::from_secs(3))
+                .await?;
+            dbg!(response.Message);
+        }
+
+        /*
          * Set some privileged in-game identities, such as the "owner" of the
          * server.
          *
