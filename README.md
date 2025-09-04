@@ -51,8 +51,6 @@ interesting. (Not in any meaningful order!)
 
 /usr/bin/
 │
-├── carbon
-│
 └── steamcmd .................... "SteamCMD": Game server installer. Presumed
                                   pre-installed. It's available via e.g. Debian,
                                   Ubuntu and Arch package managers.
