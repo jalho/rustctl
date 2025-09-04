@@ -23,45 +23,7 @@ impl ConfigurationClient {
 /// Parameters for spawning a game server process.
 #[derive(Clone)]
 pub struct Configuration {
-    /// Executable: game server installer.
-    ///
-    /// For example:
-    /// ```
-    /// "/usr/bin/steamcmd"
-    /// ```
-    pub installer_exe: &'static str,
-
-    /// Directory: game server install location.
-    ///
-    /// For example:
-    /// ```
-    /// "/home/rust/"
-    /// ```
-    pub game_server_root: &'static str,
-
-    /// Executable: the game server.
-    ///
-    /// For example:
-    /// ```
-    /// "/home/rust/RustDedicated"
-    /// ```
-    pub game_server_exe: &'static str,
-
-    /// File: some Steam thing associated with the game server.
-    ///
-    /// For example:
-    /// ```
-    /// "/home/rust/steamapps/appmanifest_258550.acf"
-    /// ```
-    pub game_manifest: &'static str,
-
-    /// Directory: location of `steamclient.so`, which the game server requires.
-    ///
-    /// For example:
-    /// ```
-    /// "/home/rust/"
-    /// ```
-    pub game_server_libs: &'static str,
+    pub fs: rustctl_backend::PresumedFilesystemHierarchy,
 
     pub game_instance_id: &'static str,
 
@@ -79,15 +41,6 @@ pub struct Configuration {
     /// "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz"
     /// ```
     pub carbon_download_url: String,
-
-    /// Startup script that shall be generated at runtime. The script is the
-    /// entry point for the game server.
-    ///
-    /// For example:
-    /// ```
-    /// "/home/rust/rustctl-run-with-carbon.sh"
-    /// ```
-    pub game_server_startup_script: String,
 
     pub game_name: String,
     pub game_description: String,
@@ -114,7 +67,7 @@ impl Configuration {
              *          - Maintainer: Debian Games Team
              */
             "+force_install_dir".into(),
-            self.game_server_root.to_string(),
+            self.fs.root_dir_abs_utf8(),
             "+app_update".into(),
             "258550".into(),
             "validate".into(),
@@ -134,12 +87,7 @@ impl Configuration {
 impl Default for Configuration {
     fn default() -> Self {
         Self {
-            installer_exe: "/usr/bin/steamcmd",
-
-            game_server_root: "/home/rust/",
-            game_server_exe: "/home/rust/RustDedicated",
-            game_manifest: "/home/rust/steamapps/appmanifest_258550.acf",
-            game_server_libs: "/home/rust/",
+            fs: rustctl_backend::PresumedFilesystemHierarchy,
 
             game_instance_id: "instance0",
 
@@ -160,7 +108,6 @@ impl Default for Configuration {
             game_owner_steamid: "76561198135242017".to_string(),
 
             carbon_download_url: "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz".to_string(),
-            game_server_startup_script: "/home/rust/rustctl-run-with-carbon.sh".to_string(),
 
             game_name: "rustctl".to_string(),
             game_description: "rustctl managed server".to_string(),

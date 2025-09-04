@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct PresumedFilesystemHierarchy;
 
 /// Presumed layout of important filesystem paths. Filesystem Hierarchy Standard
