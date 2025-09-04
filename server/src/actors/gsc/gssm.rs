@@ -686,15 +686,8 @@ async fn install_or_update_game_server(config: &crate::storage::Configuration) -
 async fn install_or_update_carbon(config: &crate::storage::Configuration) -> Result<String, String> {
     let download_url: &str = &config.carbon_download_url;
     let install_location: &str = &config.fs.root_dir_abs_utf8();
-    let rustctl_temp_dir: std::path::PathBuf = std::env::temp_dir().join("rustctl");
+    let mut temp_dir = std::path::Path::new(&config.fs.temp_dir_abs_utf8()).to_path_buf();
 
-    if tokio::fs::try_exists(&rustctl_temp_dir).await.unwrap_or(false) {
-        if let Err(err) = tokio::fs::remove_dir_all(&rustctl_temp_dir).await {
-            log::warn!("failed to wipe existing rustctl temp directory: {err}");
-        }
-    }
-
-    let temp_dir: std::path::PathBuf = rustctl_temp_dir.join(format!("download-carbon_{}", uuid::Uuid::new_v4()));
     tokio::fs::create_dir_all(&temp_dir)
         .await
         .map_err(|err| format!("failed to create temporary directory: {err}"))?;
