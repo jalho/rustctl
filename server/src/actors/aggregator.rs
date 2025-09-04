@@ -197,51 +197,49 @@ impl Aggregator {
     async fn aggregate_ingame_events(aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>) -> () {
         let _ = tokio::fs::remove_file(Self::SOCKET_PATH).await;
 
-        let listener: std::os::unix::net::UnixListener = match std::os::unix::net::UnixListener::bind(Self::SOCKET_PATH) {
-            Ok(listener) => listener,
-            Err(err) => {
-                todo!(
-                    "terminate gracefully: failed to bind Unix socket {}: {}",
-                    Self::SOCKET_PATH,
-                    err
-                );
-            }
+        let listener = match tokio::net::UnixListener::bind(Self::SOCKET_PATH) {
+            Ok(n) => n,
+            Err(err) => todo!("terminate gracefully: {err}"),
         };
-
-        let listener = match tokio::net::UnixListener::from_std(listener) {
-            Ok(listener) => listener,
-            Err(e) => {
-                todo!("terminate gracefully: failed to convert Unix listener: {}", e);
-            }
-        };
-        log::debug!("Unix domain socket listening on {}", Self::SOCKET_PATH);
 
         loop {
             match listener.accept().await {
                 Ok((stream, _)) => {
                     log::debug!("New Unix domain socket connection established");
-
                     let mut reader = tokio::io::BufReader::new(stream);
                     let mut line = String::new();
-
                     'receive: loop {
                         line.clear();
-                        match tokio::io::AsyncBufReadExt::read_line(&mut reader, &mut line).await {
+                        let utf8: String = match tokio::io::AsyncBufReadExt::read_line(&mut reader, &mut line).await {
                             Ok(0) => {
                                 todo!("terminate gracefully: connection closed");
                             }
-                            Ok(bytes) => {
+                            Ok(_) => {
                                 let payload: &str = line.trim();
-                                log::debug!("Received {bytes} bytes: trimmed: {payload}");
+                                payload.to_string()
                             }
                             Err(err) => {
                                 todo!("terminate gracefully: error reading from socket: {}", err);
                             }
-                        }
+                        };
+
+                        /*
+                         * TODO: Deserialize the payload, and aggregate for
+                         *       broadcasting!
+                         *
+                         * Example payload as of
+                         * https://github.com/jalho/rds-plugins/blob/ef66a28ccce2e6194da56b40b771511e2af6af8b/rustctl_sock.cs
+                         * (scenario: "hit a tree once with a metal hatchet"):
+                         *
+                         * ```json
+                         * {"category":2,"timestamp":1756988135,"id_subject":"76561198135242017","id_object":"wood","quantity":15}
+                         * ```
+                         */
+                        dbg!(utf8);
                     }
                 }
-                Err(e) => {
-                    eprintln!("Error accepting connection: {}", e);
+                Err(err) => {
+                    todo!("terminate gracefully: error accepting connection: {}", err);
                 }
             }
         }

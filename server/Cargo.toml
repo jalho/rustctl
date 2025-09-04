@@ -13,6 +13,7 @@ features  = [
 workspace = true
 features  = [
   "fs",
+  "net",
   "process",
   "signal",
 ]
