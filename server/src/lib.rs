@@ -75,6 +75,12 @@ impl PresumedFilesystemHierarchy {
         path
     }
 
+    fn current_game_map_abs(&self) -> std::path::PathBuf {
+        let mut path = self.game_abs().to_path_buf();
+        path.push("current-game-world-map.png");
+        path
+    }
+
     /// Returns the temporary directory path as a UTF-8 string.
     ///
     /// The directory is intended as e.g. temporary storage location for Carbon
@@ -136,5 +142,9 @@ impl PresumedFilesystemHierarchy {
     /// The script is included in the Carbon installation.
     pub fn carbon_init_script_abs_utf8(&self) -> String {
         self.carbon_init_script_abs().to_string_lossy().to_string()
+    }
+
+    pub fn current_game_map_abs_utf8(&self) -> String {
+        self.current_game_map_abs().to_string_lossy().to_string()
     }
 }

@@ -117,19 +117,18 @@ impl RconClient {
                 Err(_) => todo!(),
             };
 
-            if let Err(err) = tokio::fs::rename(&absolute, crate::actors::web_server::CURRENT_MAP_PATH).await {
+            let map_file_path: String = config.fs.current_game_map_abs_utf8();
+            if let Err(_err) = tokio::fs::rename(&absolute, &map_file_path).await {
                 todo!();
             };
-            let metadata: std::fs::Metadata =
-                match tokio::fs::metadata(crate::actors::web_server::CURRENT_MAP_PATH).await {
-                    Ok(n) => n,
-                    Err(_) => todo!(),
-                };
+            let metadata: std::fs::Metadata = match tokio::fs::metadata(&map_file_path).await {
+                Ok(n) => n,
+                Err(_) => todo!(),
+            };
             let size_bytes: u64 = metadata.len();
             log::info!(
-                r#"In-game world map rendered in {time_ms} ms as "{path}": {bytes} bytes (~{kibibytes} KiB or ~{mebibytes} MiB)"#,
+                r#"In-game world map rendered in {time_ms} ms as "{map_file_path}": {bytes} bytes (~{kibibytes} KiB or ~{mebibytes} MiB)"#,
                 time_ms = cmd_time.as_millis(),
-                path = crate::actors::web_server::CURRENT_MAP_PATH,
                 bytes = size_bytes,
                 kibibytes = size_bytes / 1024,
                 mebibytes = size_bytes / (1024 * 1024),
