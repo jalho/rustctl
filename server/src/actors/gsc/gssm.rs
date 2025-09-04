@@ -638,8 +638,11 @@ pub struct ReadyForRcon;
 /// (`steamcmd`). Return the installed game server's _buildid_ parsed from the
 /// installation's associated manifest file.
 async fn install_or_update_game_server(config: &crate::storage::Configuration) -> Result<u32, String> {
-    let mut command = tokio::process::Command::new(config.fs.installer_abs_utf8());
-    command.current_dir(config.fs.root_dir_abs_utf8());
+    let executable: String = config.fs.installer_abs_utf8();
+    let working_directory: String = config.fs.root_dir_abs_utf8();
+    
+    let mut command = tokio::process::Command::new(&executable);
+    command.current_dir(&working_directory);
     command.args(config.get_installer_args());
     command.stdout(std::process::Stdio::null());
     command.stderr(std::process::Stdio::null());
@@ -647,7 +650,7 @@ async fn install_or_update_game_server(config: &crate::storage::Configuration) -
     let process: tokio::process::Child = match command.spawn() {
         Ok(n) => n,
         Err(err) => {
-            return Err(format!("failed to spawn game server installer: {err}"));
+            return Err(format!("failed to spawn game server installer: {executable} (working directory {working_directory}): {err}"));
         }
     };
 
