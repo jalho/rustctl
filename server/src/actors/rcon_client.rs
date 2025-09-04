@@ -191,7 +191,10 @@ impl RconClient {
                 "ownerid {game_owner_steamid}",
                 game_owner_steamid = config.game_owner_steamid,
             ));
-            cmd.send_without_waiting_response(ws_sink).await?;
+            let response: RconMessage = cmd
+                .send_and_wait_response(ws_sink, ws_stream, std::time::Duration::from_secs(3))
+                .await?;
+            log::info!("Set game server owner by Steam ID: {result}", result = response.Message);
         }
 
         /*
