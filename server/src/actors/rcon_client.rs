@@ -72,7 +72,8 @@ impl RconClient {
             let (mut ws_sink, mut ws_stream): (WebSocketSink, WebSocketStream) =
                 futures_util::StreamExt::split(websocket);
 
-            if let Err(err) = Self::prepare_via_rcon(&mut ws_sink, &mut ws_stream).await {
+            let config: crate::storage::Configuration = self.cfg_client.get_config().await;
+            if let Err(err) = Self::prepare_via_rcon(&mut ws_sink, &mut ws_stream, &config).await {
                 log::error!("Failed to prepare via RCON: {err}");
                 continue 'reconnect;
             }
@@ -88,7 +89,11 @@ impl RconClient {
     /// render the in-game world map. This is as opposed to the continuously
     /// looping state queries done via RCON that shall only start once the
     /// preparation phase is done.
-    async fn prepare_via_rcon(ws_sink: &mut WebSocketSink, ws_stream: &mut WebSocketStream) -> Result<(), Error> {
+    async fn prepare_via_rcon(
+        ws_sink: &mut WebSocketSink,
+        ws_stream: &mut WebSocketStream,
+        config: &crate::storage::Configuration,
+    ) -> Result<(), Error> {
         /*
          * Render in-game world map as a .PNG file, and then move the file to a
          * static path (to be served by a web server).
@@ -180,11 +185,12 @@ impl RconClient {
         /*
          * Set some privileged in-game identities, such as the "owner" of the
          * server.
-         *
-         * TODO: Get "ownerid" (and other "default admins") from config?
          */
         {
-            let cmd: RconMessage = RconMessage::new("ownerid 76561198135242017");
+            let cmd: RconMessage = RconMessage::new(&format!(
+                "ownerid {game_owner_steamid}",
+                game_owner_steamid = config.game_owner_steamid,
+            ));
             cmd.send_without_waiting_response(ws_sink).await?;
         }
 

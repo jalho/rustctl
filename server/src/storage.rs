@@ -70,6 +70,7 @@ pub struct Configuration {
 
     pub rcon_port: u16,
     pub rcon_password: String,
+    pub game_owner_steamid: String,
 
     /// URL from where _Carbon Modding Framework_ shall be downloaded from.
     ///
@@ -156,6 +157,7 @@ impl Default for Configuration {
 
             rcon_port: 28016,
             rcon_password: uuid::Uuid::new_v4().to_string(),
+            game_owner_steamid: "76561198135242017".to_string(),
 
             carbon_download_url: "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz".to_string(),
             game_server_startup_script: "/home/rust/rustctl-run-with-carbon.sh".to_string(),
