@@ -179,7 +179,7 @@ impl RconClient {
             let response: RconMessage = cmd
                 .send_and_wait_response(ws_sink, ws_stream, std::time::Duration::from_secs(3))
                 .await?;
-            log::debug!("carbon.gocommunity:\n{result}", result = response.Message);
+            log::debug!("carbon.gocommunity: {result}", result = response.Message);
         }
 
         /*
@@ -198,12 +198,32 @@ impl RconClient {
         }
 
         /*
-         * TODO: Set up any necessary plugins and apply their necessary config commands, if any:
+         * TODO: Set up any necessary plugins and apply their necessary config
+         *       commands, if any.
          *
-         *       - Set up the custom plugin for transmitting
-         *         in-game event data via Unix domain socket (from
-         *         https://github.com/jalho/rds-plugins, see `activity_sock.cs`)
+         *       ```
+         *       $ cp rds-plugins/rustctl_poc.cs /home/rust/carbon/plugins/
+         *       ```
+         *
+         *       Maybe wget the plugins from GitHub?
+         *
+         *       N.B.: As of `Carbon Minimal 2.0.203.0/linux/2025.08.07.0`,
+         *       any plugin seems to be automatically loaded into a running
+         *       game when the corresponding `.cs` file is written to the
+         *       `carbon/pluging/` directory, and also automatically unloaded
+         *       when the file is removed from the directory.
          */
+        {
+            /*
+             * From docs:
+             * > Prints the list of mods and their loaded plugins.
+             */
+            let cmd: RconMessage = RconMessage::new("carbon.plugins --json");
+            let response: RconMessage = cmd
+                .send_and_wait_response(ws_sink, ws_stream, std::time::Duration::from_secs(3))
+                .await?;
+            log::debug!("carbon.plugins --json:\n{result}", result = response.Message);
+        }
 
         Ok(())
     }
