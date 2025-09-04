@@ -209,7 +209,7 @@ impl RconClient {
          *       (327 lines (277 loc) · 11.1 KB) in-mem and write to disk at
          *       runtime? The latter would also have the advantage of being able
          *       to reuse the constant "Unix socket's name" i.e. the filesystem
-         *       path...
+         *       path... Use `include_str!` macro?
          *
          *       N.B.: As of `Carbon Minimal 2.0.203.0/linux/2025.08.07.0`,
          *       any plugin seems to be automatically loaded into a running
