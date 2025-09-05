@@ -88,7 +88,7 @@ namespace Carbon.Plugins {
 
                     ["item.amount"] = item.amount,
                     ["item.info.displayName.english"] = item.info.displayName.english,
-                    ["player.Connection.userid"] = player.Connection.userid
+                    ["player.Connection.userid"] = player.Connection.userid,
                 }
             );
             return null;
@@ -101,7 +101,7 @@ namespace Carbon.Plugins {
 
                     ["item.amount"] = item.amount,
                     ["item.info.displayName.english"] = item.info.displayName.english,
-                    ["player.Connection.userid"] = player.Connection.userid
+                    ["player.Connection.userid"] = player.Connection.userid,
                 }
             );
         }
@@ -113,7 +113,7 @@ namespace Carbon.Plugins {
 
                     ["item.amount"] = item.amount,
                     ["item.info.displayName.english"] = item.info.displayName.english,
-                    ["player.Connection.userid"] = player.Connection.userid
+                    ["player.Connection.userid"] = player.Connection.userid,
                 }
             );
             return null;
@@ -122,7 +122,7 @@ namespace Carbon.Plugins {
         void OnCargoShipSpawnCrate(CargoShip self) {
             this.write_hook_data(
                 new Dictionary<string, object> {
-                    ["hook"] = "OnCargoShipSpawnCrate"
+                    ["hook"] = "OnCargoShipSpawnCrate",
                 }
             );
         }
@@ -131,8 +131,8 @@ namespace Carbon.Plugins {
             this.write_hook_data(
                 new Dictionary<string, object> {
                     ["hook"] = "OnCollectiblePickup",
-                    ["player.Connection.userid"] = player.Connection.userid
-                    ["unknown"] = JsonHelpers.serialize_as_much_as_possible(collectibleEntity)
+                    ["player.Connection.userid"] = player.Connection.userid,
+                    ["unknown"] = JsonHelpers.serialize_as_much_as_possible(collectibleEntity),
                 }
             );
             return null;
