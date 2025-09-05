@@ -56,7 +56,7 @@ fn App() -> Element {
             img {
                 src: "http://192.168.0.103:8080/map",
                 alt: "Current game world map",
-                style: "max-width: 100%; border: 1px solid #ccc; margin-top: 1em;",
+                style: "max-width: 100%",
             }
         }
     }
