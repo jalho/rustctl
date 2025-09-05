@@ -225,7 +225,7 @@ impl Aggregator {
                         };
 
                         /*
-                         * Samples as of commit __:
+                         * Samples as of commit 7131e95e55da3274ec9573469398cab2bc05a62f:
                          * ```
                          * [server/src/actors/aggregator.rs:270:25] event = OnCargoShipSpawnCrate
                          * [server/src/actors/aggregator.rs:270:25] event = OnCollectiblePickup {
