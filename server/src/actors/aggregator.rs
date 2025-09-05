@@ -224,12 +224,71 @@ impl Aggregator {
                             }
                         };
 
+                        /*
+                         * Samples as of commit 6d07dadd2b4b1d1bcd7d76d84956bd8b8c926135:
+                         * ```
+                         * [server/src/actors/aggregator.rs:234:25] event = OnDispenserGather {
+                         *     timestamp: 1757077750,
+                         *     data: DispenserData {
+                         *         player_id: "76561198135242017",
+                         *         item_shortname: "wood",
+                         *         quantity: 6,
+                         *     },
+                         * }
+                         * [server/src/actors/aggregator.rs:234:25] event = OnDispenserGather {
+                         *     timestamp: 1757077760,
+                         *     data: DispenserData {
+                         *         player_id: "76561198135242017",
+                         *         item_shortname: "stones",
+                         *         quantity: 11,
+                         *     },
+                         * }
+                         * [server/src/actors/aggregator.rs:234:25] event = OnPlayerDeath {
+                         *     timestamp: 1757077792,
+                         *     data: PlayerDeathData {
+                         *         kind: "pve",
+                         *         killer_id: None,
+                         *         killed_id: "76561198135242017",
+                         *         damage_type: Some(
+                         *             "Bite",
+                         *         ),
+                         *     },
+                         * }
+                         * [server/src/actors/aggregator.rs:234:25] event = OnPlayerDeath {
+                         *     timestamp: 1757077808,
+                         *     data: PlayerDeathData {
+                         *         kind: "pve",
+                         *         killer_id: None,
+                         *         killed_id: "76561198135242017",
+                         *         damage_type: Some(
+                         *             "Suicide",
+                         *         ),
+                         *     },
+                         * }
+                         * [server/src/actors/aggregator.rs:234:25] event = OnCollectiblePickup {
+                         *     timestamp: 1757077823,
+                         *     data: CollectibleData {
+                         *         player_id: "76561198135242017",
+                         *         item_name: "assets/bundled/prefabs/autospawn/collectable/stone/metal-collectable.prefab",
+                         *         quantity: 1,
+                         *     },
+                         * }
+                         * [server/src/actors/aggregator.rs:234:25] event = OnCollectiblePickup {
+                         *     timestamp: 1757077830,
+                         *     data: CollectibleData {
+                         *         player_id: "76561198135242017",
+                         *         item_name: "assets/bundled/prefabs/autospawn/collectable/hemp/hemp-collectable.prefab",
+                         *         quantity: 1,
+                         *     },
+                         * }
+                         * ```
+                         */
                         let event: IngameEvent = match serde_json::from_str(&utf8) {
                             Ok(n) => n,
                             Err(err) => {
                                 log::error!("TODO:\n{err}:\n{utf8}");
                                 continue 'receive;
-                            },
+                            }
                         };
                         dbg!(event);
                     }
