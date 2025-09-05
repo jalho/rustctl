@@ -76,7 +76,7 @@ namespace Carbon.Plugins {
                 "OnDispenserGather",
                 new Dictionary<string, object> {
                     ["item.amount"] = item.amount,
-                    ["item.info.shortname"] = item.info.shortname,
+                    ["item.info.displayName.english"] = item.info.displayName.english,
                     ["player.Connection.userid"] = player.Connection.userid
                 }
             );
@@ -88,7 +88,7 @@ namespace Carbon.Plugins {
                 "OnDispenserBonus",
                 new Dictionary<string, object> {
                     ["item.amount"] = item.amount,
-                    ["item.info.shortname"] = item.info.shortname,
+                    ["item.info.displayName.english"] = item.info.displayName.english,
                     ["player.Connection.userid"] = player.Connection.userid
                 }
             );

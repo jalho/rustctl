@@ -313,14 +313,26 @@ pub enum IngameEvent {
 }
 
 #[derive(Debug, serde::Deserialize)]
+enum Resource {
+    Wood,
+    Stones,
+    #[serde(rename = "Metal Ore")]
+    MetalOre,
+    #[serde(rename = "Sulfur Ore")]
+    SulfurOre,
+}
+
+#[derive(Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DispenserData {
     #[serde(rename = "item.amount")]
-    pub item_amount: u32,
-    #[serde(rename = "item.info.shortname")]
-    pub item_info_shortname: String,
+    pub amount: u32,
+
+    #[serde(rename = "item.info.displayName.english")]
+    pub resource: Resource,
+
     #[serde(rename = "player.Connection.userid")]
-    pub player_connection_userid: u64,
+    pub steam_id: u64,
 }
 
 #[derive(Debug, serde::Deserialize)]
