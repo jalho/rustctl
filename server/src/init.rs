@@ -29,7 +29,7 @@ pub fn initialize_logger(
 
     let appender_core: log4rs::append::file::FileAppender = log4rs::append::file::FileAppender::builder()
         .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
-            "{h({d(%Y-%m-%d %H:%M:%S)(utc)} [rustctl] {m})} [{f}:{L}]\n",
+            "{h({d(%Y-%m-%d %H:%M:%S)(utc)} UTC [rustctl] [{l}] {m})} [{f}:{L}]\n",
         )))
         .append(true)
         .build(&log_file_path)
@@ -40,7 +40,7 @@ pub fn initialize_logger(
 
     let appender_game: log4rs::append::file::FileAppender = log4rs::append::file::FileAppender::builder()
         .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
-            "{h({d(%Y-%m-%d %H:%M:%S)(utc)} [{t}] {m})}\n",
+            "{h({d(%Y-%m-%d %H:%M:%S)(utc)} UTC [{t}] {m})}\n",
         )))
         .append(true)
         .build(&log_file_path)
