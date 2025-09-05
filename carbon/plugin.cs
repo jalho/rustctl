@@ -127,12 +127,12 @@ namespace Carbon.Plugins {
             );
         }
 
-        object OnCollectiblePickup(CollectibleEntity collectibleEntity, BasePlayer player, bool eat) {
+        object OnCollectiblePickup(CollectibleEntity item, BasePlayer player, bool eat) {
             this.write_hook_data(
                 new Dictionary<string, object> {
                     ["hook"] = "OnCollectiblePickup",
                     ["player.Connection.userid"] = player.Connection.userid,
-                    ["unknown"] = JsonHelpers.serialize_as_much_as_possible(collectibleEntity),
+                    ["item.itemList"] = item.itemList,
                 }
             );
             return null;

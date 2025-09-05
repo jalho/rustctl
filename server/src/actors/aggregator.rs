@@ -225,38 +225,59 @@ impl Aggregator {
                         };
 
                         /*
-                         * Samples as of commit 9372a17c08ba2f11a32e47cb7a44e6de57c25b67:
+                         * Samples as of commit __:
                          * ```
-                         * [server/src/actors/aggregator.rs:293:25] event = OnCollectiblePickup {
-                         *     data: CollectibleData {
-                         *         player_id: "76561198135242017",
-                         *         item_name: "assets/bundled/prefabs/autospawn/collectable/wood/wood-collectable.prefab",
-                         *         quantity: 1,
-                         *     },
+                         * [server/src/actors/aggregator.rs:270:25] event = OnCargoShipSpawnCrate
+                         * [server/src/actors/aggregator.rs:270:25] event = OnCollectiblePickup {
+                         *     items: [
+                         *         Item {
+                         *             resource: "Cloth",
+                         *             amount: 10,
+                         *         },
+                         *         Item {
+                         *             resource: "Hemp Seed",
+                         *             amount: 1,
+                         *         },
+                         *     ],
+                         *     steam_id: 76561198135242017,
                          * }
-                         * [server/src/actors/aggregator.rs:293:25] event = OnPlayerDeath {
-                         *     data: PlayerDeathData {
-                         *         kind: pve,
-                         *         killer_id: None,
-                         *         killed_id: "76561198135242017",
-                         *         damage_type: Some(
-                         *             "Bite",
-                         *         ),
-                         *     },
+                         * [server/src/actors/aggregator.rs:270:25] event = OnCollectiblePickup {
+                         *     items: [
+                         *         Item {
+                         *             resource: "Mushroom",
+                         *             amount: 1,
+                         *         },
+                         *     ],
+                         *     steam_id: 76561198135242017,
                          * }
-                         * [server/src/actors/aggregator.rs:293:25] event = OnCollectiblePickup {
-                         *     data: CollectibleData {
-                         *         player_id: "76561198135242017",
-                         *         item_name: "assets/bundled/prefabs/autospawn/collectable/hemp/hemp-collectable.prefab",
-                         *         quantity: 1,
-                         *     },
+                         * [server/src/actors/aggregator.rs:270:25] event = OnCollectiblePickup {
+                         *     items: [
+                         *         Item {
+                         *             resource: "Metal Ore",
+                         *             amount: 50,
+                         *         },
+                         *     ],
+                         *     steam_id: 76561198135242017,
                          * }
-                         * [server/src/actors/aggregator.rs:293:25] event = OnDispenserGather {
-                         *     data: DispenserData {
-                         *         player_id: "76561198135242017",
-                         *         item_shortname: "wood",
-                         *         quantity: 5,
-                         *     },
+                         * [server/src/actors/aggregator.rs:270:25] event = OnDispenserGather {
+                         *     amount: 5,
+                         *     resource: "Wood",
+                         *     steam_id: 76561198135242017,
+                         * }
+                         * [server/src/actors/aggregator.rs:270:25] event = OnDispenserGather {
+                         *     amount: 10,
+                         *     resource: "Leather",
+                         *     steam_id: 76561198135242017,
+                         * }
+                         * [server/src/actors/aggregator.rs:270:25] event = OnDispenserGather {
+                         *     amount: 4,
+                         *     resource: "Raw Pork",
+                         *     steam_id: 76561198135242017,
+                         * }
+                         * [server/src/actors/aggregator.rs:270:25] event = OnDispenserGather {
+                         *     amount: 13,
+                         *     resource: "Bone Fragments",
+                         *     steam_id: 76561198135242017,
                          * }
                          * ```
                          */
@@ -302,14 +323,14 @@ impl Aggregated {
 }
 
 #[derive(Debug, serde::Deserialize)]
-#[serde(tag = "hook", deny_unknown_fields)]
+#[serde(tag = "hook")]
 pub enum InGameEvent {
     OnDispenserGather {
         #[serde(rename = "item.amount")]
         amount: u32,
 
         #[serde(rename = "item.info.displayName.english")]
-        resource: Resource,
+        resource: String, // TODO: Use enum Resource
 
         #[serde(rename = "player.Connection.userid")]
         steam_id: u64,
@@ -319,7 +340,7 @@ pub enum InGameEvent {
         amount: u32,
 
         #[serde(rename = "item.info.displayName.english")]
-        resource: Resource,
+        resource: String, // TODO: Use enum Resource
 
         #[serde(rename = "player.Connection.userid")]
         steam_id: u64,
@@ -329,17 +350,14 @@ pub enum InGameEvent {
         amount: u32,
 
         #[serde(rename = "item.info.displayName.english")]
-        resource: Resource,
+        resource: String, // TODO: Use enum Resource
 
         #[serde(rename = "player.Connection.userid")]
         steam_id: u64,
     },
     OnCollectiblePickup {
-        #[serde(rename = "item.amount")]
-        amount: u32,
-
-        #[serde(rename = "item.info.displayName.english")]
-        resource: Resource,
+        #[serde(rename = "item.itemList")]
+        items: Vec<Item>,
 
         #[serde(rename = "player.Connection.userid")]
         steam_id: u64,
@@ -347,14 +365,66 @@ pub enum InGameEvent {
     OnCargoShipSpawnCrate,
 }
 
-#[derive(Debug, serde::Deserialize)]
-enum Resource {
-    Wood,
-    Stones,
-    #[serde(rename = "Metal Ore")]
-    MetalOre,
-    #[serde(rename = "Sulfur Ore")]
-    SulfurOre,
-    #[serde(rename = "Raw Pork")]
-    RawPork,
+#[derive(Debug)]
+struct Item {
+    resource: String, // TODO: Use enum Resource
+    amount: u32,
 }
+
+impl<'de> serde::Deserialize<'de> for Item {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+
+        #[derive(serde::Deserialize)]
+        struct RawItem {
+            #[serde(rename = "amount")]
+            amount: f64,
+            #[serde(rename = "itemDef")]
+            item_def: ItemDef,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct ItemDef {
+            displayName: DisplayName,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct DisplayName {
+            english: String,
+        }
+
+        let raw = RawItem::deserialize(deserializer)?;
+        let resource = raw.item_def.displayName.english;
+
+        Ok(Item {
+            resource,
+            amount: raw.amount as u32,
+        })
+    }
+}
+
+// #[derive(Debug, serde::Deserialize)]
+// enum Resource {
+//     Cloth,
+//     Wood,
+//     Stones,
+//     #[serde(rename = "Metal Ore")]
+//     MetalOre,
+//     #[serde(rename = "Sulfur Ore")]
+//     SulfurOre,
+//     #[serde(rename = "Raw Pork")]
+//     RawPork,
+//     #[serde(rename = "Yellow Berry")]
+//     YellowBerry,
+//     #[serde(rename = "White Berry")]
+//     WhiteBerry,
+//     #[serde(rename = "Blue Berry")]
+//     BlueBerry,
+//     #[serde(rename = "Red Berry")]
+//     RedBerry,
+//     #[serde(rename = "Green Berry")]
+//     GreenBerry,
+// }
