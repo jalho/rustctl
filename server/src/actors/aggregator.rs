@@ -268,22 +268,69 @@ impl Aggregated {
 mod ige {
     //! In-game events's (IGE) related stuff.
 
-    /*
-     * TODO: Collect a lot of samples of what different values might be interesting
-     *       and then define `Resource` as enum!
-     */
-    /// Some examples:
-    /// ```
-    /// "Animal Fat"
-    /// "Bone Fragments"
-    /// "Cloth"
-    /// "Leather"
-    /// "Raw Bear Meat"
-    /// "Stones"
-    /// "Wood"
-    /// ```
     #[derive(Debug, serde::Deserialize)]
-    struct Resource(String);
+    pub enum Resource {
+        #[serde(rename = "Animal Fat")]
+        AnimalFat,
+
+        #[serde(rename = "Blue Berry")]
+        BlueBerry,
+
+        #[serde(rename = "Blue Berry Seed")]
+        BlueBerrySeed,
+
+        #[serde(rename = "Bone Fragments")]
+        BoneFragments,
+
+        Cloth,
+
+        #[serde(rename = "Diesel Fuel")]
+        DieselFuel,
+
+        #[serde(rename = "Green Berry")]
+        GreenBerry,
+
+        #[serde(rename = "Green Berry Seed")]
+        GreenBerrySeed,
+
+        #[serde(rename = "Hemp Seed")]
+        HempSeed,
+
+        Leather,
+
+        #[serde(rename = "Metal Ore")]
+        MetalOre,
+
+        Mushroom,
+
+        #[serde(rename = "Raw Bear Meat")]
+        RawBearMeat,
+
+        #[serde(rename = "Raw Horse Meat")]
+        RawHorseMeat,
+
+        #[serde(rename = "Raw Pork")]
+        RawPork,
+
+        #[serde(rename = "Red Berry")]
+        RedBerry,
+
+        #[serde(rename = "Red Berry Seed")]
+        RedBerrySeed,
+
+        Stones,
+
+        #[serde(rename = "Sulfur Ore")]
+        SulfurOre,
+
+        #[serde(rename = "White Berry")]
+        WhiteBerry,
+
+        #[serde(rename = "White Berry Seed")]
+        WhiteBerrySeed,
+
+        Wood,
+    }
 
     #[derive(Debug, serde::Deserialize)]
     #[serde(tag = "hook")]
@@ -349,7 +396,8 @@ mod ige {
 
             #[derive(serde::Deserialize)]
             struct ItemDef {
-                displayName: DisplayName,
+                #[serde(rename = "displayName")]
+                display_name: DisplayName,
             }
 
             #[derive(serde::Deserialize)]
@@ -358,7 +406,9 @@ mod ige {
             }
 
             let raw = RawItem::deserialize(deserializer)?;
-            let resource = Resource(raw.item_def.displayName.english);
+            let resource: Resource = Resource::deserialize(serde::de::IntoDeserializer::into_deserializer(
+                raw.item_def.display_name.english,
+            ))?;
 
             Ok(Item {
                 resource,
