@@ -36,18 +36,6 @@ impl GameServerController {
         }
     }
 
-    /*
-     * TODO: In graceful shutdown sequence:
-     *
-     *       1. Issue "save game state" command to the game server via RCON
-     *       2. Give the game some time to do the save.
-     *       3. Signal the whole spawned child process group to terminate.
-     *
-     *       In current impl, the spawned child process group is left running on
-     *       SIGINT. Termination of the child group works as intended when done
-     *       via commanding downstream WebSocket clients though, because there
-     *       the group ID is used accordingly!
-     */
     pub async fn work(self) -> Summary {
         let ctoken = self.ctoken.child_token();
         let job = self.gssm.loop_transitions();
