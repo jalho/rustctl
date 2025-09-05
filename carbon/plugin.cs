@@ -93,6 +93,19 @@ namespace Carbon.Plugins {
             );
         }
 
+        object OnGrowableGathered(GrowableEntity growable, Item item, BasePlayer player) {
+            this.write_hook_data(
+                new Dictionary<string, object> {
+                    ["hook"] = "OnGrowableGathered",
+
+                    ["item.amount"] = item.amount,
+                    ["item.info.displayName.english"] = item.info.displayName.english,
+                    ["player.Connection.userid"] = player.Connection.userid
+                }
+            );
+            return null;
+        }
+
         void OnCargoShipSpawnCrate(CargoShip self) {
             this.write_hook_data(
                 new Dictionary<string, object> {
@@ -104,7 +117,6 @@ namespace Carbon.Plugins {
         /*
          * TODO: Use more hooks... Some interesting ones I've used before:
          *       - OnPlayerDeath
-         *       - OnGrowableGathered
          *       - OnCollectiblePickup
          *
          * Browse more here: https://carbonmod.gg/references/hooks

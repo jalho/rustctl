@@ -324,6 +324,16 @@ pub enum IngameEvent {
         #[serde(rename = "player.Connection.userid")]
         steam_id: u64,
     },
+    OnGrowableGathered {
+        #[serde(rename = "item.amount")]
+        amount: u32,
+
+        #[serde(rename = "item.info.displayName.english")]
+        resource: Resource,
+
+        #[serde(rename = "player.Connection.userid")]
+        steam_id: u64,
+    },
     OnCargoShipSpawnCrate,
 }
 
