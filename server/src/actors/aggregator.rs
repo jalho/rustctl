@@ -315,9 +315,12 @@ pub enum IngameEvent {
 #[derive(Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DispenserData {
-    pub player_id: String,
-    pub item_shortname: String,
-    pub quantity: u32,
+    #[serde(rename = "item.amount")]
+    pub item_amount: u32,
+    #[serde(rename = "item.info.shortname")]
+    pub item_info_shortname: String,
+    #[serde(rename = "player.Connection.userid")]
+    pub player_connection_userid: u64,
 }
 
 #[derive(Debug, serde::Deserialize)]

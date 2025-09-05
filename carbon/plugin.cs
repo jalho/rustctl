@@ -1,8 +1,9 @@
-using System;
-using System.Text;
-using System.IO;
 using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Net.Sockets;
+using System.Text;
 
 namespace Carbon.Plugins {
     [Info("rustctl_sock", "<jalho>", "0.1.0")]
@@ -71,20 +72,26 @@ namespace Carbon.Plugins {
         }
 
         object OnDispenserGather(ResourceDispenser resource_dispenser, BasePlayer player, Item item) {
-            this.write_hook_data("OnDispenserGather", new {
-                player_id = player.userID.ToString(),
-                item_shortname = item.info.shortname,
-                quantity = item.amount
-            });
+            this.write_hook_data(
+                "OnDispenserGather",
+                new Dictionary<string, object> {
+                    ["item.amount"] = item.amount,
+                    ["item.info.shortname"] = item.info.shortname,
+                    ["player.Connection.userid"] = player.Connection.userid
+                }
+            );
             return null;
         }
 
         void OnDispenserBonus(ResourceDispenser resource_dispencer, BasePlayer player, Item item) {
-            this.write_hook_data("OnDispenserBonus", new {
-                player_id = player.userID.ToString(),
-                item_shortname = item.info.shortname,
-                quantity = item.amount
-            });
+            this.write_hook_data(
+                "OnDispenserBonus",
+                new Dictionary<string, object> {
+                    ["item.amount"] = item.amount,
+                    ["item.info.shortname"] = item.info.shortname,
+                    ["player.Connection.userid"] = player.Connection.userid
+                }
+            );
         }
 
         object OnPlayerDeath(BasePlayer killed_player, HitInfo killer_info) {
