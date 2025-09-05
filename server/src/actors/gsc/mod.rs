@@ -23,7 +23,14 @@ impl GameServerController {
         tx_rconready: tokio::sync::mpsc::Sender<crate::actors::gsc::gssm::ReadyForRcon>,
     ) -> Self {
         Self {
-            gssm: gssm::GameServerStateMachine::init(tx_activate, skip, cfg_client, rx_command, tx_agg_gss, tx_rconready),
+            gssm: gssm::GameServerStateMachine::init(
+                tx_activate,
+                skip,
+                cfg_client,
+                rx_command,
+                tx_agg_gss,
+                tx_rconready,
+            ),
             ctoken,
         }
     }
