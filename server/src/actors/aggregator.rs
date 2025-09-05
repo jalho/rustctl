@@ -225,28 +225,18 @@ impl Aggregator {
                         };
 
                         /*
-                         * Samples as of commit 6d07dadd2b4b1d1bcd7d76d84956bd8b8c926135:
+                         * Samples as of commit 9372a17c08ba2f11a32e47cb7a44e6de57c25b67:
                          * ```
-                         * [server/src/actors/aggregator.rs:234:25] event = OnDispenserGather {
-                         *     timestamp: 1757077750,
-                         *     data: DispenserData {
+                         * [server/src/actors/aggregator.rs:293:25] event = OnCollectiblePickup {
+                         *     data: CollectibleData {
                          *         player_id: "76561198135242017",
-                         *         item_shortname: "wood",
-                         *         quantity: 6,
+                         *         item_name: "assets/bundled/prefabs/autospawn/collectable/wood/wood-collectable.prefab",
+                         *         quantity: 1,
                          *     },
                          * }
-                         * [server/src/actors/aggregator.rs:234:25] event = OnDispenserGather {
-                         *     timestamp: 1757077760,
-                         *     data: DispenserData {
-                         *         player_id: "76561198135242017",
-                         *         item_shortname: "stones",
-                         *         quantity: 11,
-                         *     },
-                         * }
-                         * [server/src/actors/aggregator.rs:234:25] event = OnPlayerDeath {
-                         *     timestamp: 1757077792,
+                         * [server/src/actors/aggregator.rs:293:25] event = OnPlayerDeath {
                          *     data: PlayerDeathData {
-                         *         kind: "pve",
+                         *         kind: pve,
                          *         killer_id: None,
                          *         killed_id: "76561198135242017",
                          *         damage_type: Some(
@@ -254,31 +244,18 @@ impl Aggregator {
                          *         ),
                          *     },
                          * }
-                         * [server/src/actors/aggregator.rs:234:25] event = OnPlayerDeath {
-                         *     timestamp: 1757077808,
-                         *     data: PlayerDeathData {
-                         *         kind: "pve",
-                         *         killer_id: None,
-                         *         killed_id: "76561198135242017",
-                         *         damage_type: Some(
-                         *             "Suicide",
-                         *         ),
-                         *     },
-                         * }
-                         * [server/src/actors/aggregator.rs:234:25] event = OnCollectiblePickup {
-                         *     timestamp: 1757077823,
-                         *     data: CollectibleData {
-                         *         player_id: "76561198135242017",
-                         *         item_name: "assets/bundled/prefabs/autospawn/collectable/stone/metal-collectable.prefab",
-                         *         quantity: 1,
-                         *     },
-                         * }
-                         * [server/src/actors/aggregator.rs:234:25] event = OnCollectiblePickup {
-                         *     timestamp: 1757077830,
+                         * [server/src/actors/aggregator.rs:293:25] event = OnCollectiblePickup {
                          *     data: CollectibleData {
                          *         player_id: "76561198135242017",
                          *         item_name: "assets/bundled/prefabs/autospawn/collectable/hemp/hemp-collectable.prefab",
                          *         quantity: 1,
+                         *     },
+                         * }
+                         * [server/src/actors/aggregator.rs:293:25] event = OnDispenserGather {
+                         *     data: DispenserData {
+                         *         player_id: "76561198135242017",
+                         *         item_shortname: "wood",
+                         *         quantity: 5,
                          *     },
                          * }
                          * ```
