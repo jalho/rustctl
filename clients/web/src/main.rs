@@ -4,7 +4,7 @@ use gloo_net::websocket::{Message, futures::WebSocket};
 use rustctl_common::snapshot::Snapshot;
 use wasm_bindgen_futures::spawn_local;
 
-static LATEST_PAYLOAD: GlobalSignal<Option<String>> = GlobalSignal::new(|| None);
+static LATEST_SNAPSHOT: GlobalSignal<Option<Snapshot>> = GlobalSignal::new(|| None);
 
 fn main() {
     dioxus::launch(App);
@@ -32,18 +32,14 @@ fn App() -> Element {
                     match msg {
                         Ok(Message::Text(text)) => {
                             if let Ok(snapshot) = serde_json::from_str::<Snapshot>(&text) {
-                                if let Ok(pretty) = serde_json::to_string_pretty(&snapshot) {
-                                    LATEST_PAYLOAD.with_mut(|slot| {
-                                        *slot = Some(pretty);
-                                    });
-                                }
+                                LATEST_SNAPSHOT.with_mut(|slot| *slot = Some(snapshot));
                             }
                         }
                         _ => {}
                     }
                 }
 
-                LATEST_PAYLOAD.with_mut(|slot| *slot = None);
+                LATEST_SNAPSHOT.with_mut(|slot| *slot = None);
                 gloo_timers::future::sleep(interval).await;
             }
         });
@@ -54,24 +50,62 @@ fn App() -> Element {
             h1 { "WebSocket JSON Viewer" }
             CodeView {}
             h2 { "Game World Map" }
-            img {
-                src: "http://192.168.0.103:8080/map",
-                alt: "Current game world map",
-                style: "max-width: 100%;",
-            }
+            MapView {}
         }
     }
 }
 
 #[component]
 fn CodeView() -> Element {
-    let payload = LATEST_PAYLOAD.read();
+    let payload = LATEST_SNAPSHOT.read();
     match &*payload {
-        Some(json) => rsx! {
-            pre { "{json}" }
-        },
-        None => rsx! {
-            p { "Waiting for messages..." }
-        },
+        Some(snapshot) => {
+            if let Ok(pretty) = serde_json::to_string_pretty(snapshot) {
+                rsx!( pre { "{pretty}" } )
+            } else {
+                rsx!( p { "Failed to render snapshot" } )
+            }
+        }
+        None => rsx!( p { "Waiting for messages..." } ),
     }
+}
+
+#[component]
+fn MapView() -> Element {
+    let payload = LATEST_SNAPSHOT.read();
+    let snapshot = match &*payload {
+        Some(s) => s,
+        None => return rsx!( p { "No map data yet" } ),
+    };
+
+    // TODO: replace these with your actual map coordinate transforms
+    let map_width = 800.0;
+    let map_height = 800.0;
+
+    rsx! {
+            div {
+                style: "position: relative; width: {map_width}px; height: {map_height}px; border: 1px solid black;",
+                img {
+                    src: "http://192.168.0.103:8080/map",
+                    alt: "Current game world map",
+                    style: "width: 100%; height: 100%; display: block;",
+                }
+    for player in &snapshot.ingame_state.players_pos {
+        {
+            let (x, _y, z) = player.position;
+            let left = (x % map_width) as f64;
+            let top  = (z % map_height) as f64;
+
+            rsx! {
+                div {
+                    style: "position: absolute; left: {left}px; top: {top}px; width: 10px; height: 10px; \
+                            background: red; border-radius: 50%; transform: translate(-50%, -50%);",
+                    title: "{player.display_name}",
+                }
+            }
+        }
+    }
+
+            }
+        }
 }
