@@ -5,6 +5,11 @@ using System.IO;
 using System.Net.Sockets;
 using System.Text;
 
+/*
+ * Useful in development to inspect what kind of data hooks carry: Wrap some
+ * object in `JsonHelpers.serialize_as_much_as_possible()` to serialize as much
+ * as possible.
+ */
 static class JsonHelpers
 {
     public static string serialize_as_much_as_possible(object obj)
