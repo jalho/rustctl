@@ -3,102 +3,23 @@ name    = "rustctl-backend"
 version = "0.1.0-rc1"
 edition = "2024"
 
-[dependencies.regex]
-workspace = true
-features  = [
-  "unicode-perl",
-]
-
-[dependencies.tokio]
-workspace = true
-features  = [
-  "fs",
-  "net",
-  "process",
-  "signal",
-]
-
-[dependencies.axum]
-workspace = true
-features  = [
-  "ws",
-  "tokio",
-  "http1", # for proof-of-concept WebSocket CLI clients -- for actual web browser clients, "http2" (or later?) should perhaps be used
-]
-
-[dependencies.tower-http]
-workspace = true
-
-[dependencies.serde]
-workspace = true
-features  = [
-  "derive",
-]
-
-[dependencies.serde_json]
-workspace = true
-features  = [
-  "alloc",
-]
-
-[dependencies.futures-util]
-workspace = true
-
-[dependencies.log]
-workspace = true
-
-[dependencies.log4rs]
-workspace = true
-features = [
-  "console_appender",
-  "file_appender",
-]
-
-[dependencies.tokio-util]
-workspace = true
-
-[dependencies.keyvalues-parser]
-workspace = true
-
-[dependencies.uuid]
-workspace = true
-features = [
-  "v4",
-]
-
-[dependencies.tokio-tungstenite]
-workspace = true
-features = [
-  "connect",
-]
-
-[dependencies.rand]
-workspace = true
-
-[dependencies.clap]
-workspace = true
-features = [
-  "derive",
-  "std",
-  "help",
-  "usage",
-]
-
-[dependencies.chrono]
-workspace = true
-features  = [
-]
-
-[dependencies.rustctl-common]
-workspace = true
-features  = [
-]
-
-[dependencies.nix]
-workspace = true
-features  = [
-  "signal",
-]
-
-[dependencies.libc]
-workspace = true
+[dependencies]
+axum              = { workspace = true, features = ["ws", "tokio", "http1"] }
+chrono            = { workspace = true, features = [] }
+clap              = { workspace = true, features = ["derive", "std", "help", "usage"] }
+futures-util      = { workspace = true, features = [] }
+keyvalues-parser  = { workspace = true, features = [] }
+libc              = { workspace = true, features = [] }
+log4rs            = { workspace = true, features = ["console_appender", "file_appender"] }
+log               = { workspace = true, features = [] }
+nix               = { workspace = true, features = ["signal"] }
+rand              = { workspace = true, features = [] }
+regex             = { workspace = true, features = ["unicode-perl"] }
+rustctl-common    = { workspace = true, features = [] }
+serde_json        = { workspace = true, features = ["alloc"] }
+serde             = { workspace = true, features = ["derive"] }
+tokio-tungstenite = { workspace = true, features = ["connect"] }
+tokio-util        = { workspace = true, features = [] }
+tokio             = { workspace = true, features = ["fs", "net", "process", "signal"] }
+tower-http        = { workspace = true, features = [] }
+uuid              = { workspace = true, features = ["v4"] }
