@@ -5,6 +5,19 @@ using System.IO;
 using System.Net.Sockets;
 using System.Text;
 
+static class JsonHelpers
+{
+    public static string serialize_as_much_as_possible(object obj)
+    {
+        var settings = new JsonSerializerSettings
+        {
+            Error = (sender, args) => { args.ErrorContext.Handled = true; },
+            Formatting = Formatting.None
+        };
+        return JsonConvert.SerializeObject(obj, settings);
+    }
+}
+
 namespace Carbon.Plugins {
     [Info("rustctl_sock", "<jalho>", "0.1.0")]
     [Description("Emit server events over a Unix domain socket.")]
@@ -114,10 +127,20 @@ namespace Carbon.Plugins {
             );
         }
 
+        object OnCollectiblePickup(CollectibleEntity collectibleEntity, BasePlayer player, bool eat) {
+            this.write_hook_data(
+                new Dictionary<string, object> {
+                    ["hook"] = "OnCollectiblePickup",
+                    ["player.Connection.userid"] = player.Connection.userid
+                    ["unknown"] = JsonHelpers.serialize_as_much_as_possible(collectibleEntity)
+                }
+            );
+            return null;
+        }
+
         /*
          * TODO: Use more hooks... Some interesting ones I've used before:
          *       - OnPlayerDeath
-         *       - OnCollectiblePickup
          *
          * Browse more here: https://carbonmod.gg/references/hooks
          */

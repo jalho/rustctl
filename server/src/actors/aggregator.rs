@@ -334,6 +334,16 @@ pub enum IngameEvent {
         #[serde(rename = "player.Connection.userid")]
         steam_id: u64,
     },
+    OnCollectiblePickup {
+        #[serde(rename = "item.amount")]
+        amount: u32,
+
+        #[serde(rename = "item.info.displayName.english")]
+        resource: Resource,
+
+        #[serde(rename = "player.Connection.userid")]
+        steam_id: u64,
+    },
     OnCargoShipSpawnCrate,
 }
 
@@ -345,4 +355,6 @@ enum Resource {
     MetalOre,
     #[serde(rename = "Sulfur Ore")]
     SulfurOre,
+    #[serde(rename = "Raw Pork")]
+    RawPork,
 }
