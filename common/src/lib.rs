@@ -5,6 +5,7 @@ pub mod snapshot {
     /// interval).
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub struct Snapshot {
+        pub game_world_size: f64,
         pub ingame_state: InGameStateExposed,
         pub game_server_state: GameServerStateExposed,
         pub memory_used_kibibytes: MemoryUsage,
@@ -55,12 +56,13 @@ pub mod snapshot {
     }
 
     impl Snapshot {
-        pub fn init() -> Self {
+        pub fn init(game_world_size: f64) -> Self {
             Self {
                 game_server_state: GameServerStateExposed::Init,
                 memory_used_kibibytes: MemoryUsage(0),
                 cpus_utilization_percentage: Vec::new(),
                 ingame_state: InGameStateExposed::init(),
+                game_world_size,
             }
         }
     }

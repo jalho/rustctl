@@ -86,7 +86,7 @@ fn MapView() -> Element {
 
     let map_width = 800.0;
     let map_height = 800.0;
-    let world_size = 1000.0;
+    let world_size = snapshot.game_world_size;
     let world_half = world_size / 2.0;
 
     rsx! {

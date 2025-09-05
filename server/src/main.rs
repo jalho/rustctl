@@ -51,6 +51,7 @@ fn main() -> std::process::ExitCode {
         rx_command_collect,
         tx_cmd_relay,
         tx_broadcast.clone(),
+        config.game_world_size.into(),
     );
     let controller = actors::gsc::GameServerController::new(
         ctoken.child_token(),

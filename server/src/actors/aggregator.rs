@@ -9,6 +9,8 @@ pub struct Aggregator {
 
     rx_cmd_collect: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
     tx_cmd_relay: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
+
+    game_world_size: f64,
 }
 
 impl Aggregator {
@@ -22,6 +24,7 @@ impl Aggregator {
         rx_cmd_collect: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
         tx_cmd_relay: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
         tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
+        game_world_size: f64,
     ) -> Self {
         Self {
             ctoken,
@@ -34,6 +37,8 @@ impl Aggregator {
 
             rx_cmd_collect,
             tx_cmd_relay,
+
+            game_world_size,
         }
     }
 
@@ -49,7 +54,7 @@ impl Aggregator {
         let job_agg_gss = Self::aggregate_game_server_state_machine_transitions(self.aggregated.clone(), self.rx_gss);
         let job_agg_igs = Self::aggregate_ingame_state(self.aggregated.clone(), self.rx_igs);
         let job_agg_ige = Self::aggregate_ingame_events(self.aggregated.clone());
-        let job_broadcast = Self::broadcast(self.aggregated.clone(), self.tx_broadcast);
+        let job_broadcast = Self::broadcast(self.game_world_size, self.aggregated.clone(), self.tx_broadcast);
 
         let job_cmd_relay = Self::relay_gsc_commands(self.rx_cmd_collect, self.tx_cmd_relay.clone());
 
@@ -94,6 +99,7 @@ impl Aggregator {
     }
 
     async fn broadcast(
+        game_world_size: f64,
         aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>,
         tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
     ) -> () {
@@ -129,6 +135,7 @@ impl Aggregator {
                         usage
                     })
                     .collect::<Vec<rustctl_common::snapshot::CpuUsage>>(),
+                game_world_size,
             };
             _ = tx_broadcast.send(snapshot);
         }
