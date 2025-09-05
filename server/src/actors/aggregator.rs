@@ -288,7 +288,7 @@ impl Aggregator {
                                 continue 'receive;
                             }
                         };
-                        dbg!(event);
+                        log::debug!("In-game event: {event:?}");
                     }
                 }
                 Err(err) => {
