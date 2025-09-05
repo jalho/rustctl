@@ -31,6 +31,9 @@ enum Category {
 }
 
 class PlayerEventPvpKill : JSONSerializable {
+    [JsonProperty("type")]
+    public string Type { get; } = "PlayerEventPvpKill";
+
     public Category category { get; set; }
 
     public ulong timestamp { get; set; }
@@ -43,6 +46,9 @@ class PlayerEventPvpKill : JSONSerializable {
 }
 
 class PlayerEventPveDeath : JSONSerializable {
+    [JsonProperty("type")]
+    public string Type { get; } = "PlayerEventPveDeath";
+
     public Category category { get; set; }
 
     public ulong timestamp { get; set; }
@@ -55,6 +61,9 @@ class PlayerEventPveDeath : JSONSerializable {
 }
 
 class PlayerEventFarming : JSONSerializable {
+    [JsonProperty("type")]
+    public string Type { get; } = "PlayerEventFarming";
+
     public Category category { get; set; }
 
     public ulong timestamp { get; set; }
@@ -70,6 +79,9 @@ class PlayerEventFarming : JSONSerializable {
 }
 
 class WorldEvent : JSONSerializable {
+    [JsonProperty("type")]
+    public string Type { get; } = "WorldEvent";
+
     public Category category { get; set; }
 
     public ulong timestamp { get; set; }
