@@ -15,9 +15,11 @@ namespace Carbon.Plugins {
         private bool socket_connected = false;
 
         public rustctl_sock() {
-            // TODO: Template the socket path: Should be defined in the Rust
-            //       source only! Also template the plugin's name as it must
-            //       correspond to the written file's name!
+            /*
+             * TODO: Template the socket path: Should be defined in the Rust
+             *       source only! Also template the plugin's name as it must
+             *       correspond to the written file's name!
+             */
             this.endpoint = new UnixDomainSocketEndPoint("/tmp/rustctl.sock");
             this.init_socket();
         }
@@ -89,57 +91,15 @@ namespace Carbon.Plugins {
             );
         }
 
-        // object OnPlayerDeath(BasePlayer killed_player, HitInfo killer_info) {
-        //     bool is_killer_player = killer_info?.InitiatorPlayer?.userID is ulong
-        //         && !killer_info.InitiatorPlayer.IsNpc;
-        //     bool is_suicide = is_killer_player
-        //         && killer_info.InitiatorPlayer.userID == killed_player.userID;
-
-        //     if (is_killer_player && !is_suicide) {
-        //         this.write_hook_data("OnPlayerDeath", new {
-        //             kind = "pvp",
-        //             killer_id = killer_info.InitiatorPlayer.userID.ToString(),
-        //             killed_id = killed_player.userID.ToString()
-        //         });
-        //     } else {
-        //         string majority_damage_type;
-        //         if (killer_info == null) {
-        //             majority_damage_type = "unknown";
-        //         } else {
-        //             majority_damage_type = killer_info.damageTypes.GetMajorityDamageType().ToString();
-        //         }
-        //         this.write_hook_data("OnPlayerDeath", new {
-        //             kind = "pve",
-        //             damage_type = majority_damage_type,
-        //             killed_id = killed_player.userID.ToString()
-        //         });
-        //     }
-        //     return null;
-        // }
-
-        // object OnGrowableGathered(GrowableEntity growable, Item gathered, BasePlayer player) {
-        //     this.write_hook_data("OnGrowableGathered", new {
-        //         player_id = player.userID.ToString(),
-        //         item_shortname = gathered.info.shortname,
-        //         quantity = gathered.amount
-        //     });
-        //     return null;
-        // }
-
-        // object OnCollectiblePickup(CollectibleEntity collectible, BasePlayer player, bool eat) {
-        //     this.write_hook_data("OnCollectiblePickup", new {
-        //         player_id = player.userID.ToString(),
-        //         item_name = collectible.name,
-        //         quantity = 1
-        //     });
-        //     return null;
-        // }
-
-        // void OnCargoShipSpawnCrate(CargoShip self) {
-        //     this.write_hook_data("OnCargoShipSpawnCrate", new {
-        //         // TODO: Serialize whatever the `CargoShip self` contains?
-        //     });
-        // }
+        /*
+         * TODO: Use more hooks... Some interesting ones I've used before:
+         *       - OnPlayerDeath
+         *       - OnGrowableGathered
+         *       - OnCollectiblePickup
+         *       - OnCargoShipSpawnCrate
+         *
+         * Browse more here: https://carbonmod.gg/references/hooks
+         */
 
         public void Unload() {
             try {
