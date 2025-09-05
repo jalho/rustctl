@@ -81,17 +81,17 @@ fn MapView() -> Element {
     let payload = LATEST_SNAPSHOT.read();
     let snapshot = match &*payload {
         Some(s) => s,
-        None => return rsx!(
-            p { "No map data yet" }
-        ),
+        None => return rsx!( p { "No map data yet" } ),
     };
 
-    // TODO: replace these with your actual map coordinate transforms
     let map_width = 800.0;
     let map_height = 800.0;
+    let world_size = 1000.0;
+    let world_half = world_size / 2.0;
 
     rsx! {
-        div { style: "position: relative; width: {map_width}px; height: {map_height}px; border: 1px solid black;",
+        div {
+            style: "position: relative; width: {map_width}px; height: {map_height}px; border: 1px solid black;",
             img {
                 src: "http://192.168.0.103:8080/map",
                 alt: "Current game world map",
@@ -100,18 +100,21 @@ fn MapView() -> Element {
             for player in &snapshot.ingame_state.players_pos {
                 {
                     let (x, _y, z) = player.position;
-                    let left = (x % map_width) as f64;
-                    let top = (z % map_height) as f64;
+
+                    // Convert Rust world coordinates to map image pixels
+                    let left = ((x + world_half) / world_size * map_width) as f64;
+                    let top  = ((world_half - z) / world_size * map_height) as f64;
+
                     rsx! {
                         div {
                             style: "position: absolute; left: {left}px; top: {top}px; width: 10px; height: 10px; \
-                                                    background: red; border-radius: 50%; transform: translate(-50%, -50%);",
+                                    background: red; border-radius: 50%; transform: translate(-50%, -50%);",
                             title: "{player.display_name}",
                         }
                     }
                 }
             }
-        
         }
     }
 }
+
