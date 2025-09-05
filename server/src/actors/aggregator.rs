@@ -224,19 +224,14 @@ impl Aggregator {
                             }
                         };
 
-                        /*
-                         * TODO: Deserialize the payload, and aggregate for
-                         *       broadcasting!
-                         *
-                         * Example payload as of
-                         * https://github.com/jalho/rds-plugins/blob/ef66a28ccce2e6194da56b40b771511e2af6af8b/rustctl_sock.cs
-                         * (scenario: "hit a tree once with a metal hatchet"):
-                         *
-                         * ```json
-                         * {"category":2,"timestamp":1756988135,"id_subject":"76561198135242017","id_object":"wood","quantity":15}
-                         * ```
-                         */
-                        dbg!(utf8);
+                        let event: IngameEvent = match serde_json::from_str(&utf8) {
+                            Ok(n) => n,
+                            Err(err) => {
+                                log::error!("TODO:\n{err}:\n{utf8}");
+                                continue 'receive;
+                            },
+                        };
+                        dbg!(event);
                     }
                 }
                 Err(err) => {
@@ -268,4 +263,50 @@ impl Aggregated {
             ingame_state: rustctl_common::snapshot::InGameStateExposed::init(),
         }))
     }
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(tag = "hook")]
+pub enum IngameEvent {
+    OnDispenserGather { timestamp: u64, data: DispenserData },
+    OnDispenserBonus { timestamp: u64, data: DispenserData },
+    OnPlayerDeath { timestamp: u64, data: PlayerDeathData },
+    OnGrowableGathered { timestamp: u64, data: GatherableData },
+    OnCollectiblePickup { timestamp: u64, data: CollectibleData },
+    OnCargoShipSpawnCrate { timestamp: u64, data: CargoShipData },
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct DispenserData {
+    pub player_id: String,
+    pub item_shortname: String,
+    pub quantity: u32,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct PlayerDeathData {
+    #[serde(rename = "type")]
+    pub kind: String, // "pvp" or "pve"
+    pub killer_id: Option<String>,
+    pub killed_id: String,
+    pub damage_type: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct GatherableData {
+    pub player_id: String,
+    pub item_shortname: String,
+    pub quantity: u32,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct CollectibleData {
+    pub player_id: String,
+    pub item_name: String,
+    pub quantity: u32,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct CargoShipData {
+    pub event_type: String,
 }
