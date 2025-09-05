@@ -3,85 +3,18 @@ using System.Text;
 using System.IO;
 using Newtonsoft.Json;
 using System.Net.Sockets;
-using System.Reflection;
-
-class JSONSerializable {
-    public virtual string to_json() {
-        return JsonConvert.SerializeObject(this);
-    }
-}
-
-class PlayerEventPvpKill : JSONSerializable {
-    [JsonProperty("type")]
-    public string Type { get; } = "PlayerEventPvpKill";
-
-    public ulong timestamp { get; set; }
-
-    /** SteamID of the killer player. */
-    public string id_subject { get; set; }
-
-    /** SteamID of the killed player. */
-    public string id_object { get; set; }
-}
-
-class PlayerEventPveDeath : JSONSerializable {
-    [JsonProperty("type")]
-    public string Type { get; } = "PlayerEventPveDeath";
-
-    public ulong timestamp { get; set; }
-
-    /** Some identifier of the killer. */
-    public string id_subject { get; set; }
-
-    /** SteamID of the killed player. */
-    public string id_object { get; set; }
-}
-
-class PlayerEventFarming : JSONSerializable {
-    [JsonProperty("type")]
-    public string Type { get; } = "PlayerEventFarming";
-
-    public ulong timestamp { get; set; }
-
-    /** SteamID of the farming player. */
-    public string id_subject { get; set; }
-
-    /** Some identifier of what was farmed. */
-    public string id_object { get; set; }
-
-    /** How much was farmed. */
-    public int quantity { get; set; }
-}
-
-class WorldEvent : JSONSerializable {
-    [JsonProperty("type")]
-    public string Type { get; } = "WorldEvent";
-
-    public ulong timestamp { get; set; }
-
-    /** Some identifier of the event. */
-    public string id_subject { get; set; }
-}
 
 namespace Carbon.Plugins {
-    [Info ( "rustctl_sock", "<jalho>", "0.1.0" )]
-    [Description ( "Emit server events over a Unix domain socket." )]
+    [Info("rustctl_sock", "<jalho>", "0.1.0")]
+    [Description("Emit server events over a Unix domain socket.")]
     public class rustctl_sock : CarbonPlugin {
         private string plugin_name = "rustctl_sock";
         private Socket socket = null;
         private UnixDomainSocketEndPoint endpoint = null;
         private bool socket_connected = false;
 
-        private MemoryStream memory_stream = new MemoryStream();
-        private StreamWriter stream_writer;
-        private JsonSerializer json_serializer;
-
         public rustctl_sock() {
             this.endpoint = new UnixDomainSocketEndPoint("/tmp/rustctl.sock");
-
-            this.json_serializer = JsonSerializer.Create();
-            this.stream_writer = new StreamWriter(this.memory_stream, Encoding.UTF8);
-
             this.init_socket();
         }
 
@@ -114,173 +47,112 @@ namespace Carbon.Plugins {
             }
         }
 
-        /**
-         * Carbon hook called when a player gathers from a "dispenser", i.e.
-         * e.g. a tree or a stone node.
-         */
+        private void write_hook_data(string hook_name, object data) {
+            if (!this.ensure_connection()) return;
+
+            try {
+                var event_data = new {
+                    timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                    hook = hook_name,
+                    data = data
+                };
+
+                string json = JsonConvert.SerializeObject(event_data) + "\n";
+                byte[] bytes = Encoding.UTF8.GetBytes(json);
+                this.socket.Send(bytes);
+            } catch (SocketException ex) {
+                this.log($"Socket error writing event: {ex.Message}");
+                this.socket_connected = false;
+            } catch (Exception ex) {
+                this.log($"Error writing to socket: {ex.Message}");
+            }
+        }
+
         object OnDispenserGather(ResourceDispenser resource_dispenser, BasePlayer player, Item item) {
-            long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            var farming_event = new PlayerEventFarming {
-                timestamp = (ulong) timestamp,
-                id_subject = (player.userID).ToString(),
-                id_object = item.info.shortname,
-                quantity = item.amount,
-            };
-            this.write_sock(farming_event);
-            return (object) null;
+            this.write_hook_data("OnDispenserGather", new {
+                player_id = player.userID.ToString(),
+                item_shortname = item.info.shortname,
+                quantity = item.amount
+            });
+            return null;
         }
 
-        /**
-         * Carbon hook called e.g. when a player hits a tree for the last time
-         * so that it falls down (as opposed to the initial hit, or its
-         * subsequent hits that don't yet fall the tree).
-         */
         void OnDispenserBonus(ResourceDispenser resource_dispencer, BasePlayer player, Item item) {
-            long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            var farming_event = new PlayerEventFarming {
-                timestamp = (ulong) timestamp,
-                id_subject = (player.userID).ToString(),
-                id_object = item.info.shortname,
-                quantity = item.amount,
-            };
-            this.write_sock(farming_event);
+            this.write_hook_data("OnDispenserBonus", new {
+                player_id = player.userID.ToString(),
+                item_shortname = item.info.shortname,
+                quantity = item.amount
+            });
         }
 
-        /**
-         * Carbon hook called when a player gets killed.
-         */
         object OnPlayerDeath(BasePlayer killed_player, HitInfo killer_info) {
-            long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-
             bool is_killer_player = killer_info?.InitiatorPlayer?.userID is ulong
                 && !killer_info.InitiatorPlayer.IsNpc;
             bool is_suicide = is_killer_player
                 && killer_info.InitiatorPlayer.userID == killed_player.userID;
 
-            // case PvP
             if (is_killer_player && !is_suicide) {
-                var death_event = new PlayerEventPvpKill {
-                    timestamp = (ulong) timestamp,
-                    id_subject = killer_info.InitiatorPlayer.userID.ToString(),
-                    id_object = killed_player.userID.ToString(),
-                };
-                this.write_sock(death_event);
-            }
-            // case PvE
-            else {
+                this.write_hook_data("OnPlayerDeath", new {
+                    type = "pvp",
+                    killer_id = killer_info.InitiatorPlayer.userID.ToString(),
+                    killed_id = killed_player.userID.ToString()
+                });
+            } else {
                 string majority_damage_type;
                 if (killer_info == null) {
-                    majority_damage_type = "unknown PvE damage"; // ??
+                    majority_damage_type = "unknown";
                 } else {
                     majority_damage_type = killer_info.damageTypes.GetMajorityDamageType().ToString();
                 }
-                var death_event = new PlayerEventPveDeath {
-                    timestamp = (ulong) timestamp,
-                    id_subject = majority_damage_type,
-                    id_object = killed_player.userID.ToString(),
-                };
-                this.write_sock(death_event);
+                this.write_hook_data("OnPlayerDeath", new {
+                    type = "pve",
+                    damage_type = majority_damage_type,
+                    killed_id = killed_player.userID.ToString()
+                });
             }
-            return (object) null;
+            return null;
         }
 
         object OnGrowableGathered(GrowableEntity growable, Item gathered, BasePlayer player) {
-            long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            var farming_event = new PlayerEventFarming {
-                timestamp = (ulong) timestamp,
-                id_subject = (player.userID).ToString(),
-                id_object = gathered.info.shortname,
-                quantity = gathered.amount,
-            };
-            this.write_sock(farming_event);
-            return (object) null;
+            this.write_hook_data("OnGrowableGathered", new {
+                player_id = player.userID.ToString(),
+                item_shortname = gathered.info.shortname,
+                quantity = gathered.amount
+            });
+            return null;
         }
 
-        /**
-         * Carbon hook called e.g. when a player picks up a mushroom or a stump
-         * (wood).
-         */
         object OnCollectiblePickup(CollectibleEntity collectible, BasePlayer player, bool eat) {
-            long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            var farming_event = new PlayerEventFarming {
-                timestamp = (ulong) timestamp,
-                id_subject = (player.userID).ToString(),
-                id_object = collectible.name,
-                quantity = 1,
-            };
-            this.write_sock(farming_event);
-            return (object) null;
+            this.write_hook_data("OnCollectiblePickup", new {
+                player_id = player.userID.ToString(),
+                item_name = collectible.name,
+                quantity = 1
+            });
+            return null;
         }
 
-        object OnCargoShipSpawnCrate(CargoShip self) {
-            long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            var world_event = new WorldEvent {
-                timestamp = (ulong) timestamp,
-                id_subject = "OnCargoShipSpawnCrate",
-            };
-            this.write_sock(world_event);
-            return (object) null;
+        void OnCargoShipSpawnCrate(CargoShip self) {
+            this.write_hook_data("OnCargoShipSpawnCrate", new {
+                event_type = "cargo_ship_crate_spawn"
+            });
         }
 
-        /**
-         * Called by Carbon to perform any plugin cleanup at unload.
-         */
         public void Unload() {
             try {
                 this.socket?.Shutdown(SocketShutdown.Both);
-            } catch {
-                // socket might already be closed
-            }
+            } catch { }
 
             try {
                 this.socket?.Close();
-            } catch {
-                // socket might already be closed
-            }
+            } catch { }
 
             this.socket?.Dispose();
-
-            // clean up reusable resources
-            this.stream_writer?.Dispose();
-            this.memory_stream?.Dispose();
         }
 
         private void log(string message) {
             string timestamp_iso = DateTime.UtcNow.ToString("o");
             System.Console.WriteLine($"[{timestamp_iso}] {this.plugin_name}: {message}");
         }
-
-        private void write_sock(JSONSerializable message) {
-            if (!this.ensure_connection()) {
-                return; // skip if socket not available
-            }
-
-            try {
-                this.memory_stream.SetLength(0);
-                this.memory_stream.Position = 0;
-
-                using (var json_writer = new JsonTextWriter(this.stream_writer)) {
-                    json_writer.CloseOutput = false;
-                    this.json_serializer.Serialize(json_writer, message);
-                    json_writer.Flush();
-                }
-
-                this.stream_writer.Flush();
-
-                byte[] data = this.memory_stream.ToArray();
-
-                byte[] data_with_newline = new byte[data.Length + 1];
-                Array.Copy(data, data_with_newline, data.Length);
-                data_with_newline[data.Length] = (byte)'\n';
-
-                this.socket.Send(data_with_newline);
-
-            } catch (SocketException ex) {
-                this.log($"Socket error writing event: {ex.Message}");
-                this.socket_connected = false;
-            } catch (Exception ex) {
-                this.log($"Error writing to Unix domain socket: {ex.Message}");
-            }
-        }
     }
 }
+
