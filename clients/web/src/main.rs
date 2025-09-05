@@ -17,7 +17,10 @@ fn App() -> Element {
     use_effect(move || {
         spawn_local(async move {
             loop {
-                let ws = WebSocket::open("ws://192.168.0.103:8080/api/websocket");
+                let ws = WebSocket::open(&format!(
+                    "ws://192.168.0.103:8080{url_path}",
+                    url_path = rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH,
+                ));
                 let ws = match ws {
                     Ok(ws) => ws,
                     Err(_) => {
