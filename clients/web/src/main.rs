@@ -52,6 +52,12 @@ fn App() -> Element {
         div {
             h1 { "WebSocket JSON Viewer" }
             CodeView {}
+            h2 { "Game World Map" }
+            img {
+                src: "http://192.168.0.103:8080/map",
+                alt: "Current game world map",
+                style: "max-width: 100%; border: 1px solid #ccc; margin-top: 1em;",
+            }
         }
     }
 }
@@ -68,4 +74,3 @@ fn CodeView() -> Element {
         }
     }
 }
-

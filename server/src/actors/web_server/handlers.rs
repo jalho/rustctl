@@ -31,6 +31,24 @@ pub async fn websocket_handler(
     })
 }
 
+pub async fn map_handler() -> impl axum::response::IntoResponse {
+    // TODO: Get the map path from the shared def...
+    match tokio::fs::read("/var/lib/rustctl/current-game-world-map.png").await {
+        Ok(bytes) => axum::response::Response::builder()
+            .status(axum::http::StatusCode::OK)
+            .header("Content-Type", "image/png")
+            .body(axum::body::Body::from(bytes))
+            .unwrap(),
+        Err(err) => {
+            log::error!("Failed to read map file: {err}");
+            axum::response::Response::builder()
+                .status(axum::http::StatusCode::NOT_FOUND)
+                .body(axum::body::Body::from("Map not found"))
+                .unwrap()
+        }
+    }
+}
+
 async fn collect_messages_from_downstream(
     mut stream: DownstreamStream,
     tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
