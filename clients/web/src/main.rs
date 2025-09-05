@@ -6,6 +6,16 @@ use wasm_bindgen_futures::spawn_local;
 
 static LATEST_SNAPSHOT: GlobalSignal<Option<Snapshot>> = GlobalSignal::new(|| None);
 
+#[cfg(debug_assertions)]
+const BACKEND_URL: &str = "http://192.168.0.103:8080";
+#[cfg(debug_assertions)]
+const WS_URL: &str = "ws://192.168.0.103:8080";
+
+#[cfg(not(debug_assertions))]
+const BACKEND_URL: &str = "https://rustctl.internal";
+#[cfg(not(debug_assertions))]
+const WS_URL: &str = "wss://rustctl.internal";
+
 fn main() {
     dioxus::launch(App);
 }
@@ -18,8 +28,9 @@ fn App() -> Element {
         spawn_local(async move {
             loop {
                 let ws = WebSocket::open(&format!(
-                    "ws://192.168.0.103:8080{url_path}",
-                    url_path = rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH,
+                    "{}{}",
+                    WS_URL,
+                    rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH
                 ));
                 let ws = match ws {
                     Ok(ws) => ws,
@@ -99,7 +110,7 @@ fn MapView() -> Element {
         div {
             style: "position: relative; width: {map_width}px; height: {map_height}px; border: 1px solid black;",
             img {
-                src: format!("http://192.168.0.103:8080{url_path}", url_path = rustctl_common::web_app::MAP_URL_PATH),
+                src: format!("{}{}", BACKEND_URL, rustctl_common::web_app::MAP_URL_PATH),
                 alt: "Current game world map",
                 style: "width: 100%; height: 100%; display: block;",
             }
@@ -107,7 +118,6 @@ fn MapView() -> Element {
                 {
                     let (x, _y, z) = player.position;
 
-                    // Convert Rust world coordinates to map image pixels
                     let left = ((x + world_half) / world_size * map_width) as f64;
                     let top  = ((world_half - z) / world_size * map_height) as f64;
 
