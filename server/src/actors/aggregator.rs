@@ -224,7 +224,7 @@ impl Aggregator {
                             }
                         };
 
-                        let event: InGameEvent = match serde_json::from_str(&utf8) {
+                        let event: ige::InGameEvent = match serde_json::from_str(&utf8) {
                             Ok(n) => n,
                             Err(err) => {
                                 log::error!("TODO:\n{err}:\n{utf8}");
@@ -265,101 +265,105 @@ impl Aggregated {
     }
 }
 
-/*
- * TODO: Collect a lot of samples of what different values might be interesting
- *       and then define `Resource` as enum!
- */
-/// Some examples:
-/// ```
-/// "Animal Fat"
-/// "Bone Fragments"
-/// "Cloth"
-/// "Leather"
-/// "Raw Bear Meat"
-/// "Stones"
-/// "Wood"
-/// ```
-#[derive(Debug, serde::Deserialize)]
-struct Resource(String);
+mod ige {
+    //! In-game events's (IGE) related stuff.
 
-#[derive(Debug, serde::Deserialize)]
-#[serde(tag = "hook")]
-pub enum InGameEvent {
-    OnDispenserGather {
-        #[serde(rename = "item.amount")]
-        amount: u32,
+    /*
+     * TODO: Collect a lot of samples of what different values might be interesting
+     *       and then define `Resource` as enum!
+     */
+    /// Some examples:
+    /// ```
+    /// "Animal Fat"
+    /// "Bone Fragments"
+    /// "Cloth"
+    /// "Leather"
+    /// "Raw Bear Meat"
+    /// "Stones"
+    /// "Wood"
+    /// ```
+    #[derive(Debug, serde::Deserialize)]
+    struct Resource(String);
 
-        #[serde(rename = "item.info.displayName.english")]
+    #[derive(Debug, serde::Deserialize)]
+    #[serde(tag = "hook")]
+    pub enum InGameEvent {
+        OnDispenserGather {
+            #[serde(rename = "item.amount")]
+            amount: u32,
+
+            #[serde(rename = "item.info.displayName.english")]
+            resource: Resource,
+
+            #[serde(rename = "player.Connection.userid")]
+            steam_id: u64,
+        },
+        OnDispenserBonus {
+            #[serde(rename = "item.amount")]
+            amount: u32,
+
+            #[serde(rename = "item.info.displayName.english")]
+            resource: Resource,
+
+            #[serde(rename = "player.Connection.userid")]
+            steam_id: u64,
+        },
+        OnGrowableGathered {
+            #[serde(rename = "item.amount")]
+            amount: u32,
+
+            #[serde(rename = "item.info.displayName.english")]
+            resource: Resource,
+
+            #[serde(rename = "player.Connection.userid")]
+            steam_id: u64,
+        },
+        OnCollectiblePickup {
+            #[serde(rename = "item.itemList")]
+            items: Vec<Item>,
+
+            #[serde(rename = "player.Connection.userid")]
+            steam_id: u64,
+        },
+        OnCargoShipSpawnCrate,
+    }
+
+    #[derive(Debug)]
+    struct Item {
         resource: Resource,
-
-        #[serde(rename = "player.Connection.userid")]
-        steam_id: u64,
-    },
-    OnDispenserBonus {
-        #[serde(rename = "item.amount")]
         amount: u32,
+    }
 
-        #[serde(rename = "item.info.displayName.english")]
-        resource: Resource,
+    impl<'de> serde::Deserialize<'de> for Item {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            #[derive(serde::Deserialize)]
+            struct RawItem {
+                #[serde(rename = "amount")]
+                amount: f64,
+                #[serde(rename = "itemDef")]
+                item_def: ItemDef,
+            }
 
-        #[serde(rename = "player.Connection.userid")]
-        steam_id: u64,
-    },
-    OnGrowableGathered {
-        #[serde(rename = "item.amount")]
-        amount: u32,
+            #[derive(serde::Deserialize)]
+            struct ItemDef {
+                displayName: DisplayName,
+            }
 
-        #[serde(rename = "item.info.displayName.english")]
-        resource: Resource,
+            #[derive(serde::Deserialize)]
+            struct DisplayName {
+                english: String,
+            }
 
-        #[serde(rename = "player.Connection.userid")]
-        steam_id: u64,
-    },
-    OnCollectiblePickup {
-        #[serde(rename = "item.itemList")]
-        items: Vec<Item>,
+            let raw = RawItem::deserialize(deserializer)?;
+            let resource = Resource(raw.item_def.displayName.english);
 
-        #[serde(rename = "player.Connection.userid")]
-        steam_id: u64,
-    },
-    OnCargoShipSpawnCrate,
-}
-
-#[derive(Debug)]
-struct Item {
-    resource: Resource,
-    amount: u32,
-}
-
-impl<'de> serde::Deserialize<'de> for Item {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(serde::Deserialize)]
-        struct RawItem {
-            #[serde(rename = "amount")]
-            amount: f64,
-            #[serde(rename = "itemDef")]
-            item_def: ItemDef,
+            Ok(Item {
+                resource,
+                amount: raw.amount as u32,
+            })
         }
-
-        #[derive(serde::Deserialize)]
-        struct ItemDef {
-            displayName: DisplayName,
-        }
-
-        #[derive(serde::Deserialize)]
-        struct DisplayName {
-            english: String,
-        }
-
-        let raw = RawItem::deserialize(deserializer)?;
-        let resource = Resource(raw.item_def.displayName.english);
-
-        Ok(Item {
-            resource,
-            amount: raw.amount as u32,
-        })
     }
 }
