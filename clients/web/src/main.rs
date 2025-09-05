@@ -76,6 +76,8 @@ fn CodeView() -> Element {
     }
 }
 
+const WORLD_MAP_RENDER_MARGIN: f64 = 1000.0;
+
 #[component]
 fn MapView() -> Element {
     let payload = LATEST_SNAPSHOT.read();
@@ -86,7 +88,8 @@ fn MapView() -> Element {
 
     let map_width = 800.0;
     let map_height = 800.0;
-    let world_size = snapshot.game_world_size;
+
+    let world_size = snapshot.game_world_size + WORLD_MAP_RENDER_MARGIN;
     let world_half = world_size / 2.0;
 
     rsx! {
@@ -117,4 +120,3 @@ fn MapView() -> Element {
         }
     }
 }
-
