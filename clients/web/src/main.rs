@@ -61,12 +61,18 @@ fn CodeView() -> Element {
     match &*payload {
         Some(snapshot) => {
             if let Ok(pretty) = serde_json::to_string_pretty(snapshot) {
-                rsx!( pre { "{pretty}" } )
+                rsx!(
+                    pre { "{pretty}" }
+                )
             } else {
-                rsx!( p { "Failed to render snapshot" } )
+                rsx!(
+                    p { "Failed to render snapshot" }
+                )
             }
         }
-        None => rsx!( p { "Waiting for messages..." } ),
+        None => rsx!(
+            p { "Waiting for messages..." }
+        ),
     }
 }
 
@@ -75,7 +81,9 @@ fn MapView() -> Element {
     let payload = LATEST_SNAPSHOT.read();
     let snapshot = match &*payload {
         Some(s) => s,
-        None => return rsx!( p { "No map data yet" } ),
+        None => return rsx!(
+            p { "No map data yet" }
+        ),
     };
 
     // TODO: replace these with your actual map coordinate transforms
@@ -83,29 +91,27 @@ fn MapView() -> Element {
     let map_height = 800.0;
 
     rsx! {
-            div {
-                style: "position: relative; width: {map_width}px; height: {map_height}px; border: 1px solid black;",
-                img {
-                    src: "http://192.168.0.103:8080/map",
-                    alt: "Current game world map",
-                    style: "width: 100%; height: 100%; display: block;",
-                }
-    for player in &snapshot.ingame_state.players_pos {
-        {
-            let (x, _y, z) = player.position;
-            let left = (x % map_width) as f64;
-            let top  = (z % map_height) as f64;
-
-            rsx! {
-                div {
-                    style: "position: absolute; left: {left}px; top: {top}px; width: 10px; height: 10px; \
-                            background: red; border-radius: 50%; transform: translate(-50%, -50%);",
-                    title: "{player.display_name}",
+        div { style: "position: relative; width: {map_width}px; height: {map_height}px; border: 1px solid black;",
+            img {
+                src: "http://192.168.0.103:8080/map",
+                alt: "Current game world map",
+                style: "width: 100%; height: 100%; display: block;",
+            }
+            for player in &snapshot.ingame_state.players_pos {
+                {
+                    let (x, _y, z) = player.position;
+                    let left = (x % map_width) as f64;
+                    let top = (z % map_height) as f64;
+                    rsx! {
+                        div {
+                            style: "position: absolute; left: {left}px; top: {top}px; width: 10px; height: 10px; \
+                                                    background: red; border-radius: 50%; transform: translate(-50%, -50%);",
+                            title: "{player.display_name}",
+                        }
+                    }
                 }
             }
+        
         }
     }
-
-            }
-        }
 }
