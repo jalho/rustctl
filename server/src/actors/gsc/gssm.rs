@@ -155,7 +155,7 @@ impl GameServerStateMachine {
                             }
                         }
                     } else {
-                        log::warn!("Not installing or updating game server due to skip specified");
+                        log::warn!("Skipping installing/updating game server");
                         buildid_after = 0;
                     }
 
@@ -172,7 +172,7 @@ impl GameServerStateMachine {
                             "Carbon Modding Framework installed or updated: SHA256: {carbon_installation_checksum}"
                         );
                     } else {
-                        log::warn!("Not installing or updating modding framework due to skip specified");
+                        log::warn!("Skipping installing/updating modding framework");
                     }
 
                     let startup_script: String = match generate_game_server_startup_script(&config).await {

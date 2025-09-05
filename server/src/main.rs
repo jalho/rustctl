@@ -14,12 +14,12 @@ fn main() -> std::process::ExitCode {
     };
 
     let config: storage::Configuration = runtime.block_on(config_client.get_config());
-    let _logg: log4rs::Handle = match init::initialize_logger(cli_args.log_level, &config) {
+    let (_logg, log_file) = match init::initialize_logger(cli_args.log_level, &config) {
         Ok(n) => n,
         Err(code) => return code,
     };
     log::info!(
-        "{name} {version}",
+        r#"{name} {version} -- Logs: "{log_file}""#,
         name = env!("CARGO_PKG_NAME"),
         version = env!("CARGO_PKG_VERSION"),
     );

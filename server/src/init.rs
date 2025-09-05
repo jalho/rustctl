@@ -20,14 +20,16 @@ pub const LOG_TARGET_GAME: &str = "game";
 pub fn initialize_logger(
     level: log::LevelFilter,
     config: &crate::storage::Configuration,
-) -> Result<log4rs::Handle, std::process::ExitCode> {
-    const APPENDER_NAME_CORE: &str = "core";
-    const APPENDER_NAME_GAME: &str = "game_server";
+) -> Result<(log4rs::Handle, String), std::process::ExitCode> {
+    const APPENDER_NAME_CORE_FILE: &str = "core_file";
+    const APPENDER_NAME_GAME_FILE: &str = "game_file";
+    const APPENDER_NAME_STDOUT: &str = "stdout";
 
-    let logs_dir: String = config.fs.root_dir_abs_utf8();
-    let log_file_path = format!("{}/rustctl.log", logs_dir);
+    let mut log_file_path = std::path::Path::new(&config.fs.root_dir_abs_utf8()).to_path_buf();
+    log_file_path.push("rustctl.log");
 
-    let appender_core: log4rs::append::file::FileAppender = log4rs::append::file::FileAppender::builder()
+    // core -> file
+    let appender_core_file = log4rs::append::file::FileAppender::builder()
         .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
             "{h({d(%Y-%m-%d %H:%M:%S)(utc)} UTC [rustctl] [{l}] {m})} [{f}:{L}]\n",
         )))
@@ -38,7 +40,8 @@ pub fn initialize_logger(
             std::process::ExitCode::FAILURE
         })?;
 
-    let appender_game: log4rs::append::file::FileAppender = log4rs::append::file::FileAppender::builder()
+    // game -> file
+    let appender_game_file = log4rs::append::file::FileAppender::builder()
         .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
             "{h({d(%Y-%m-%d %H:%M:%S)(utc)} UTC [{t}] {m})}\n",
         )))
@@ -49,24 +52,40 @@ pub fn initialize_logger(
             std::process::ExitCode::FAILURE
         })?;
 
-    let appender_cfg_core: log4rs::config::Appender =
-        log4rs::config::Appender::builder().build(APPENDER_NAME_CORE, Box::new(appender_core));
+    // core -> stdout
+    let appender_stdout = log4rs::append::console::ConsoleAppender::builder()
+        .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
+            "{h({d(%Y-%m-%d %H:%M:%S)(utc)} UTC [rustctl] [{l}] {m})}\n",
+        )))
+        .build();
 
-    let appender_cfg_game: log4rs::config::Appender =
-        log4rs::config::Appender::builder().build(APPENDER_NAME_GAME, Box::new(appender_game));
+    let appender_cfg_core_file =
+        log4rs::config::Appender::builder().build(APPENDER_NAME_CORE_FILE, Box::new(appender_core_file));
+    let appender_cfg_game_file =
+        log4rs::config::Appender::builder().build(APPENDER_NAME_GAME_FILE, Box::new(appender_game_file));
+    let appender_cfg_stdout =
+        log4rs::config::Appender::builder().build(APPENDER_NAME_STDOUT, Box::new(appender_stdout));
 
     let config = match log4rs::Config::builder()
-        .appender(appender_cfg_core)
-        .appender(appender_cfg_game)
+        .appender(appender_cfg_core_file)
+        .appender(appender_cfg_game_file)
+        .appender(appender_cfg_stdout)
+        /*
+         * Game target: Only to game file appender.
+         */
         .logger(
             log4rs::config::Logger::builder()
-                .appender(APPENDER_NAME_GAME)
-                .additive(false) // log only for the specific target, i.e. don't propagate duplicate log
-                .build(LOG_TARGET_GAME, level),
+                .appender(APPENDER_NAME_GAME_FILE)
+                .additive(false)
+                .build(crate::init::LOG_TARGET_GAME, level),
         )
+        /*
+         * Root (core): To core file + stdout.
+         */
         .build(
             log4rs::config::Root::builder()
-                .appender(APPENDER_NAME_CORE)
+                .appender(APPENDER_NAME_CORE_FILE)
+                .appender(APPENDER_NAME_STDOUT)
                 .build(level),
         ) {
         Ok(n) => n,
@@ -77,7 +96,7 @@ pub fn initialize_logger(
     };
 
     match log4rs::init_config(config) {
-        Ok(n) => Ok(n),
+        Ok(handle) => Ok((handle, log_file_path.to_string_lossy().into_owned())),
         Err(err) => {
             eprintln!("Initializing logger failed: {err}");
             Err(std::process::ExitCode::FAILURE)
