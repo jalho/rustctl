@@ -194,7 +194,7 @@ impl Aggregator {
         }
     }
 
-    async fn aggregate_ingame_events(aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>) -> () {
+    async fn aggregate_ingame_events(_aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>) -> () {
         let _ = tokio::fs::remove_file(Self::SOCKET_PATH).await;
 
         let listener = match tokio::net::UnixListener::bind(Self::SOCKET_PATH) {
@@ -265,6 +265,10 @@ impl Aggregated {
     }
 }
 
+/*
+ * TODO: Collect a lot of samples of what different values might be interesting
+ *       and then define `Resource` as enum!
+ */
 /// Some examples:
 /// ```
 /// "Animal Fat"
@@ -332,8 +336,6 @@ impl<'de> serde::Deserialize<'de> for Item {
     where
         D: serde::Deserializer<'de>,
     {
-        use serde::de::Error;
-
         #[derive(serde::Deserialize)]
         struct RawItem {
             #[serde(rename = "amount")]
