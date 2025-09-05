@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 use futures_util::StreamExt;
-use gloo_net::websocket::{futures::WebSocket, Message};
+use gloo_net::websocket::{Message, futures::WebSocket};
+use rustctl_common::snapshot::Snapshot;
 use wasm_bindgen_futures::spawn_local;
 
 static LATEST_PAYLOAD: GlobalSignal<Option<String>> = GlobalSignal::new(|| None);
@@ -30,12 +31,12 @@ fn App() -> Element {
                 while let Some(msg) = rx.next().await {
                     match msg {
                         Ok(Message::Text(text)) => {
-                            if let Ok(pretty) = serde_json::to_string_pretty(
-                                &serde_json::from_str::<serde_json::Value>(&text).unwrap()
-                            ) {
-                                LATEST_PAYLOAD.with_mut(|slot| {
-                                    *slot = Some(pretty);
-                                });
+                            if let Ok(snapshot) = serde_json::from_str::<Snapshot>(&text) {
+                                if let Ok(pretty) = serde_json::to_string_pretty(&snapshot) {
+                                    LATEST_PAYLOAD.with_mut(|slot| {
+                                        *slot = Some(pretty);
+                                    });
+                                }
                             }
                         }
                         _ => {}
@@ -56,7 +57,7 @@ fn App() -> Element {
             img {
                 src: "http://192.168.0.103:8080/map",
                 alt: "Current game world map",
-                style: "max-width: 100%",
+                style: "max-width: 100%;",
             }
         }
     }
@@ -71,6 +72,6 @@ fn CodeView() -> Element {
         },
         None => rsx! {
             p { "Waiting for messages..." }
-        }
+        },
     }
 }
