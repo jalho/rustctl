@@ -12,7 +12,7 @@ pub struct Aggregator {
 }
 
 impl Aggregator {
-    const SOCKET_PATH: &str = "/tmp/rustctl.sock";
+    const SOCKET_PATH: &str = "/tmp/rustctl.sock"; // TODO: Get via the config's `fs` thing instead!
 
     pub fn new(
         ctoken: tokio_util::sync::CancellationToken,
@@ -201,6 +201,7 @@ impl Aggregator {
             Ok(n) => n,
             Err(err) => todo!("terminate gracefully: {err}"),
         };
+        log::debug!("Unix domain socket bound: {}", Self::SOCKET_PATH);
 
         loop {
             match listener.accept().await {
