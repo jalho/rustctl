@@ -72,6 +72,7 @@ namespace Carbon.Plugins {
             this.write_hook_data(
                 new Dictionary<string, object> {
                     ["hook"] = "OnDispenserGather",
+
                     ["item.amount"] = item.amount,
                     ["item.info.displayName.english"] = item.info.displayName.english,
                     ["player.Connection.userid"] = player.Connection.userid
@@ -84,9 +85,18 @@ namespace Carbon.Plugins {
             this.write_hook_data(
                 new Dictionary<string, object> {
                     ["hook"] = "OnDispenserBonus",
+
                     ["item.amount"] = item.amount,
                     ["item.info.displayName.english"] = item.info.displayName.english,
                     ["player.Connection.userid"] = player.Connection.userid
+                }
+            );
+        }
+
+        void OnCargoShipSpawnCrate(CargoShip self) {
+            this.write_hook_data(
+                new Dictionary<string, object> {
+                    ["hook"] = "OnCargoShipSpawnCrate"
                 }
             );
         }
@@ -96,7 +106,6 @@ namespace Carbon.Plugins {
          *       - OnPlayerDeath
          *       - OnGrowableGathered
          *       - OnCollectiblePickup
-         *       - OnCargoShipSpawnCrate
          *
          * Browse more here: https://carbonmod.gg/references/hooks
          */

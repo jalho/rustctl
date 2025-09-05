@@ -324,15 +324,6 @@ pub enum IngameEvent {
         #[serde(rename = "player.Connection.userid")]
         steam_id: u64,
     },
-    OnPlayerDeath {
-        data: PlayerDeathData,
-    },
-    OnGrowableGathered {
-        data: GatherableData,
-    },
-    OnCollectiblePickup {
-        data: CollectibleData,
-    },
     OnCargoShipSpawnCrate,
 }
 
@@ -344,36 +335,4 @@ enum Resource {
     MetalOre,
     #[serde(rename = "Sulfur Ore")]
     SulfurOre,
-}
-
-#[derive(Debug, serde::Deserialize)]
-#[allow(non_camel_case_types)]
-enum PlayerDeathContext {
-    pve,
-    pvp,
-}
-
-#[derive(Debug, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PlayerDeathData {
-    pub kind: PlayerDeathContext,
-    pub killer_id: Option<String>,
-    pub killed_id: String,
-    pub damage_type: Option<String>,
-}
-
-#[derive(Debug, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct GatherableData {
-    pub player_id: String,
-    pub item_shortname: String,
-    pub quantity: u32,
-}
-
-#[derive(Debug, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CollectibleData {
-    pub player_id: String,
-    pub item_name: String,
-    pub quantity: u32,
 }
