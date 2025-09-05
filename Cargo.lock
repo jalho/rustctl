@@ -1537,6 +1537,7 @@ dependencies = [
  "log",
  "log-mdc",
  "once_cell",
+ "parking_lot",
  "thiserror 1.0.69",
  "thread-id",
  "winapi",

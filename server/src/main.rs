@@ -6,7 +6,15 @@ mod util;
 fn main() -> std::process::ExitCode {
     let cli_args: init::CliArgs = <init::CliArgs as clap::Parser>::parse();
 
-    let _logg: log4rs::Handle = match init::initialize_logger(cli_args.log_level) {
+    let config_client: storage::ConfigurationClient = storage::ConfigurationClient::init();
+
+    let runtime: tokio::runtime::Runtime = match init::build_runtime() {
+        Ok(n) => n,
+        Err(code) => return code,
+    };
+
+    let config: storage::Configuration = runtime.block_on(config_client.get_config());
+    let _logg: log4rs::Handle = match init::initialize_logger(cli_args.log_level, &config) {
         Ok(n) => n,
         Err(code) => return code,
     };
@@ -15,13 +23,6 @@ fn main() -> std::process::ExitCode {
         name = env!("CARGO_PKG_NAME"),
         version = env!("CARGO_PKG_VERSION"),
     );
-
-    let config_client: storage::ConfigurationClient = storage::ConfigurationClient::init();
-
-    let runtime: tokio::runtime::Runtime = match init::build_runtime() {
-        Ok(n) => n,
-        Err(code) => return code,
-    };
 
     /*
      * Actors's connectors.

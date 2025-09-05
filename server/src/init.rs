@@ -17,21 +17,37 @@ pub struct CliArgs {
 
 pub const LOG_TARGET_GAME: &str = "game";
 
-pub fn initialize_logger(level: log::LevelFilter) -> Result<log4rs::Handle, std::process::ExitCode> {
+pub fn initialize_logger(
+    level: log::LevelFilter,
+    config: &crate::storage::Configuration,
+) -> Result<log4rs::Handle, std::process::ExitCode> {
     const APPENDER_NAME_CORE: &str = "core";
     const APPENDER_NAME_GAME: &str = "game_server";
 
-    let appender_core: log4rs::append::console::ConsoleAppender = log4rs::append::console::ConsoleAppender::builder()
+    let logs_dir: String = config.fs.root_dir_abs_utf8();
+    let log_file_path = format!("{}/rustctl.log", logs_dir);
+
+    let appender_core: log4rs::append::file::FileAppender = log4rs::append::file::FileAppender::builder()
         .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
             "{h({d(%Y-%m-%d %H:%M:%S)(utc)} [rustctl] {m})} [{f}:{L}]\n",
         )))
-        .build();
+        .append(true)
+        .build(&log_file_path)
+        .map_err(|err| {
+            eprintln!("Failed to create core file appender: {err}");
+            std::process::ExitCode::FAILURE
+        })?;
 
-    let appender_game: log4rs::append::console::ConsoleAppender = log4rs::append::console::ConsoleAppender::builder()
+    let appender_game: log4rs::append::file::FileAppender = log4rs::append::file::FileAppender::builder()
         .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
             "{h({d(%Y-%m-%d %H:%M:%S)(utc)} [{t}] {m})}\n",
         )))
-        .build();
+        .append(true)
+        .build(&log_file_path)
+        .map_err(|err| {
+            eprintln!("Failed to create game file appender: {err}");
+            std::process::ExitCode::FAILURE
+        })?;
 
     let appender_cfg_core: log4rs::config::Appender =
         log4rs::config::Appender::builder().build(APPENDER_NAME_CORE, Box::new(appender_core));

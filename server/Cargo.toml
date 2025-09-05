@@ -51,6 +51,7 @@ workspace = true
 workspace = true
 features = [
   "console_appender",
+  "file_appender",
 ]
 
 [dependencies.tokio-util]
