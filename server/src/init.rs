@@ -1,6 +1,10 @@
 #[derive(clap::Parser, Debug)]
 #[command(version)]
 pub struct CliArgs {
+    /// Skip updates.
+    #[arg(short = 's', long, default_value_t = false)]
+    pub skip: bool,
+
     #[arg(short, long, default_value_t = log::LevelFilter::Debug)]
     pub log_level: log::LevelFilter,
 

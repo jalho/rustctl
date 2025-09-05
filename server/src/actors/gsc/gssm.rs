@@ -3,6 +3,8 @@
 pub struct Context {
     pub tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
 
+    pub skip: bool,
+
     pub cfg_client: crate::storage::ConfigurationClient,
 
     pub rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
@@ -53,6 +55,8 @@ impl GameServerStateMachine {
     pub fn init(
         tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
 
+        skip: bool,
+
         cfg_client: crate::storage::ConfigurationClient,
 
         rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
@@ -64,6 +68,8 @@ impl GameServerStateMachine {
         Self::Init {
             ctx: Context {
                 tx_activate,
+
+                skip,
 
                 cfg_client,
 
@@ -115,45 +121,59 @@ impl GameServerStateMachine {
                 Self::InstallingUpdates { ctx } => {
                     let config: crate::storage::Configuration = ctx.cfg_client.get_config().await;
 
-                    let buildid_before: Option<u32> = {
-                        if let Ok(contents) = tokio::fs::read_to_string(config.fs.manifest_abs_utf8()).await {
-                            extract_buildid_from_buf(&contents)
-                        } else {
-                            None
-                        }
-                    };
-
-                    let buildid_after: u32 = match install_or_update_game_server(&config).await {
-                        Ok(n) => n,
-                        Err(err) => {
-                            log::error!("Installing game server failed: {err}");
-                            Self::request_termination(ctx.tx_activate.clone()).await;
-                            break 'loop_transitions;
-                        }
-                    };
-
-                    match buildid_before {
-                        None => {
-                            log::info!("Installed game server: buildid {buildid_after}");
-                        }
-                        Some(buildid_before) => {
-                            if buildid_before == buildid_after {
-                                log::info!("Installation checked: Game server is up to date: buildid {buildid_after}");
+                    let buildid_after: u32;
+                    if !ctx.skip {
+                        let buildid_before: Option<u32> = {
+                            if let Ok(contents) = tokio::fs::read_to_string(config.fs.manifest_abs_utf8()).await {
+                                extract_buildid_from_buf(&contents)
                             } else {
-                                log::info!("Updated game server: From buildid {buildid_before} to {buildid_after}");
+                                None
+                            }
+                        };
+
+                        buildid_after = match install_or_update_game_server(&config).await {
+                            Ok(n) => n,
+                            Err(err) => {
+                                log::error!("Installing game server failed: {err}");
+                                Self::request_termination(ctx.tx_activate.clone()).await;
+                                break 'loop_transitions;
+                            }
+                        };
+
+                        match buildid_before {
+                            None => {
+                                log::info!("Installed game server: buildid {buildid_after}");
+                            }
+                            Some(buildid_before) => {
+                                if buildid_before == buildid_after {
+                                    log::info!(
+                                        "Installation checked: Game server is up to date: buildid {buildid_after}"
+                                    );
+                                } else {
+                                    log::info!("Updated game server: From buildid {buildid_before} to {buildid_after}");
+                                }
                             }
                         }
+                    } else {
+                        log::warn!("Not installing or updating game server due to skip specified");
+                        buildid_after = 0;
                     }
 
-                    let carbon_installation_checksum: String = match install_or_update_carbon(&config).await {
-                        Ok(n) => n,
-                        Err(err) => {
-                            log::error!("Installing or updating Carbon Modding Framework failed: {err}");
-                            Self::request_termination(ctx.tx_activate.clone()).await;
-                            break 'loop_transitions;
-                        }
-                    };
-                    log::info!("Carbon Modding Framework installed or updated: SHA256: {carbon_installation_checksum}");
+                    if !ctx.skip {
+                        let carbon_installation_checksum: String = match install_or_update_carbon(&config).await {
+                            Ok(n) => n,
+                            Err(err) => {
+                                log::error!("Installing or updating Carbon Modding Framework failed: {err}");
+                                Self::request_termination(ctx.tx_activate.clone()).await;
+                                break 'loop_transitions;
+                            }
+                        };
+                        log::info!(
+                            "Carbon Modding Framework installed or updated: SHA256: {carbon_installation_checksum}"
+                        );
+                    } else {
+                        log::warn!("Not installing or updating modding framework due to skip specified");
+                    }
 
                     let startup_script: String = match generate_game_server_startup_script(&config).await {
                         Ok(n) => n,

@@ -54,6 +54,7 @@ fn main() -> std::process::ExitCode {
     let controller = actors::gsc::GameServerController::new(
         ctoken.child_token(),
         tx_activate.clone(),
+        cli_args.skip,
         config_client.clone(),
         rx_command_relay,
         tx_gss,
