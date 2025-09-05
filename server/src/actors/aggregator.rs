@@ -325,17 +325,18 @@ impl Aggregated {
 }
 
 #[derive(Debug, serde::Deserialize)]
-#[serde(tag = "hook")]
+#[serde(tag = "hook", deny_unknown_fields)]
 pub enum IngameEvent {
-    OnDispenserGather { timestamp: u64, data: DispenserData },
-    OnDispenserBonus { timestamp: u64, data: DispenserData },
-    OnPlayerDeath { timestamp: u64, data: PlayerDeathData },
-    OnGrowableGathered { timestamp: u64, data: GatherableData },
-    OnCollectiblePickup { timestamp: u64, data: CollectibleData },
-    OnCargoShipSpawnCrate { timestamp: u64, data: CargoShipData },
+    OnDispenserGather { data: DispenserData },
+    OnDispenserBonus { data: DispenserData },
+    OnPlayerDeath { data: PlayerDeathData },
+    OnGrowableGathered { data: GatherableData },
+    OnCollectiblePickup { data: CollectibleData },
+    OnCargoShipSpawnCrate,
 }
 
 #[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DispenserData {
     pub player_id: String,
     pub item_shortname: String,
@@ -343,15 +344,23 @@ pub struct DispenserData {
 }
 
 #[derive(Debug, serde::Deserialize)]
+#[allow(non_camel_case_types)]
+enum PlayerDeathContext {
+    pve,
+    pvp,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PlayerDeathData {
-    #[serde(rename = "type")]
-    pub kind: String, // "pvp" or "pve"
+    pub kind: PlayerDeathContext,
     pub killer_id: Option<String>,
     pub killed_id: String,
     pub damage_type: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GatherableData {
     pub player_id: String,
     pub item_shortname: String,
@@ -359,13 +368,9 @@ pub struct GatherableData {
 }
 
 #[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CollectibleData {
     pub player_id: String,
     pub item_name: String,
     pub quantity: u32,
-}
-
-#[derive(Debug, serde::Deserialize)]
-pub struct CargoShipData {
-    pub event_type: String,
 }

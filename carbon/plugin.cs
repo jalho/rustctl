@@ -52,7 +52,6 @@ namespace Carbon.Plugins {
 
             try {
                 var event_data = new {
-                    timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                     hook = hook_name,
                     data = data
                 };
@@ -93,7 +92,7 @@ namespace Carbon.Plugins {
 
             if (is_killer_player && !is_suicide) {
                 this.write_hook_data("OnPlayerDeath", new {
-                    type = "pvp",
+                    kind = "pvp",
                     killer_id = killer_info.InitiatorPlayer.userID.ToString(),
                     killed_id = killed_player.userID.ToString()
                 });
@@ -105,7 +104,7 @@ namespace Carbon.Plugins {
                     majority_damage_type = killer_info.damageTypes.GetMajorityDamageType().ToString();
                 }
                 this.write_hook_data("OnPlayerDeath", new {
-                    type = "pve",
+                    kind = "pve",
                     damage_type = majority_damage_type,
                     killed_id = killed_player.userID.ToString()
                 });
@@ -133,7 +132,7 @@ namespace Carbon.Plugins {
 
         void OnCargoShipSpawnCrate(CargoShip self) {
             this.write_hook_data("OnCargoShipSpawnCrate", new {
-                event_type = "cargo_ship_crate_spawn"
+                // TODO: Serialize whatever the `CargoShip self` contains?
             });
         }
 
