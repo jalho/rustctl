@@ -124,6 +124,9 @@ impl GameServerStateMachine {
                 Self::InstallingUpdates { ctx } => {
                     let config: crate::storage::Configuration = ctx.cfg_client.get_config().await;
 
+                    /*
+                     * Install/update game server.
+                     */
                     let buildid_after: u32;
                     if !ctx.skip {
                         let buildid_before: Option<u32> = {
@@ -162,6 +165,9 @@ impl GameServerStateMachine {
                         buildid_after = 0;
                     }
 
+                    /*
+                     * Install/update modding framework.
+                     */
                     if !ctx.skip {
                         let carbon_installation_checksum: String = match install_or_update_carbon(&config).await {
                             Ok(n) => n,
@@ -176,6 +182,13 @@ impl GameServerStateMachine {
                         );
                     } else {
                         log::warn!("Skipping installing/updating modding framework");
+                    }
+
+                    /*
+                     * Instrument game server by installing a custom plugin.
+                     */
+                    if let Err(err) = install_plugin(&config).await {
+                        todo!();
                     }
 
                     let startup_script: String = match generate_game_server_startup_script(&config).await {
@@ -255,7 +268,9 @@ impl GameServerStateMachine {
                         let ctoken = ctx.ctoken.child_token();
                         let _term_job = tokio::spawn(async move {
                             ctoken.cancelled().await;
-                            log::info!("Sending termination signal to game server process group: PID {pid}, PGID {pgid}");
+                            log::info!(
+                                "Sending termination signal to game server process group: PID {pid}, PGID {pgid}"
+                            );
                             _ = nix::sys::signal::killpg(pgid, nix::sys::signal::Signal::SIGTERM);
                         });
                     }
@@ -719,6 +734,18 @@ async fn install_or_update_game_server(config: &crate::storage::Configuration) -
         Some(n) => Ok(n),
         None => Err(format!(r#"failed to extract buildid from manifest "{manifest_path}""#,)),
     }
+}
+
+async fn install_plugin(config: &crate::storage::Configuration) -> Result<(), String> {
+    let instrumentation_plugin_path: String = config.fs.instrumentation_plugin_abs_utf8();
+
+    let plugin_contents: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../carbon/plugin.cs"));
+
+    tokio::fs::write(&instrumentation_plugin_path, plugin_contents)
+        .await
+        .map_err(|e| format!("Failed to write plugin file: {e}"))?;
+
+    Ok(())
 }
 
 /// Install or update Carbon Modding Framework (https://carbonmod.gg/).

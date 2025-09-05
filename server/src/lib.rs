@@ -65,6 +65,12 @@ impl PresumedFilesystemHierarchy {
         path
     }
 
+    fn instrumentation_plugin_abs(&self) -> std::path::PathBuf {
+        let mut path = self.plugins_dir_abs().to_path_buf();
+        path.push("rustctl_sock.cs");
+        path
+    }
+
     fn manifest_abs(&self) -> std::path::PathBuf {
         let mut path = self.root_dir_abs().to_path_buf();
         path.push("steamapps/appmanifest_258550.acf");
@@ -111,6 +117,10 @@ impl PresumedFilesystemHierarchy {
     /// string.
     pub fn plugins_dir_abs_utf8(&self) -> String {
         self.plugins_dir_abs().to_string_lossy().to_string()
+    }
+
+    pub fn instrumentation_plugin_abs_utf8(&self) -> String {
+        self.instrumentation_plugin_abs().to_string_lossy().to_string()
     }
 
     /// Returns the Unix domain socket path as a UTF-8 string.
