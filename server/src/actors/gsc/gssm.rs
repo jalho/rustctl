@@ -1,6 +1,7 @@
 //! Game Server State Machine (GSSM).
 
 pub struct Context {
+    pub ctoken: tokio_util::sync::CancellationToken,
     pub tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
 
     pub skip: bool,
@@ -53,6 +54,7 @@ pub enum GameServerStateMachine {
 
 impl GameServerStateMachine {
     pub fn init(
+        ctoken: tokio_util::sync::CancellationToken,
         tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
 
         skip: bool,
@@ -67,6 +69,7 @@ impl GameServerStateMachine {
     ) -> Self {
         Self::Init {
             ctx: Context {
+                ctoken,
                 tx_activate,
 
                 skip,
@@ -238,6 +241,24 @@ impl GameServerStateMachine {
                             break 'loop_transitions;
                         }
                     };
+
+                    /*
+                     * Hook the spawned process group to the termination mechanism.
+                     */
+                    if let Some(pid) = process.id() {
+                        /*
+                         * SAFETY: Trust me bro.
+                         */
+                        let pgid: i32 = unsafe { libc::getpgid(pid as i32) };
+                        let pgid: nix::unistd::Pid = nix::unistd::Pid::from_raw(pgid);
+
+                        let ctoken = ctx.ctoken.child_token();
+                        let _term_job = tokio::spawn(async move {
+                            ctoken.cancelled().await;
+                            log::info!("Sending termination signal to game server process group: PID {pid}, PGID {pgid}");
+                            _ = nix::sys::signal::killpg(pgid, nix::sys::signal::Signal::SIGTERM);
+                        });
+                    }
 
                     let (stdout, stderr) = match (process.stdout.take(), process.stderr.take()) {
                         (Some(stdout), Some(stderr)) => (stdout, stderr),

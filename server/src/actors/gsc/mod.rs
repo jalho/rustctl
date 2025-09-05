@@ -24,6 +24,7 @@ impl GameServerController {
     ) -> Self {
         Self {
             gssm: gssm::GameServerStateMachine::init(
+                ctoken.child_token(),
                 tx_activate,
                 skip,
                 cfg_client,
