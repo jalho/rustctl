@@ -11,30 +11,9 @@ class JSONSerializable {
     }
 }
 
-enum Category {
-    /**
-     * Case "player killed another player".
-     */
-    PvP,
-    /**
-     * Case e.g. "player got killed by NPC".
-     */
-    PvE,
-    /**
-     * Case e.g. "player collected wood".
-     */
-    Farm,
-    /**
-     * Case e.g. "crate spawned on cargo ship".
-     */
-    World,
-}
-
 class PlayerEventPvpKill : JSONSerializable {
     [JsonProperty("type")]
     public string Type { get; } = "PlayerEventPvpKill";
-
-    public Category category { get; set; }
 
     public ulong timestamp { get; set; }
 
@@ -49,8 +28,6 @@ class PlayerEventPveDeath : JSONSerializable {
     [JsonProperty("type")]
     public string Type { get; } = "PlayerEventPveDeath";
 
-    public Category category { get; set; }
-
     public ulong timestamp { get; set; }
 
     /** Some identifier of the killer. */
@@ -63,8 +40,6 @@ class PlayerEventPveDeath : JSONSerializable {
 class PlayerEventFarming : JSONSerializable {
     [JsonProperty("type")]
     public string Type { get; } = "PlayerEventFarming";
-
-    public Category category { get; set; }
 
     public ulong timestamp { get; set; }
 
@@ -81,8 +56,6 @@ class PlayerEventFarming : JSONSerializable {
 class WorldEvent : JSONSerializable {
     [JsonProperty("type")]
     public string Type { get; } = "WorldEvent";
-
-    public Category category { get; set; }
 
     public ulong timestamp { get; set; }
 
@@ -148,7 +121,6 @@ namespace Carbon.Plugins {
         object OnDispenserGather(ResourceDispenser resource_dispenser, BasePlayer player, Item item) {
             long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             var farming_event = new PlayerEventFarming {
-                category = Category.Farm,
                 timestamp = (ulong) timestamp,
                 id_subject = (player.userID).ToString(),
                 id_object = item.info.shortname,
@@ -166,7 +138,6 @@ namespace Carbon.Plugins {
         void OnDispenserBonus(ResourceDispenser resource_dispencer, BasePlayer player, Item item) {
             long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             var farming_event = new PlayerEventFarming {
-                category = Category.Farm,
                 timestamp = (ulong) timestamp,
                 id_subject = (player.userID).ToString(),
                 id_object = item.info.shortname,
@@ -189,7 +160,6 @@ namespace Carbon.Plugins {
             // case PvP
             if (is_killer_player && !is_suicide) {
                 var death_event = new PlayerEventPvpKill {
-                    category = Category.PvP,
                     timestamp = (ulong) timestamp,
                     id_subject = killer_info.InitiatorPlayer.userID.ToString(),
                     id_object = killed_player.userID.ToString(),
@@ -205,7 +175,6 @@ namespace Carbon.Plugins {
                     majority_damage_type = killer_info.damageTypes.GetMajorityDamageType().ToString();
                 }
                 var death_event = new PlayerEventPveDeath {
-                    category = Category.PvE,
                     timestamp = (ulong) timestamp,
                     id_subject = majority_damage_type,
                     id_object = killed_player.userID.ToString(),
@@ -218,7 +187,6 @@ namespace Carbon.Plugins {
         object OnGrowableGathered(GrowableEntity growable, Item gathered, BasePlayer player) {
             long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             var farming_event = new PlayerEventFarming {
-                category = Category.Farm,
                 timestamp = (ulong) timestamp,
                 id_subject = (player.userID).ToString(),
                 id_object = gathered.info.shortname,
@@ -235,7 +203,6 @@ namespace Carbon.Plugins {
         object OnCollectiblePickup(CollectibleEntity collectible, BasePlayer player, bool eat) {
             long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             var farming_event = new PlayerEventFarming {
-                category = Category.Farm,
                 timestamp = (ulong) timestamp,
                 id_subject = (player.userID).ToString(),
                 id_object = collectible.name,
@@ -246,29 +213,13 @@ namespace Carbon.Plugins {
         }
 
         object OnCargoShipSpawnCrate(CargoShip self) {
-            // this.inspect_object(self);
             long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             var world_event = new WorldEvent {
-                category = Category.World,
                 timestamp = (ulong) timestamp,
                 id_subject = "OnCargoShipSpawnCrate",
             };
             this.write_sock(world_event);
             return (object) null;
-        }
-
-        /**
-         * Debug helper method.
-         */
-        private void inspect_object(object inspectable) {
-            Type inspectable_type = inspectable.GetType();
-            PropertyInfo[] properties = inspectable_type.GetProperties();
-            StringBuilder property_names = new StringBuilder();
-            foreach (PropertyInfo property in properties)
-            {
-                property_names.Append(property.Name + "\n\t");
-            }
-            Console.WriteLine($"FullName: '{inspectable_type.FullName}', Property Names:\n\t{property_names}");
         }
 
         /**
