@@ -6,70 +6,11 @@ edition = "2024"
 default = ["web"]
 web     = ["dioxus/web"]
 
-[dependencies.futures]
-workspace = true
-features = [
-  "alloc",
-]
-
-[dependencies.gloo-console]
-workspace = true
-
-[dependencies.uuid]
-workspace = true
-features = [
-  "v4",
-  "serde",
-  "js",
-]
-
-[dependencies.gloo-timers]
-workspace = true
-features = [
-  "futures",
-]
-
-[dependencies.serde_json]
-workspace = true
-
-[dependencies.rustctl-common]
-workspace = true
-
-[dependencies.dioxus]
-workspace = true
-features = [
-  "asset",
-  "cli-config",
-  "devtools",
-  "document",
-  "file_engine",
-  "hooks",
-  "html",
-  "launch",
-  "logger",
-  "macro",
-  "mounted",
-  "signals",
-  "warnings",
-]
-
-[dependencies.futures-util]
-workspace = true
-features = [
-  "sink",
-]
-
-[dependencies.gloo-net]
-workspace = true
-features = [
-  "websocket",
-]
-
-[dependencies.serde]
-workspace = true
-features = [
-  "derive",
-]
-
-[dependencies.wasm-bindgen-futures]
-workspace = true
+[dependencies]
+dioxus               = { workspace = true, features = ["web", "html", "hooks", "signals", "launch", "macro"] }
+futures-util         = { workspace = true, features = ["sink"] }
+gloo-net             = { workspace = true, features = ["websocket"] }
+gloo-timers          = { workspace = true, features = ["futures"] }
+wasm-bindgen-futures = { workspace = true, features = [] }
+serde                = { workspace = true, features = ["derive"] }
+serde_json           = { workspace = true, features = [] }
