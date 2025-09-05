@@ -224,63 +224,6 @@ impl Aggregator {
                             }
                         };
 
-                        /*
-                         * Samples as of commit 7131e95e55da3274ec9573469398cab2bc05a62f:
-                         * ```
-                         * [server/src/actors/aggregator.rs:270:25] event = OnCargoShipSpawnCrate
-                         * [server/src/actors/aggregator.rs:270:25] event = OnCollectiblePickup {
-                         *     items: [
-                         *         Item {
-                         *             resource: "Cloth",
-                         *             amount: 10,
-                         *         },
-                         *         Item {
-                         *             resource: "Hemp Seed",
-                         *             amount: 1,
-                         *         },
-                         *     ],
-                         *     steam_id: 76561198135242017,
-                         * }
-                         * [server/src/actors/aggregator.rs:270:25] event = OnCollectiblePickup {
-                         *     items: [
-                         *         Item {
-                         *             resource: "Mushroom",
-                         *             amount: 1,
-                         *         },
-                         *     ],
-                         *     steam_id: 76561198135242017,
-                         * }
-                         * [server/src/actors/aggregator.rs:270:25] event = OnCollectiblePickup {
-                         *     items: [
-                         *         Item {
-                         *             resource: "Metal Ore",
-                         *             amount: 50,
-                         *         },
-                         *     ],
-                         *     steam_id: 76561198135242017,
-                         * }
-                         * [server/src/actors/aggregator.rs:270:25] event = OnDispenserGather {
-                         *     amount: 5,
-                         *     resource: "Wood",
-                         *     steam_id: 76561198135242017,
-                         * }
-                         * [server/src/actors/aggregator.rs:270:25] event = OnDispenserGather {
-                         *     amount: 10,
-                         *     resource: "Leather",
-                         *     steam_id: 76561198135242017,
-                         * }
-                         * [server/src/actors/aggregator.rs:270:25] event = OnDispenserGather {
-                         *     amount: 4,
-                         *     resource: "Raw Pork",
-                         *     steam_id: 76561198135242017,
-                         * }
-                         * [server/src/actors/aggregator.rs:270:25] event = OnDispenserGather {
-                         *     amount: 13,
-                         *     resource: "Bone Fragments",
-                         *     steam_id: 76561198135242017,
-                         * }
-                         * ```
-                         */
                         let event: InGameEvent = match serde_json::from_str(&utf8) {
                             Ok(n) => n,
                             Err(err) => {
@@ -322,6 +265,19 @@ impl Aggregated {
     }
 }
 
+/// Some examples:
+/// ```
+/// "Animal Fat"
+/// "Bone Fragments"
+/// "Cloth"
+/// "Leather"
+/// "Raw Bear Meat"
+/// "Stones"
+/// "Wood"
+/// ```
+#[derive(Debug, serde::Deserialize)]
+struct Resource(String);
+
 #[derive(Debug, serde::Deserialize)]
 #[serde(tag = "hook")]
 pub enum InGameEvent {
@@ -330,7 +286,7 @@ pub enum InGameEvent {
         amount: u32,
 
         #[serde(rename = "item.info.displayName.english")]
-        resource: String, // TODO: Use enum Resource
+        resource: Resource,
 
         #[serde(rename = "player.Connection.userid")]
         steam_id: u64,
@@ -340,7 +296,7 @@ pub enum InGameEvent {
         amount: u32,
 
         #[serde(rename = "item.info.displayName.english")]
-        resource: String, // TODO: Use enum Resource
+        resource: Resource,
 
         #[serde(rename = "player.Connection.userid")]
         steam_id: u64,
@@ -350,7 +306,7 @@ pub enum InGameEvent {
         amount: u32,
 
         #[serde(rename = "item.info.displayName.english")]
-        resource: String, // TODO: Use enum Resource
+        resource: Resource,
 
         #[serde(rename = "player.Connection.userid")]
         steam_id: u64,
@@ -367,7 +323,7 @@ pub enum InGameEvent {
 
 #[derive(Debug)]
 struct Item {
-    resource: String, // TODO: Use enum Resource
+    resource: Resource,
     amount: u32,
 }
 
@@ -397,7 +353,7 @@ impl<'de> serde::Deserialize<'de> for Item {
         }
 
         let raw = RawItem::deserialize(deserializer)?;
-        let resource = raw.item_def.displayName.english;
+        let resource = Resource(raw.item_def.displayName.english);
 
         Ok(Item {
             resource,
