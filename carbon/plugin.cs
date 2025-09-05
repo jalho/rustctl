@@ -137,6 +137,12 @@ namespace Carbon.Plugins {
                 new Dictionary<string, object> {
                     ["hook"] = "OnCollectiblePickup",
                     ["player.Connection.userid"] = player.Connection.userid,
+                    /*
+                     * TODO: `item.itemList` is quite large -- Don't serialize
+                     *       and send all of it, but instead only pick the
+                     *       interesting parts! Refer to the receiving end's
+                     *       deserialization for what we're interested in!
+                     */
                     ["item.itemList"] = item.itemList,
                 }
             );

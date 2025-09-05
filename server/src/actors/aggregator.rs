@@ -361,26 +361,3 @@ impl<'de> serde::Deserialize<'de> for Item {
         })
     }
 }
-
-// #[derive(Debug, serde::Deserialize)]
-// enum Resource {
-//     Cloth,
-//     Wood,
-//     Stones,
-//     #[serde(rename = "Metal Ore")]
-//     MetalOre,
-//     #[serde(rename = "Sulfur Ore")]
-//     SulfurOre,
-//     #[serde(rename = "Raw Pork")]
-//     RawPork,
-//     #[serde(rename = "Yellow Berry")]
-//     YellowBerry,
-//     #[serde(rename = "White Berry")]
-//     WhiteBerry,
-//     #[serde(rename = "Blue Berry")]
-//     BlueBerry,
-//     #[serde(rename = "Red Berry")]
-//     RedBerry,
-//     #[serde(rename = "Green Berry")]
-//     GreenBerry,
-// }
