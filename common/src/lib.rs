@@ -112,6 +112,7 @@ pub mod snapshot {
 
 pub mod web_app {
     pub const WEBSOCKET_CONNECT_URL_PATH: &str = "/api/websocket";
+    pub const MAP_URL_PATH: &str = "/api/map";
 }
 
 pub mod command {

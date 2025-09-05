@@ -99,7 +99,7 @@ fn MapView() -> Element {
         div {
             style: "position: relative; width: {map_width}px; height: {map_height}px; border: 1px solid black;",
             img {
-                src: "http://192.168.0.103:8080/map",
+                src: format!("http://192.168.0.103:8080{url_path}", url_path = rustctl_common::web_app::MAP_URL_PATH),
                 alt: "Current game world map",
                 style: "width: 100%; height: 100%; display: block;",
             }

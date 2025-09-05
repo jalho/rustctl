@@ -25,7 +25,10 @@ impl WebServer {
                 rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH,
                 axum::routing::get(handlers::websocket_handler),
             )
-            .route("/map", axum::routing::get(handlers::map_handler))
+            .route(
+                rustctl_common::web_app::MAP_URL_PATH,
+                axum::routing::get(handlers::map_handler),
+            )
             .with_state(state);
 
         Self {
