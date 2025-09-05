@@ -260,7 +260,7 @@ impl Aggregator {
                          * }
                          * ```
                          */
-                        let event: IngameEvent = match serde_json::from_str(&utf8) {
+                        let event: InGameEvent = match serde_json::from_str(&utf8) {
                             Ok(n) => n,
                             Err(err) => {
                                 log::error!("TODO:\n{err}:\n{utf8}");
@@ -303,7 +303,7 @@ impl Aggregated {
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(tag = "hook", deny_unknown_fields)]
-pub enum IngameEvent {
+pub enum InGameEvent {
     OnDispenserGather {
         #[serde(rename = "item.amount")]
         amount: u32,
