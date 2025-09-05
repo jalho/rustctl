@@ -14,6 +14,9 @@ namespace Carbon.Plugins {
         private bool socket_connected = false;
 
         public rustctl_sock() {
+            // TODO: Template the socket path: Should be defined in the Rust
+            //       source only! Also template the plugin's name as it must
+            //       correspond to the written file's name!
             this.endpoint = new UnixDomainSocketEndPoint("/tmp/rustctl.sock");
             this.init_socket();
         }
