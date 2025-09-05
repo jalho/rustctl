@@ -304,11 +304,35 @@ impl Aggregated {
 #[derive(Debug, serde::Deserialize)]
 #[serde(tag = "hook", deny_unknown_fields)]
 pub enum IngameEvent {
-    OnDispenserGather { data: DispenserData },
-    OnDispenserBonus { data: DispenserData },
-    OnPlayerDeath { data: PlayerDeathData },
-    OnGrowableGathered { data: GatherableData },
-    OnCollectiblePickup { data: CollectibleData },
+    OnDispenserGather {
+        #[serde(rename = "item.amount")]
+        amount: u32,
+
+        #[serde(rename = "item.info.displayName.english")]
+        resource: Resource,
+
+        #[serde(rename = "player.Connection.userid")]
+        steam_id: u64,
+    },
+    OnDispenserBonus {
+        #[serde(rename = "item.amount")]
+        amount: u32,
+
+        #[serde(rename = "item.info.displayName.english")]
+        resource: Resource,
+
+        #[serde(rename = "player.Connection.userid")]
+        steam_id: u64,
+    },
+    OnPlayerDeath {
+        data: PlayerDeathData,
+    },
+    OnGrowableGathered {
+        data: GatherableData,
+    },
+    OnCollectiblePickup {
+        data: CollectibleData,
+    },
     OnCargoShipSpawnCrate,
 }
 
@@ -320,19 +344,6 @@ enum Resource {
     MetalOre,
     #[serde(rename = "Sulfur Ore")]
     SulfurOre,
-}
-
-#[derive(Debug, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DispenserData {
-    #[serde(rename = "item.amount")]
-    pub amount: u32,
-
-    #[serde(rename = "item.info.displayName.english")]
-    pub resource: Resource,
-
-    #[serde(rename = "player.Connection.userid")]
-    pub steam_id: u64,
 }
 
 #[derive(Debug, serde::Deserialize)]

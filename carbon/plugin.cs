@@ -51,15 +51,10 @@ namespace Carbon.Plugins {
             }
         }
 
-        private void write_hook_data(string hook_name, object data) {
+        private void write_hook_data(object event_data) {
             if (!this.ensure_connection()) return;
 
             try {
-                var event_data = new {
-                    hook = hook_name,
-                    data = data
-                };
-
                 string json = JsonConvert.SerializeObject(event_data) + "\n";
                 byte[] bytes = Encoding.UTF8.GetBytes(json);
                 this.socket.Send(bytes);
@@ -73,8 +68,8 @@ namespace Carbon.Plugins {
 
         object OnDispenserGather(ResourceDispenser resource_dispenser, BasePlayer player, Item item) {
             this.write_hook_data(
-                "OnDispenserGather",
                 new Dictionary<string, object> {
+                    ["hook"] = "OnDispenserGather",
                     ["item.amount"] = item.amount,
                     ["item.info.displayName.english"] = item.info.displayName.english,
                     ["player.Connection.userid"] = player.Connection.userid
@@ -85,8 +80,8 @@ namespace Carbon.Plugins {
 
         void OnDispenserBonus(ResourceDispenser resource_dispencer, BasePlayer player, Item item) {
             this.write_hook_data(
-                "OnDispenserBonus",
                 new Dictionary<string, object> {
+                    ["hook"] = "OnDispenserBonus",
                     ["item.amount"] = item.amount,
                     ["item.info.displayName.english"] = item.info.displayName.english,
                     ["player.Connection.userid"] = player.Connection.userid
@@ -94,57 +89,57 @@ namespace Carbon.Plugins {
             );
         }
 
-        object OnPlayerDeath(BasePlayer killed_player, HitInfo killer_info) {
-            bool is_killer_player = killer_info?.InitiatorPlayer?.userID is ulong
-                && !killer_info.InitiatorPlayer.IsNpc;
-            bool is_suicide = is_killer_player
-                && killer_info.InitiatorPlayer.userID == killed_player.userID;
+        // object OnPlayerDeath(BasePlayer killed_player, HitInfo killer_info) {
+        //     bool is_killer_player = killer_info?.InitiatorPlayer?.userID is ulong
+        //         && !killer_info.InitiatorPlayer.IsNpc;
+        //     bool is_suicide = is_killer_player
+        //         && killer_info.InitiatorPlayer.userID == killed_player.userID;
 
-            if (is_killer_player && !is_suicide) {
-                this.write_hook_data("OnPlayerDeath", new {
-                    kind = "pvp",
-                    killer_id = killer_info.InitiatorPlayer.userID.ToString(),
-                    killed_id = killed_player.userID.ToString()
-                });
-            } else {
-                string majority_damage_type;
-                if (killer_info == null) {
-                    majority_damage_type = "unknown";
-                } else {
-                    majority_damage_type = killer_info.damageTypes.GetMajorityDamageType().ToString();
-                }
-                this.write_hook_data("OnPlayerDeath", new {
-                    kind = "pve",
-                    damage_type = majority_damage_type,
-                    killed_id = killed_player.userID.ToString()
-                });
-            }
-            return null;
-        }
+        //     if (is_killer_player && !is_suicide) {
+        //         this.write_hook_data("OnPlayerDeath", new {
+        //             kind = "pvp",
+        //             killer_id = killer_info.InitiatorPlayer.userID.ToString(),
+        //             killed_id = killed_player.userID.ToString()
+        //         });
+        //     } else {
+        //         string majority_damage_type;
+        //         if (killer_info == null) {
+        //             majority_damage_type = "unknown";
+        //         } else {
+        //             majority_damage_type = killer_info.damageTypes.GetMajorityDamageType().ToString();
+        //         }
+        //         this.write_hook_data("OnPlayerDeath", new {
+        //             kind = "pve",
+        //             damage_type = majority_damage_type,
+        //             killed_id = killed_player.userID.ToString()
+        //         });
+        //     }
+        //     return null;
+        // }
 
-        object OnGrowableGathered(GrowableEntity growable, Item gathered, BasePlayer player) {
-            this.write_hook_data("OnGrowableGathered", new {
-                player_id = player.userID.ToString(),
-                item_shortname = gathered.info.shortname,
-                quantity = gathered.amount
-            });
-            return null;
-        }
+        // object OnGrowableGathered(GrowableEntity growable, Item gathered, BasePlayer player) {
+        //     this.write_hook_data("OnGrowableGathered", new {
+        //         player_id = player.userID.ToString(),
+        //         item_shortname = gathered.info.shortname,
+        //         quantity = gathered.amount
+        //     });
+        //     return null;
+        // }
 
-        object OnCollectiblePickup(CollectibleEntity collectible, BasePlayer player, bool eat) {
-            this.write_hook_data("OnCollectiblePickup", new {
-                player_id = player.userID.ToString(),
-                item_name = collectible.name,
-                quantity = 1
-            });
-            return null;
-        }
+        // object OnCollectiblePickup(CollectibleEntity collectible, BasePlayer player, bool eat) {
+        //     this.write_hook_data("OnCollectiblePickup", new {
+        //         player_id = player.userID.ToString(),
+        //         item_name = collectible.name,
+        //         quantity = 1
+        //     });
+        //     return null;
+        // }
 
-        void OnCargoShipSpawnCrate(CargoShip self) {
-            this.write_hook_data("OnCargoShipSpawnCrate", new {
-                // TODO: Serialize whatever the `CargoShip self` contains?
-            });
-        }
+        // void OnCargoShipSpawnCrate(CargoShip self) {
+        //     this.write_hook_data("OnCargoShipSpawnCrate", new {
+        //         // TODO: Serialize whatever the `CargoShip self` contains?
+        //     });
+        // }
 
         public void Unload() {
             try {
