@@ -3,7 +3,6 @@ name    = "rustctl-common"
 edition = "2024"
 
 [dependencies]
-axum         = { workspace = true, features = ["ws"] }
 chrono       = { workspace = true, features = ["serde"] }
 dioxus-core  = { workspace = true, features = [] }
 dioxus       = { workspace = true, features = ["macro"] }

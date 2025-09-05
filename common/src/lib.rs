@@ -119,20 +119,4 @@ pub mod command {
         ServerInstallOrUpdateAndStart,
         WebSocketProtocolOther,
     }
-
-    impl TryFrom<&axum::extract::ws::Message> for DownstreamClientMessage {
-        type Error = serde_json::Error;
-
-        fn try_from(value: &axum::extract::ws::Message) -> Result<Self, Self::Error> {
-            let utf8: String = match value {
-                axum::extract::ws::Message::Text(utf8_bytes) => utf8_bytes.to_string(),
-                axum::extract::ws::Message::Binary(_)
-                | axum::extract::ws::Message::Ping(_)
-                | axum::extract::ws::Message::Pong(_)
-                | axum::extract::ws::Message::Close(_) => return Ok(Self::WebSocketProtocolOther),
-            };
-            let message: DownstreamClientMessage = serde_json::from_str(&utf8)?;
-            Ok(message)
-        }
-    }
 }

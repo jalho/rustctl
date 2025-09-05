@@ -49,6 +49,22 @@ pub async fn map_handler() -> impl axum::response::IntoResponse {
     }
 }
 
+fn ws_msg_transform(
+    arg: &axum::extract::ws::Message,
+) -> Result<rustctl_common::command::DownstreamClientMessage, serde_json::Error> {
+    let utf8: String = match arg {
+        axum::extract::ws::Message::Text(utf8_bytes) => utf8_bytes.to_string(),
+        axum::extract::ws::Message::Binary(_)
+        | axum::extract::ws::Message::Ping(_)
+        | axum::extract::ws::Message::Pong(_)
+        | axum::extract::ws::Message::Close(_) => {
+            return Ok(rustctl_common::command::DownstreamClientMessage::WebSocketProtocolOther);
+        }
+    };
+    let message: rustctl_common::command::DownstreamClientMessage = serde_json::from_str(&utf8)?;
+    Ok(message)
+}
+
 async fn collect_messages_from_downstream(
     mut stream: DownstreamStream,
     tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
@@ -66,7 +82,7 @@ async fn collect_messages_from_downstream(
             }
         };
 
-        let msg: rustctl_common::command::DownstreamClientMessage = match (&msg_raw).try_into() {
+        let msg: rustctl_common::command::DownstreamClientMessage = match ws_msg_transform(&msg_raw) {
             Ok(n) => n,
             Err(err) => {
                 log::error!("Ignoring message from downstream client: {err}: {msg_raw:?}");

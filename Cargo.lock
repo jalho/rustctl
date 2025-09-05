@@ -1878,7 +1878,6 @@ dependencies = [
 name = "rustctl-common"
 version = "0.0.0"
 dependencies = [
- "axum",
  "chrono",
  "dioxus",
  "dioxus-core",
@@ -1910,6 +1909,7 @@ dependencies = [
  "futures-util",
  "gloo-net",
  "gloo-timers",
+ "rustctl-common",
  "serde",
  "serde_json",
  "wasm-bindgen-futures",

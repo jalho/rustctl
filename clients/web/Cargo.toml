@@ -11,7 +11,7 @@ dioxus               = { workspace = true, features = ["web", "html", "hooks", "
 futures-util         = { workspace = true, features = ["sink"] }
 gloo-net             = { workspace = true, features = ["websocket"] }
 gloo-timers          = { workspace = true, features = ["futures"] }
-# rustctl-common       = { workspace = true, features = [] }
+rustctl-common       = { workspace = true, features = [] }
 serde_json           = { workspace = true, features = [] }
 serde                = { workspace = true, features = ["derive"] }
 wasm-bindgen-futures = { workspace = true, features = [] }
