@@ -40,7 +40,7 @@ mod connection {
         rx_commands: std::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
     ) {
         let (stream, _response) =
-            tokio_tungstenite::connect_async(format!("ws://127.0.0.1:8080{WEBSOCKET_CONNECT_URL_PATH}"))
+            tokio_tungstenite::connect_async(format!("ws://192.168.0.103:8080{WEBSOCKET_CONNECT_URL_PATH}"))
                 .await
                 .unwrap();
 
