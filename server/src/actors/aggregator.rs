@@ -154,17 +154,13 @@ impl Aggregator {
             let mut lock = aggregated.lock().await;
             match received {
                 super::monitor::SystemResourceUsageReading::CpuUsage {
-                    read_completed_by,
                     all_cpus,
                 } => {
-                    lock.last_updated_at = Some(read_completed_by);
                     lock.all_cpus = all_cpus;
                 }
                 super::monitor::SystemResourceUsageReading::MemoryUsage {
-                    read_completed_by,
                     kibibytes_in_use,
                 } => {
-                    lock.last_updated_at = Some(read_completed_by);
                     lock.kibibytes_in_use = kibibytes_in_use;
                 }
             }
@@ -201,7 +197,7 @@ impl Aggregator {
         }
     }
 
-    async fn aggregate_ingame_events(_aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>) -> () {
+    async fn aggregate_ingame_events(aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>) -> () {
         let _ = tokio::fs::remove_file(Self::SOCKET_PATH).await;
 
         let listener = match tokio::net::UnixListener::bind(Self::SOCKET_PATH) {
@@ -253,7 +249,6 @@ pub struct Summary {}
 
 #[derive(Debug)]
 pub struct Aggregated {
-    last_updated_at: Option<std::time::SystemTime>,
     kibibytes_in_use: u64,
     all_cpus: Vec<crate::actors::monitor::Percentage>,
     game_server_state: rustctl_common::snapshot::GameServerStateExposed,
@@ -263,7 +258,6 @@ pub struct Aggregated {
 impl Aggregated {
     pub fn init() -> std::sync::Arc<tokio::sync::Mutex<Self>> {
         std::sync::Arc::new(tokio::sync::Mutex::new(Self {
-            last_updated_at: None,
             kibibytes_in_use: 0,
             all_cpus: Vec::new(),
             game_server_state: rustctl_common::snapshot::GameServerStateExposed::Init,

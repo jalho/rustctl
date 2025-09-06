@@ -46,11 +46,7 @@ impl Monitor {
                         break 'read_usage;
                     }
                 };
-                let read_completed_by: std::time::SystemTime = std::time::SystemTime::now();
-                let memory_reading = SystemResourceUsageReading::MemoryUsage {
-                    read_completed_by,
-                    kibibytes_in_use,
-                };
+                let memory_reading = SystemResourceUsageReading::MemoryUsage { kibibytes_in_use };
                 if let Err(err) = self.send_reading(memory_reading).await {
                     log::error!("Failed to send reading: {err}");
                     self.request_termination().await;
@@ -87,10 +83,7 @@ impl Monitor {
                 };
                 self.previous_stats = Some(current_stats);
                 if let Some(all_cpus) = cpu_usage {
-                    let cpu_reading = SystemResourceUsageReading::CpuUsage {
-                        read_completed_by,
-                        all_cpus,
-                    };
+                    let cpu_reading = SystemResourceUsageReading::CpuUsage { all_cpus };
                     if let Err(err) = self.send_reading(cpu_reading).await {
                         log::error!("Failed to send reading: {err}");
                         self.request_termination().await;
@@ -124,15 +117,11 @@ pub struct Summary {}
 #[derive(Debug)]
 pub enum SystemResourceUsageReading {
     CpuUsage {
-        read_completed_by: std::time::SystemTime,
-
         /// All the "CPUs" listed in `/proc/stat`.
         all_cpus: Vec<Percentage>,
     },
 
     MemoryUsage {
-        read_completed_by: std::time::SystemTime,
-
         /// Memory used, in kibibytes.
         kibibytes_in_use: u64,
     },
