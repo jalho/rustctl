@@ -1,6 +1,12 @@
 pub mod rcon;
 pub mod in_game_events;
 
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub enum BroadcastMessage {
+    Snapshot(snapshot::Snapshot),
+    EventIncremental(in_game_events::InGameEvent),
+}
+
 pub mod snapshot {
     /// Snapshot of the remote (server) state sent to each client (on a regular
     /// interval).

@@ -1,24 +1,24 @@
-#[derive(Debug, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(untagged)]
 pub enum DamageType {
     Known(DamageTypeKnown),
     Other(String),
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum DamageTypeKnown {
     Bite,
     Drowned,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(untagged)]
 pub enum Resource {
     Known(ResourceKnown),
     Other(String),
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum ResourceKnown {
     #[serde(rename = "Animal Fat")]
     AnimalFat,
@@ -45,7 +45,7 @@ pub enum ResourceKnown {
     Wood,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "hook")]
 pub enum InGameEvent {
     OnDispenserGather {
@@ -80,8 +80,8 @@ pub enum InGameEvent {
     },
 }
 
-#[derive(Debug, serde::Deserialize)]
-struct Item {
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct Item {
     resource: Resource,
     amount: f64,
 }

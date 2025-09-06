@@ -16,7 +16,7 @@ impl WebServer {
         listen_addr: (std::net::IpAddr, u16),
 
         tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
-        tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
+        tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::BroadcastMessage>,
     ) -> Self {
         let state: State = State::init(tx_cmd_collect, tx_broadcast);
 
@@ -103,13 +103,13 @@ pub struct Summary {}
 #[derive(Clone)]
 pub struct State {
     tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
-    tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
+    tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::BroadcastMessage>,
 }
 
 impl State {
     pub fn init(
         tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
-        tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
+        tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::BroadcastMessage>,
     ) -> Self {
         Self {
             tx_cmd_collect,

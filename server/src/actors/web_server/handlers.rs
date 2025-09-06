@@ -13,8 +13,7 @@ pub async fn websocket_handler(
 
         log::debug!("Downstream client connected: {addr}");
 
-        let rx_broadcast: tokio::sync::broadcast::Receiver<rustctl_common::snapshot::Snapshot> =
-            state.tx_broadcast.subscribe();
+        let rx_broadcast = state.tx_broadcast.subscribe();
         let tx_cmd_collect: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage> =
             state.tx_cmd_collect.clone();
         let (sink, stream): (DownstreamSink, DownstreamStream) = futures_util::StreamExt::split(socket);
@@ -99,15 +98,15 @@ async fn collect_messages_from_downstream(
 
 async fn send_updates_to_downstream(
     mut sink: DownstreamSink,
-    mut rx_broadcast: tokio::sync::broadcast::Receiver<rustctl_common::snapshot::Snapshot>,
+    mut rx_broadcast: tokio::sync::broadcast::Receiver<rustctl_common::BroadcastMessage>,
 ) {
     loop {
-        let snapshot: rustctl_common::snapshot::Snapshot = match rx_broadcast.recv().await {
+        let msg: rustctl_common::BroadcastMessage = match rx_broadcast.recv().await {
             Ok(n) => n,
             Err(_err) => todo!(),
         };
 
-        let serialized: String = match serde_json::to_string(&snapshot) {
+        let serialized: String = match serde_json::to_string(&msg) {
             Ok(n) => n,
             Err(_err) => todo!(),
         };

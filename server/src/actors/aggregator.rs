@@ -5,7 +5,7 @@ pub struct Aggregator {
     rx_gss: tokio::sync::mpsc::Receiver<rustctl_common::snapshot::GameServerStateExposed>,
     rx_igs: tokio::sync::mpsc::Receiver<rustctl_common::snapshot::InGameStateExposed>,
     aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>,
-    tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
+    tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::BroadcastMessage>,
 
     rx_cmd_collect: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
     tx_cmd_relay: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
@@ -23,7 +23,7 @@ impl Aggregator {
         rx_igs: tokio::sync::mpsc::Receiver<rustctl_common::snapshot::InGameStateExposed>,
         rx_cmd_collect: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
         tx_cmd_relay: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
-        tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
+        tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::BroadcastMessage>,
         game_world_size: f64,
     ) -> Self {
         Self {
@@ -54,7 +54,8 @@ impl Aggregator {
         let job_agg_gss = Self::aggregate_game_server_state_machine_transitions(self.aggregated.clone(), self.rx_gss);
         let job_agg_igs = Self::aggregate_ingame_state(self.aggregated.clone(), self.rx_igs);
         let job_agg_ige = Self::aggregate_ingame_events(self.aggregated.clone());
-        let job_broadcast = Self::broadcast(self.game_world_size, self.aggregated.clone(), self.tx_broadcast);
+
+        let job_bcast_snapshots = Self::broadcast_snapshots(self.game_world_size, self.aggregated.clone(), self.tx_broadcast);
 
         let job_cmd_relay = Self::relay_gsc_commands(self.rx_cmd_collect, self.tx_cmd_relay.clone());
 
@@ -65,7 +66,7 @@ impl Aggregator {
                     job_agg_gss,
                     job_agg_igs,
                     job_agg_ige,
-                    job_broadcast,
+                    job_bcast_snapshots,
                     job_cmd_relay,
                 );
                 done
@@ -98,10 +99,10 @@ impl Aggregator {
         }
     }
 
-    async fn broadcast(
+    async fn broadcast_snapshots(
         game_world_size: f64,
         aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>,
-        tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::snapshot::Snapshot>,
+        tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::BroadcastMessage>,
     ) -> () {
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -137,7 +138,7 @@ impl Aggregator {
                     .collect::<Vec<rustctl_common::snapshot::CpuUsage>>(),
                 game_world_size,
             };
-            _ = tx_broadcast.send(snapshot);
+            _ = tx_broadcast.send(rustctl_common::BroadcastMessage::Snapshot(snapshot));
         }
     }
 
@@ -153,14 +154,10 @@ impl Aggregator {
 
             let mut lock = aggregated.lock().await;
             match received {
-                super::monitor::SystemResourceUsageReading::CpuUsage {
-                    all_cpus,
-                } => {
+                super::monitor::SystemResourceUsageReading::CpuUsage { all_cpus } => {
                     lock.all_cpus = all_cpus;
                 }
-                super::monitor::SystemResourceUsageReading::MemoryUsage {
-                    kibibytes_in_use,
-                } => {
+                super::monitor::SystemResourceUsageReading::MemoryUsage { kibibytes_in_use } => {
                     lock.kibibytes_in_use = kibibytes_in_use;
                 }
             }

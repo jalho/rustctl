@@ -36,7 +36,7 @@ fn main() -> std::process::ExitCode {
         tokio::sync::mpsc::channel::<rustctl_common::command::DownstreamClientMessage>(1);
     let (tx_gss, rx_gss) = tokio::sync::mpsc::channel::<rustctl_common::snapshot::GameServerStateExposed>(1);
     let (tx_igs, rx_igs) = tokio::sync::mpsc::channel::<rustctl_common::snapshot::InGameStateExposed>(1);
-    let (tx_broadcast, _) = tokio::sync::broadcast::channel::<rustctl_common::snapshot::Snapshot>(1);
+    let (tx_broadcast, _) = tokio::sync::broadcast::channel::<rustctl_common::BroadcastMessage>(1);
     let (tx_rconready, rx_rconready) = tokio::sync::mpsc::channel::<actors::gsc::gssm::ReadyForRcon>(1);
 
     /*
