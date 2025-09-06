@@ -1,4 +1,5 @@
 pub mod rcon;
+pub mod in_game_events;
 
 pub mod snapshot {
     /// Snapshot of the remote (server) state sent to each client (on a regular
