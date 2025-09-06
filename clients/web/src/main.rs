@@ -33,10 +33,7 @@ fn App() -> Element {
             h1 { "WebSocket JSON Viewer" }
             CodeView { state: state.clone() }
             h2 { "Game World Map" }
-            MapView {
-                state: state.clone(),
-                backend_url: config::BACKEND_URL
-            }
+            MapView { state: state.clone(), backend_url: config::BACKEND_URL }
             h2 { "Aggregated Resources" }
             AggregatedView { state: state.clone() }
         }

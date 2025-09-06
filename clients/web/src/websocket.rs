@@ -4,14 +4,14 @@ use rustctl_common::BroadcastMessage;
 use wasm_bindgen_futures::spawn_local;
 
 use crate::config::WS_URL;
-use crate::state::{handle_snapshot, handle_incremental_event, clear_state};
+use crate::state::{clear_state, handle_incremental_event, handle_snapshot};
 
 const RECONNECT_INTERVAL_SECS: u64 = 1;
 
 pub fn start_websocket_connection() {
     spawn_local(async move {
         let interval = std::time::Duration::from_secs(RECONNECT_INTERVAL_SECS);
-        
+
         loop {
             if let Err(_) = run_websocket_connection().await {
                 // Connection failed or was lost, clear state and wait before retrying
@@ -23,12 +23,8 @@ pub fn start_websocket_connection() {
 }
 
 async fn run_websocket_connection() -> Result<(), Box<dyn std::error::Error>> {
-    let ws_url = format!(
-        "{}{}",
-        WS_URL,
-        rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH
-    );
-    
+    let ws_url = format!("{}{}", WS_URL, rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH);
+
     let ws = WebSocket::open(&ws_url)?;
     let (_tx, mut rx) = ws.split();
 
@@ -47,7 +43,7 @@ async fn run_websocket_connection() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-    
+
     Ok(())
 }
 

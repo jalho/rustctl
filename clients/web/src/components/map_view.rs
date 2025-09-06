@@ -25,7 +25,7 @@ pub fn MapView(state: crate::state::State, backend_url: &'static str) -> Element
                     rsx! {
                         div {
                             style: "position: absolute; left: {left}px; top: {top}px; width: 10px; height: 10px; \
-                                                            background: red; border-radius: 50%; transform: translate(-50%, -50%);",
+                                                                                    background: red; border-radius: 50%; transform: translate(-50%, -50%);",
                             title: "{player.display_name}",
                         }
                     }

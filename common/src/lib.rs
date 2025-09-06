@@ -1,5 +1,5 @@
-pub mod rcon;
 pub mod in_game_events;
+pub mod rcon;
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub enum BroadcastMessage {
