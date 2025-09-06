@@ -11,7 +11,7 @@ pub fn MapView(state: crate::state::State, backend_url: &'static str) -> Element
     let world_half = world_size / 2.0;
 
     rsx! {
-        div { style: "position: relative; width: {map_width}px; height: {map_height}px; border: 1px solid black;",
+        div { style: "position: relative; width: {map_width}px; height: {map_height}px;",
             img {
                 src: format!("{}{}", backend_url, rustctl_common::web_app::MAP_URL_PATH),
                 alt: "Current game world map",
@@ -25,7 +25,7 @@ pub fn MapView(state: crate::state::State, backend_url: &'static str) -> Element
                     rsx! {
                         div {
                             style: "position: absolute; left: {left}px; top: {top}px; width: 10px; height: 10px; \
-                                                                                    background: red; border-radius: 50%; transform: translate(-50%, -50%);",
+                                    background: red; border-radius: 50%; transform: translate(-50%, -50%);",
                             title: "{player.display_name}",
                         }
                     }
@@ -34,3 +34,4 @@ pub fn MapView(state: crate::state::State, backend_url: &'static str) -> Element
         }
     }
 }
+
