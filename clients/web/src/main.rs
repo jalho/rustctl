@@ -24,7 +24,7 @@ fn App() -> Element {
                 let style = body.style();
                 style.set_property("background-color", "#0B3B4A").ok();
                 style.set_property("color", "white").ok();
-                style.set_property("margin", "0").ok();
+                style.set_property("margin", "1rem").ok();
                 style.set_property("font-family", "sans-serif").ok();
                 style.set_property("min-height", "100vh").ok();
             }
