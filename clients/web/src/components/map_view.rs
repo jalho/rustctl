@@ -6,7 +6,6 @@ const WORLD_MAP_RENDER_MARGIN: f64 = 1000.0;
 pub fn MapView(state: crate::state::State, backend_url: &'static str) -> Element {
     let map_width = 800.0;
     let map_height = 800.0;
-
     let world_size = state.snapshot.game_world_size + WORLD_MAP_RENDER_MARGIN;
     let world_half = world_size / 2.0;
 
@@ -20,17 +19,27 @@ pub fn MapView(state: crate::state::State, backend_url: &'static str) -> Element
             for player in &state.snapshot.ingame_state.players_pos {
                 {
                     let (x, _y, z) = player.position;
-                    let left = (x + world_half) / world_size * map_width;
-                    let top = (world_half - z) / world_size * map_height;
+                    let left: f64 = (x + world_half) / world_size * map_width;
+                    let top: f64 = (world_half - z) / world_size * map_height;
+                    let player_style = make_player_style(left, top);
                     rsx! {
-                        div {
-                            style: "position: absolute; left: {left}px; top: {top}px; width: 10px; height: 10px; \
-                                                                                    background: red; border-radius: 50%; transform: translate(-50%, -50%);",
-                            title: "{player.display_name}",
-                        }
+                        div { style: "{player_style}", title: "{player.display_name}" }
                     }
                 }
             }
         }
     }
+}
+
+fn make_player_style(left: f64, top: f64) -> String {
+    format!(
+        "position: absolute;
+left: {left}px;
+top: {top}px;
+width: 10px;
+height: 10px;
+background: red;
+border-radius: 50%;
+transform: translate(-50%, -50%);",
+    )
 }
