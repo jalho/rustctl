@@ -284,6 +284,7 @@ mod ige {
 
     #[derive(Debug, serde::Deserialize)]
     pub enum DamageTypeKnown {
+        Bite,
         Drowned,
     }
 
