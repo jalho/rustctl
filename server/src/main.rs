@@ -62,6 +62,34 @@ fn main() -> std::process::ExitCode {
         tx_gss,
         tx_rconready,
     );
+    /*
+     * TODO: Add new responsibility for RconClient actor:
+     *
+     *       Periodically (e.g., every 10 minutes) query the latest available game
+     *       server build from SteamCMD. Compare this to the currently installed
+     *       build ID (from the local manifest file). If a newer build is
+     *       available and there are no players on the server, instruct the game
+     *       server controller to stop and update and restart the game.
+     *
+     *       If this occurs on the first Thursday of the month, assume it
+     *       is _the_ mandatory monthly ("forced") update. In that case, the
+     *       command to the game server controller may include instructions to
+     *       use a new map seed and either wipe or preserve players' blueprints.
+     *
+     *       The player check avoids unnecessary interruptions: during a forced
+     *       update, clients cannot connect to outdated servers, so the server
+     *       should naturally empty out. Likewise even if an update is not
+     *       mandatory, we might as well install it if the server is empty.
+     *
+     *       Command for querying the latest available build ID (hallucinated by
+     *       LLM, not tested!):
+     *
+     *       ```
+     *       $ steamcmd +login anonymous +app_info_print 258550 +quit | grep -m 1 buildid
+     *       ```
+     *
+     *       Consider also renaming the RconClient actor accordingly!
+     */
     let rcon_client =
         actors::rcon_client::RconClient::new(ctoken.child_token(), config_client.clone(), tx_igs, rx_rconready);
     let web_server = actors::web_server::WebServer::new(
