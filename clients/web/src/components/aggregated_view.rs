@@ -1,15 +1,7 @@
 use dioxus::prelude::*;
-use crate::State;
 
 #[component]
-pub fn AggregatedView(state: Option<State>) -> Element {
-    let state = match state {
-        Some(s) => s,
-        None => return rsx!(
-            p { "No aggregated data yet" }
-        ),
-    };
-
+pub fn AggregatedView(state: crate::state::State) -> Element {
     rsx! {
         div {
             for (steam_id , resources) in &state.aggregated {

@@ -1,17 +1,9 @@
 use dioxus::prelude::*;
-use crate::State;
 
 const WORLD_MAP_RENDER_MARGIN: f64 = 1000.0;
 
 #[component]
-pub fn MapView(state: Option<State>, backend_url: &'static str) -> Element {
-    let state = match state {
-        Some(s) => s,
-        None => return rsx!(
-            p { "No map data yet" }
-        ),
-    };
-
+pub fn MapView(state: crate::state::State, backend_url: &'static str) -> Element {
     let map_width = 800.0;
     let map_height = 800.0;
 
