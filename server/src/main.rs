@@ -1,5 +1,6 @@
 mod actors;
 mod init;
+mod steam;
 mod storage;
 mod util;
 
