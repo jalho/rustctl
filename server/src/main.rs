@@ -88,7 +88,8 @@ fn main() -> std::process::ExitCode {
      *       $ steamcmd +login anonymous +app_info_print 258550 +quit | grep -m 1 buildid
      *       ```
      *
-     *       Consider also renaming the RconClient actor accordingly!
+     *       Consider also renaming the RconClient actor accordingly! Maybe call
+     *       it "game state monitorer"?
      */
     let rcon_client =
         actors::rcon_client::RconClient::new(ctoken.child_token(), config_client.clone(), tx_igs, rx_rconready);
