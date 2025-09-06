@@ -343,84 +343,34 @@ mod ige {
     #[serde(tag = "hook")]
     pub enum InGameEvent {
         OnDispenserGather {
-            #[serde(rename = "item.amount")]
-            amount: u32,
-
-            #[serde(rename = "item.info.displayName.english")]
-            resource: Resource,
-
-            #[serde(rename = "player.Connection.userid")]
             steam_id: u64,
+
+            amount: f64,
+            resource: Resource,
         },
         OnDispenserBonus {
-            #[serde(rename = "item.amount")]
-            amount: u32,
-
-            #[serde(rename = "item.info.displayName.english")]
-            resource: Resource,
-
-            #[serde(rename = "player.Connection.userid")]
             steam_id: u64,
+
+            amount: f64,
+            resource: Resource,
         },
         OnGrowableGathered {
-            #[serde(rename = "item.amount")]
-            amount: u32,
-
-            #[serde(rename = "item.info.displayName.english")]
-            resource: Resource,
-
-            #[serde(rename = "player.Connection.userid")]
             steam_id: u64,
+
+            amount: f64,
+            resource: Resource,
         },
         OnCollectiblePickup {
-            #[serde(rename = "item.itemList")]
-            items: Vec<Item>,
-
-            #[serde(rename = "player.Connection.userid")]
             steam_id: u64,
+
+            items: Vec<Item>,
         },
         OnCargoShipSpawnCrate,
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, serde::Deserialize)]
     struct Item {
         resource: Resource,
-        amount: u32,
-    }
-
-    impl<'de> serde::Deserialize<'de> for Item {
-        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: serde::Deserializer<'de>,
-        {
-            #[derive(serde::Deserialize)]
-            struct RawItem {
-                #[serde(rename = "amount")]
-                amount: f64,
-                #[serde(rename = "itemDef")]
-                item_def: ItemDef,
-            }
-
-            #[derive(serde::Deserialize)]
-            struct ItemDef {
-                #[serde(rename = "displayName")]
-                display_name: DisplayName,
-            }
-
-            #[derive(serde::Deserialize)]
-            struct DisplayName {
-                english: String,
-            }
-
-            let raw = RawItem::deserialize(deserializer)?;
-            let resource: Resource = Resource::deserialize(serde::de::IntoDeserializer::into_deserializer(
-                raw.item_def.display_name.english,
-            ))?;
-
-            Ok(Item {
-                resource,
-                amount: raw.amount as u32,
-            })
-        }
+        amount: f64,
     }
 }

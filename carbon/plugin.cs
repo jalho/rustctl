@@ -2,6 +2,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 
@@ -91,9 +92,10 @@ namespace Carbon.Plugins {
                 new Dictionary<string, object> {
                     ["hook"] = "OnDispenserGather",
 
-                    ["item.amount"] = item.amount,
-                    ["item.info.displayName.english"] = item.info.displayName.english,
-                    ["player.Connection.userid"] = player.Connection.userid,
+                    ["steam_id"] = player.Connection.userid,
+
+                    ["amount"] = item.amount,
+                    ["resource"] = item.info.displayName.english,
                 }
             );
             return null;
@@ -104,9 +106,10 @@ namespace Carbon.Plugins {
                 new Dictionary<string, object> {
                     ["hook"] = "OnDispenserBonus",
 
-                    ["item.amount"] = item.amount,
-                    ["item.info.displayName.english"] = item.info.displayName.english,
-                    ["player.Connection.userid"] = player.Connection.userid,
+                    ["steam_id"] = player.Connection.userid,
+
+                    ["amount"] = item.amount,
+                    ["resource"] = item.info.displayName.english,
                 }
             );
         }
@@ -116,9 +119,10 @@ namespace Carbon.Plugins {
                 new Dictionary<string, object> {
                     ["hook"] = "OnGrowableGathered",
 
-                    ["item.amount"] = item.amount,
-                    ["item.info.displayName.english"] = item.info.displayName.english,
-                    ["player.Connection.userid"] = player.Connection.userid,
+                    ["steam_id"] = player.Connection.userid,
+
+                    ["amount"] = item.amount,
+                    ["resource"] = item.info.displayName.english,
                 }
             );
             return null;
@@ -136,22 +140,21 @@ namespace Carbon.Plugins {
             this.write_hook_data(
                 new Dictionary<string, object> {
                     ["hook"] = "OnCollectiblePickup",
-                    ["player.Connection.userid"] = player.Connection.userid,
-                    /*
-                     * TODO: `item.itemList` is quite large -- Don't serialize
-                     *       and send all of it, but instead only pick the
-                     *       interesting parts! Refer to the receiving end's
-                     *       deserialization for what we're interested in!
-                     */
-                    ["item.itemList"] = item.itemList,
+
+                    ["steam_id"] = player.Connection.userid,
+
+                    ["items"] = item.itemList.Select(n => new Dictionary<string, object> {
+                        ["amount"] = n.amount,
+                        ["resource"] = n.itemDef.displayName.english
+                    }).ToList(),
                 }
             );
             return null;
         }
 
         /*
-         * TODO: Use more hooks... Some interesting ones I've used before:
-         *       - OnPlayerDeath
+         * Some more interesting hooks I've used before:
+         * - OnPlayerDeath
          *
          * Browse more here: https://carbonmod.gg/references/hooks
          */
@@ -174,4 +177,3 @@ namespace Carbon.Plugins {
         }
     }
 }
-
