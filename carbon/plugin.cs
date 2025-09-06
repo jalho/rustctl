@@ -157,12 +157,12 @@ namespace Carbon.Plugins {
         }
 
         object OnPlayerDeath(BasePlayer player, HitInfo info) {
-            string steam_id_killer = null;
-            string steam_id_killed = player?.userID.ToString();
+            ulong? steam_id_killer = null;
+            ulong steam_id_killed = player.userID;
             string majority_damage_type = null;
 
             if (info?.InitiatorPlayer != null && !info.InitiatorPlayer.IsNpc) {
-                steam_id_killer = info.InitiatorPlayer.userID.ToString();
+                steam_id_killer = info.InitiatorPlayer.userID;
             }
 
             if (info != null) {
