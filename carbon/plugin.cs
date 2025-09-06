@@ -87,6 +87,10 @@ namespace Carbon.Plugins {
             }
         }
 
+        /*
+         * Browse hooks here: https://carbonmod.gg/references/hooks
+         */
+
         object OnDispenserGather(ResourceDispenser resource_dispenser, BasePlayer player, Item item) {
             this.write_hook_data(
                 new Dictionary<string, object> {
@@ -152,12 +156,31 @@ namespace Carbon.Plugins {
             return null;
         }
 
-        /*
-         * Some more interesting hooks I've used before:
-         * - OnPlayerDeath
-         *
-         * Browse more here: https://carbonmod.gg/references/hooks
-         */
+        object OnPlayerDeath(BasePlayer player, HitInfo info) {
+            string steam_id_killer = null;
+            string steam_id_killed = player?.userID.ToString();
+            string majority_damage_type = null;
+
+            if (info?.InitiatorPlayer != null && !info.InitiatorPlayer.IsNpc) {
+                steam_id_killer = info.InitiatorPlayer.userID.ToString();
+            }
+
+            if (info != null) {
+                majority_damage_type = info.damageTypes.GetMajorityDamageType().ToString();
+            }
+
+            this.write_hook_data(
+                new Dictionary<string, object> {
+                    ["hook"] = "OnPlayerDeath",
+
+                    ["steam_id_killer"] = steam_id_killer,
+                    ["steam_id_killed"] = steam_id_killed,
+
+                    ["majority_damage_type"] = majority_damage_type,
+                }
+            );
+            return null;
+        }
 
         public void Unload() {
             try {

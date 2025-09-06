@@ -276,66 +276,38 @@ mod ige {
     //! In-game events's (IGE) related stuff.
 
     #[derive(Debug, serde::Deserialize)]
+    pub enum DamageType {
+        Known(DamageTypeKnown),
+        Other(String),
+    }
+
+    #[derive(Debug, serde::Deserialize)]
+    pub enum DamageTypeKnown {
+        Drowned,
+    }
+
+    #[derive(Debug, serde::Deserialize)]
+    #[serde(untagged)]
     pub enum Resource {
-        #[serde(rename = "Animal Fat")]
-        AnimalFat,
+        Known(ResourceKnown),
+        Other(String),
+    }
 
-        #[serde(rename = "Blue Berry")]
-        BlueBerry,
-
-        #[serde(rename = "Blue Berry Seed")]
-        BlueBerrySeed,
-
-        #[serde(rename = "Bone Fragments")]
-        BoneFragments,
-
+    #[derive(Debug, serde::Deserialize)]
+    pub enum ResourceKnown {
+        #[serde(rename = "Animal Fat")] AnimalFat,
+        #[serde(rename = "Blue Berry")] BlueBerry,
         Cloth,
-
-        #[serde(rename = "Diesel Fuel")]
-        DieselFuel,
-
-        #[serde(rename = "Green Berry")]
-        GreenBerry,
-
-        #[serde(rename = "Green Berry Seed")]
-        GreenBerrySeed,
-
-        #[serde(rename = "Hemp Seed")]
-        HempSeed,
-
+        #[serde(rename = "Diesel Fuel")] DieselFuel,
+        #[serde(rename = "Green Berry")] GreenBerry,
         Leather,
-
-        #[serde(rename = "Metal Ore")]
-        MetalOre,
-
+        #[serde(rename = "Metal Ore")] MetalOre,
         Mushroom,
-
-        #[serde(rename = "Raw Bear Meat")]
-        RawBearMeat,
-
-        #[serde(rename = "Raw Horse Meat")]
-        RawHorseMeat,
-
-        #[serde(rename = "Raw Pork")]
-        RawPork,
-
-        #[serde(rename = "Red Berry")]
-        RedBerry,
-
-        #[serde(rename = "Red Berry Seed")]
-        RedBerrySeed,
-
+        #[serde(rename = "Raw Bear Meat")] RawBearMeat,
+        #[serde(rename = "Red Berry")] RedBerry,
         Stones,
-
-        #[serde(rename = "Sulfur Ore")]
-        SulfurOre,
-
-        #[serde(rename = "White Berry")]
-        WhiteBerry,
-
-        #[serde(rename = "White Berry Seed")]
-        WhiteBerrySeed,
-
+        #[serde(rename = "Sulfur Ore")] SulfurOre,
+        #[serde(rename = "White Berry")] WhiteBerry,
         Wood,
     }
 
@@ -344,28 +316,29 @@ mod ige {
     pub enum InGameEvent {
         OnDispenserGather {
             steam_id: u64,
-
             amount: f64,
             resource: Resource,
         },
         OnDispenserBonus {
             steam_id: u64,
-
             amount: f64,
             resource: Resource,
         },
         OnGrowableGathered {
             steam_id: u64,
-
             amount: f64,
             resource: Resource,
         },
         OnCollectiblePickup {
             steam_id: u64,
-
             items: Vec<Item>,
         },
         OnCargoShipSpawnCrate,
+        OnPlayerDeath {
+            steam_id_killer: Option<u64>,
+            steam_id_killed: u64,
+            majority_damage_type: Option<DamageType>,
+        },
     }
 
     #[derive(Debug, serde::Deserialize)]
