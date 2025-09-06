@@ -20,8 +20,8 @@ pub fn MapView(state: crate::state::State, backend_url: &'static str) -> Element
             for player in &state.snapshot.ingame_state.players_pos {
                 {
                     let (x, _y, z) = player.position;
-                    let left = ((x + world_half) / world_size * map_width) as f64;
-                    let top = ((world_half - z) / world_size * map_height) as f64;
+                    let left = (x + world_half) / world_size * map_width;
+                    let top = (world_half - z) / world_size * map_height;
                     rsx! {
                         div {
                             style: "position: absolute; left: {left}px; top: {top}px; width: 10px; height: 10px; \
