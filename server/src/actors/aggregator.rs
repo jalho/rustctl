@@ -53,9 +53,12 @@ impl Aggregator {
         let job_agg_resuse = Self::aggregate_system_resources_usage_readings(self.aggregated.clone(), self.rx_resuse);
         let job_agg_gss = Self::aggregate_game_server_state_machine_transitions(self.aggregated.clone(), self.rx_gss);
         let job_agg_igs = Self::aggregate_ingame_state(self.aggregated.clone(), self.rx_igs);
-        let job_agg_ige = Self::aggregate_ingame_events(self.aggregated.clone());
 
-        let job_bcast_snapshots = Self::broadcast_snapshots(self.game_world_size, self.aggregated.clone(), self.tx_broadcast);
+        let job_bcast_snapshots =
+            Self::broadcast_snapshots(self.game_world_size, self.aggregated.clone(), self.tx_broadcast.clone());
+
+        let job_agg_and_bcast_ige =
+            Self::aggregate_and_broadcast_ingame_events(self.aggregated.clone(), self.tx_broadcast.clone());
 
         let job_cmd_relay = Self::relay_gsc_commands(self.rx_cmd_collect, self.tx_cmd_relay.clone());
 
@@ -65,7 +68,7 @@ impl Aggregator {
                     job_agg_resuse,
                     job_agg_gss,
                     job_agg_igs,
-                    job_agg_ige,
+                    job_agg_and_bcast_ige,
                     job_bcast_snapshots,
                     job_cmd_relay,
                 );
@@ -194,7 +197,10 @@ impl Aggregator {
         }
     }
 
-    async fn aggregate_ingame_events(aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>) -> () {
+    async fn aggregate_and_broadcast_ingame_events(
+        _aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>,
+        tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::BroadcastMessage>,
+    ) -> () {
         let _ = tokio::fs::remove_file(Self::SOCKET_PATH).await;
 
         let listener = match tokio::net::UnixListener::bind(Self::SOCKET_PATH) {
@@ -227,11 +233,12 @@ impl Aggregator {
                         let event: rustctl_common::in_game_events::InGameEvent = match serde_json::from_str(&utf8) {
                             Ok(n) => n,
                             Err(err) => {
-                                log::error!("TODO:\n{err}:\n{utf8}");
+                                log::error!("TODO: {err}:\n{utf8}");
                                 continue 'receive;
                             }
                         };
                         log::debug!("In-game event: {event:?}");
+                        _ = tx_broadcast.send(rustctl_common::BroadcastMessage::EventIncremental(event));
                     }
                 }
                 Err(err) => {
