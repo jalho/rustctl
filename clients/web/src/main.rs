@@ -11,7 +11,7 @@ fn main() {
     dioxus::launch(App);
 }
 
-use web_sys::{window, HtmlBodyElement};
+use web_sys::{HtmlBodyElement, window};
 
 #[component]
 fn App() -> Element {
