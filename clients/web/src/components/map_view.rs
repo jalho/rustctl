@@ -17,22 +17,33 @@ pub fn MapView(state: crate::state::State, backend_url: &'static str) -> Element
                 style: "width: 100%; height: 100%; display: block;",
             }
             for player in &state.snapshot.ingame_state.players_pos {
-                {
-                    let (x, _y, z) = player.position;
-                    let left: f64 = (x + world_half) / world_size * map_width;
-                    let top: f64 = (world_half - z) / world_size * map_height;
-                    let player_style = make_player_style(left, top);
-                    rsx! {
-                        div { style: "{player_style}", title: "{player.display_name}" }
-                    }
+                PlayerMarker {
+                    position: player.position,
+                    display_name: player.display_name.clone(),
+                    map_width,
+                    map_height,
+                    world_size,
+                    world_half,
                 }
             }
         }
     }
 }
 
-fn make_player_style(left: f64, top: f64) -> String {
-    format!(
+#[component]
+fn PlayerMarker(
+    position: (f64, f64, f64),
+    display_name: String,
+    map_width: f64,
+    map_height: f64,
+    world_size: f64,
+    world_half: f64,
+) -> Element {
+    let (x, _y, z) = position;
+    let left: f64 = (x + world_half) / world_size * map_width;
+    let top: f64 = (world_half - z) / world_size * map_height;
+
+    let style = format!(
         "position: absolute;
 left: {left}px;
 top: {top}px;
@@ -40,6 +51,10 @@ width: 10px;
 height: 10px;
 background: red;
 border-radius: 50%;
-transform: translate(-50%, -50%);",
-    )
+transform: translate(-50%, -50%);"
+    );
+
+    rsx! {
+        div { style: "{style}", title: "{display_name}" }
+    }
 }
