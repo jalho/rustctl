@@ -1,7 +1,7 @@
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq)]
 pub struct EnvTime(pub f64);
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq)]
 pub struct PlayerPos {
     pub steam_id: String,
     pub display_name: String,
@@ -9,7 +9,7 @@ pub struct PlayerPos {
     pub rotation: (f64, f64, f64),
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq)]
 pub struct Player {
     #[serde(rename = "SteamID")]
     pub steam_id: String,
@@ -35,7 +35,7 @@ pub struct Player {
     pub health: f64,
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq)]
 pub struct Toolcupboard {
     pub entity_id: i32,
     pub position: (f64, f64, f64),

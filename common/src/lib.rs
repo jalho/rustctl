@@ -10,7 +10,7 @@ pub enum BroadcastMessage {
 pub mod snapshot {
     /// Snapshot of the remote (server) state sent to each client (on a regular
     /// interval).
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq)]
     pub struct Snapshot {
         pub game_world_size: f64,
         pub ingame_state: InGameStateExposed,
@@ -20,7 +20,7 @@ pub mod snapshot {
     }
 
     /// A single CPU's utilization rate in some time window.
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq)]
     pub struct CpuUsage(f64);
 
     impl CpuUsage {
@@ -41,7 +41,7 @@ pub mod snapshot {
     }
 
     /// Amount of memory used, in kibiytes (KiB, i.e. 1024 bytes).
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq)]
     pub struct MemoryUsage(u64);
 
     impl MemoryUsage {
@@ -80,12 +80,12 @@ pub mod snapshot {
         pub value: GameServerState,
     }
 
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq)]
     pub struct GameServerMetaExposed {
         pub buildid: u32,
     }
 
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq)]
     pub enum GameServerStateExposed {
         Init,
         InstallingUpdates,
@@ -97,7 +97,7 @@ pub mod snapshot {
         GameTerminatedUnexpectedly,
     }
 
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq)]
     pub struct InGameStateExposed {
         pub env_time: crate::rcon::EnvTime,
         pub players_pos: Vec<crate::rcon::PlayerPos>,
