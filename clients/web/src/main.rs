@@ -1,17 +1,18 @@
 use dioxus::prelude::*;
 use futures_util::StreamExt;
 use gloo_net::websocket::{Message, futures::WebSocket};
-use rustctl_common::{BroadcastMessage, in_game_events::InGameEvent, snapshot::Snapshot};
+use rustctl_common::{
+    BroadcastMessage,
+    in_game_events::{InGameEvent, Resource},
+    snapshot::Snapshot,
+};
+use std::collections::HashMap;
 use wasm_bindgen_futures::spawn_local;
 
-#[derive(serde::Serialize)]
-struct State {
-    snapshot: Snapshot,
-    /*
-     * TODO: Aggregate from BroadcastMessage::EventIncremental: Keep a HashMap
-     *       of amounts per player (steam_id) per resource
-     */
-    aggregated: (),
+#[derive(Clone, serde::Serialize)]
+pub struct State {
+    pub snapshot: Snapshot,
+    pub aggregated: HashMap<u64, HashMap<Resource, f64>>,
 }
 
 static LATEST_SNAPSHOT: GlobalSignal<Option<State>> = GlobalSignal::new(|| None);
@@ -58,22 +59,53 @@ fn App() -> Element {
                             if let Ok(msg) = serde_json::from_str::<BroadcastMessage>(&text) {
                                 match msg {
                                     BroadcastMessage::Snapshot(snapshot) => {
-                                        /*
-                                         * TODO: Only assign snapshot, leave aggregated intact
-                                         */
                                         LATEST_SNAPSHOT.with_mut(|slot| {
-                                            *slot = Some(State {
-                                                snapshot,
-                                                aggregated: (),
-                                            })
+                                            let aggregated =
+                                                slot.as_ref().map(|s| s.aggregated.clone()).unwrap_or_default();
+                                            *slot = Some(State { snapshot, aggregated });
                                         });
                                     }
-                                    BroadcastMessage::EventIncremental(in_game_event) => {
-                                        /*
-                                         * TODO: Aggregate to state.aggregated
-                                         */
-                                        let event: InGameEvent = in_game_event;
-                                        todo!()
+                                    BroadcastMessage::EventIncremental(event) => {
+                                        LATEST_SNAPSHOT.with_mut(|slot| {
+                                            if let Some(state) = slot {
+                                                let mut aggregated = state.aggregated.clone();
+
+                                                match event {
+                                                    InGameEvent::OnDispenserGather {
+                                                        steam_id,
+                                                        amount,
+                                                        resource,
+                                                    }
+                                                    | InGameEvent::OnDispenserBonus {
+                                                        steam_id,
+                                                        amount,
+                                                        resource,
+                                                    }
+                                                    | InGameEvent::OnGrowableGathered {
+                                                        steam_id,
+                                                        amount,
+                                                        resource,
+                                                    } => {
+                                                        let player_map = aggregated.entry(steam_id).or_default();
+                                                        *player_map.entry(resource).or_insert(0.0) += amount;
+                                                    }
+                                                    InGameEvent::OnCollectiblePickup { steam_id, items } => {
+                                                        let player_map = aggregated.entry(steam_id).or_default();
+                                                        for item in items {
+                                                            *player_map.entry(item.resource).or_insert(0.0) +=
+                                                                item.amount;
+                                                        }
+                                                    }
+                                                    InGameEvent::OnCargoShipSpawnCrate => {}
+                                                    _ => {}
+                                                }
+
+                                                *state = State {
+                                                    snapshot: state.snapshot.clone(),
+                                                    aggregated,
+                                                };
+                                            }
+                                        });
                                     }
                                 }
                             }
@@ -94,6 +126,8 @@ fn App() -> Element {
             CodeView {}
             h2 { "Game World Map" }
             MapView {}
+            h2 { "Aggregated Resources" }
+            AggregatedView {}
         }
     }
 }
@@ -122,15 +156,39 @@ fn CodeView() -> Element {
 const WORLD_MAP_RENDER_MARGIN: f64 = 1000.0;
 
 #[component]
+fn AggregatedView() -> Element {
+    let payload = LATEST_SNAPSHOT.read();
+    let state: &State = match &*payload {
+        Some(s) => s,
+        None => return rsx!(
+            p { "No aggregated data yet" }
+        ),
+    };
+
+    rsx! {
+        div {
+            for (steam_id , resources) in &state.aggregated {
+                div { style: "margin-bottom: 10px;",
+                    h3 { "Player {steam_id}" }
+                    ul {
+                        for (resource , amount) in resources {
+                            li { "{resource:?}: {amount}" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
 fn MapView() -> Element {
     let payload = LATEST_SNAPSHOT.read();
     let state: &State = match &*payload {
         Some(s) => s,
-        None => {
-            return rsx!(
-                p { "No map data yet" }
-            );
-        }
+        None => return rsx!(
+            p { "No map data yet" }
+        ),
     };
 
     let map_width = 800.0;
