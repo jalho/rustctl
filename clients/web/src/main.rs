@@ -5,15 +5,30 @@ mod websocket;
 
 use components::{AggregatedView, CodeView, MapView};
 use dioxus::prelude::*;
+use web_sys::wasm_bindgen::JsCast;
 
 fn main() {
     dioxus::launch(App);
 }
 
+use web_sys::{window, HtmlBodyElement};
+
 #[component]
 fn App() -> Element {
     use_effect(move || {
         websocket::start_websocket_connection();
+
+        if let Some(document) = window().and_then(|w| w.document()) {
+            if let Some(body) = document.body() {
+                let body: HtmlBodyElement = body.dyn_into().unwrap();
+                let style = body.style();
+                style.set_property("background-color", "#0B3B4A").ok();
+                style.set_property("color", "white").ok();
+                style.set_property("margin", "0").ok();
+                style.set_property("font-family", "sans-serif").ok();
+                style.set_property("min-height", "100vh").ok();
+            }
+        }
     });
 
     let state = state::LATEST_SNAPSHOT.read();
