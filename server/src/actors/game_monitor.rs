@@ -41,16 +41,12 @@ impl GameMonitor {
 
         let job_rcon = Self::loop_reconnect_rcon(self.rx_rconready, &config, self.tx_agg_igs);
         let job_updates = Self::loop_check_updates();
+        let job = futures::future::join(job_rcon, job_updates);
 
-        let done = ctoken.run_until_cancelled(
-            /*
-             * TODO: Somehow add job_updates here!
-             */
-            job_rcon,
-        ).await;
+        let done = ctoken.run_until_cancelled(job).await;
 
         if let Some(done) = done {
-            let _done: () = done;
+            let _done: ((), ()) = done;
         }
         Summary {}
     }

@@ -8,6 +8,7 @@ axum              = { workspace = true, features = ["ws", "tokio", "http1"] }
 chrono            = { workspace = true, features = [] }
 clap              = { workspace = true, features = ["derive", "std", "help", "usage"] }
 futures-util      = { workspace = true, features = [] }
+futures           = { workspace = true, features = [] }
 keyvalues-parser  = { workspace = true, features = [] }
 libc              = { workspace = true, features = [] }
 log4rs            = { workspace = true, features = ["console_appender", "file_appender"] }

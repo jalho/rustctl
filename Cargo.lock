@@ -1856,6 +1856,7 @@ dependencies = [
  "axum",
  "chrono",
  "clap",
+ "futures",
  "futures-util",
  "keyvalues-parser",
  "libc",
