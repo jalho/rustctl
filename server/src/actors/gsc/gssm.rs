@@ -188,7 +188,7 @@ impl GameServerStateMachine {
                      * Instrument game server by installing a custom plugin.
                      */
                     if let Err(err) = install_plugin(&config).await {
-                        todo!();
+                        todo!("{err}");
                     }
 
                     let startup_script: String = match generate_game_server_startup_script(&config).await {

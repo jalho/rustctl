@@ -60,12 +60,16 @@ impl GameMonitor {
         loop {
             interval.tick().await;
 
-            log::debug!("Querying latest available build ID...");
-            if let Ok(buildid) = crate::steam::RustDedicated::query_latest_available_build_id().await {
-                /*
-                 * TODO: Inform the game server controller of the received build ID!
-                 */
-                log::debug!("Latest available build ID: {buildid}")
+            match crate::steam::RustDedicated::query_latest_available_build_id().await {
+                Ok(buildid) => {
+                    /*
+                     * TODO: Inform the game server controller of the received build ID!
+                     */
+                    log::debug!("Latest available game server build ID: {buildid}")
+                }
+                Err(err) => {
+                    log::error!("Failed to query latest available game server build ID: {err}");
+                },
             }
         }
     }
