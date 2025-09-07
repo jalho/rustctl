@@ -521,6 +521,9 @@ impl GameServerStateMachine {
                                      * may simply ignore it for now! (The update shall be installed at a later
                                      * check when there are no players online!)
                                      */
+                                    log::debug!(
+                                        "Update available yet there are {players_online} players on the server: Current build ID: {buildid_current}, latest available: {buildid_latest_avail}"
+                                    );
                                     Self::GameRunningHealthy {
                                         game_meta,
                                         process,
