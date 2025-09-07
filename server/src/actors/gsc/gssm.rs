@@ -130,7 +130,10 @@ impl GameServerStateMachine {
                     let buildid_after: crate::steam::BuildID;
                     if ctx.skip {
                         buildid_after = match buildid_before {
-                            Some(ref n) => n.clone(),
+                            Some(ref n) => {
+                                log::warn!("Skipping updating game server");
+                                n.clone()
+                            }
                             None => {
                                 log::error!(
                                     "No existing installation found, and installation skipped -- Cannot start game server!"
