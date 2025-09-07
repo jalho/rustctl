@@ -2,13 +2,11 @@ use futures_util::SinkExt;
 
 pub struct GameMonitor {
     ctoken: tokio_util::sync::CancellationToken,
-
     cfg_client: crate::storage::ConfigurationClient,
-
     /// "IGS" = "In-Game State"
     tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
-
     rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
+    tx_buildid: tokio::sync::mpsc::Sender<crate::steam::BuildID>,
 }
 
 impl GameMonitor {
@@ -16,21 +14,17 @@ impl GameMonitor {
 
     pub fn new(
         ctoken: tokio_util::sync::CancellationToken,
-
         cfg_client: crate::storage::ConfigurationClient,
-
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
-
         rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
+        tx_buildid: tokio::sync::mpsc::Sender<crate::steam::BuildID>,
     ) -> Self {
         Self {
             ctoken,
-
             cfg_client,
-
             tx_agg_igs,
-
             rx_rconready,
+            tx_buildid,
         }
     }
 
@@ -69,7 +63,7 @@ impl GameMonitor {
                 }
                 Err(err) => {
                     log::error!("Failed to query latest available game server build ID: {err}");
-                },
+                }
             }
         }
     }

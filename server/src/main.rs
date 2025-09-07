@@ -39,6 +39,7 @@ fn main() -> std::process::ExitCode {
     let (tx_igs, rx_igs) = tokio::sync::mpsc::channel::<rustctl_common::snapshot::InGameStateExposed>(1);
     let (tx_broadcast, _) = tokio::sync::broadcast::channel::<rustctl_common::BroadcastMessage>(1);
     let (tx_rconready, rx_rconready) = tokio::sync::mpsc::channel::<actors::gsc::gssm::ReadyForRcon>(1);
+    let (tx_buildid, rx_buildid) = tokio::sync::mpsc::channel::<steam::BuildID>(1);
 
     /*
      * The actors.
@@ -62,6 +63,7 @@ fn main() -> std::process::ExitCode {
         rx_command_relay,
         tx_gss,
         tx_rconready,
+        rx_buildid,
     );
     /*
      * TODO: Add new responsibility for GameMonitor (previous called RconClient)
@@ -91,7 +93,7 @@ fn main() -> std::process::ExitCode {
      *       ```
      */
     let game_monitor =
-        actors::game_monitor::GameMonitor::new(ctoken.child_token(), config_client.clone(), tx_igs, rx_rconready);
+        actors::game_monitor::GameMonitor::new(ctoken.child_token(), config_client.clone(), tx_igs, rx_rconready, tx_buildid);
     let web_server = actors::web_server::WebServer::new(
         ctoken.child_token(),
         tx_activate.clone(),
