@@ -839,6 +839,9 @@ impl TryFrom<&RconMessage> for Vec<rustctl_common::rcon::Toolcupboard> {
     }
 }
 
+/// For driving update-and-restart of a running game server, which depends on:
+/// - Is there an update available (per _build ID_ comparison)?
+/// - Are there players on the server?
 pub struct GameBuildIDUpdate {
     pub players_online: u16,
     pub latest_available_build_id: crate::steam::BuildID,

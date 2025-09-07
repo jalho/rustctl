@@ -122,50 +122,16 @@ impl GameServerStateMachine {
                     let config: crate::storage::Configuration = ctx.cfg_client.get_config().await;
 
                     /*
-                     * TODO: Use crate::steam module to read build ID from
-                     *       existing installation's manifest!
-                     */
-
-                    /*
                      * Install/update game server.
+                     *
+                     * TODO: Respect `ctx.skip`
+                     *
+                     * TODO: Use `crate::steam` module to read build ID from
+                     *       existing installation's manifest! (Replace `fn extract_buildid_from_buf`)
+                     *
+                     * TODO: Redefine `fn install_or_update_game_server` in `crate::steam`
                      */
-                    let buildid_after: u32;
-                    if !ctx.skip {
-                        let buildid_before: Option<u32> = {
-                            if let Ok(contents) = tokio::fs::read_to_string(config.fs.manifest_abs_utf8()).await {
-                                extract_buildid_from_buf(&contents)
-                            } else {
-                                None
-                            }
-                        };
-
-                        buildid_after = match install_or_update_game_server(&config).await {
-                            Ok(n) => n,
-                            Err(err) => {
-                                log::error!("Installing game server failed: {err}");
-                                Self::request_termination(ctx.tx_activate.clone()).await;
-                                break 'loop_transitions;
-                            }
-                        };
-
-                        match buildid_before {
-                            None => {
-                                log::info!("Installed game server: buildid {buildid_after}");
-                            }
-                            Some(buildid_before) => {
-                                if buildid_before == buildid_after {
-                                    log::info!(
-                                        "Installation checked: Game server is up to date: buildid {buildid_after}"
-                                    );
-                                } else {
-                                    log::info!("Updated game server: From buildid {buildid_before} to {buildid_after}");
-                                }
-                            }
-                        }
-                    } else {
-                        log::warn!("Skipping installing/updating game server");
-                        buildid_after = 0;
-                    }
+                    todo!();
 
                     /*
                      * Install/update modding framework.
