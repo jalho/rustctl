@@ -37,7 +37,9 @@ impl GameMonitor {
     pub async fn work(self) -> Summary {
         let ctoken = self.ctoken.child_token();
 
-        let job_rcon = self.loop_reconnect_rcon();
+        let config = self.cfg_client.get_config().await;
+
+        let job_rcon = Self::loop_reconnect_rcon(self.rx_rconready, &config, self.tx_agg_igs);
 
         let done = ctoken.run_until_cancelled(job_rcon).await;
         if let Some(done) = done {
@@ -46,9 +48,13 @@ impl GameMonitor {
         Summary {}
     }
 
-    pub async fn loop_reconnect_rcon(mut self) -> () {
+    pub async fn loop_reconnect_rcon(
+        mut rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
+        config: &crate::storage::Configuration,
+        tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
+    ) -> () {
         'reconnect: loop {
-            match self.rx_rconready.recv().await {
+            match rx_rconready.recv().await {
                 Some(ready) => {
                     let _ready: super::gsc::gssm::ReadyForRcon = ready;
                     log::debug!("Game server state machine signaled readiness for RCON");
@@ -59,8 +65,8 @@ impl GameMonitor {
                 }
             };
 
-            let connection_string: String = self.cfg_client.get_config().await.get_rcon_connection_string();
-            let websocket: WebSocket = match tokio_tungstenite::connect_async(connection_string).await {
+            let websocket: WebSocket = match tokio_tungstenite::connect_async(config.get_rcon_connection_string()).await
+            {
                 Ok(n) => {
                     log::info!("RCON client connected");
                     let (websocket, _response): (WebSocket, Response) = n;
@@ -74,13 +80,12 @@ impl GameMonitor {
             let (mut ws_sink, mut ws_stream): (WebSocketSink, WebSocketStream) =
                 futures_util::StreamExt::split(websocket);
 
-            let config: crate::storage::Configuration = self.cfg_client.get_config().await;
             if let Err(err) = Self::prepare_via_rcon(&mut ws_sink, &mut ws_stream, &config).await {
                 log::error!("Failed to prepare via RCON: {err}");
                 continue 'reconnect;
             }
 
-            if let Err(err) = Self::loop_query_rcon(ws_sink, ws_stream, self.tx_agg_igs.clone()).await {
+            if let Err(err) = Self::loop_query_rcon(ws_sink, ws_stream, tx_agg_igs.clone()).await {
                 log::error!("Failed to query RCON: {err}");
                 continue 'reconnect;
             }
