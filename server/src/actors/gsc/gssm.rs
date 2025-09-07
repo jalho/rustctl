@@ -130,9 +130,11 @@ impl GameServerStateMachine {
                     let buildid_after: crate::steam::BuildID;
                     if ctx.skip {
                         buildid_after = match buildid_before {
-                            Some(ref n) => {
-                                log::warn!("Skipping updating game server");
-                                n.clone()
+                            Some(ref buildid_before) => {
+                                log::warn!(
+                                    "Skipping updating game server -- Existing installation build ID: {buildid_before}"
+                                );
+                                buildid_before.clone()
                             }
                             None => {
                                 log::error!(
@@ -144,19 +146,28 @@ impl GameServerStateMachine {
                         }
                     } else {
                         buildid_after = match crate::steam::RustDedicated::install(&config).await {
-                            Ok(n) => n,
+                            Ok(buildid_installed) => {
+                                if let Some(buildid_before) = buildid_before {
+                                    if buildid_before == buildid_installed {
+                                        log::info!(
+                                            "Game server installation checked: Already up-to-date: Build ID: {buildid_installed}"
+                                        );
+                                    } else {
+                                        log::info!(
+                                            "Game server updated: From build ID {buildid_before} to build ID {buildid_installed}"
+                                        );
+                                    }
+                                } else {
+                                    log::info!("Game server installed: Build ID {buildid_installed}");
+                                }
+                                buildid_installed
+                            }
                             Err(err) => {
                                 log::error!("Installing game server failed: {err}");
                                 Self::request_termination(ctx.tx_activate.clone()).await;
                                 break 'loop_transitions;
                             }
                         };
-                    }
-
-                    if let Some(buildid_before) = buildid_before {
-                        log::info!("Game server updated: From build ID {buildid_before} to build ID {buildid_after}");
-                    } else {
-                        log::info!("Game server installed: Build ID: {buildid_after}");
                     }
 
                     /*
