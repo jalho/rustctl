@@ -122,6 +122,11 @@ impl GameServerStateMachine {
                     let config: crate::storage::Configuration = ctx.cfg_client.get_config().await;
 
                     /*
+                     * TODO: Use crate::steam module to read build ID from
+                     *       existing installation's manifest!
+                     */
+
+                    /*
                      * Install/update game server.
                      */
                     let buildid_after: u32;
