@@ -74,7 +74,7 @@ impl GameMonitor {
         }
     }
 
-    pub async fn loop_reconnect_rcon(
+    async fn loop_reconnect_rcon(
         mut rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
         config: &crate::storage::Configuration,
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
@@ -424,14 +424,14 @@ impl std::fmt::Display for RconMessage {
 }
 
 impl RconMessage {
-    pub fn new(command: &str) -> Self {
+    fn new(command: &str) -> Self {
         Self {
             Identifier: Self::generate_message_identifier(),
             Message: command.to_owned(),
         }
     }
 
-    pub async fn send_and_wait_response(
+    async fn send_and_wait_response(
         &self,
         ws_sink: &mut WebSocketSink,
         ws_stream: &mut WebSocketStream,
