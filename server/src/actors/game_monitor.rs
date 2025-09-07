@@ -36,15 +36,17 @@ impl GameMonitor {
 
     pub async fn work(self) -> Summary {
         let ctoken = self.ctoken.child_token();
-        let job = self.loop_reconnect();
-        let done = ctoken.run_until_cancelled(job).await;
+
+        let job_rcon = self.loop_reconnect_rcon();
+
+        let done = ctoken.run_until_cancelled(job_rcon).await;
         if let Some(done) = done {
             let _done: () = done;
         }
         Summary {}
     }
 
-    pub async fn loop_reconnect(mut self) -> () {
+    pub async fn loop_reconnect_rcon(mut self) -> () {
         'reconnect: loop {
             match self.rx_rconready.recv().await {
                 Some(ready) => {
