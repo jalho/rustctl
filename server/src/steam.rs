@@ -47,6 +47,44 @@ impl RustDedicated {
         let build_id: BuildID = BuildID::from_vdf_steamcmd_contaminated(&output).unwrap();
         Ok(build_id)
     }
+
+    pub async fn install(config: &crate::storage::Configuration) -> Result<BuildID, String> {
+        let working_directory: String = config.fs.root_dir_abs_utf8();
+
+        let mut command = tokio::process::Command::new(STEAMCMD_EXECUTABLE_PATH_ABS);
+        command.current_dir(&working_directory);
+        command.args(config.get_installer_args());
+        command.stdout(std::process::Stdio::null());
+        command.stderr(std::process::Stdio::null());
+
+        let process: tokio::process::Child = match command.spawn() {
+            Ok(n) => n,
+            Err(err) => {
+                return Err(format!("failed to spawn game server installer: {command:?}: {err}"));
+            }
+        };
+
+        /*
+         * TODO: Consider case "offline": Check status code of
+         *       installer process exit?
+         */
+        let _output: std::process::Output = match process.wait_with_output().await {
+            Ok(n) => n,
+            Err(err) => {
+                return Err(format!("failed to run game server installer to termination: {err}"));
+            }
+        };
+
+        let manifest_path: String = config.fs.manifest_abs_utf8();
+        let buildid: BuildID = match BuildID::from_existing_installation_manifest(&manifest_path).await {
+            Some(n) => n,
+            None => {
+                return Err(format!(r#"failed to extract buildid from manifest "{manifest_path}""#));
+            }
+        };
+
+        return Ok(buildid);
+    }
 }
 
 #[derive(Debug, PartialEq)]

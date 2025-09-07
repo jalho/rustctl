@@ -123,18 +123,38 @@ impl GameServerStateMachine {
 
                     /*
                      * Install/update game server.
-                     *
-                     * TODO: Respect `ctx.skip`
-                     *
-                     * TODO: Use `crate::steam` module to read build ID from
-                     *       existing installation's manifest! (Replace `fn extract_buildid_from_buf`)
-                     *
-                     * TODO: Redefine `fn install_or_update_game_server` in `crate::steam`
                      */
                     let buildid_before: Option<crate::steam::BuildID> =
                         crate::steam::BuildID::from_existing_installation_manifest(config.fs.manifest_abs_utf8()).await;
-                    dbg!(buildid_before);
-                    let buildid_after = todo!();
+
+                    let buildid_after: crate::steam::BuildID;
+                    if ctx.skip {
+                        buildid_after = match buildid_before {
+                            Some(n) => n,
+                            None => {
+                                log::error!(
+                                    "No existing installation found, and installation skipped -- Cannot start game server!"
+                                );
+                                Self::request_termination(ctx.tx_activate.clone()).await;
+                                break 'loop_transitions;
+                            }
+                        }
+                    } else {
+                        buildid_after = match crate::steam::RustDedicated::install(&config).await {
+                            Ok(n) => n,
+                            Err(err) => {
+                                log::error!("Installing game server failed: {err}");
+                                Self::request_termination(ctx.tx_activate.clone()).await;
+                                break 'loop_transitions;
+                            }
+                        };
+                    }
+
+                    if let Some(buildid_before) = buildid_before {
+                        log::info!("Game server updated: From build ID {buildid_before} to build ID {buildid_after}");
+                    } else {
+                        log::info!("Game server installed: Build ID: {buildid_after}");
+                    }
 
                     /*
                      * Install/update modding framework.
@@ -688,52 +708,6 @@ impl From<&GameServerStateMachine> for rustctl_common::snapshot::GameServerState
 }
 
 pub struct ReadyForRcon;
-
-/// Install or update game server (`RustDedicated`) using installer
-/// (`steamcmd`). Return the installed game server's _buildid_ parsed from the
-/// installation's associated manifest file.
-async fn install_or_update_game_server(config: &crate::storage::Configuration) -> Result<u32, String> {
-    let executable: String = config.fs.installer_abs_utf8();
-    let working_directory: String = config.fs.root_dir_abs_utf8();
-
-    let mut command = tokio::process::Command::new(&executable);
-    command.current_dir(&working_directory);
-    command.args(config.get_installer_args());
-    command.stdout(std::process::Stdio::null());
-    command.stderr(std::process::Stdio::null());
-
-    let process: tokio::process::Child = match command.spawn() {
-        Ok(n) => n,
-        Err(err) => {
-            return Err(format!("failed to spawn game server installer: {command:?}: {err}"));
-        }
-    };
-
-    /*
-     * TODO: Consider case "offline": Check status code of
-     *       installer process exit?
-     */
-    let _output: std::process::Output = match process.wait_with_output().await {
-        Ok(n) => n,
-        Err(err) => {
-            return Err(format!("failed to run game server installer to termination: {err}"));
-        }
-    };
-
-    let manifest_path: String = config.fs.manifest_abs_utf8();
-    let buildid: Option<u32> = {
-        if let Ok(contents) = tokio::fs::read_to_string(&manifest_path).await {
-            extract_buildid_from_buf(&contents)
-        } else {
-            None
-        }
-    };
-
-    match buildid {
-        Some(n) => Ok(n),
-        None => Err(format!(r#"failed to extract buildid from manifest "{manifest_path}""#,)),
-    }
-}
 
 async fn install_plugin(config: &crate::storage::Configuration) -> Result<(), String> {
     let instrumentation_plugin_path: String = config.fs.instrumentation_plugin_abs_utf8();
