@@ -131,7 +131,10 @@ impl GameServerStateMachine {
                      *
                      * TODO: Redefine `fn install_or_update_game_server` in `crate::steam`
                      */
-                    todo!();
+                    let buildid_before: Option<crate::steam::BuildID> =
+                        crate::steam::BuildID::from_existing_installation_manifest(config.fs.manifest_abs_utf8()).await;
+                    dbg!(buildid_before);
+                    let buildid_after = todo!();
 
                     /*
                      * Install/update modding framework.

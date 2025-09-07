@@ -57,6 +57,25 @@ impl BuildID {
         Self(value)
     }
 
+    pub async fn from_existing_installation_manifest<P>(manifest: P) -> Option<Self>
+    where
+        P: AsRef<std::path::Path>,
+    {
+        let content: String = match tokio::fs::read_to_string(manifest).await {
+            Ok(n) => n,
+            Err(_) => return None,
+        };
+        let build_id = match Self::from_vdf(&content) {
+            Ok(n) => n,
+            Err(_) => return None,
+        };
+        Some(build_id)
+    }
+
+    /*
+     * TODO: Replace `fn query_latest_available_build_id` and `fn
+     *       from_contaminated_vdf` with `fn from_remote_steam_api`
+     */
     /// By "contaminated VDF" we mean the esoteric output format of the following command:
     ///
     /// ```
@@ -71,6 +90,10 @@ impl BuildID {
         let vdf_end_incl = contaminated_vdf.rfind('}').ok_or("could not find end of VDF")?;
         let data: &str = &contaminated_vdf[vdf_start_incl..=vdf_end_incl];
 
+        Self::from_vdf(data)
+    }
+
+    fn from_vdf(data: &str) -> Result<Self, String> {
         let vdf: keyvalues_parser::Vdf =
             keyvalues_parser::Vdf::parse(data).map_err(|err| format!("failed to parse VDF: {}", err))?;
 
