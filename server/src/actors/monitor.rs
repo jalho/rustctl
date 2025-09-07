@@ -66,7 +66,6 @@ impl Monitor {
                         break 'read_usage;
                     }
                 };
-                let read_completed_by: std::time::SystemTime = std::time::SystemTime::now();
                 let cpu_usage: Option<Vec<Percentage>> = match &self.previous_stats {
                     Some(previous) => {
                         let usage: Vec<Percentage> = match current_stats.calculate_usage_per_cpu_since(previous) {

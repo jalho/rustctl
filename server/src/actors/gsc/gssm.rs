@@ -9,11 +9,10 @@ pub struct Context {
     pub cfg_client: crate::storage::ConfigurationClient,
 
     pub rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
-
     /// "GSS" = "Game Server State"
     pub tx_agg_gss: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
-
     pub tx_rconready: tokio::sync::mpsc::Sender<crate::actors::gsc::gssm::ReadyForRcon>,
+    pub rx_buildid: tokio::sync::mpsc::Receiver<crate::actors::game_monitor::GameBuildIDUpdate>,
 }
 
 pub enum GameServerStateMachine {
@@ -62,10 +61,9 @@ impl GameServerStateMachine {
         cfg_client: crate::storage::ConfigurationClient,
 
         rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
-
         tx_agg_gss: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
-
         tx_rconready: tokio::sync::mpsc::Sender<crate::actors::gsc::gssm::ReadyForRcon>,
+        rx_buildid: tokio::sync::mpsc::Receiver<crate::actors::game_monitor::GameBuildIDUpdate>,
     ) -> Self {
         Self::Init {
             ctx: Context {
@@ -77,10 +75,9 @@ impl GameServerStateMachine {
                 cfg_client,
 
                 rx_command,
-
                 tx_agg_gss,
-
                 tx_rconready,
+                rx_buildid,
             },
         }
     }
@@ -115,6 +112,12 @@ impl GameServerStateMachine {
                         break 'loop_transitions;
                     }
 
+                    /*
+                     * TODO: If the game server is being started on the first Thursday of the month,
+                     *       assume it might be _the_ monthly "forced" content update, and so wipe
+                     *       the map (and blueprints?) unless already wiped on the same day.
+                     */
+
                     Self::InstallingUpdates { ctx }
                 }
 
@@ -127,42 +130,50 @@ impl GameServerStateMachine {
                     /*
                      * Install/update game server.
                      */
-                    let buildid_after: u32;
-                    if !ctx.skip {
-                        let buildid_before: Option<u32> = {
-                            if let Ok(contents) = tokio::fs::read_to_string(config.fs.manifest_abs_utf8()).await {
-                                extract_buildid_from_buf(&contents)
-                            } else {
-                                None
-                            }
-                        };
+                    let buildid_before: Option<crate::steam::BuildID> =
+                        crate::steam::BuildID::from_existing_installation_manifest(config.fs.manifest_abs_utf8()).await;
 
-                        buildid_after = match install_or_update_game_server(&config).await {
-                            Ok(n) => n,
+                    let buildid_after: crate::steam::BuildID;
+                    if ctx.skip {
+                        buildid_after = match buildid_before {
+                            Some(ref buildid_before) => {
+                                log::warn!(
+                                    "Skipping updating game server -- Existing installation build ID: {buildid_before}"
+                                );
+                                buildid_before.clone()
+                            }
+                            None => {
+                                log::error!(
+                                    "No existing installation found, and installation skipped -- Cannot start game server!"
+                                );
+                                Self::request_termination(ctx.tx_activate.clone()).await;
+                                break 'loop_transitions;
+                            }
+                        }
+                    } else {
+                        buildid_after = match crate::steam::RustDedicated::install(&config).await {
+                            Ok(buildid_installed) => {
+                                if let Some(buildid_before) = buildid_before {
+                                    if buildid_before == buildid_installed {
+                                        log::info!(
+                                            "Game server installation checked: Already up-to-date: Build ID: {buildid_installed}"
+                                        );
+                                    } else {
+                                        log::info!(
+                                            "Game server updated: From build ID {buildid_before} to build ID {buildid_installed}"
+                                        );
+                                    }
+                                } else {
+                                    log::info!("Game server installed: Build ID {buildid_installed}");
+                                }
+                                buildid_installed
+                            }
                             Err(err) => {
                                 log::error!("Installing game server failed: {err}");
                                 Self::request_termination(ctx.tx_activate.clone()).await;
                                 break 'loop_transitions;
                             }
                         };
-
-                        match buildid_before {
-                            None => {
-                                log::info!("Installed game server: buildid {buildid_after}");
-                            }
-                            Some(buildid_before) => {
-                                if buildid_before == buildid_after {
-                                    log::info!(
-                                        "Installation checked: Game server is up to date: buildid {buildid_after}"
-                                    );
-                                } else {
-                                    log::info!("Updated game server: From buildid {buildid_before} to {buildid_after}");
-                                }
-                            }
-                        }
-                    } else {
-                        log::warn!("Skipping installing/updating game server");
-                        buildid_after = 0;
                     }
 
                     /*
@@ -188,7 +199,7 @@ impl GameServerStateMachine {
                      * Instrument game server by installing a custom plugin.
                      */
                     if let Err(err) = install_plugin(&config).await {
-                        todo!();
+                        todo!("{err}");
                     }
 
                     let startup_script: String = match generate_game_server_startup_script(&config).await {
@@ -201,7 +212,9 @@ impl GameServerStateMachine {
                     };
 
                     Self::InstalledAndConfigured {
-                        game_meta: rustctl_common::snapshot::GameServerMetaExposed { buildid: buildid_after },
+                        game_meta: rustctl_common::snapshot::GameServerMetaExposed {
+                            buildid: buildid_after.into(),
+                        },
                         ctx,
                         startup_script,
                     }
@@ -409,6 +422,15 @@ impl GameServerStateMachine {
                     mut ctx,
                 } => {
                     let event: GameCtlEvent = tokio::select! {
+                        msg = ctx.rx_buildid.recv() => {
+                            if let Some(update) = msg {
+                                let update: crate::actors::game_monitor::GameBuildIDUpdate = update;
+                                GameCtlEvent::BuildIDUpdate { update }
+                            } else {
+                                log::debug!("Channel for receiving build ID updates closed -- Stopping game server state machine");
+                                break 'loop_transitions;
+                            }
+                        },
                         msg = ctx.rx_command.recv() => {
                             match msg {
                                 Some(message) => GameCtlEvent::MessageReceived { message },
@@ -436,7 +458,7 @@ impl GameServerStateMachine {
                             let command: rustctl_common::command::DownstreamClientMessage = message;
                             match command {
                                 rustctl_common::command::DownstreamClientMessage::ServerSaveAndClose => {
-                                    let signal = nix::sys::signal::Signal::SIGINT;
+                                    let signal = nix::sys::signal::Signal::SIGTERM;
                                     let pid = match send_signal(&process, signal).await {
                                         Ok(n) => n,
                                         Err(err) => {
@@ -461,9 +483,70 @@ impl GameServerStateMachine {
                                 }
                             }
                         }
+
                         GameCtlEvent::GameProcessTerminated { exit_status } => {
                             let _exit_status: std::process::ExitStatus = exit_status;
                             Self::GameTerminatedUnexpectedly { ctx }
+                        }
+
+                        GameCtlEvent::BuildIDUpdate { update } => {
+                            let buildid_current: crate::steam::BuildID = crate::steam::BuildID::new(game_meta.buildid); // TODO: Define game_meta.buildid as `crate::steam::BuildID`
+                            let buildid_latest_avail: crate::steam::BuildID = update.latest_available_build_id;
+                            let players_online: u16 = update.players_online;
+
+                            if buildid_current != buildid_latest_avail {
+                                if players_online == 0 {
+                                    /*
+                                     * Case there's an update available and there are no players
+                                     * on the server. Either we have a "forced update" (_the_
+                                     * monthly content update) that causes clients be unable to
+                                     * connect, or some optional update which we might as well
+                                     * install since no one is online!
+                                     */
+                                    log::info!(
+                                        "Update available and no players on the server: Current build ID: {buildid_current}, latest available: {buildid_latest_avail} -- Terminating game server!"
+                                    );
+                                    let signal = nix::sys::signal::Signal::SIGTERM;
+                                    let pid = match send_signal(&process, signal).await {
+                                        Ok(n) => n,
+                                        Err(err) => {
+                                            log::error!(
+                                                "Failed to send signal to game server: {err_fmt}",
+                                                err_fmt = crate::util::fmt_source_tree(&err)
+                                            );
+                                            Self::request_termination(ctx.tx_activate.clone()).await;
+                                            break 'loop_transitions;
+                                        }
+                                    };
+                                    log::info!("Sent signal to game server process: {signal}: PID {pid}");
+                                    Self::SavingAndClosingGame { process, ctx }
+                                } else {
+                                    /*
+                                     * Case there's an update available, yet there are also players on the
+                                     * server. Presumably this implies that the update is optional and thus we
+                                     * may simply ignore it for now! (The update shall be installed at a later
+                                     * check when there are no players online!)
+                                     */
+                                    log::debug!(
+                                        "Update available yet there are {players_online} players on the server: Current build ID: {buildid_current}, latest available: {buildid_latest_avail}"
+                                    );
+                                    Self::GameRunningHealthy {
+                                        game_meta,
+                                        process,
+                                        ctx,
+                                    }
+                                }
+                            } else {
+                                /*
+                                 * Case latest avail version matches current, i.e. already
+                                 * up-to-date: Nothing to do!
+                                 */
+                                Self::GameRunningHealthy {
+                                    game_meta,
+                                    process,
+                                    ctx,
+                                }
+                            }
                         }
                     }
                 }
@@ -554,26 +637,6 @@ impl std::fmt::Display for GameServerStateMachine {
     }
 }
 
-fn extract_buildid_from_buf(buf: &str) -> Option<u32> {
-    let vdf: keyvalues_parser::Vdf = match keyvalues_parser::Vdf::parse(buf) {
-        Ok(v) => v,
-        Err(_) => return None,
-    };
-    let root: &keyvalues_parser::Obj = vdf.value.get_obj()?;
-
-    let buildid_str: &str = match root.get("buildid") {
-        Some(values) => {
-            if values.len() != 1 {
-                return None;
-            }
-            values[0].get_str()?
-        }
-        None => return None,
-    };
-
-    buildid_str.parse::<u32>().ok()
-}
-
 enum GameCtlEvent {
     MessageReceived {
         message: rustctl_common::command::DownstreamClientMessage,
@@ -581,6 +644,10 @@ enum GameCtlEvent {
 
     GameProcessTerminated {
         exit_status: std::process::ExitStatus,
+    },
+
+    BuildIDUpdate {
+        update: crate::actors::game_monitor::GameBuildIDUpdate,
     },
 }
 
@@ -689,52 +756,6 @@ impl From<&GameServerStateMachine> for rustctl_common::snapshot::GameServerState
 }
 
 pub struct ReadyForRcon;
-
-/// Install or update game server (`RustDedicated`) using installer
-/// (`steamcmd`). Return the installed game server's _buildid_ parsed from the
-/// installation's associated manifest file.
-async fn install_or_update_game_server(config: &crate::storage::Configuration) -> Result<u32, String> {
-    let executable: String = config.fs.installer_abs_utf8();
-    let working_directory: String = config.fs.root_dir_abs_utf8();
-
-    let mut command = tokio::process::Command::new(&executable);
-    command.current_dir(&working_directory);
-    command.args(config.get_installer_args());
-    command.stdout(std::process::Stdio::null());
-    command.stderr(std::process::Stdio::null());
-
-    let process: tokio::process::Child = match command.spawn() {
-        Ok(n) => n,
-        Err(err) => {
-            return Err(format!("failed to spawn game server installer: {command:?}: {err}"));
-        }
-    };
-
-    /*
-     * TODO: Consider case "offline": Check status code of
-     *       installer process exit?
-     */
-    let _output: std::process::Output = match process.wait_with_output().await {
-        Ok(n) => n,
-        Err(err) => {
-            return Err(format!("failed to run game server installer to termination: {err}"));
-        }
-    };
-
-    let manifest_path: String = config.fs.manifest_abs_utf8();
-    let buildid: Option<u32> = {
-        if let Ok(contents) = tokio::fs::read_to_string(&manifest_path).await {
-            extract_buildid_from_buf(&contents)
-        } else {
-            None
-        }
-    };
-
-    match buildid {
-        Some(n) => Ok(n),
-        None => Err(format!(r#"failed to extract buildid from manifest "{manifest_path}""#,)),
-    }
-}
 
 async fn install_plugin(config: &crate::storage::Configuration) -> Result<(), String> {
     let instrumentation_plugin_path: String = config.fs.instrumentation_plugin_abs_utf8();

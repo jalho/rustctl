@@ -1,5 +1,6 @@
 mod actors;
 mod init;
+mod steam;
 mod storage;
 mod util;
 
@@ -38,6 +39,7 @@ fn main() -> std::process::ExitCode {
     let (tx_igs, rx_igs) = tokio::sync::mpsc::channel::<rustctl_common::snapshot::InGameStateExposed>(1);
     let (tx_broadcast, _) = tokio::sync::broadcast::channel::<rustctl_common::BroadcastMessage>(1);
     let (tx_rconready, rx_rconready) = tokio::sync::mpsc::channel::<actors::gsc::gssm::ReadyForRcon>(1);
+    let (tx_buildid, rx_buildid) = tokio::sync::mpsc::channel::<actors::game_monitor::GameBuildIDUpdate>(1);
 
     /*
      * The actors.
@@ -61,38 +63,10 @@ fn main() -> std::process::ExitCode {
         rx_command_relay,
         tx_gss,
         tx_rconready,
+        rx_buildid,
     );
-    /*
-     * TODO: Add new responsibility for RconClient actor:
-     *
-     *       Periodically (e.g., every 10 minutes) query the latest available game
-     *       server build from SteamCMD. Compare this to the currently installed
-     *       build ID (from the local manifest file). If a newer build is
-     *       available and there are no players on the server, instruct the game
-     *       server controller to stop and update and restart the game.
-     *
-     *       If this occurs on the first Thursday of the month, assume it
-     *       is _the_ mandatory monthly ("forced") update. In that case, the
-     *       command to the game server controller may include instructions to
-     *       use a new map seed and either wipe or preserve players' blueprints.
-     *
-     *       The player check avoids unnecessary interruptions: during a forced
-     *       update, clients cannot connect to outdated servers, so the server
-     *       should naturally empty out. Likewise even if an update is not
-     *       mandatory, we might as well install it if the server is empty.
-     *
-     *       Command for querying the latest available build ID (hallucinated by
-     *       LLM, not tested!):
-     *
-     *       ```
-     *       $ steamcmd +login anonymous +app_info_print 258550 +quit | grep -m 1 buildid
-     *       ```
-     *
-     *       Consider also renaming the RconClient actor accordingly! Maybe call
-     *       it "game state monitorer"?
-     */
-    let rcon_client =
-        actors::rcon_client::RconClient::new(ctoken.child_token(), config_client.clone(), tx_igs, rx_rconready);
+    let game_monitor =
+        actors::game_monitor::GameMonitor::new(ctoken.child_token(), config_client.clone(), tx_igs, rx_rconready, tx_buildid);
     let web_server = actors::web_server::WebServer::new(
         ctoken.child_token(),
         tx_activate.clone(),
@@ -111,7 +85,7 @@ fn main() -> std::process::ExitCode {
             aggregator.work(),
             monitor.work(),
             controller.work(),
-            rcon_client.work(),
+            game_monitor.work(),
             web_server.work(),
         )
     };
@@ -120,7 +94,7 @@ fn main() -> std::process::ExitCode {
         actors::aggregator::Summary,
         actors::monitor::Summary,
         actors::gsc::Summary,
-        actors::rcon_client::Summary,
+        actors::game_monitor::Summary,
         actors::web_server::Summary,
     ) = runtime.block_on(runtime_job);
 

@@ -1,17 +1,19 @@
 use futures_util::SinkExt;
 
-pub struct RconClient {
+pub struct GameMonitor {
     ctoken: tokio_util::sync::CancellationToken,
 
     cfg_client: crate::storage::ConfigurationClient,
 
+    players_tracker: std::sync::Arc<tokio::sync::Mutex<u16>>,
+
     /// "IGS" = "In-Game State"
     tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
-
     rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
+    tx_buildid: tokio::sync::mpsc::Sender<GameBuildIDUpdate>,
 }
 
-impl RconClient {
+impl GameMonitor {
     const RCON_INGAME_STATE_QUERY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
 
     pub fn new(
@@ -20,33 +22,90 @@ impl RconClient {
         cfg_client: crate::storage::ConfigurationClient,
 
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
-
         rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
+        tx_buildid: tokio::sync::mpsc::Sender<GameBuildIDUpdate>,
     ) -> Self {
         Self {
             ctoken,
 
             cfg_client,
 
-            tx_agg_igs,
+            players_tracker: std::sync::Arc::new(tokio::sync::Mutex::new(0)),
 
+            tx_agg_igs,
             rx_rconready,
+            tx_buildid,
         }
     }
 
     pub async fn work(self) -> Summary {
         let ctoken = self.ctoken.child_token();
-        let job = self.loop_reconnect();
+
+        let config = self.cfg_client.get_config().await;
+
+        let job_rcon =
+            Self::loop_reconnect_rcon(self.rx_rconready, &config, self.tx_agg_igs, self.players_tracker.clone());
+        let job_updates = Self::loop_check_updates(self.tx_buildid, self.players_tracker.clone());
+        let job = futures::future::join(job_rcon, job_updates);
+
         let done = ctoken.run_until_cancelled(job).await;
+
         if let Some(done) = done {
-            let _done: () = done;
+            let _done: ((), ()) = done;
         }
         Summary {}
     }
 
-    pub async fn loop_reconnect(mut self) -> () {
+    async fn loop_check_updates(
+        tx_buildid: tokio::sync::mpsc::Sender<GameBuildIDUpdate>,
+        players_tracker: std::sync::Arc<tokio::sync::Mutex<u16>>,
+    ) -> () {
+        let mut interval = tokio::time::interval(
+            std::time::Duration::from_secs(60 * 10), // 10 minutes
+        );
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        'query: loop {
+            interval.tick().await;
+
+            let latest_available_build_id: crate::steam::BuildID =
+                match crate::steam::RustDedicated::query_latest_available_build_id().await {
+                    Ok(buildid) => {
+                        log::debug!("Latest available game server build ID: {buildid}");
+                        buildid
+                    }
+                    Err(err) => {
+                        log::error!("Failed to query latest available game server build ID: {err}");
+                        continue 'query;
+                    }
+                };
+
+            let players_online: u16;
+            {
+                let lock = players_tracker.lock().await;
+                players_online = *lock;
+            }
+
+            let update: GameBuildIDUpdate = GameBuildIDUpdate {
+                players_online,
+                latest_available_build_id,
+            };
+
+            if let Err(err) = tx_buildid.send(update).await {
+                log::debug!("Channel for sending build ID updates closed -- Stopping querying: {err}");
+                break 'query;
+            }
+        }
+    }
+
+    async fn loop_reconnect_rcon(
+        mut rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
+        config: &crate::storage::Configuration,
+        tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
+        players_tracker: std::sync::Arc<tokio::sync::Mutex<u16>>,
+    ) -> () {
         'reconnect: loop {
-            match self.rx_rconready.recv().await {
+            match rx_rconready.recv().await {
                 Some(ready) => {
                     let _ready: super::gsc::gssm::ReadyForRcon = ready;
                     log::debug!("Game server state machine signaled readiness for RCON");
@@ -57,8 +116,8 @@ impl RconClient {
                 }
             };
 
-            let connection_string: String = self.cfg_client.get_config().await.get_rcon_connection_string();
-            let websocket: WebSocket = match tokio_tungstenite::connect_async(connection_string).await {
+            let websocket: WebSocket = match tokio_tungstenite::connect_async(config.get_rcon_connection_string()).await
+            {
                 Ok(n) => {
                     log::info!("RCON client connected");
                     let (websocket, _response): (WebSocket, Response) = n;
@@ -72,13 +131,14 @@ impl RconClient {
             let (mut ws_sink, mut ws_stream): (WebSocketSink, WebSocketStream) =
                 futures_util::StreamExt::split(websocket);
 
-            let config: crate::storage::Configuration = self.cfg_client.get_config().await;
-            if let Err(err) = Self::prepare_via_rcon(&mut ws_sink, &mut ws_stream, &config).await {
+            if let Err(err) = Self::prepare_via_rcon(&mut ws_sink, &mut ws_stream, config).await {
                 log::error!("Failed to prepare via RCON: {err}");
                 continue 'reconnect;
             }
 
-            if let Err(err) = Self::loop_query_rcon(ws_sink, ws_stream, self.tx_agg_igs.clone()).await {
+            if let Err(err) =
+                Self::loop_query_rcon(ws_sink, ws_stream, tx_agg_igs.clone(), players_tracker.clone()).await
+            {
                 log::error!("Failed to query RCON: {err}");
                 continue 'reconnect;
             }
@@ -304,6 +364,7 @@ impl RconClient {
         mut ws_sink: WebSocketSink,
         mut ws_stream: WebSocketStream,
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
+        players_tracker: std::sync::Arc<tokio::sync::Mutex<u16>>,
     ) -> Result<(), Error> {
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -337,6 +398,7 @@ impl RconClient {
                 .send_and_wait_response(&mut ws_sink, &mut ws_stream, Self::RCON_INGAME_STATE_QUERY_TIMEOUT)
                 .await?;
             let players: Vec<rustctl_common::rcon::Player> = (&response).try_into()?;
+            let player_count: usize = players.len();
 
             /*
              * listtoolcupboards
@@ -359,6 +421,11 @@ impl RconClient {
                     "Channel for sending in-game state snapshots to aggregator closed -- Stopping querying: {err}"
                 );
                 return Ok(());
+            }
+
+            {
+                let mut lock = players_tracker.lock().await;
+                *lock = player_count as u16;
             }
         }
     }
@@ -391,14 +458,14 @@ impl std::fmt::Display for RconMessage {
 }
 
 impl RconMessage {
-    pub fn new(command: &str) -> Self {
+    fn new(command: &str) -> Self {
         Self {
             Identifier: Self::generate_message_identifier(),
             Message: command.to_owned(),
         }
     }
 
-    pub async fn send_and_wait_response(
+    async fn send_and_wait_response(
         &self,
         ws_sink: &mut WebSocketSink,
         ws_stream: &mut WebSocketStream,
@@ -433,20 +500,6 @@ impl RconMessage {
         };
 
         Ok(response)
-    }
-
-    pub async fn send_without_waiting_response(&self, ws_sink: &mut WebSocketSink) -> Result<(), Error> {
-        let cmd_serialized: String =
-            serde_json::to_string(&self).expect("infallible: RconCommand should be serializable as JSON");
-        let cmd_msg: tokio_tungstenite::tungstenite::Message =
-            tokio_tungstenite::tungstenite::Message::Text(cmd_serialized.into());
-
-        if let Err(source) = ws_sink.send(cmd_msg).await {
-            log::error!("Failed to send RCON command: {source}");
-            return Err(Error::SocketFailed { source });
-        };
-
-        Ok(())
     }
 
     async fn wait_response(&self, ws_stream: &mut WebSocketStream) -> Result<RconMessage, Error> {
@@ -781,4 +834,12 @@ impl TryFrom<&RconMessage> for Vec<rustctl_common::rcon::Toolcupboard> {
         }
         Ok(out)
     }
+}
+
+/// For driving update-and-restart of a running game server, which depends on:
+/// - Is there an update available (per _build ID_ comparison)?
+/// - Are there players on the server?
+pub struct GameBuildIDUpdate {
+    pub players_online: u16,
+    pub latest_available_build_id: crate::steam::BuildID,
 }
