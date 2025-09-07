@@ -192,7 +192,7 @@ impl GameServerStateMachine {
                     };
 
                     Self::InstalledAndConfigured {
-                        game_meta: rustctl_common::snapshot::GameServerMetaExposed { buildid: buildid_after },
+                        game_meta: rustctl_common::snapshot::GameServerMetaExposed { buildid: buildid_after.into() },
                         ctx,
                         startup_script,
                     }
