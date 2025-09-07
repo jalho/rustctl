@@ -849,9 +849,9 @@
     {
       "id": "QfxXSinTUPZrv1Bb-YoDO",
       "type": "arrow",
-      "x": 581.1906496170744,
-      "y": 952.5641468525852,
-      "width": 146.64109587728916,
+      "x": 568.1563657321902,
+      "y": 972.4840165216151,
+      "width": 190.5081307226456,
       "height": 566.413987124778,
       "angle": 1.1588343989557348,
       "strokeColor": "#1e1e1e",
@@ -868,11 +868,11 @@
         "type": 2
       },
       "seed": 626781601,
-      "version": 2599,
-      "versionNonce": 614497135,
+      "version": 2641,
+      "versionNonce": 2115886406,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1751028973229,
+      "updated": 1757261856193,
       "link": null,
       "locked": false,
       "points": [
@@ -881,8 +881,8 @@
           0
         ],
         [
-          76.41438066347723,
-          169.96551106690492
+          120.28141550883367,
+          102.24350345541325
         ],
         [
           -70.22671521381193,
@@ -1453,9 +1453,9 @@
     {
       "id": "WYEl-YLdpP7j5p-Erh2Mr",
       "type": "text",
-      "x": 739.2966403234127,
-      "y": 1254.6036940633899,
-      "width": 201.3000030517578,
+      "x": 624.4489075225956,
+      "y": 1284.745793711156,
+      "width": 355.9245300292969,
       "height": 43.620457604306964,
       "angle": 6.283185307179583,
       "strokeColor": "#1e1e1e",
@@ -1472,20 +1472,20 @@
       "index": "b34",
       "roundness": null,
       "seed": 251860495,
-      "version": 1309,
-      "versionNonce": 545729441,
+      "version": 1494,
+      "versionNonce": 1470657222,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1751029305571,
+      "updated": 1757261865618,
       "link": null,
       "locked": false,
-      "text": "transition on \"user input\":\ncommand received",
+      "text": "transition on \"user input\": command received,\nor on \"system event\": update available",
       "fontSize": 17.448183041722785,
       "fontFamily": 6,
       "textAlign": "center",
       "verticalAlign": "top",
       "containerId": null,
-      "originalText": "transition on \"user input\":\ncommand received",
+      "originalText": "transition on \"user input\": command received,\nor on \"system event\": update available",
       "autoResize": true,
       "lineHeight": 1.25
     },
