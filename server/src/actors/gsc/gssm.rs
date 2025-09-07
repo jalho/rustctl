@@ -484,17 +484,37 @@ impl GameServerStateMachine {
                         }
 
                         GameCtlEvent::BuildIDUpdate { update } => {
-                            /*
-                             * TODO: Check if the received build ID differs
-                             *       from current, and if so, update-restart the
-                             *       running game server if there are no players
-                             *       on the server!
-                             */
                             let buildid_current: crate::steam::BuildID = crate::steam::BuildID::new(game_meta.buildid); // TODO: Define game_meta.buildid as `crate::steam::BuildID`
                             let buildid_latest_avail: crate::steam::BuildID = update.latest_available_build_id;
                             let players_online: u16 = update.players_online;
-                            dbg!(buildid_current, buildid_latest_avail, players_online);
-                            todo!();
+
+                            if buildid_current != buildid_latest_avail {
+                                if players_online == 0 {
+                                    todo!("update and restart game server");
+                                } else {
+                                    /*
+                                     * Case there's an update available, yet there are also players on the
+                                     * server. Presumably this implies that the update is optional and thus we
+                                     * may simply ignore it for now! (The update shall be installed at a later
+                                     * check when there are no players online!)
+                                     */
+                                    Self::GameRunningHealthy {
+                                        game_meta,
+                                        process,
+                                        ctx,
+                                    }
+                                }
+                            } else {
+                                /*
+                                 * Case latest avail version matches current, i.e. already
+                                 * up-to-date: Nothing to do!
+                                 */
+                                Self::GameRunningHealthy {
+                                    game_meta,
+                                    process,
+                                    ctx,
+                                }
+                            }
                         }
                     }
                 }
