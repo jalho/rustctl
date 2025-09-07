@@ -452,7 +452,7 @@ impl GameServerStateMachine {
                             let command: rustctl_common::command::DownstreamClientMessage = message;
                             match command {
                                 rustctl_common::command::DownstreamClientMessage::ServerSaveAndClose => {
-                                    let signal = nix::sys::signal::Signal::SIGINT;
+                                    let signal = nix::sys::signal::Signal::SIGTERM;
                                     let pid = match send_signal(&process, signal).await {
                                         Ok(n) => n,
                                         Err(err) => {
@@ -490,7 +490,30 @@ impl GameServerStateMachine {
 
                             if buildid_current != buildid_latest_avail {
                                 if players_online == 0 {
-                                    todo!("update and restart game server");
+                                    /*
+                                     * Case there's an update available and there are no players
+                                     * on the server. Either we have a "forced update" (_the_
+                                     * monthly content update) that causes clients be unable to
+                                     * connect, or some optional update which we might as well
+                                     * install since no one is online!
+                                     */
+                                    log::info!(
+                                        "Update available and no players on the server: Current build ID: {buildid_current}, latest available: {buildid_latest_avail} -- Terminating game server!"
+                                    );
+                                    let signal = nix::sys::signal::Signal::SIGTERM;
+                                    let pid = match send_signal(&process, signal).await {
+                                        Ok(n) => n,
+                                        Err(err) => {
+                                            log::error!(
+                                                "Failed to send signal to game server: {err_fmt}",
+                                                err_fmt = crate::util::fmt_source_tree(&err)
+                                            );
+                                            Self::request_termination(ctx.tx_activate.clone()).await;
+                                            break 'loop_transitions;
+                                        }
+                                    };
+                                    log::info!("Sent signal to game server process: {signal}: PID {pid}");
+                                    Self::SavingAndClosingGame { process, ctx }
                                 } else {
                                     /*
                                      * Case there's an update available, yet there are also players on the
