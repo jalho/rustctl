@@ -468,20 +468,6 @@ impl RconMessage {
         Ok(response)
     }
 
-    pub async fn send_without_waiting_response(&self, ws_sink: &mut WebSocketSink) -> Result<(), Error> {
-        let cmd_serialized: String =
-            serde_json::to_string(&self).expect("infallible: RconCommand should be serializable as JSON");
-        let cmd_msg: tokio_tungstenite::tungstenite::Message =
-            tokio_tungstenite::tungstenite::Message::Text(cmd_serialized.into());
-
-        if let Err(source) = ws_sink.send(cmd_msg).await {
-            log::error!("Failed to send RCON command: {source}");
-            return Err(Error::SocketFailed { source });
-        };
-
-        Ok(())
-    }
-
     async fn wait_response(&self, ws_stream: &mut WebSocketStream) -> Result<RconMessage, Error> {
         'collect_response: loop {
             let msg: tokio_tungstenite::tungstenite::Message = match futures_util::StreamExt::next(ws_stream).await {
