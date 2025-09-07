@@ -840,6 +840,6 @@ impl TryFrom<&RconMessage> for Vec<rustctl_common::rcon::Toolcupboard> {
 }
 
 pub struct GameBuildIDUpdate {
-    players_online: u16,
-    latest_available_build_id: crate::steam::BuildID,
+    pub players_online: u16,
+    pub latest_available_build_id: crate::steam::BuildID,
 }
