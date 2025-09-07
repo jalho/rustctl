@@ -8,7 +8,7 @@
 /// Absolute path to the `steamcmd` executable presumed pre-installed on the
 /// system. As of 2025, SteamCMD is available for Ubuntu and Debian via APT, and
 /// for Arch via AUR.
-const STEAMCMD_EXECUTABLE_PATH_ABS: &'static str = "/usr/bin/steamcmd";
+const STEAMCMD_EXECUTABLE_PATH_ABS: &str = "/usr/bin/steamcmd";
 
 pub struct RustDedicated;
 
@@ -83,7 +83,7 @@ impl RustDedicated {
             }
         };
 
-        return Ok(buildid);
+        Ok(buildid)
     }
 }
 
@@ -139,7 +139,7 @@ impl BuildID {
 
     fn from_vdf_steamcmd(data: &str) -> Result<Self, String> {
         let vdf: keyvalues_parser::Vdf =
-            keyvalues_parser::Vdf::parse(data).map_err(|err| format!("failed to parse VDF: {}", err))?;
+            keyvalues_parser::Vdf::parse(data).map_err(|err| format!("failed to parse VDF: {err}"))?;
 
         let key: String = vdf.key.to_string();
         if key != RustDedicated::app_id().to_string() {
@@ -169,7 +169,7 @@ impl BuildID {
 
     fn from_vdf_appmanifest(data: &str) -> Result<Self, String> {
         let vdf: keyvalues_parser::Vdf =
-            keyvalues_parser::Vdf::parse(data).map_err(|err| format!("failed to parse VDF: {}", err))?;
+            keyvalues_parser::Vdf::parse(data).map_err(|err| format!("failed to parse VDF: {err}"))?;
 
         let key: String = vdf.key.to_string();
         if key != "AppState" {

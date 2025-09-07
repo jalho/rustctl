@@ -134,7 +134,7 @@ impl GameMonitor {
             let (mut ws_sink, mut ws_stream): (WebSocketSink, WebSocketStream) =
                 futures_util::StreamExt::split(websocket);
 
-            if let Err(err) = Self::prepare_via_rcon(&mut ws_sink, &mut ws_stream, &config).await {
+            if let Err(err) = Self::prepare_via_rcon(&mut ws_sink, &mut ws_stream, config).await {
                 log::error!("Failed to prepare via RCON: {err}");
                 continue 'reconnect;
             }
