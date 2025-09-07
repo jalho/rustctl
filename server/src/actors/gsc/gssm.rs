@@ -406,6 +406,15 @@ impl GameServerStateMachine {
                     mut ctx,
                 } => {
                     let event: GameCtlEvent = tokio::select! {
+                        msg = ctx.rx_buildid.recv() => {
+                            if let Some(buildid) = msg {
+                                let buildid: crate::steam::BuildID = buildid;
+                                GameCtlEvent::BuildIDUpdate { buildid }
+                            } else {
+                                log::debug!("Channel for receiving build ID updates closed -- Stopping game server state machine");
+                                break 'loop_transitions;
+                            }
+                        },
                         msg = ctx.rx_command.recv() => {
                             match msg {
                                 Some(message) => GameCtlEvent::MessageReceived { message },
@@ -458,10 +467,23 @@ impl GameServerStateMachine {
                                 }
                             }
                         }
+
                         GameCtlEvent::GameProcessTerminated { exit_status } => {
                             let _exit_status: std::process::ExitStatus = exit_status;
                             Self::GameTerminatedUnexpectedly { ctx }
                         }
+
+                        GameCtlEvent::BuildIDUpdate { buildid } => {
+                            /*
+                             * TODO: Check if the received build ID differs
+                             *       from current, and if so, update-restart the
+                             *       running game server if there are no players
+                             *       on the server! (Get the player amount
+                             *       also alongside the build ID from the game
+                             *       monitor actor...)
+                             */
+                             todo!();
+                        },
                     }
                 }
 
@@ -578,6 +600,10 @@ enum GameCtlEvent {
 
     GameProcessTerminated {
         exit_status: std::process::ExitStatus,
+    },
+
+    BuildIDUpdate {
+        buildid: crate::steam::BuildID,
     },
 }
 
