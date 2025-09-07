@@ -40,12 +40,38 @@ impl GameMonitor {
         let config = self.cfg_client.get_config().await;
 
         let job_rcon = Self::loop_reconnect_rcon(self.rx_rconready, &config, self.tx_agg_igs);
+        let job_updates = Self::loop_check_updates();
 
-        let done = ctoken.run_until_cancelled(job_rcon).await;
+        let done = ctoken.run_until_cancelled(
+            /*
+             * TODO: Somehow add job_updates here!
+             */
+            job_rcon,
+        ).await;
+
         if let Some(done) = done {
             let _done: () = done;
         }
         Summary {}
+    }
+
+    async fn loop_check_updates() -> () {
+        let mut interval = tokio::time::interval(
+            std::time::Duration::from_secs(60 * 10), // 10 minutes
+        );
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        loop {
+            interval.tick().await;
+
+            log::debug!("Querying latest available build ID...");
+            if let Ok(buildid) = crate::steam::RustDedicated::query_latest_available_build_id().await {
+                /*
+                 * TODO: Inform the game server controller of the received build ID!
+                 */
+                log::debug!("Latest available build ID: {buildid}")
+            }
+        }
     }
 
     pub async fn loop_reconnect_rcon(
