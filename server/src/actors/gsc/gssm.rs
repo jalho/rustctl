@@ -112,6 +112,12 @@ impl GameServerStateMachine {
                         break 'loop_transitions;
                     }
 
+                    /*
+                     * TODO: If the game server is being started on the first Thursday of the month,
+                     *       assume it might be _the_ monthly "forced" content update, and so wipe
+                     *       the map (and blueprints?) unless already wiped on the same day.
+                     */
+
                     Self::InstallingUpdates { ctx }
                 }
 
