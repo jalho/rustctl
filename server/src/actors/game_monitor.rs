@@ -2,11 +2,15 @@ use futures_util::SinkExt;
 
 pub struct GameMonitor {
     ctoken: tokio_util::sync::CancellationToken,
+
     cfg_client: crate::storage::ConfigurationClient,
+
+    players_tracker: std::sync::Arc<tokio::sync::Mutex<u16>>,
+
     /// "IGS" = "In-Game State"
     tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
     rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
-    tx_buildid: tokio::sync::mpsc::Sender<crate::steam::BuildID>,
+    tx_buildid: tokio::sync::mpsc::Sender<GameBuildIDUpdate>,
 }
 
 impl GameMonitor {
@@ -14,14 +18,20 @@ impl GameMonitor {
 
     pub fn new(
         ctoken: tokio_util::sync::CancellationToken,
+
         cfg_client: crate::storage::ConfigurationClient,
+
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
         rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
-        tx_buildid: tokio::sync::mpsc::Sender<crate::steam::BuildID>,
+        tx_buildid: tokio::sync::mpsc::Sender<GameBuildIDUpdate>,
     ) -> Self {
         Self {
             ctoken,
+
             cfg_client,
+
+            players_tracker: std::sync::Arc::new(tokio::sync::Mutex::new(0)),
+
             tx_agg_igs,
             rx_rconready,
             tx_buildid,
@@ -33,8 +43,9 @@ impl GameMonitor {
 
         let config = self.cfg_client.get_config().await;
 
-        let job_rcon = Self::loop_reconnect_rcon(self.rx_rconready, &config, self.tx_agg_igs);
-        let job_updates = Self::loop_check_updates();
+        let job_rcon =
+            Self::loop_reconnect_rcon(self.rx_rconready, &config, self.tx_agg_igs, self.players_tracker.clone());
+        let job_updates = Self::loop_check_updates(self.tx_buildid, self.players_tracker.clone());
         let job = futures::future::join(job_rcon, job_updates);
 
         let done = ctoken.run_until_cancelled(job).await;
@@ -45,25 +56,47 @@ impl GameMonitor {
         Summary {}
     }
 
-    async fn loop_check_updates() -> () {
+    async fn loop_check_updates(
+        tx_buildid: tokio::sync::mpsc::Sender<GameBuildIDUpdate>,
+        players_tracker: std::sync::Arc<tokio::sync::Mutex<u16>>,
+    ) -> () {
         let mut interval = tokio::time::interval(
             std::time::Duration::from_secs(60 * 10), // 10 minutes
         );
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-        loop {
+        'query: loop {
             interval.tick().await;
 
-            match crate::steam::RustDedicated::query_latest_available_build_id().await {
-                Ok(buildid) => {
-                    /*
-                     * TODO: Inform the game server controller of the received build ID!
-                     */
-                    log::debug!("Latest available game server build ID: {buildid}")
-                }
-                Err(err) => {
-                    log::error!("Failed to query latest available game server build ID: {err}");
-                }
+            let latest_available_build_id: crate::steam::BuildID =
+                match crate::steam::RustDedicated::query_latest_available_build_id().await {
+                    Ok(buildid) => {
+                        /*
+                         * TODO: Inform the game server controller of the received build ID!
+                         */
+                        log::debug!("Latest available game server build ID: {buildid}");
+                        buildid
+                    }
+                    Err(err) => {
+                        log::error!("Failed to query latest available game server build ID: {err}");
+                        continue 'query;
+                    }
+                };
+
+            let players_online: u16;
+            {
+                let lock = players_tracker.lock().await;
+                players_online = *lock;
+            }
+
+            let update: GameBuildIDUpdate = GameBuildIDUpdate {
+                players_online,
+                latest_available_build_id,
+            };
+
+            if let Err(err) = tx_buildid.send(update).await {
+                log::debug!("Channel for sending build ID updates closed -- Stopping querying: {err}");
+                break 'query;
             }
         }
     }
@@ -72,6 +105,7 @@ impl GameMonitor {
         mut rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
         config: &crate::storage::Configuration,
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
+        players_tracker: std::sync::Arc<tokio::sync::Mutex<u16>>,
     ) -> () {
         'reconnect: loop {
             match rx_rconready.recv().await {
@@ -105,7 +139,9 @@ impl GameMonitor {
                 continue 'reconnect;
             }
 
-            if let Err(err) = Self::loop_query_rcon(ws_sink, ws_stream, tx_agg_igs.clone()).await {
+            if let Err(err) =
+                Self::loop_query_rcon(ws_sink, ws_stream, tx_agg_igs.clone(), players_tracker.clone()).await
+            {
                 log::error!("Failed to query RCON: {err}");
                 continue 'reconnect;
             }
@@ -331,6 +367,7 @@ impl GameMonitor {
         mut ws_sink: WebSocketSink,
         mut ws_stream: WebSocketStream,
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
+        players_tracker: std::sync::Arc<tokio::sync::Mutex<u16>>,
     ) -> Result<(), Error> {
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -364,6 +401,7 @@ impl GameMonitor {
                 .send_and_wait_response(&mut ws_sink, &mut ws_stream, Self::RCON_INGAME_STATE_QUERY_TIMEOUT)
                 .await?;
             let players: Vec<rustctl_common::rcon::Player> = (&response).try_into()?;
+            let player_count: usize = players.len();
 
             /*
              * listtoolcupboards
@@ -386,6 +424,11 @@ impl GameMonitor {
                     "Channel for sending in-game state snapshots to aggregator closed -- Stopping querying: {err}"
                 );
                 return Ok(());
+            }
+
+            {
+                let mut lock = players_tracker.lock().await;
+                *lock = player_count as u16;
             }
         }
     }
@@ -794,4 +837,9 @@ impl TryFrom<&RconMessage> for Vec<rustctl_common::rcon::Toolcupboard> {
         }
         Ok(out)
     }
+}
+
+pub struct GameBuildIDUpdate {
+    players_online: u16,
+    latest_available_build_id: crate::steam::BuildID,
 }

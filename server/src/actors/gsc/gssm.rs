@@ -12,7 +12,7 @@ pub struct Context {
     /// "GSS" = "Game Server State"
     pub tx_agg_gss: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
     pub tx_rconready: tokio::sync::mpsc::Sender<crate::actors::gsc::gssm::ReadyForRcon>,
-    pub rx_buildid: tokio::sync::mpsc::Receiver<crate::steam::BuildID>,
+    pub rx_buildid: tokio::sync::mpsc::Receiver<crate::actors::game_monitor::GameBuildIDUpdate>,
 }
 
 pub enum GameServerStateMachine {
@@ -63,7 +63,7 @@ impl GameServerStateMachine {
         rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
         tx_agg_gss: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
         tx_rconready: tokio::sync::mpsc::Sender<crate::actors::gsc::gssm::ReadyForRcon>,
-        rx_buildid: tokio::sync::mpsc::Receiver<crate::steam::BuildID>,
+        rx_buildid: tokio::sync::mpsc::Receiver<crate::actors::game_monitor::GameBuildIDUpdate>,
     ) -> Self {
         Self::Init {
             ctx: Context {
@@ -407,9 +407,9 @@ impl GameServerStateMachine {
                 } => {
                     let event: GameCtlEvent = tokio::select! {
                         msg = ctx.rx_buildid.recv() => {
-                            if let Some(buildid) = msg {
-                                let buildid: crate::steam::BuildID = buildid;
-                                GameCtlEvent::BuildIDUpdate { buildid }
+                            if let Some(update) = msg {
+                                let update: crate::actors::game_monitor::GameBuildIDUpdate = update;
+                                GameCtlEvent::BuildIDUpdate { update }
                             } else {
                                 log::debug!("Channel for receiving build ID updates closed -- Stopping game server state machine");
                                 break 'loop_transitions;
@@ -473,14 +473,12 @@ impl GameServerStateMachine {
                             Self::GameTerminatedUnexpectedly { ctx }
                         }
 
-                        GameCtlEvent::BuildIDUpdate { buildid } => {
+                        GameCtlEvent::BuildIDUpdate { update } => {
                             /*
                              * TODO: Check if the received build ID differs
                              *       from current, and if so, update-restart the
                              *       running game server if there are no players
-                             *       on the server! (Get the player amount
-                             *       also alongside the build ID from the game
-                             *       monitor actor...)
+                             *       on the server!
                              */
                              todo!();
                         },
@@ -603,7 +601,7 @@ enum GameCtlEvent {
     },
 
     BuildIDUpdate {
-        buildid: crate::steam::BuildID,
+        update: crate::actors::game_monitor::GameBuildIDUpdate,
     },
 }
 
