@@ -116,10 +116,6 @@ impl BuildID {
         Some(build_id)
     }
 
-    /*
-     * TODO: Replace `fn query_latest_available_build_id` and `fn
-     *       from_vdf_steamcmd_contaminated` with `fn from_remote_steam_api`
-     */
     /// By "contaminated VDF" we mean the esoteric output format of the following command:
     ///
     /// ```
