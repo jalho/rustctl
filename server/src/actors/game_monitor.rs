@@ -71,9 +71,6 @@ impl GameMonitor {
             let latest_available_build_id: crate::steam::BuildID =
                 match crate::steam::RustDedicated::query_latest_available_build_id().await {
                     Ok(buildid) => {
-                        /*
-                         * TODO: Inform the game server controller of the received build ID!
-                         */
                         log::debug!("Latest available game server build ID: {buildid}");
                         buildid
                     }
