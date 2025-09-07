@@ -64,7 +64,8 @@ fn main() -> std::process::ExitCode {
         tx_rconready,
     );
     /*
-     * TODO: Add new responsibility for RconClient actor:
+     * TODO: Add new responsibility for GameMonitor (previous called RconClient)
+     *       actor:
      *
      *       Periodically (e.g., every 10 minutes) query the latest available game
      *       server build from SteamCMD. Compare this to the currently installed
@@ -88,12 +89,9 @@ fn main() -> std::process::ExitCode {
      *       ```
      *       $ steamcmd +login anonymous +app_info_print 258550 +quit | grep -m 1 buildid
      *       ```
-     *
-     *       Consider also renaming the RconClient actor accordingly! Maybe call
-     *       it "game state monitorer"?
      */
-    let rcon_client =
-        actors::rcon_client::RconClient::new(ctoken.child_token(), config_client.clone(), tx_igs, rx_rconready);
+    let game_monitor =
+        actors::game_monitor::GameMonitor::new(ctoken.child_token(), config_client.clone(), tx_igs, rx_rconready);
     let web_server = actors::web_server::WebServer::new(
         ctoken.child_token(),
         tx_activate.clone(),
@@ -112,7 +110,7 @@ fn main() -> std::process::ExitCode {
             aggregator.work(),
             monitor.work(),
             controller.work(),
-            rcon_client.work(),
+            game_monitor.work(),
             web_server.work(),
         )
     };
@@ -121,7 +119,7 @@ fn main() -> std::process::ExitCode {
         actors::aggregator::Summary,
         actors::monitor::Summary,
         actors::gsc::Summary,
-        actors::rcon_client::Summary,
+        actors::game_monitor::Summary,
         actors::web_server::Summary,
     ) = runtime.block_on(runtime_job);
 

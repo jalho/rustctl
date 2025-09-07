@@ -1,6 +1,6 @@
 use futures_util::SinkExt;
 
-pub struct RconClient {
+pub struct GameMonitor {
     ctoken: tokio_util::sync::CancellationToken,
 
     cfg_client: crate::storage::ConfigurationClient,
@@ -11,7 +11,7 @@ pub struct RconClient {
     rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
 }
 
-impl RconClient {
+impl GameMonitor {
     const RCON_INGAME_STATE_QUERY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
 
     pub fn new(
