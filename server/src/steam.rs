@@ -87,7 +87,7 @@ impl RustDedicated {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BuildID(u32);
 
 impl From<BuildID> for u32 {

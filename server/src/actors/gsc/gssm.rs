@@ -130,7 +130,7 @@ impl GameServerStateMachine {
                     let buildid_after: crate::steam::BuildID;
                     if ctx.skip {
                         buildid_after = match buildid_before {
-                            Some(n) => n,
+                            Some(ref n) => n.clone(),
                             None => {
                                 log::error!(
                                     "No existing installation found, and installation skipped -- Cannot start game server!"
@@ -192,7 +192,9 @@ impl GameServerStateMachine {
                     };
 
                     Self::InstalledAndConfigured {
-                        game_meta: rustctl_common::snapshot::GameServerMetaExposed { buildid: buildid_after.into() },
+                        game_meta: rustctl_common::snapshot::GameServerMetaExposed {
+                            buildid: buildid_after.into(),
+                        },
                         ctx,
                         startup_script,
                     }
@@ -567,26 +569,6 @@ impl std::fmt::Display for GameServerStateMachine {
             }
         }
     }
-}
-
-fn extract_buildid_from_buf(buf: &str) -> Option<u32> {
-    let vdf: keyvalues_parser::Vdf = match keyvalues_parser::Vdf::parse(buf) {
-        Ok(v) => v,
-        Err(_) => return None,
-    };
-    let root: &keyvalues_parser::Obj = vdf.value.get_obj()?;
-
-    let buildid_str: &str = match root.get("buildid") {
-        Some(values) => {
-            if values.len() != 1 {
-                return None;
-            }
-            values[0].get_str()?
-        }
-        None => return None,
-    };
-
-    buildid_str.parse::<u32>().ok()
 }
 
 enum GameCtlEvent {
