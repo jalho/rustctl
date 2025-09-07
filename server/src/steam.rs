@@ -44,7 +44,7 @@ impl RustDedicated {
             },
             Err(_) => todo!(),
         };
-        let build_id: BuildID = BuildID::from_contaminated_vdf(&output).unwrap();
+        let build_id: BuildID = BuildID::from_vdf_steamcmd_contaminated(&output).unwrap();
         Ok(build_id)
     }
 }
@@ -65,7 +65,7 @@ impl BuildID {
             Ok(n) => n,
             Err(_) => return None,
         };
-        let build_id = match Self::from_vdf(&content) {
+        let build_id = match Self::from_vdf_appmanifest(&content) {
             Ok(n) => n,
             Err(_) => return None,
         };
@@ -74,14 +74,14 @@ impl BuildID {
 
     /*
      * TODO: Replace `fn query_latest_available_build_id` and `fn
-     *       from_contaminated_vdf` with `fn from_remote_steam_api`
+     *       from_vdf_steamcmd_contaminated` with `fn from_remote_steam_api`
      */
     /// By "contaminated VDF" we mean the esoteric output format of the following command:
     ///
     /// ```
     /// $ /usr/bin/steamcmd +login anonymous +app_info_print 258550 +quit
     /// ```
-    pub fn from_contaminated_vdf(contaminated_vdf: &str) -> Result<Self, String> {
+    pub fn from_vdf_steamcmd_contaminated(contaminated_vdf: &str) -> Result<Self, String> {
         /*
          * Strip the "contamination" i.e. whatever precedes the actual "VDF"
          * data.
@@ -90,10 +90,10 @@ impl BuildID {
         let vdf_end_incl = contaminated_vdf.rfind('}').ok_or("could not find end of VDF")?;
         let data: &str = &contaminated_vdf[vdf_start_incl..=vdf_end_incl];
 
-        Self::from_vdf(data)
+        Self::from_vdf_steamcmd(data)
     }
 
-    fn from_vdf(data: &str) -> Result<Self, String> {
+    fn from_vdf_steamcmd(data: &str) -> Result<Self, String> {
         let vdf: keyvalues_parser::Vdf =
             keyvalues_parser::Vdf::parse(data).map_err(|err| format!("failed to parse VDF: {}", err))?;
 
@@ -122,10 +122,36 @@ impl BuildID {
 
         Ok(buildid)
     }
+
+    fn from_vdf_appmanifest(data: &str) -> Result<Self, String> {
+        let vdf: keyvalues_parser::Vdf =
+            keyvalues_parser::Vdf::parse(data).map_err(|err| format!("failed to parse VDF: {}", err))?;
+
+        let key: String = vdf.key.to_string();
+        if key != "AppState" {
+            return Err(format!("unexpected top level key in VDF: {key}"));
+        }
+        let value: keyvalues_parser::Value = vdf.value;
+
+        let obj: &keyvalues_parser::Obj = match value.get_obj() {
+            Some(n) => n,
+            None => todo!(),
+        };
+
+        /*
+         * TODO: Remove panics; Instead, return Result::Err
+         */
+        let buildid: &keyvalues_parser::Value = obj.get("buildid").unwrap().first().unwrap();
+        let buildid: String = buildid.to_string().trim_matches('"').to_owned();
+        let buildid: u32 = buildid.parse::<u32>().unwrap();
+        let buildid = Self::new(buildid);
+
+        Ok(buildid)
+    }
 }
 
 #[test]
-fn test_from_contaminated_vdf() {
+fn test_from_vdf_steamcmd_contaminated() {
     let input = r#"Redirecting stderr to '/home/test/.steam/logs/stderr.txt'
 Logging directory: '/home/test/.steam/logs'
 [  0%] Checking for available updates...
@@ -370,7 +396,7 @@ Connecting anonymously to Steam Public...[0mOK
 	}
 }
 Unloading Steam API..."#;
-    let build_id = BuildID::from_contaminated_vdf(input).unwrap();
+    let build_id = BuildID::from_vdf_steamcmd_contaminated(input).unwrap();
     assert_eq!(build_id, BuildID::new(19874893));
 }
 
@@ -392,4 +418,52 @@ impl std::fmt::Display for AppID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
+}
+
+#[test]
+fn test_from_vdf_appmanifest() {
+    let input = r#""AppState"
+{
+        "appid"         "258550"
+        "Universe"              "1"
+        "name"          "Rust Dedicated Server"
+        "StateFlags"            "4"
+        "installdir"            "rust_dedicated"
+        "LastUpdated"           "1757159921"
+        "LastPlayed"            "0"
+        "SizeOnDisk"            "8217703701"
+        "StagingSize"           "0"
+        "buildid"               "19874893"
+        "LastOwner"             "76561200247933079"
+        "DownloadType"          "1"
+        "UpdateResult"          "0"
+        "BytesToDownload"               "4288512"
+        "BytesDownloaded"               "4288512"
+        "BytesToStage"          "4187256364"
+        "BytesStaged"           "4187256364"
+        "TargetBuildID"         "19874893"
+        "AutoUpdateBehavior"            "0"
+        "AllowOtherDownloadsWhileRunning"               "0"
+        "ScheduledAutoUpdate"           "0"
+        "InstalledDepots"
+        {
+                "258552"
+                {
+                        "manifest"              "7826341510309710521"
+                        "size"          "862726932"
+                }
+                "258554"
+                {
+                        "manifest"              "4429398150162575463"
+                        "size"          "7354976769"
+                }
+        }
+        "UserConfig"
+        {
+        }
+        "MountedConfig"
+        {
+        }
+}"#;
+    let buildid: BuildID = BuildID::from_vdf_appmanifest(input).unwrap();
 }
