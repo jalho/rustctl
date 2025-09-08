@@ -1,0 +1,28 @@
+#cloud-config
+users:
+  - name: rustctl
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /usr/bin/fish
+    lock_passwd: true
+
+packages:
+  - fish
+  - steamcmd
+
+runcmd:
+  - |
+    HELIX_VER="25.07.1"
+    HELIX_FILE="helix-${HELIX_VER}-x86_64-linux"
+
+    mkdir -p /tmp/init
+    cd /tmp/init
+
+    wget https://github.com/helix-editor/helix/releases/download/${HELIX_VER}/${HELIX_FILE}.tar.xz
+    xz -d ${HELIX_FILE}.tar.xz
+    tar -xf ${HELIX_FILE}.tar
+    mv ${HELIX_FILE}/hx /usr/local/bin/hx
+
+    rm -r /tmp/init
+
+  - |
+    chsh -s /usr/bin/fish rustctl
