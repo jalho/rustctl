@@ -15,4 +15,19 @@ CREATE TABLE alt_ids (
 /*
  * DATA.
  */
--- TODO!
+INSERT INTO users (
+    id,
+    privileged
+) VALUES (
+    '00000000-0000-0000-0000-000000000000',
+    1
+);
+INSERT INTO alt_ids (
+    id,
+    steam_id,
+    user_id
+) VALUES (
+    '11111111-1111-1111-1111-111111111111',
+    76561198135242017,
+    '00000000-0000-0000-0000-000000000000'
+);
