@@ -42,6 +42,14 @@ fn main() -> std::process::ExitCode {
     let (tx_buildid, rx_buildid) = tokio::sync::mpsc::channel::<actors::game_monitor::GameBuildIDUpdate>(1);
 
     /*
+     * TODO: Make DB into an actor...
+     */
+    let conn = rusqlite::Connection::open("/var/lib/rustctl/rustctl.db").unwrap();
+    let version: String = conn.query_row("SELECT sqlite_version()", [], |row| row.get(0)).unwrap();
+    log::info!("SQLite version: {}", version);
+    conn.execute(include_str!("init.sql"), ()).unwrap();
+
+    /*
      * The actors.
      */
     let monitor = actors::monitor::Monitor::new(ctoken.child_token(), tx_activate.clone(), tx_resuse);
@@ -65,8 +73,13 @@ fn main() -> std::process::ExitCode {
         tx_rconready,
         rx_buildid,
     );
-    let game_monitor =
-        actors::game_monitor::GameMonitor::new(ctoken.child_token(), config_client.clone(), tx_igs, rx_rconready, tx_buildid);
+    let game_monitor = actors::game_monitor::GameMonitor::new(
+        ctoken.child_token(),
+        config_client.clone(),
+        tx_igs,
+        rx_rconready,
+        tx_buildid,
+    );
     let web_server = actors::web_server::WebServer::new(
         ctoken.child_token(),
         tx_activate.clone(),

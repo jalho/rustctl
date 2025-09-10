@@ -16,6 +16,7 @@ log               = { workspace = true, features = [] }
 nix               = { workspace = true, features = ["signal"] }
 rand              = { workspace = true, features = [] }
 regex             = { workspace = true, features = ["unicode-perl"] }
+rusqlite          = { workspace = true, features = ["bundled"] }
 rustctl-common    = { workspace = true, features = [] }
 serde_json        = { workspace = true, features = ["alloc"] }
 serde             = { workspace = true, features = ["derive"] }
