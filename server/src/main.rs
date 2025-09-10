@@ -42,7 +42,9 @@ fn main() -> std::process::ExitCode {
     let (tx_buildid, rx_buildid) = tokio::sync::mpsc::channel::<actors::game_monitor::GameBuildIDUpdate>(1);
 
     /*
-     * TODO: Make DB into an actor...
+     * TODO: Make a DB actor, and use the stored default privileged user when
+     *       setting server admin after game server startup. Also skip the DB
+     *       init if DB already exists (per the specific ".db" file).
      */
     let conn = rusqlite::Connection::open("/var/lib/rustctl/rustctl.db").unwrap();
     let version: String = conn.query_row("SELECT sqlite_version()", [], |row| row.get(0)).unwrap();
