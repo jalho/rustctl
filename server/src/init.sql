@@ -2,13 +2,14 @@
  * TABLES.
  */
 CREATE TABLE users (
-    id                   TEXT PRIMARY KEY, -- UUIDv4
+    id                   TEXT NOT NULL PRIMARY KEY,
     privileged           BOOLEAN NOT NULL
 );
 CREATE TABLE alt_ids (
-    id                   TEXT PRIMARY KEY, -- UUIDv4
-    steam_id             INTEGER NOT NULL, -- 17-digit unsigned integer
-    user_id              TEXT, -- UUIDv4
+    id                   TEXT NOT NULL PRIMARY KEY,
+    steam_id             INTEGER NOT NULL,
+    user_id              TEXT NOT NULL,
+    created_at_utc       DATETIME NOT NULL,
     FOREIGN KEY(user_id) REFERENCES users(id)
 );
 
@@ -25,9 +26,11 @@ INSERT INTO users (
 INSERT INTO alt_ids (
     id,
     steam_id,
-    user_id
+    user_id,
+    created_at_utc
 ) VALUES (
     '11111111-1111-1111-1111-111111111111',
     76561198135242017,
-    '00000000-0000-0000-0000-000000000000'
+    '00000000-0000-0000-0000-000000000000',
+    CURRENT_TIMESTAMP
 );
