@@ -3,7 +3,7 @@
  */
 CREATE TABLE users (
     id                   TEXT NOT NULL PRIMARY KEY,
-    privileged           BOOLEAN NOT NULL
+    privileged_at_utc    DATETIME NULL
 );
 CREATE TABLE alt_ids (
     id                   TEXT NOT NULL PRIMARY KEY,
@@ -18,10 +18,10 @@ CREATE TABLE alt_ids (
  */
 INSERT INTO users (
     id,
-    privileged
+    privileged_at_utc
 ) VALUES (
     '00000000-0000-0000-0000-000000000000',
-    1
+    CURRENT_TIMESTAMP
 );
 INSERT INTO alt_ids (
     id,
