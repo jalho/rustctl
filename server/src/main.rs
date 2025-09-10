@@ -47,7 +47,7 @@ fn main() -> std::process::ExitCode {
     let conn = rusqlite::Connection::open("/var/lib/rustctl/rustctl.db").unwrap();
     let version: String = conn.query_row("SELECT sqlite_version()", [], |row| row.get(0)).unwrap();
     log::info!("SQLite version: {}", version);
-    conn.execute(include_str!("init.sql"), ()).unwrap();
+    conn.execute_batch(include_str!("init.sql")).unwrap();
 
     /*
      * The actors.
