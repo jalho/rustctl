@@ -5,7 +5,10 @@ mod storage;
 mod util;
 
 fn main() -> std::process::ExitCode {
-    let cli_args: init::CliArgs = <init::CliArgs as clap::Parser>::parse();
+    let cli_args: init::CliArgs = match init::CliArgs::parse() {
+        Ok(n) => n,
+        Err(code) => return code,
+    };
 
     let config_client: storage::ConfigurationClient = storage::ConfigurationClient::init();
 

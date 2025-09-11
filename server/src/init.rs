@@ -1,6 +1,5 @@
 #[derive(clap::Parser, Debug)]
 #[command(version)]
-#[group(multiple = false, required = false, args = ["steamid_init", "steamid_append"])]
 pub struct CliArgs {
     /// Skip updates.
     #[arg(short = 's', long, default_value_t = false)]
@@ -25,7 +24,25 @@ pub struct CliArgs {
     /// users. Mutually exclusive with --steamid_init, which can be used to
     /// discard existing instead.
     #[arg(long)]
-    pub steamid_append: Option<Vec<u64>>,
+    pub steamid_append: Vec<u64>,
+}
+
+impl CliArgs {
+    pub fn parse() -> Result<Self, std::process::ExitCode> {
+        let cli_args: CliArgs = <CliArgs as clap::Parser>::parse();
+
+        match (cli_args.steamid_init, cli_args.steamid_append.len()) {
+            (Some(_), 0) => Ok(cli_args),
+            (None, 1..) => Ok(cli_args),
+            (None, 0) => Ok(cli_args),
+            (Some(_), 1..) => {
+                eprintln!(
+                    "args --steamid-init and --steamid-append are mutually exclusive: you may only provide one or the other",
+                );
+                Err(std::process::ExitCode::FAILURE)
+            }
+        }
+    }
 }
 
 pub const LOG_TARGET_GAME: &str = "game";
