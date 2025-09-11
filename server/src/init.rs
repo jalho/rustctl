@@ -1,5 +1,6 @@
 #[derive(clap::Parser, Debug)]
 #[command(version)]
+#[group(multiple = false, required = false, args = ["steamid_init", "steamid_append"])]
 pub struct CliArgs {
     /// Skip updates.
     #[arg(short = 's', long, default_value_t = false)]
@@ -13,6 +14,18 @@ pub struct CliArgs {
 
     #[arg(short = 'p', long, default_value_t = 8080)]
     pub web_server_listen_port: u16,
+
+    /// Discard all existing privileged users, and set the given Steam ID as the
+    /// single privileged user. Mutually exclusive with --steamid-append, which
+    /// can be used to append instead.
+    #[arg(long)]
+    pub steamid_init: Option<u64>,
+
+    /// Append the given Steam IDs to a possibly existing set of privileged
+    /// users. Mutually exclusive with --steamid_init, which can be used to
+    /// discard existing instead.
+    #[arg(long)]
+    pub steamid_append: Option<Vec<u64>>,
 }
 
 pub const LOG_TARGET_GAME: &str = "game";
