@@ -5,11 +5,6 @@
  *       everything in this module!
  */
 
-/// Absolute path to the `steamcmd` executable presumed pre-installed on the
-/// system. As of 2025, SteamCMD is available for Ubuntu and Debian via APT, and
-/// for Arch via AUR.
-const STEAMCMD_EXECUTABLE_PATH_ABS: &str = "/usr/bin/steamcmd";
-
 pub struct RustDedicated;
 
 impl RustDedicated {
@@ -26,7 +21,7 @@ impl RustDedicated {
     /// documented HTTP API existed instead, but unfortunately it doesn't and so
     /// we're forced to use SteamCMD!
     pub async fn query_latest_available_build_id() -> Result<BuildID, String> {
-        let mut cmd = tokio::process::Command::new(STEAMCMD_EXECUTABLE_PATH_ABS);
+        let mut cmd = tokio::process::Command::new(rustctl_backend::constants::paths::INSTALLER);
         cmd.args([
             "+login",
             "anonymous",
@@ -49,10 +44,8 @@ impl RustDedicated {
     }
 
     pub async fn install(config: &crate::storage::Configuration) -> Result<BuildID, String> {
-        let working_directory: String = config.fs.root_dir_abs_utf8();
-
-        let mut command = tokio::process::Command::new(STEAMCMD_EXECUTABLE_PATH_ABS);
-        command.current_dir(&working_directory);
+        let mut command = tokio::process::Command::new(rustctl_backend::constants::paths::INSTALLER);
+        command.current_dir(rustctl_backend::constants::paths::ROOT_DIR);
         command.args(config.get_installer_args());
         command.stdout(std::process::Stdio::null());
         command.stderr(std::process::Stdio::null());
@@ -75,13 +68,16 @@ impl RustDedicated {
             }
         };
 
-        let manifest_path: String = config.fs.manifest_abs_utf8();
-        let buildid: BuildID = match BuildID::from_existing_installation_manifest(&manifest_path).await {
-            Some(n) => n,
-            None => {
-                return Err(format!(r#"failed to extract buildid from manifest "{manifest_path}""#));
-            }
-        };
+        let buildid: BuildID =
+            match BuildID::from_existing_installation_manifest(rustctl_backend::constants::paths::MANIFEST).await {
+                Some(n) => n,
+                None => {
+                    return Err(format!(
+                        r#"failed to extract buildid from manifest "{manifest_path}""#,
+                        manifest_path = rustctl_backend::constants::paths::MANIFEST,
+                    ));
+                }
+            };
 
         Ok(buildid)
     }

@@ -43,8 +43,12 @@ impl GameMonitor {
 
         let config = self.cfg_client.get_config().await;
 
-        let job_rcon =
-            Self::loop_reconnect_rcon(self.rx_rconready, &config, self.tx_agg_igs, self.players_tracker.clone());
+        let job_rcon = Self::loop_reconnect_rcon(
+            self.rx_rconready,
+            &config,
+            self.tx_agg_igs,
+            self.players_tracker.clone(),
+        );
         let job_updates = Self::loop_check_updates(self.tx_buildid, self.players_tracker.clone());
         let job = futures::future::join(job_rcon, job_updates);
 
@@ -169,26 +173,27 @@ impl GameMonitor {
 
             let rendered: &str = match response.Message.strip_prefix("Saved map render to: ") {
                 Some(n) => n,
-                None => todo!(),
+                None => todo!("{response:?}"),
             };
 
             let absolute: std::path::PathBuf = match std::path::Path::new(rendered).canonicalize() {
                 Ok(n) => n,
-                Err(_) => todo!(),
+                Err(err) => todo!("{err}"),
             };
 
-            let map_file_path: String = config.fs.current_game_map_abs_utf8();
-            if let Err(_err) = tokio::fs::rename(&absolute, &map_file_path).await {
+            if let Err(_err) = tokio::fs::rename(&absolute, rustctl_backend::constants::paths::GAME_MAP).await {
                 todo!();
             };
-            let metadata: std::fs::Metadata = match tokio::fs::metadata(&map_file_path).await {
-                Ok(n) => n,
-                Err(_) => todo!(),
-            };
+            let metadata: std::fs::Metadata =
+                match tokio::fs::metadata(rustctl_backend::constants::paths::GAME_MAP).await {
+                    Ok(n) => n,
+                    Err(err) => todo!("{err}"),
+                };
             let size_bytes: u64 = metadata.len();
             log::info!(
                 r#"In-game world map rendered in {time_ms} ms as "{map_file_path}": {bytes} bytes (~{kibibytes} KiB or ~{mebibytes} MiB)"#,
                 time_ms = cmd_time.as_millis(),
+                map_file_path = rustctl_backend::constants::paths::GAME_MAP,
                 bytes = size_bytes,
                 kibibytes = size_bytes / 1024,
                 mebibytes = size_bytes / (1024 * 1024),

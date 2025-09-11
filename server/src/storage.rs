@@ -23,10 +23,6 @@ impl ConfigurationClient {
 /// Parameters for spawning a game server process.
 #[derive(Clone)]
 pub struct Configuration {
-    pub fs: rustctl_backend::PresumedFilesystemHierarchy,
-
-    pub game_instance_id: &'static str,
-
     pub game_world_size: u16,
     pub game_world_seed: u32,
 
@@ -50,10 +46,10 @@ pub struct Configuration {
 }
 
 impl Configuration {
-    pub fn get_installer_args(&self) -> Vec<String> {
+    pub fn get_installer_args(&self) -> Vec<&'static str> {
         vec![
-            "+login".into(),
-            "anonymous".into(),
+            "+login",
+            "anonymous",
             /*
              * WONTFIX: "force_install_dir" doesn't really "force" anything:
              *          Instead, SteamCMD seems to just create a new directory
@@ -66,12 +62,12 @@ impl Configuration {
              *          - Section: non-free/games
              *          - Maintainer: Debian Games Team
              */
-            "+force_install_dir".into(),
-            self.fs.root_dir_abs_utf8(),
-            "+app_update".into(),
-            "258550".into(),
-            "validate".into(),
-            "+quit".into(),
+            "+force_install_dir",
+            rustctl_backend::constants::paths::ROOT_DIR,
+            "+app_update",
+            "258550",
+            "validate",
+            "+quit",
         ]
     }
 
@@ -87,10 +83,6 @@ impl Configuration {
 impl Default for Configuration {
     fn default() -> Self {
         Self {
-            fs: rustctl_backend::PresumedFilesystemHierarchy,
-
-            game_instance_id: "instance0",
-
             /*
              * Some observed maps as of 2025-08-29, buildid 19776612, world
              * size 1000:

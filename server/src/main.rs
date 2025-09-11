@@ -15,7 +15,7 @@ fn main() -> std::process::ExitCode {
     };
 
     let config: storage::Configuration = runtime.block_on(config_client.get_config());
-    let (_logg, log_file) = match init::initialize_logger(cli_args.log_level, &config) {
+    let (_logg, log_file) = match init::initialize_logger(cli_args.log_level) {
         Ok(n) => n,
         Err(code) => return code,
     };
@@ -42,11 +42,12 @@ fn main() -> std::process::ExitCode {
     let (tx_buildid, rx_buildid) = tokio::sync::mpsc::channel::<actors::game_monitor::GameBuildIDUpdate>(1);
 
     /*
-     * TODO: Make a DB actor, and use the stored default privileged user when
-     *       setting server admin after game server startup. Also skip the DB
-     *       init if DB already exists (per the specific ".db" file).
+     * TODO: Make a DB actor, init/append privileged user into DB per CLI args,
+     *       make opts ("config") for "Game Monitor" (alias "RCON Client") from
+     *       the values synced with database: Privileged users are set via RCON,
+     *       and should also be persisted in database...
      */
-    let conn = rusqlite::Connection::open("/var/lib/rustctl/rustctl.db").unwrap();
+    let conn = rusqlite::Connection::open(rustctl_backend::constants::paths::DB).unwrap();
     let version: String = conn.query_row("SELECT sqlite_version()", [], |row| row.get(0)).unwrap();
     log::info!("SQLite version: {}", version);
     conn.execute_batch(include_str!("init.sql")).unwrap();

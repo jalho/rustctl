@@ -30,16 +30,10 @@ pub struct CliArgs {
 
 pub const LOG_TARGET_GAME: &str = "game";
 
-pub fn initialize_logger(
-    level: log::LevelFilter,
-    config: &crate::storage::Configuration,
-) -> Result<(log4rs::Handle, String), std::process::ExitCode> {
+pub fn initialize_logger(level: log::LevelFilter) -> Result<(log4rs::Handle, String), std::process::ExitCode> {
     const APPENDER_NAME_CORE_FILE: &str = "core_file";
     const APPENDER_NAME_GAME_FILE: &str = "game_file";
     const APPENDER_NAME_STDOUT: &str = "stdout";
-
-    let mut log_file_path = std::path::Path::new(&config.fs.root_dir_abs_utf8()).to_path_buf();
-    log_file_path.push("rustctl.log");
 
     // core -> file
     let appender_core_file = log4rs::append::file::FileAppender::builder()
@@ -47,7 +41,7 @@ pub fn initialize_logger(
             "{h({d(%Y-%m-%d %H:%M:%S)(utc)} UTC [rustctl] [{l}] {m})} [{f}:{L}]\n",
         )))
         .append(true)
-        .build(&log_file_path)
+        .build(rustctl_backend::constants::paths::LOG)
         .map_err(|err| {
             eprintln!("Failed to create core file appender: {err}");
             std::process::ExitCode::FAILURE
@@ -59,7 +53,7 @@ pub fn initialize_logger(
             "{h({d(%Y-%m-%d %H:%M:%S)(utc)} UTC [{t}] {m})}\n",
         )))
         .append(true)
-        .build(&log_file_path)
+        .build(rustctl_backend::constants::paths::LOG)
         .map_err(|err| {
             eprintln!("Failed to create game file appender: {err}");
             std::process::ExitCode::FAILURE
@@ -109,7 +103,7 @@ pub fn initialize_logger(
     };
 
     match log4rs::init_config(config) {
-        Ok(handle) => Ok((handle, log_file_path.to_string_lossy().into_owned())),
+        Ok(handle) => Ok((handle, rustctl_backend::constants::paths::LOG.to_owned())),
         Err(err) => {
             eprintln!("Initializing logger failed: {err}");
             Err(std::process::ExitCode::FAILURE)
