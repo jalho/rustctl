@@ -9,6 +9,10 @@ members = [
   "./common",
 ]
 
+[workspace.metadata.tooling]
+dioxus-cli       = "=0.6.3"   # executable name: `dx`
+wasm-bindgen-cli = "=0.2.100" # executable name: `wasm-bindgen`, required by `dx`
+
 [workspace.dependencies]
 axum                 = { version = "=0.8.4",   default-features = false }
 chrono               = { version = "=0.4.41",  default-features = false }
