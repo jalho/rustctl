@@ -57,6 +57,10 @@ interesting. (Not in any meaningful order!)
 
 /var/lib/rustctl/
 │
+├── rustctl.db .................. Generated at runtime.
+│
+├── rustctl.log ................. Generated at runtime.
+│
 ├── carbon
 │   │
 │   ├── tools
@@ -76,7 +80,7 @@ interesting. (Not in any meaningful order!)
 │                                 information relative to itself.
 │
 ├── server
-│   └── instance0 ............... Generated at runtime (by the game, automatically).
+│   └── instance0 ............... Generated at runtime (by the game).
 │       ├── cfg
 │       │   └── users.cfg
 │       └── *.sav
