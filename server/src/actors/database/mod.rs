@@ -17,7 +17,11 @@ impl Database {
         };
 
         match Self::check_version(&connection) {
-            Ok(version) => log::info!("Connected SQLite version: {}", version),
+            Ok(version) => log::info!(
+                r#"Connected SQLite version: {} -- File: "{file}""#,
+                version,
+                file = rustctl_backend::constants::paths::DB,
+            ),
             Err(err) => {
                 log::error!("{err}");
                 return Err(std::process::ExitCode::FAILURE);
@@ -79,7 +83,7 @@ impl Database {
             count = users.len(),
             listing = users
                 .iter()
-                .map(|n| n.steam_id.to_string())
+                .map(|n| n.to_string())
                 .collect::<Vec<String>>()
                 .join(", "),
         );
