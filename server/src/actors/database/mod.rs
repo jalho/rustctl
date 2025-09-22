@@ -79,11 +79,7 @@ impl Database {
         log::info!(
             "{count} privileged users in database: {listing}",
             count = users.len(),
-            listing = users
-                .iter()
-                .map(|n| n.to_string())
-                .collect::<Vec<String>>()
-                .join(", "),
+            listing = users.iter().map(|n| n.to_string()).collect::<Vec<String>>().join(", "),
         );
 
         Ok(Self { connection })

@@ -340,9 +340,10 @@ impl GameServerStateMachine {
                                     let trimmed_line = line.trim_end();
                                     log::debug!(target: crate::init::LOG_TARGET_GAME, "{trimmed_line}");
                                     if trimmed_line.contains("SteamServer Connected")
-                                        && let Some(sender) = tx.take() {
-                                            let _ = sender.send(());
-                                        }
+                                        && let Some(sender) = tx.take()
+                                    {
+                                        let _ = sender.send(());
+                                    }
                                 }
                                 Err(err) => {
                                     log::error!(
@@ -912,11 +913,12 @@ async fn is_running_already() -> Vec<u32> {
     {
         if let Some(executable) = std::path::Path::new(rustctl_backend::constants::paths::INSTALLER).file_name()
             && let Ok(output) = tokio::process::Command::new("pgrep").arg(executable).output().await
-                && output.status.success()
-                    && let Ok(stdout) = String::from_utf8(output.stdout)
-                        && let Ok(pid) = stdout.trim().parse::<u32>() {
-                            running.push(pid);
-                        }
+            && output.status.success()
+            && let Ok(stdout) = String::from_utf8(output.stdout)
+            && let Ok(pid) = stdout.trim().parse::<u32>()
+        {
+            running.push(pid);
+        }
     }
 
     /*
@@ -929,11 +931,12 @@ async fn is_running_already() -> Vec<u32> {
                 .arg(executable)
                 .output()
                 .await
-                && output.status.success()
-                    && let Ok(stdout) = String::from_utf8(output.stdout)
-                        && let Ok(pid) = stdout.trim().parse::<u32>() {
-                            running.push(pid);
-                        }
+            && output.status.success()
+            && let Ok(stdout) = String::from_utf8(output.stdout)
+            && let Ok(pid) = stdout.trim().parse::<u32>()
+        {
+            running.push(pid);
+        }
     }
 
     /*
@@ -942,11 +945,12 @@ async fn is_running_already() -> Vec<u32> {
     {
         if let Some(executable) = std::path::Path::new(rustctl_backend::constants::paths::GAME).file_name()
             && let Ok(output) = tokio::process::Command::new("pgrep").arg(executable).output().await
-                && output.status.success()
-                    && let Ok(stdout) = String::from_utf8(output.stdout)
-                        && let Ok(pid) = stdout.trim().parse::<u32>() {
-                            running.push(pid);
-                        }
+            && output.status.success()
+            && let Ok(stdout) = String::from_utf8(output.stdout)
+            && let Ok(pid) = stdout.trim().parse::<u32>()
+        {
+            running.push(pid);
+        }
     }
 
     running

@@ -27,7 +27,6 @@ impl GameServerController {
                 tx_activate,
                 skip,
                 cfg_client,
-
                 rx_command,
                 tx_agg_gss,
                 tx_rconready,
