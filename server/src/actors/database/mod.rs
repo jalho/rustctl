@@ -50,17 +50,11 @@ impl Database {
         if users.len() == 0
             && let crate::init::PopulatePrivilegedUsers::Noop = populate_privileged_users
         {
-            log::error!(
-                r#"No privileged users exist and none set to be initialized: Use "--steam-id-init" or "--steam-id-append""#
-            );
+            log::error!(r#"No privileged users exist and none set to be initialized: Use "--steam-id-append""#);
             return Err(std::process::ExitCode::FAILURE);
         }
 
-        /*
-         * TODO: Init or append given privileged users.
-         */
         match populate_privileged_users {
-            crate::init::PopulatePrivilegedUsers::DiscardExistingAndInit { steam_ids } => todo!(),
             crate::init::PopulatePrivilegedUsers::AppendToExisting { steam_ids } => {
                 for steam_id in steam_ids {
                     if let Err(err) = Self::insert_one_privileged_user(&connection, steam_id) {
