@@ -59,7 +59,35 @@ impl Database {
         /*
          * TODO: Init or append given privileged users.
          */
-        dbg!(populate_privileged_users);
+        match populate_privileged_users {
+            crate::init::PopulatePrivilegedUsers::DiscardExistingAndInit { steam_ids } => todo!(),
+            crate::init::PopulatePrivilegedUsers::AppendToExisting { steam_ids } => {
+                for steam_id in steam_ids {
+                    if let Err(err) = Self::insert_one_privileged_user(&connection, steam_id) {
+                        log::error!("{err}");
+                        return Err(std::process::ExitCode::FAILURE);
+                    }
+                }
+            }
+            crate::init::PopulatePrivilegedUsers::Noop => todo!(),
+        }
+
+        let users: Vec<schema::User> = match Self::select_all_privileged_users(&connection) {
+            Ok(n) => n,
+            Err(err) => {
+                log::error!("{err}");
+                return Err(std::process::ExitCode::FAILURE);
+            }
+        };
+        log::info!(
+            "{count} privileged users in database: {listing}",
+            count = users.len(),
+            listing = users
+                .iter()
+                .map(|n| n.steam_id.to_string())
+                .collect::<Vec<String>>()
+                .join(", "),
+        );
 
         Ok(Self { connection })
     }
@@ -68,13 +96,44 @@ impl Database {
         connection.query_row(schema::READ_SQLITE_VERSION, [], |row| row.get(0))
     }
 
+    fn insert_one_privileged_user(connection: &rusqlite::Connection, steam_id: &u64) -> Result<(), rusqlite::Error> {
+        /*
+         * User.
+         */
+        let user_id: uuid::Uuid = {
+            let id: uuid::Uuid = uuid::Uuid::new_v4();
+            let privileged_at_utc: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+            connection.execute(schema::INSERT_ONE_USER, (id.to_string(), privileged_at_utc.to_string()))?;
+            id
+        };
+
+        /*
+         * Steam ID.
+         */
+        {
+            let created_at_utc: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+            connection.execute(
+                schema::INSERT_ONE_STEAM_ID,
+                (
+                    steam_id.to_string(),
+                    user_id.to_string(),
+                    created_at_utc.to_string(),
+                ),
+            )?;
+        }
+
+        Ok(())
+    }
+
     fn select_all_privileged_users(connection: &rusqlite::Connection) -> Result<Vec<schema::User>, rusqlite::Error> {
         let mut statement: rusqlite::Statement = connection.prepare(schema::SELECT_ALL_PRIVILEGED_USERS)?;
 
         let selection = statement.query_map([], |row| {
             Ok(schema::User {
                 id: row.get(0)?,
-                privileged_at_utc: row.get(1)?,
+                created_at_utc: row.get(1)?,
+                privileged_at_utc: row.get(2)?,
+                steam_id: row.get(3)?,
             })
         })?;
 
