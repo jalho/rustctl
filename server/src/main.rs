@@ -28,6 +28,13 @@ fn main() -> std::process::ExitCode {
         version = env!("CARGO_PKG_VERSION"),
     );
 
+    let database: actors::database::Database =
+        match actors::database::Database::init_connect(&cli_args.populate_privileged_users) {
+            Ok(n) => n,
+            Err(code) => return code,
+        };
+    todo!();
+
     /*
      * Actors's connectors.
      */

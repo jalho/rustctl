@@ -1,6 +1,6 @@
 #[derive(clap::Parser, Debug)]
 #[command(version)]
-pub struct CliArgs {
+struct CliArgsRaw {
     /// Skip updates.
     #[arg(short = 's', long, default_value_t = false)]
     pub skip: bool,
@@ -14,35 +14,68 @@ pub struct CliArgs {
     #[arg(short = 'p', long, default_value_t = 8080)]
     pub web_server_listen_port: u16,
 
-    /// Discard all existing privileged users, and set the given Steam ID as the
-    /// single privileged user. Mutually exclusive with --steamid-append, which
-    /// can be used to append instead.
+    /// Discard a possibly existing set of privileged Steam IDs and initialize
+    /// new with the given IDs.
+    ///
+    /// Mutually exclusive with --steam-id-append.
     #[arg(long)]
-    pub steamid_init: Option<u64>,
+    pub steam_id_init: Vec<u64>,
 
-    /// Append the given Steam IDs to a possibly existing set of privileged
-    /// users. Mutually exclusive with --steamid_init, which can be used to
-    /// discard existing instead.
+    /// Append given Steam IDs to a possibly existing set of privileged IDs.
+    ///
+    /// Mutually exclusive with --steam-id-init.
     #[arg(long)]
-    pub steamid_append: Vec<u64>,
+    pub steam_id_append: Vec<u64>,
+}
+
+pub struct CliArgs {
+    pub skip: bool,
+    pub log_level: log::LevelFilter,
+    pub web_server_listen_ip_addr: std::net::IpAddr,
+    pub web_server_listen_port: u16,
+    pub populate_privileged_users: PopulatePrivilegedUsers,
 }
 
 impl CliArgs {
     pub fn parse() -> Result<Self, std::process::ExitCode> {
-        let cli_args: CliArgs = <CliArgs as clap::Parser>::parse();
+        let cli_args: CliArgsRaw = <CliArgsRaw as clap::Parser>::parse();
 
-        match (cli_args.steamid_init, cli_args.steamid_append.len()) {
-            (Some(_), 0) => Ok(cli_args),
-            (None, 1..) => Ok(cli_args),
-            (None, 0) => Ok(cli_args),
-            (Some(_), 1..) => {
-                eprintln!(
-                    "args --steamid-init and --steamid-append are mutually exclusive: you may only provide one or the other",
-                );
-                Err(std::process::ExitCode::FAILURE)
-            }
-        }
+        let populate_privileged_users: PopulatePrivilegedUsers =
+            match (cli_args.steam_id_init.len(), cli_args.steam_id_append.len()) {
+                (1.., 0) => PopulatePrivilegedUsers::DiscardExistingAndInit {
+                    steam_ids: cli_args.steam_id_init,
+                },
+                (0, 1..) => PopulatePrivilegedUsers::AppendToExisting {
+                    steam_ids: cli_args.steam_id_append,
+                },
+                (0, 0) => PopulatePrivilegedUsers::Noop,
+                (1.., 1..) => {
+                    eprintln!(r#"Steam ID "init" and "append" are mutually exclusive"#);
+                    return Err(std::process::ExitCode::FAILURE);
+                }
+            };
+
+        Ok(CliArgs {
+            skip: cli_args.skip,
+            log_level: cli_args.log_level,
+            web_server_listen_ip_addr: cli_args.web_server_listen_ip_addr,
+            web_server_listen_port: cli_args.web_server_listen_port,
+            populate_privileged_users,
+        })
     }
+}
+
+#[derive(Debug)]
+pub enum PopulatePrivilegedUsers {
+    /// Discard a possibly existing set of Steam IDs and initialize new with the
+    /// given ID.
+    DiscardExistingAndInit { steam_ids: Vec<u64> },
+
+    /// Append given Steam IDs to a possibly existing set.
+    AppendToExisting { steam_ids: Vec<u64> },
+
+    /// Do nothing.
+    Noop,
 }
 
 pub const LOG_TARGET_GAME: &str = "game";
