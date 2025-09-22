@@ -6,6 +6,12 @@ pub struct User {
     pub steam_id: u64,
 }
 
+impl std::fmt::Display for User {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Steam ID {steam_id}", steam_id = self.steam_id)
+    }
+}
+
 pub const CREATE_TABLES: &'static str = r#"
     CREATE TABLE users (
         user_id              TEXT NOT NULL PRIMARY KEY,
