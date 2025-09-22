@@ -1,8 +1,8 @@
 #[derive(Debug)]
 pub struct User {
     pub id: String,
-    pub created_at_utc: String,
-    pub privileged_at_utc: String,
+    pub created_at_utc: chrono::DateTime<chrono::Utc>,
+    pub privileged_at_utc: chrono::DateTime<chrono::Utc>,
     pub steam_id: u64,
 }
 
@@ -10,14 +10,14 @@ pub const CREATE_TABLES: &'static str = r#"
     CREATE TABLE users (
         user_id              TEXT NOT NULL PRIMARY KEY,
 
-        privileged_at_utc    DATETIME NULL
+        privileged_at_utc    TEXT NULL
     );
 
     CREATE TABLE steam_ids (
         steam_id             INTEGER NOT NULL PRIMARY KEY,
 
         user_id              TEXT NOT NULL,
-        created_at_utc       DATETIME NOT NULL,
+        created_at_utc       TEXT NOT NULL,
         FOREIGN KEY(user_id) REFERENCES users(user_id)
     );
 "#;

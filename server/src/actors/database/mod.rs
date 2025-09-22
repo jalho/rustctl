@@ -102,8 +102,8 @@ impl Database {
          */
         let user_id: uuid::Uuid = {
             let id: uuid::Uuid = uuid::Uuid::new_v4();
-            let privileged_at_utc: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
-            connection.execute(schema::INSERT_ONE_USER, (id.to_string(), privileged_at_utc.to_string()))?;
+            let privileged_at_utc: String = chrono::Utc::now().to_rfc3339();
+            connection.execute(schema::INSERT_ONE_USER, (id.to_string(), privileged_at_utc))?;
             id
         };
 
@@ -111,14 +111,10 @@ impl Database {
          * Steam ID.
          */
         {
-            let created_at_utc: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+            let created_at_utc: String = chrono::Utc::now().to_rfc3339();
             connection.execute(
                 schema::INSERT_ONE_STEAM_ID,
-                (
-                    steam_id.to_string(),
-                    user_id.to_string(),
-                    created_at_utc.to_string(),
-                ),
+                (steam_id.to_string(), user_id.to_string(), created_at_utc),
             )?;
         }
 
