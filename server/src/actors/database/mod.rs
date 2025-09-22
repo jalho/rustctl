@@ -13,14 +13,14 @@ impl Database {
                 return Err(std::process::ExitCode::FAILURE);
             }
         };
-        let version: String = match connection.query_row("SELECT sqlite_version()", [], |row| row.get(0)) {
-            Ok(n) => n,
+
+        match Self::check_version(&connection) {
+            Ok(version) => log::info!("Connected SQLite version: {}", version),
             Err(err) => {
                 log::error!("{err}");
                 return Err(std::process::ExitCode::FAILURE);
             }
-        };
-        log::info!("Connected SQLite version: {}", version);
+        }
 
         /*
          * TODO: If tables not created, create them, and populate with init data
@@ -57,6 +57,10 @@ impl Database {
         }
 
         Ok(Self { connection })
+    }
+
+    fn check_version(connection: &rusqlite::Connection) -> Result<String, rusqlite::Error> {
+        connection.query_row("SELECT sqlite_version()", [], |row| row.get(0))
     }
 }
 
