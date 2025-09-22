@@ -33,7 +33,7 @@ impl Database {
             Err(_err) => {
                 match Self::create_tables(&connection) {
                     Ok(_) => {
-                        log::info!("Tables created");
+                        log::debug!("Tables created");
                     }
                     Err(err) => {
                         log::error!("{err}");
