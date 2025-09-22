@@ -22,11 +22,6 @@ impl Database {
             }
         }
 
-        /*
-         * TODO: If tables not created, create them, and populate with init data
-         *       given in CLI args.
-         */
-        dbg!(populate_privileged_users);
         let users: Vec<User> = match Self::select_all_privileged_users(&connection) {
             Ok(n) => n,
             Err(_err) => {
@@ -49,7 +44,20 @@ impl Database {
                 }
             }
         };
-        dbg!(users);
+
+        if users.len() == 0
+            && let crate::init::PopulatePrivilegedUsers::Noop = populate_privileged_users
+        {
+            log::error!(
+                r#"No privileged users exist and none set to be initialized: Use "--steam-id-init" or "--steam-id-append""#
+            );
+            return Err(std::process::ExitCode::FAILURE);
+        }
+
+        /*
+         * TODO: Init or append given privileged users.
+         */
+        dbg!(populate_privileged_users);
 
         Ok(Self { connection })
     }

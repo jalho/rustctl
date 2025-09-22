@@ -52,17 +52,6 @@ fn main() -> std::process::ExitCode {
     let (tx_buildid, rx_buildid) = tokio::sync::mpsc::channel::<actors::game_monitor::GameBuildIDUpdate>(1);
 
     /*
-     * TODO: Make a DB actor, init/append privileged user into DB per CLI args,
-     *       make opts ("config") for "Game Monitor" (alias "RCON Client") from
-     *       the values synced with database: Privileged users are set via RCON,
-     *       and should also be persisted in database...
-     */
-    let conn = rusqlite::Connection::open(rustctl_backend::constants::paths::DB).unwrap();
-    let version: String = conn.query_row("SELECT sqlite_version()", [], |row| row.get(0)).unwrap();
-    log::info!("SQLite version: {}", version);
-    conn.execute_batch(include_str!("init.sql")).unwrap();
-
-    /*
      * The actors.
      */
     let monitor = actors::monitor::Monitor::new(ctoken.child_token(), tx_activate.clone(), tx_resuse);

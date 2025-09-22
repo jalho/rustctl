@@ -67,14 +67,8 @@ impl CliArgs {
 
 #[derive(Debug)]
 pub enum PopulatePrivilegedUsers {
-    /// Discard a possibly existing set of Steam IDs and initialize new with the
-    /// given ID.
     DiscardExistingAndInit { steam_ids: Vec<u64> },
-
-    /// Append given Steam IDs to a possibly existing set.
     AppendToExisting { steam_ids: Vec<u64> },
-
-    /// Do nothing.
     Noop,
 }
 
