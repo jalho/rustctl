@@ -29,9 +29,25 @@ impl Database {
         dbg!(populate_privileged_users);
         let users: Vec<User> = match Self::select_all_privileged_users(&connection) {
             Ok(n) => n,
-            Err(err) => {
-                todo!();
-            },
+            Err(_err) => {
+                match Self::create_tables(&connection) {
+                    Ok(_) => {
+                        log::info!("Tables created");
+                    }
+                    Err(err) => {
+                        log::error!("{err}");
+                        return Err(std::process::ExitCode::FAILURE);
+                    }
+                }
+
+                match Self::select_all_privileged_users(&connection) {
+                    Ok(n) => n,
+                    Err(err) => {
+                        log::error!("{err}");
+                        return Err(std::process::ExitCode::FAILURE);
+                    }
+                }
+            }
         };
         dbg!(users);
 
