@@ -54,20 +54,17 @@ impl Database {
             return Err(std::process::ExitCode::FAILURE);
         }
 
-        match populate_privileged_users {
-            crate::init::PopulatePrivilegedUsers::AppendToExisting { steam_ids } => {
-                for steam_id in steam_ids {
-                    if let Some(existing) = users.iter().find(|n| &n.steam_id == steam_id) {
-                        log::debug!("Appendable privileged user exists already: {existing}");
-                    } else {
-                        if let Err(err) = Self::insert_one_privileged_user(&connection, steam_id) {
-                            log::error!("{err}");
-                            return Err(std::process::ExitCode::FAILURE);
-                        }
+        if let crate::init::PopulatePrivilegedUsers::AppendToExisting { steam_ids } = populate_privileged_users {
+            for steam_id in steam_ids {
+                if let Some(existing) = users.iter().find(|n| &n.steam_id == steam_id) {
+                    log::debug!("Appendable privileged user exists already: {existing}");
+                } else {
+                    if let Err(err) = Self::insert_one_privileged_user(&connection, steam_id) {
+                        log::error!("{err}");
+                        return Err(std::process::ExitCode::FAILURE);
                     }
                 }
             }
-            crate::init::PopulatePrivilegedUsers::Noop => todo!(),
         }
 
         let users: Vec<schema::User> = match Self::select_all_privileged_users(&connection) {
