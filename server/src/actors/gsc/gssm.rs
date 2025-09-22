@@ -339,11 +339,10 @@ impl GameServerStateMachine {
                                 Ok(_) => {
                                     let trimmed_line = line.trim_end();
                                     log::debug!(target: crate::init::LOG_TARGET_GAME, "{trimmed_line}");
-                                    if trimmed_line.contains("SteamServer Connected") {
-                                        if let Some(sender) = tx.take() {
+                                    if trimmed_line.contains("SteamServer Connected")
+                                        && let Some(sender) = tx.take() {
                                             let _ = sender.send(());
                                         }
-                                    }
                                 }
                                 Err(err) => {
                                     log::error!(
@@ -911,56 +910,43 @@ async fn is_running_already() -> Vec<u32> {
      * Check "installer".
      */
     {
-        if let Some(executable) = std::path::Path::new(rustctl_backend::constants::paths::INSTALLER).file_name() {
-            if let Ok(output) = tokio::process::Command::new("pgrep").arg(executable).output().await {
-                if output.status.success() {
-                    if let Ok(stdout) = String::from_utf8(output.stdout) {
-                        if let Ok(pid) = stdout.trim().parse::<u32>() {
+        if let Some(executable) = std::path::Path::new(rustctl_backend::constants::paths::INSTALLER).file_name()
+            && let Ok(output) = tokio::process::Command::new("pgrep").arg(executable).output().await
+                && output.status.success()
+                    && let Ok(stdout) = String::from_utf8(output.stdout)
+                        && let Ok(pid) = stdout.trim().parse::<u32>() {
                             running.push(pid);
                         }
-                    }
-                }
-            }
-        }
     }
 
     /*
      * Check "generated launcher script".
      */
     {
-        if let Some(executable) = std::path::Path::new(rustctl_backend::constants::paths::STARTUP).file_name() {
-            if let Ok(output) = tokio::process::Command::new("pgrep")
+        if let Some(executable) = std::path::Path::new(rustctl_backend::constants::paths::STARTUP).file_name()
+            && let Ok(output) = tokio::process::Command::new("pgrep")
                 .arg("-f")
                 .arg(executable)
                 .output()
                 .await
-            {
-                if output.status.success() {
-                    if let Ok(stdout) = String::from_utf8(output.stdout) {
-                        if let Ok(pid) = stdout.trim().parse::<u32>() {
+                && output.status.success()
+                    && let Ok(stdout) = String::from_utf8(output.stdout)
+                        && let Ok(pid) = stdout.trim().parse::<u32>() {
                             running.push(pid);
                         }
-                    }
-                }
-            }
-        }
     }
 
     /*
      * Check "game server".
      */
     {
-        if let Some(executable) = std::path::Path::new(rustctl_backend::constants::paths::GAME).file_name() {
-            if let Ok(output) = tokio::process::Command::new("pgrep").arg(executable).output().await {
-                if output.status.success() {
-                    if let Ok(stdout) = String::from_utf8(output.stdout) {
-                        if let Ok(pid) = stdout.trim().parse::<u32>() {
+        if let Some(executable) = std::path::Path::new(rustctl_backend::constants::paths::GAME).file_name()
+            && let Ok(output) = tokio::process::Command::new("pgrep").arg(executable).output().await
+                && output.status.success()
+                    && let Ok(stdout) = String::from_utf8(output.stdout)
+                        && let Ok(pid) = stdout.trim().parse::<u32>() {
                             running.push(pid);
                         }
-                    }
-                }
-            }
-        }
     }
 
     running

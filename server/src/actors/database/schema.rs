@@ -12,7 +12,7 @@ impl std::fmt::Display for User {
     }
 }
 
-pub const CREATE_TABLES: &'static str = r#"
+pub const CREATE_TABLES: &str = r#"
     CREATE TABLE users (
         user_id              TEXT NOT NULL PRIMARY KEY,
 
@@ -28,7 +28,7 @@ pub const CREATE_TABLES: &'static str = r#"
     );
 "#;
 
-pub const INSERT_ONE_USER: &'static str = r#"
+pub const INSERT_ONE_USER: &str = r#"
     INSERT INTO users(
         user_id,
         privileged_at_utc
@@ -38,7 +38,7 @@ pub const INSERT_ONE_USER: &'static str = r#"
     );
 "#;
 
-pub const INSERT_ONE_STEAM_ID: &'static str = r#"
+pub const INSERT_ONE_STEAM_ID: &str = r#"
     INSERT INTO steam_ids(
         steam_id,
         user_id,
@@ -50,7 +50,7 @@ pub const INSERT_ONE_STEAM_ID: &'static str = r#"
     );
 "#;
 
-pub const SELECT_ALL_PRIVILEGED_USERS: &'static str = r#"
+pub const SELECT_ALL_PRIVILEGED_USERS: &str = r#"
     SELECT
         u.user_id,
         s.created_at_utc,
@@ -65,4 +65,4 @@ pub const SELECT_ALL_PRIVILEGED_USERS: &'static str = r#"
         privileged_at_utc IS NOT NULL
 "#;
 
-pub const READ_SQLITE_VERSION: &'static str = "SELECT sqlite_version()";
+pub const READ_SQLITE_VERSION: &str = "SELECT sqlite_version()";

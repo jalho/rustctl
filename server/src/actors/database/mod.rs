@@ -51,7 +51,7 @@ impl Database {
             }
         };
 
-        if users.len() == 0
+        if users.is_empty()
             && let crate::init::PopulatePrivilegedUsers::Noop = populate_privileged_users
         {
             log::error!(r#"No privileged users exist and none set to be initialized: Use "--steam-id-append""#);
@@ -62,11 +62,9 @@ impl Database {
             for steam_id in steam_ids {
                 if let Some(existing) = users.iter().find(|n| &n.steam_id == steam_id) {
                     log::debug!("Appendable privileged user exists already: {existing}");
-                } else {
-                    if let Err(err) = Self::insert_one_privileged_user(&connection, steam_id) {
-                        log::error!("{err}");
-                        return Err(std::process::ExitCode::FAILURE);
-                    }
+                } else if let Err(err) = Self::insert_one_privileged_user(&connection, steam_id) {
+                    log::error!("{err}");
+                    return Err(std::process::ExitCode::FAILURE);
                 }
             }
         }
@@ -138,7 +136,7 @@ impl Database {
             users.push(user);
         }
 
-        return Ok(users);
+        Ok(users)
     }
 
     fn create_tables(connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
