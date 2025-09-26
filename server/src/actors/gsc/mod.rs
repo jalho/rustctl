@@ -8,6 +8,7 @@ pub struct GameServerController {
 }
 
 impl GameServerController {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         ctoken: tokio_util::sync::CancellationToken,
         tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
