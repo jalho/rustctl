@@ -123,7 +123,7 @@ impl GameServerStateMachine {
                  * Install or update `RustDedicated` using `steamcmd`.
                  */
                 Self::InstallingUpdates { mut ctx } => {
-                    let config = ctx.cfg_client.get_config().await;
+                    let config: crate::actors::database::Configuration = ctx.cfg_client.get_config().await;
 
                     /*
                      * Install/update game server.
