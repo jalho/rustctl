@@ -94,7 +94,7 @@ interesting. (Not in any meaningful order!)
 Start backend in its root:
 
 ```
-$ cargo run -- -i 192.168.0.103 -p 8080
+$ cargo run -- -i 192.168.0.103 -p 8080 --steam-id-append 76561198135242017
 ```
 
 Start web app dev server in its root:

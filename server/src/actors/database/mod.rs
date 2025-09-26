@@ -23,12 +23,43 @@ mod schema {
         }
     }
 
+    #[derive(Debug)]
+    pub struct GameParams {
+        pub instance_id: String,
+        pub updated_at_utc: chrono::DateTime<chrono::Utc>,
+        pub world_size: u32,
+        pub world_seed: u32,
+        pub rcon_password: String,
+    }
+
+    impl std::fmt::Display for GameParams {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(
+                f,
+                "instance {instance_id}: world size {world_size}, seed {world_seed} (updated {updated_at})",
+                instance_id = self.instance_id,
+                world_size = self.world_size,
+                world_seed = self.world_seed,
+                updated_at = self.updated_at_utc.date_naive()
+            )
+        }
+    }
+
     pub const CREATE_TABLES: &str = r#"
     CREATE TABLE users (
         user_id              TEXT NOT NULL PRIMARY KEY,
         steam_id             INTEGER NOT NULL,
         created_at_utc       TEXT NOT NULL,
         privileged_at_utc    TEXT NULL
+    );
+
+    CREATE TABLE game_params (
+        instance_id          TEXT NOT NULL PRIMARY KEY,
+        updated_at_utc       TEXT NOT NULL,
+
+        world_size           INTEGER NOT NULL,
+        world_seed           INTEGER NOT NULL,
+        rcon_password        TEXT NOT NULL
     );
 "#;
 
@@ -56,6 +87,40 @@ mod schema {
         users
     WHERE
         privileged_at_utc IS NOT NULL
+"#;
+
+    pub const UPSERT_GAME_PARAMS: &str = r#"
+    INSERT INTO game_params(
+        instance_id,
+        updated_at_utc,
+        world_size,
+        world_seed,
+        rcon_password
+    ) VALUES(
+        ?1,
+        ?2,
+        ?3,
+        ?4,
+        ?5
+    )
+    ON CONFLICT(instance_id) DO UPDATE SET
+        updated_at_utc = excluded.updated_at_utc,
+        world_size = excluded.world_size,
+        world_seed = excluded.world_seed,
+        rcon_password = excluded.rcon_password;
+"#;
+
+    pub const SELECT_GAME_PARAMS: &str = r#"
+    SELECT
+        instance_id,
+        updated_at_utc,
+        world_size,
+        world_seed,
+        rcon_password
+    FROM
+        game_params
+    ORDER BY updated_at_utc DESC
+    LIMIT 1;
 "#;
 
     pub const READ_SQLITE_VERSION: &str = "SELECT sqlite_version()";
@@ -160,6 +225,24 @@ pub struct Database {
 
 impl Database {
     pub async fn work(mut self) -> Summary {
+        let game_params: Option<schema::GameParams> = match Self::select_game_params(&self.connection) {
+            Ok(n) => n,
+            Err(err) => todo!("{err}"),
+        };
+        if let None = game_params {
+            let init: schema::GameParams = schema::GameParams {
+                instance_id: "instance0".into(),
+                updated_at_utc: chrono::Utc::now(),
+                world_size: 1000,
+                world_seed: 1,
+                rcon_password: uuid::Uuid::new_v4().to_string(),
+            };
+            match Self::upsert_game_params(&self.connection, &init) {
+                Ok(_) => log::info!("Initialized game params"),
+                Err(err) => todo!("{err}"),
+            }
+        }
+
         let job = async {
             loop {
                 let query: client::Query = match self.rx_query.recv().await {
@@ -168,10 +251,16 @@ impl Database {
                 };
                 match query {
                     client::Query::ReadConfiguration { respond_to } => {
+                        let game_params: schema::GameParams = match Self::select_game_params(&self.connection) {
+                            Ok(Some(n)) => n,
+                            Ok(None) => todo!(),
+                            Err(err) => todo!("{err}"),
+                        };
+
                         let privileged_users: Vec<schema::User> =
                             match Self::select_all_privileged_users(&self.connection) {
                                 Ok(n) => n,
-                                Err(_) => todo!(),
+                                Err(err) => todo!("{err}"),
                             };
 
                         let admin: &schema::User = match (privileged_users.first(), privileged_users.len()) {
@@ -181,15 +270,12 @@ impl Database {
                             }
                         };
 
-                        /*
-                         * TODO: Read the rest of the values from the database too!
-                         */
                         let config: Configuration = Configuration {
-                          game_world_seed: 1,
-                          game_world_size: 1000, // minimum world size AFAIK
+                          game_world_seed: game_params.world_seed,
+                          game_world_size: game_params.world_size as u16, // TODO: Remove cast: Declare the type as u16!
 
                           rcon_port: 28016,
-                          rcon_password: uuid::Uuid::new_v4().to_string(),
+                          rcon_password: game_params.rcon_password,
                           game_owner_steamid: admin.steam_id.to_string(),
 
                           carbon_download_url: "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz".to_string(),
@@ -350,6 +436,53 @@ impl Database {
         }
 
         Ok(users)
+    }
+
+    fn upsert_game_params(
+        connection: &rusqlite::Connection,
+        game_params: &schema::GameParams,
+    ) -> Result<(), rusqlite::Error> {
+        let updated_at_utc: String = chrono::Utc::now().to_rfc3339();
+
+        connection.execute(
+            schema::UPSERT_GAME_PARAMS,
+            (
+                &game_params.instance_id,
+                updated_at_utc,
+                game_params.world_size,
+                game_params.world_seed,
+                &game_params.rcon_password,
+            ),
+        )?;
+
+        Ok(())
+    }
+
+    fn select_game_params(connection: &rusqlite::Connection) -> Result<Option<schema::GameParams>, rusqlite::Error> {
+        let mut statement: rusqlite::Statement = connection.prepare(schema::SELECT_GAME_PARAMS)?;
+
+        let mut selection = statement.query_map([], |row| {
+            let updated_at_utc_str: String = row.get(1)?;
+            let updated_at_utc = chrono::DateTime::parse_from_rfc3339(&updated_at_utc_str)
+                .map_err(|err| {
+                    log::error!("{err}");
+                    rusqlite::Error::InvalidColumnType(1, "updated_at_utc".to_string(), rusqlite::types::Type::Text)
+                })?
+                .with_timezone(&chrono::Utc);
+
+            Ok(schema::GameParams {
+                instance_id: row.get(0)?,
+                updated_at_utc,
+                world_size: row.get(2)?,
+                world_seed: row.get(3)?,
+                rcon_password: row.get(4)?,
+            })
+        })?;
+
+        match selection.next() {
+            Some(game_params) => Ok(Some(game_params?)),
+            None => Ok(None),
+        }
     }
 
     fn create_tables(connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
