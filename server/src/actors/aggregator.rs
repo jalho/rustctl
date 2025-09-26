@@ -14,8 +14,7 @@ pub struct Aggregator {
 }
 
 impl Aggregator {
-    const SOCKET_PATH: &str = "/tmp/rustctl.sock"; // TODO: Get via the config's `fs` thing instead!
-
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         ctoken: tokio_util::sync::CancellationToken,
         rx_resuse: tokio::sync::mpsc::Receiver<crate::actors::monitor::SystemResourceUsageReading>,
@@ -205,13 +204,16 @@ impl Aggregator {
         _aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>,
         tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::BroadcastMessage>,
     ) -> () {
-        let _ = tokio::fs::remove_file(Self::SOCKET_PATH).await;
+        let _ = tokio::fs::remove_file(rustctl_backend::constants::paths::SOCKET).await;
 
-        let listener = match tokio::net::UnixListener::bind(Self::SOCKET_PATH) {
+        let listener = match tokio::net::UnixListener::bind(rustctl_backend::constants::paths::SOCKET) {
             Ok(n) => n,
             Err(err) => todo!("terminate gracefully: {err}"),
         };
-        log::debug!("Unix domain socket bound: {}", Self::SOCKET_PATH);
+        log::debug!(
+            "Unix domain socket bound: {}",
+            rustctl_backend::constants::paths::SOCKET
+        );
 
         loop {
             match listener.accept().await {

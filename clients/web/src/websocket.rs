@@ -13,7 +13,7 @@ pub fn start_websocket_connection() {
         let interval = std::time::Duration::from_secs(RECONNECT_INTERVAL_SECS);
 
         loop {
-            if let Err(_) = run_websocket_connection().await {
+            if run_websocket_connection().await.is_err() {
                 // Connection failed or was lost, clear state and wait before retrying
                 clear_state();
                 gloo_timers::future::sleep(interval).await;
