@@ -135,6 +135,7 @@ impl GameServerStateMachine {
                         )
                         .await;
 
+                    #[allow(clippy::needless_late_init)]
                     let buildid_after: crate::steam::BuildID;
                     if ctx.skip {
                         buildid_after = match buildid_before {
