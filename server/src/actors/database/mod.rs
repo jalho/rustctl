@@ -90,26 +90,19 @@ impl Database {
     }
 
     fn insert_one_privileged_user(connection: &rusqlite::Connection, steam_id: &u64) -> Result<(), rusqlite::Error> {
-        /*
-         * User.
-         */
-        let user_id: uuid::Uuid = {
-            let id: uuid::Uuid = uuid::Uuid::new_v4();
-            let privileged_at_utc: String = chrono::Utc::now().to_rfc3339();
-            connection.execute(schema::INSERT_ONE_USER, (id.to_string(), privileged_at_utc))?;
-            id
-        };
+        let user_id: uuid::Uuid = uuid::Uuid::new_v4();
+        let created_at_utc: String = chrono::Utc::now().to_rfc3339();
+        let privileged_at_utc: String = chrono::Utc::now().to_rfc3339();
 
-        /*
-         * Steam ID.
-         */
-        {
-            let created_at_utc: String = chrono::Utc::now().to_rfc3339();
-            connection.execute(
-                schema::INSERT_ONE_STEAM_ID,
-                (steam_id.to_string(), user_id.to_string(), created_at_utc),
-            )?;
-        }
+        connection.execute(
+            schema::INSERT_ONE_USER,
+            (
+                user_id.to_string(),
+                steam_id.to_string(),
+                created_at_utc,
+                privileged_at_utc,
+            ),
+        )?;
 
         Ok(())
     }
@@ -118,11 +111,21 @@ impl Database {
         let mut statement: rusqlite::Statement = connection.prepare(schema::SELECT_ALL_PRIVILEGED_USERS)?;
 
         let selection = statement.query_map([], |row| {
+            let privileged_at_utc_str: Option<String> = row.get(3)?;
+            let privileged_at_utc = privileged_at_utc_str
+                .map(|s| chrono::DateTime::parse_from_rfc3339(&s))
+                .transpose()
+                .map_err(|err| {
+                    log::error!("{err}");
+                    rusqlite::Error::InvalidColumnType(3, "privileged_at_utc".to_string(), rusqlite::types::Type::Text)
+                })?
+                .map(|dt| dt.with_timezone(&chrono::Utc));
+
             Ok(schema::User {
                 id: row.get(0)?,
-                created_at_utc: row.get(1)?,
-                privileged_at_utc: row.get(2)?,
-                steam_id: row.get(3)?,
+                created_at_utc: row.get(2)?,
+                privileged_at_utc,
+                steam_id: row.get(1)?,
             })
         })?;
 

@@ -2,7 +2,7 @@
 pub struct User {
     pub id: String,
     pub created_at_utc: chrono::DateTime<chrono::Utc>,
-    pub privileged_at_utc: chrono::DateTime<chrono::Utc>,
+    pub privileged_at_utc: Option<chrono::DateTime<chrono::Utc>>,
     pub steam_id: u64,
 }
 
@@ -15,52 +15,34 @@ impl std::fmt::Display for User {
 pub const CREATE_TABLES: &str = r#"
     CREATE TABLE users (
         user_id              TEXT NOT NULL PRIMARY KEY,
-
-        privileged_at_utc    TEXT NULL
-    );
-
-    CREATE TABLE steam_ids (
-        steam_id             INTEGER NOT NULL PRIMARY KEY,
-
-        user_id              TEXT NOT NULL,
+        steam_id             INTEGER NOT NULL,
         created_at_utc       TEXT NOT NULL,
-        FOREIGN KEY(user_id) REFERENCES users(user_id)
+        privileged_at_utc    TEXT NULL
     );
 "#;
 
 pub const INSERT_ONE_USER: &str = r#"
     INSERT INTO users(
         user_id,
+        steam_id,
+        created_at_utc,
         privileged_at_utc
     ) VALUES(
         ?1,
-        ?2
-    );
-"#;
-
-pub const INSERT_ONE_STEAM_ID: &str = r#"
-    INSERT INTO steam_ids(
-        steam_id,
-        user_id,
-        created_at_utc
-    ) VALUES(
-        ?1,
         ?2,
-        ?3
+        ?3,
+        ?4
     );
 "#;
 
 pub const SELECT_ALL_PRIVILEGED_USERS: &str = r#"
     SELECT
-        u.user_id,
-        s.created_at_utc,
-        u.privileged_at_utc,
-        s.steam_id
+        user_id,
+        steam_id,
+        created_at_utc,
+        privileged_at_utc
     FROM
-        users u
-    JOIN
-        steam_ids s
-        ON u.user_id = s.user_id
+        users
     WHERE
         privileged_at_utc IS NOT NULL
 "#;
