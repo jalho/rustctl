@@ -1,5 +1,0 @@
-[build]
-
-# We're using musl target because I like statically linked executables for some
-# reason, and this seems to produce them.
-target = "x86_64-unknown-linux-musl"

@@ -57,6 +57,10 @@ interesting. (Not in any meaningful order!)
 
 /var/lib/rustctl/
 │
+├── rustctl.db .................. Generated at runtime.
+│
+├── rustctl.log ................. Generated at runtime.
+│
 ├── carbon
 │   │
 │   ├── tools
@@ -76,7 +80,7 @@ interesting. (Not in any meaningful order!)
 │                                 information relative to itself.
 │
 ├── server
-│   └── instance0 ............... Generated at runtime (by the game, automatically).
+│   └── instance0 ............... Generated at runtime (by the game).
 │       ├── cfg
 │       │   └── users.cfg
 │       └── *.sav
@@ -90,7 +94,7 @@ interesting. (Not in any meaningful order!)
 Start backend in its root:
 
 ```
-$ cargo run -- --skip -i 192.168.0.103 -p 8080
+$ cargo run -- -i 192.168.0.103 -p 8080 --steam-id-append 76561198135242017
 ```
 
 Start web app dev server in its root:

@@ -8,13 +8,14 @@ pub struct GameServerController {
 }
 
 impl GameServerController {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         ctoken: tokio_util::sync::CancellationToken,
         tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
 
         skip: bool,
 
-        cfg_client: crate::storage::ConfigurationClient,
+        cfg_client: crate::actors::database::client::Client,
 
         rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
         tx_agg_gss: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
@@ -27,7 +28,6 @@ impl GameServerController {
                 tx_activate,
                 skip,
                 cfg_client,
-
                 rx_command,
                 tx_agg_gss,
                 tx_rconready,

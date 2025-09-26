@@ -9,6 +9,10 @@ members = [
   "./common",
 ]
 
+[workspace.metadata.tooling]
+dioxus-cli       = "=0.6.3"   # executable name: `dx`
+wasm-bindgen-cli = "=0.2.100" # executable name: `wasm-bindgen`, required by `dx`
+
 [workspace.dependencies]
 axum                 = { version = "=0.8.4",   default-features = false }
 chrono               = { version = "=0.4.41",  default-features = false }
@@ -29,6 +33,7 @@ nix                  = { version = "=0.30.1",  default-features = false }
 rand                 = { version = "=0.9.1",   default-features = false }
 ratatui              = { version = "=0.29.0",  default-features = false }
 regex                = { version = "=1.11.1",  default-features = false }
+rusqlite             = { version = "=0.37.0",  default-features = false }
 rustctl-common       = { path    = "./common"                           }
 serde_json           = { version = "=1.0.140", default-features = false }
 serde                = { version = "=1.0.219", default-features = false }

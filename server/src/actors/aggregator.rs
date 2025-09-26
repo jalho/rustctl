@@ -10,12 +10,11 @@ pub struct Aggregator {
     rx_cmd_collect: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
     tx_cmd_relay: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
 
-    game_world_size: f64,
+    db_client: crate::actors::database::client::Client,
 }
 
 impl Aggregator {
-    const SOCKET_PATH: &str = "/tmp/rustctl.sock"; // TODO: Get via the config's `fs` thing instead!
-
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         ctoken: tokio_util::sync::CancellationToken,
         rx_resuse: tokio::sync::mpsc::Receiver<crate::actors::monitor::SystemResourceUsageReading>,
@@ -24,7 +23,7 @@ impl Aggregator {
         rx_cmd_collect: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
         tx_cmd_relay: tokio::sync::mpsc::Sender<rustctl_common::command::DownstreamClientMessage>,
         tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::BroadcastMessage>,
-        game_world_size: f64,
+        db_client: crate::actors::database::client::Client,
     ) -> Self {
         Self {
             ctoken,
@@ -38,11 +37,11 @@ impl Aggregator {
             rx_cmd_collect,
             tx_cmd_relay,
 
-            game_world_size,
+            db_client,
         }
     }
 
-    pub async fn work(self) -> Summary {
+    pub async fn work(mut self) -> Summary {
         let ctoken = self.ctoken.child_token();
 
         /*
@@ -54,8 +53,12 @@ impl Aggregator {
         let job_agg_gss = Self::aggregate_game_server_state_machine_transitions(self.aggregated.clone(), self.rx_gss);
         let job_agg_igs = Self::aggregate_ingame_state(self.aggregated.clone(), self.rx_igs);
 
-        let job_bcast_snapshots =
-            Self::broadcast_snapshots(self.game_world_size, self.aggregated.clone(), self.tx_broadcast.clone());
+        let game_world_size: u16 = self.db_client.get_config().await.game_world_size;
+        let job_bcast_snapshots = Self::broadcast_snapshots(
+            game_world_size.into(),
+            self.aggregated.clone(),
+            self.tx_broadcast.clone(),
+        );
 
         let job_agg_and_bcast_ige =
             Self::aggregate_and_broadcast_ingame_events(self.aggregated.clone(), self.tx_broadcast.clone());
@@ -201,13 +204,16 @@ impl Aggregator {
         _aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>,
         tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::BroadcastMessage>,
     ) -> () {
-        let _ = tokio::fs::remove_file(Self::SOCKET_PATH).await;
+        let _ = tokio::fs::remove_file(rustctl_backend::constants::paths::SOCKET).await;
 
-        let listener = match tokio::net::UnixListener::bind(Self::SOCKET_PATH) {
+        let listener = match tokio::net::UnixListener::bind(rustctl_backend::constants::paths::SOCKET) {
             Ok(n) => n,
             Err(err) => todo!("terminate gracefully: {err}"),
         };
-        log::debug!("Unix domain socket bound: {}", Self::SOCKET_PATH);
+        log::debug!(
+            "Unix domain socket bound: {}",
+            rustctl_backend::constants::paths::SOCKET
+        );
 
         loop {
             match listener.accept().await {

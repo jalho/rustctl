@@ -1,21 +1,20 @@
 mod actors;
 mod init;
 mod steam;
-mod storage;
 mod util;
 
 fn main() -> std::process::ExitCode {
-    let cli_args: init::CliArgs = <init::CliArgs as clap::Parser>::parse();
-
-    let config_client: storage::ConfigurationClient = storage::ConfigurationClient::init();
+    let cli_args: init::CliArgs = match init::CliArgs::parse() {
+        Ok(n) => n,
+        Err(code) => return code,
+    };
 
     let runtime: tokio::runtime::Runtime = match init::build_runtime() {
         Ok(n) => n,
         Err(code) => return code,
     };
 
-    let config: storage::Configuration = runtime.block_on(config_client.get_config());
-    let (_logg, log_file) = match init::initialize_logger(cli_args.log_level, &config) {
+    let (_logg, log_file) = match init::initialize_logger(cli_args.log_level) {
         Ok(n) => n,
         Err(code) => return code,
     };
@@ -40,10 +39,19 @@ fn main() -> std::process::ExitCode {
     let (tx_broadcast, _) = tokio::sync::broadcast::channel::<rustctl_common::BroadcastMessage>(1);
     let (tx_rconready, rx_rconready) = tokio::sync::mpsc::channel::<actors::gsc::gssm::ReadyForRcon>(1);
     let (tx_buildid, rx_buildid) = tokio::sync::mpsc::channel::<actors::game_monitor::GameBuildIDUpdate>(1);
+    let (tx_query, rx_query) = tokio::sync::mpsc::channel::<actors::database::client::Query>(1);
 
     /*
      * The actors.
      */
+    let database: actors::database::Database = match actors::database::Database::init_connect(
+        ctoken.child_token(),
+        &cli_args.populate_privileged_users,
+        rx_query,
+    ) {
+        Ok(n) => n,
+        Err(code) => return code,
+    };
     let monitor = actors::monitor::Monitor::new(ctoken.child_token(), tx_activate.clone(), tx_resuse);
     let aggregator = actors::aggregator::Aggregator::new(
         ctoken.child_token(),
@@ -53,20 +61,25 @@ fn main() -> std::process::ExitCode {
         rx_command_collect,
         tx_cmd_relay,
         tx_broadcast.clone(),
-        config.game_world_size.into(),
+        actors::database::client::Client::new(tx_query.clone()),
     );
     let controller = actors::gsc::GameServerController::new(
         ctoken.child_token(),
         tx_activate.clone(),
         cli_args.skip,
-        config_client.clone(),
+        actors::database::client::Client::new(tx_query.clone()),
         rx_command_relay,
         tx_gss,
         tx_rconready,
         rx_buildid,
     );
-    let game_monitor =
-        actors::game_monitor::GameMonitor::new(ctoken.child_token(), config_client.clone(), tx_igs, rx_rconready, tx_buildid);
+    let game_monitor = actors::game_monitor::GameMonitor::new(
+        ctoken.child_token(),
+        actors::database::client::Client::new(tx_query.clone()),
+        tx_igs,
+        rx_rconready,
+        tx_buildid,
+    );
     let web_server = actors::web_server::WebServer::new(
         ctoken.child_token(),
         tx_activate.clone(),
@@ -87,6 +100,7 @@ fn main() -> std::process::ExitCode {
             controller.work(),
             game_monitor.work(),
             web_server.work(),
+            database.work(),
         )
     };
     let _runtime_done: (
@@ -96,6 +110,7 @@ fn main() -> std::process::ExitCode {
         actors::gsc::Summary,
         actors::game_monitor::Summary,
         actors::web_server::Summary,
+        actors::database::Summary,
     ) = runtime.block_on(runtime_job);
 
     std::process::ExitCode::SUCCESS

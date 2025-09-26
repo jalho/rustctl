@@ -4,23 +4,24 @@ version = "0.1.0-rc1"
 edition = "2024"
 
 [dependencies]
-axum              = { workspace = true, features = ["ws", "tokio", "http1"] }
+axum              = { workspace = true, features = [ "ws", "tokio", "http1" ] }
 chrono            = { workspace = true, features = [] }
-clap              = { workspace = true, features = ["derive", "std", "help", "usage"] }
+clap              = { workspace = true, features = [ "derive", "std", "help", "usage" ] }
 futures-util      = { workspace = true, features = [] }
 futures           = { workspace = true, features = [] }
 keyvalues-parser  = { workspace = true, features = [] }
 libc              = { workspace = true, features = [] }
-log4rs            = { workspace = true, features = ["console_appender", "file_appender"] }
+log4rs            = { workspace = true, features = [ "console_appender", "file_appender" ] }
 log               = { workspace = true, features = [] }
-nix               = { workspace = true, features = ["signal"] }
+nix               = { workspace = true, features = [ "signal" ] }
 rand              = { workspace = true, features = [] }
-regex             = { workspace = true, features = ["unicode-perl"] }
+regex             = { workspace = true, features = [ "unicode-perl" ] }
+rusqlite          = { workspace = true, features = [ "bundled", "chrono" ] }
 rustctl-common    = { workspace = true, features = [] }
-serde_json        = { workspace = true, features = ["alloc"] }
-serde             = { workspace = true, features = ["derive"] }
-tokio-tungstenite = { workspace = true, features = ["connect"] }
+serde_json        = { workspace = true, features = [ "alloc" ] }
+serde             = { workspace = true, features = [ "derive" ] }
+tokio-tungstenite = { workspace = true, features = [ "connect" ] }
 tokio-util        = { workspace = true, features = [] }
-tokio             = { workspace = true, features = ["fs", "net", "process", "signal"] }
+tokio             = { workspace = true, features = [ "fs", "net", "process", "signal" ] }
 tower-http        = { workspace = true, features = [] }
-uuid              = { workspace = true, features = ["v4"] }
+uuid              = { workspace = true, features = [ "v4" ] }

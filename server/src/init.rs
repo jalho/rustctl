@@ -1,6 +1,6 @@
 #[derive(clap::Parser, Debug)]
 #[command(version)]
-pub struct CliArgs {
+struct CliArgsRaw {
     /// Skip updates.
     #[arg(short = 's', long, default_value_t = false)]
     pub skip: bool,
@@ -13,20 +13,53 @@ pub struct CliArgs {
 
     #[arg(short = 'p', long, default_value_t = 8080)]
     pub web_server_listen_port: u16,
+
+    /// Append given Steam IDs to a possibly existing set of privileged IDs.
+    #[arg(long)]
+    pub steam_id_append: Vec<u64>,
+}
+
+pub struct CliArgs {
+    pub skip: bool,
+    pub log_level: log::LevelFilter,
+    pub web_server_listen_ip_addr: std::net::IpAddr,
+    pub web_server_listen_port: u16,
+    pub populate_privileged_users: PopulatePrivilegedUsers,
+}
+
+impl CliArgs {
+    pub fn parse() -> Result<Self, std::process::ExitCode> {
+        let cli_args: CliArgsRaw = <CliArgsRaw as clap::Parser>::parse();
+
+        let populate_privileged_users: PopulatePrivilegedUsers = match cli_args.steam_id_append.len() {
+            1.. => PopulatePrivilegedUsers::AppendToExisting {
+                steam_ids: cli_args.steam_id_append,
+            },
+            0 => PopulatePrivilegedUsers::Noop,
+        };
+
+        Ok(CliArgs {
+            skip: cli_args.skip,
+            log_level: cli_args.log_level,
+            web_server_listen_ip_addr: cli_args.web_server_listen_ip_addr,
+            web_server_listen_port: cli_args.web_server_listen_port,
+            populate_privileged_users,
+        })
+    }
+}
+
+#[derive(Debug)]
+pub enum PopulatePrivilegedUsers {
+    AppendToExisting { steam_ids: Vec<u64> },
+    Noop,
 }
 
 pub const LOG_TARGET_GAME: &str = "game";
 
-pub fn initialize_logger(
-    level: log::LevelFilter,
-    config: &crate::storage::Configuration,
-) -> Result<(log4rs::Handle, String), std::process::ExitCode> {
+pub fn initialize_logger(level: log::LevelFilter) -> Result<(log4rs::Handle, String), std::process::ExitCode> {
     const APPENDER_NAME_CORE_FILE: &str = "core_file";
     const APPENDER_NAME_GAME_FILE: &str = "game_file";
     const APPENDER_NAME_STDOUT: &str = "stdout";
-
-    let mut log_file_path = std::path::Path::new(&config.fs.root_dir_abs_utf8()).to_path_buf();
-    log_file_path.push("rustctl.log");
 
     // core -> file
     let appender_core_file = log4rs::append::file::FileAppender::builder()
@@ -34,7 +67,7 @@ pub fn initialize_logger(
             "{h({d(%Y-%m-%d %H:%M:%S)(utc)} UTC [rustctl] [{l}] {m})} [{f}:{L}]\n",
         )))
         .append(true)
-        .build(&log_file_path)
+        .build(rustctl_backend::constants::paths::LOG)
         .map_err(|err| {
             eprintln!("Failed to create core file appender: {err}");
             std::process::ExitCode::FAILURE
@@ -46,7 +79,7 @@ pub fn initialize_logger(
             "{h({d(%Y-%m-%d %H:%M:%S)(utc)} UTC [{t}] {m})}\n",
         )))
         .append(true)
-        .build(&log_file_path)
+        .build(rustctl_backend::constants::paths::LOG)
         .map_err(|err| {
             eprintln!("Failed to create game file appender: {err}");
             std::process::ExitCode::FAILURE
@@ -96,7 +129,7 @@ pub fn initialize_logger(
     };
 
     match log4rs::init_config(config) {
-        Ok(handle) => Ok((handle, log_file_path.to_string_lossy().into_owned())),
+        Ok(handle) => Ok((handle, rustctl_backend::constants::paths::LOG.to_owned())),
         Err(err) => {
             eprintln!("Initializing logger failed: {err}");
             Err(std::process::ExitCode::FAILURE)
