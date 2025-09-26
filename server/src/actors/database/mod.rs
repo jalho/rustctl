@@ -229,7 +229,7 @@ impl Database {
             Ok(n) => n,
             Err(err) => todo!("{err}"),
         };
-        if let None = game_params {
+        if game_params.is_none() {
             let init: schema::GameParams = schema::GameParams {
                 instance_id: "instance0".into(),
                 updated_at_utc: chrono::Utc::now(),
