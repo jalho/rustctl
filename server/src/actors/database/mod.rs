@@ -123,7 +123,7 @@ impl Database {
                         /*
                          * TODO: Read the rest of the values from the database too!
                          */
-                        if respond_to.send(Configuration {
+                        let config: Configuration = Configuration {
                           game_world_seed: 1,
                           game_world_size: 1000, // minimum world size AFAIK
 
@@ -138,7 +138,8 @@ impl Database {
                           game_url_home: "https://github.com/jalho/rustctl".to_string(),
                           game_url_header: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Vexillum_aboense.jpg/1280px-Vexillum_aboense.jpg".to_string(),
                           game_url_logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Flag_of_Finland.svg/60px-Flag_of_Finland.svg.png".to_string(),
-                        }).is_err() {
+                        };
+                        if respond_to.send(config).is_err() {
                             todo!();
                         }
                     }
