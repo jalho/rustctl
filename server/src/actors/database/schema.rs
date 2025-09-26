@@ -8,7 +8,17 @@ pub struct User {
 
 impl std::fmt::Display for User {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Steam ID {steam_id}", steam_id = self.steam_id)
+        write!(
+            f,
+            "user ID {user_id}: Steam ID {steam_id} (created {created_at}{privileged_at})",
+            steam_id = self.steam_id,
+            user_id = self.id,
+            created_at = self.created_at_utc.date_naive(),
+            privileged_at = match self.privileged_at_utc {
+                Some(instant) => format!(", privileged {instant}", instant = instant.date_naive()),
+                None => "".into(),
+            }
+        )
     }
 }
 

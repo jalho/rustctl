@@ -3,7 +3,7 @@ use futures_util::SinkExt;
 pub struct GameMonitor {
     ctoken: tokio_util::sync::CancellationToken,
 
-    cfg_client: crate::storage::ConfigurationClient,
+    cfg_client: crate::actors::database::client::Client,
 
     players_tracker: std::sync::Arc<tokio::sync::Mutex<u16>>,
 
@@ -19,7 +19,7 @@ impl GameMonitor {
     pub fn new(
         ctoken: tokio_util::sync::CancellationToken,
 
-        cfg_client: crate::storage::ConfigurationClient,
+        cfg_client: crate::actors::database::client::Client,
 
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
         rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
@@ -38,7 +38,7 @@ impl GameMonitor {
         }
     }
 
-    pub async fn work(self) -> Summary {
+    pub async fn work(mut self) -> Summary {
         let ctoken = self.ctoken.child_token();
 
         let config = self.cfg_client.get_config().await;
@@ -104,7 +104,7 @@ impl GameMonitor {
 
     async fn loop_reconnect_rcon(
         mut rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
-        config: &crate::storage::Configuration,
+        config: &crate::actors::database::Configuration,
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
         players_tracker: std::sync::Arc<tokio::sync::Mutex<u16>>,
     ) -> () {
@@ -156,7 +156,7 @@ impl GameMonitor {
     async fn prepare_via_rcon(
         ws_sink: &mut WebSocketSink,
         ws_stream: &mut WebSocketStream,
-        config: &crate::storage::Configuration,
+        config: &crate::actors::database::Configuration,
     ) -> Result<(), Error> {
         /*
          * Render in-game world map as a .PNG file, and then move the file to a

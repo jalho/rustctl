@@ -1,12 +1,160 @@
 mod schema;
 
+pub struct Configuration {
+    pub game_world_size: u16,
+    pub game_world_seed: u32,
+
+    pub rcon_port: u16,
+    pub rcon_password: String,
+    pub game_owner_steamid: String,
+
+    /// URL from where _Carbon Modding Framework_ shall be downloaded from.
+    ///
+    /// For example:
+    /// ```
+    /// "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz"
+    /// ```
+    pub carbon_download_url: String,
+
+    pub game_name: String,
+    pub game_description: String,
+    pub game_url_home: String,
+    pub game_url_header: String,
+    pub game_url_logo: String,
+}
+
+impl Configuration {
+    pub fn get_installer_args(&self) -> Vec<&'static str> {
+        vec![
+            "+login",
+            "anonymous",
+            /*
+             * WONTFIX: "force_install_dir" doesn't really "force" anything:
+             *          Instead, SteamCMD seems to just create a new directory
+             *          tree in "~/.local/share/Steam/" if it cannot access
+             *          the given "force_install_dir".
+             *
+             *          Behavior observed in `apt` packaged version:
+             *          - Package: steamcmd:i386
+             *          - Version: 0~20180105-5 (latest as of July 2025)
+             *          - Section: non-free/games
+             *          - Maintainer: Debian Games Team
+             */
+            "+force_install_dir",
+            rustctl_backend::constants::paths::ROOT_DIR,
+            "+app_update",
+            "258550",
+            "validate",
+            "+quit",
+        ]
+    }
+
+    pub fn get_rcon_connection_string(&self) -> String {
+        format!(
+            "ws://127.0.0.1:{port}/{password}",
+            port = self.rcon_port,
+            password = self.rcon_password,
+        )
+    }
+}
+
+pub mod client {
+    pub struct Client {
+        tx_query: tokio::sync::mpsc::Sender<Query>,
+    }
+
+    impl Client {
+        pub fn new(tx_query: tokio::sync::mpsc::Sender<Query>) -> Self {
+            Self { tx_query }
+        }
+
+        pub async fn get_config(&mut self) -> crate::actors::database::Configuration {
+            let (tx, rx) = tokio::sync::oneshot::channel();
+            if let Err(err) = self.tx_query.send(Query::ReadConfiguration { respond_to: tx }).await {
+                todo!("{err}");
+            }
+            let config: crate::actors::database::Configuration = match rx.await {
+                Ok(n) => n,
+                Err(err) => todo!("{err}"),
+            };
+            config
+        }
+    }
+
+    pub enum Query {
+        ReadConfiguration {
+            respond_to: tokio::sync::oneshot::Sender<crate::actors::database::Configuration>,
+        },
+    }
+}
+
+pub struct Summary;
+
 pub struct Database {
+    ctoken: tokio_util::sync::CancellationToken,
+
     connection: rusqlite::Connection,
+    rx_query: tokio::sync::mpsc::Receiver<client::Query>,
 }
 
 impl Database {
+    pub async fn work(mut self) -> Summary {
+        let job = async {
+            loop {
+                let query: client::Query = match self.rx_query.recv().await {
+                    Some(n) => n,
+                    None => todo!(),
+                };
+                match query {
+                    client::Query::ReadConfiguration { respond_to } => {
+                        let privileged_users: Vec<schema::User> =
+                            match Self::select_all_privileged_users(&self.connection) {
+                                Ok(n) => n,
+                                Err(_) => todo!(),
+                            };
+
+                        let admin: &schema::User = match (privileged_users.first(), privileged_users.len()) {
+                            (Some(user), 1) => user,
+                            _ => {
+                                todo!("privileged users count: {count}", count = privileged_users.len());
+                            }
+                        };
+
+                        /*
+                         * TODO: Read the rest of the values from the database too!
+                         */
+                        if respond_to.send(Configuration {
+                          game_world_seed: 1,
+                          game_world_size: 1000, // minimum world size AFAIK
+
+                          rcon_port: 28016,
+                          rcon_password: uuid::Uuid::new_v4().to_string(),
+                          game_owner_steamid: admin.steam_id.to_string(),
+
+                          carbon_download_url: "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz".to_string(),
+
+                          game_name: "rustctl".to_string(),
+                          game_description: "rustctl managed server".to_string(),
+                          game_url_home: "https://github.com/jalho/rustctl".to_string(),
+                          game_url_header: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Vexillum_aboense.jpg/1280px-Vexillum_aboense.jpg".to_string(),
+                          game_url_logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Flag_of_Finland.svg/60px-Flag_of_Finland.svg.png".to_string(),
+                        }).is_err() {
+                            todo!();
+                        }
+                    }
+                }
+            }
+        };
+
+        self.ctoken.run_until_cancelled(job).await;
+
+        Summary
+    }
+
     pub fn init_connect(
+        ctoken: tokio_util::sync::CancellationToken,
         populate_privileged_users: &crate::init::PopulatePrivilegedUsers,
+        rx_query: tokio::sync::mpsc::Receiver<client::Query>,
     ) -> Result<Self, std::process::ExitCode> {
         let connection: rusqlite::Connection = match rusqlite::Connection::open(rustctl_backend::constants::paths::DB) {
             Ok(n) => n,
@@ -82,7 +230,11 @@ impl Database {
             listing = users.iter().map(|n| n.to_string()).collect::<Vec<String>>().join(", "),
         );
 
-        Ok(Self { connection })
+        Ok(Self {
+            connection,
+            ctoken,
+            rx_query,
+        })
     }
 
     fn check_version(connection: &rusqlite::Connection) -> Result<String, rusqlite::Error> {
