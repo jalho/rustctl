@@ -111,8 +111,9 @@ fn main() -> std::process::ExitCode {
     let blocking_workloads_thread = std::thread::spawn(move || {
         let job_db = async move {
             log::debug!("Database work starting in dedicated runtime");
-            let _result = database.work().await;
+            let result: actors::database::Summary = database.work().await;
             log::debug!("Database work completed in dedicated runtime");
+            result
         };
 
         let runtime: tokio::runtime::Runtime = match init::build_runtime() {
@@ -121,8 +122,9 @@ fn main() -> std::process::ExitCode {
         };
 
         log::debug!("Blocking workloads's runtime starting");
-        runtime.block_on(job_db);
+        let done: actors::database::Summary = runtime.block_on(job_db);
         log::debug!("Blocking workloads's runtime done");
+        done
     });
 
     log::debug!("Starting non-blocking workloads");
@@ -137,8 +139,9 @@ fn main() -> std::process::ExitCode {
     log::debug!("Non-blocking workloads completed");
 
     log::debug!("Waiting for blocking workloads's runtime");
-    if let Err(_) = blocking_workloads_thread.join() {
-        todo!();
+    let _blocking_done: actors::database::Summary = match blocking_workloads_thread.join() {
+        Ok(n) => n,
+        Err(_) => todo!(),
     };
 
     log::info!("Done");
