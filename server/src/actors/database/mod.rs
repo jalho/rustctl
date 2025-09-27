@@ -54,7 +54,7 @@ impl Database {
             match query {
                 client::Query::ReadConfiguration { respond_to } => {
                     let all_game_params: Vec<crate::data::schema::GameParams> =
-                        match crate::data::schema::GameParams::select_all_game_params(&connection) {
+                        match crate::data::schema::GameParams::select_all_game_params(connection) {
                             Ok(n) => n,
                             Err(err) => todo!("{err}"),
                         };
@@ -66,7 +66,7 @@ impl Database {
                         };
 
                     let all_users: Vec<crate::data::schema::User> =
-                        match crate::data::schema::User::select_all_users(&connection) {
+                        match crate::data::schema::User::select_all_users(connection) {
                             Ok(n) => n,
                             Err(err) => todo!("{err}"),
                         };
