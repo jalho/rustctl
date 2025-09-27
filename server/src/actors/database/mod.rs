@@ -344,7 +344,7 @@ pub struct Database {
 }
 
 impl Database {
-    pub async fn work(mut self) -> Summary {
+    pub async fn work(self) -> Summary {
         let all_game_params: Vec<schema::GameParams> =
             match schema::GameParams::select_all_game_params(&self.connection) {
                 Ok(n) => n,
@@ -368,44 +368,54 @@ impl Database {
             }
         }
 
-        let job = async {
-            loop {
-                let query: client::Query = match self.rx_query.recv().await {
-                    Some(n) => n,
-                    None => todo!(),
-                };
-                match query {
-                    client::Query::ReadConfiguration { respond_to } => {
-                        let all_game_params: Vec<schema::GameParams> =
-                            match schema::GameParams::select_all_game_params(&self.connection) {
-                                Ok(n) => n,
-                                Err(err) => todo!("{err}"),
-                            };
+        let job = Self::handle_queries(self.connection, self.rx_query);
 
-                        let game_params: &schema::GameParams =
-                            match all_game_params.iter().max_by_key(|params| params.updated_at_utc) {
-                                Some(params) => params,
-                                None => todo!("no game params found"),
-                            };
+        self.ctoken.run_until_cancelled(job).await;
 
-                        let all_users: Vec<schema::User> = match schema::User::select_all_users(&self.connection) {
+        Summary
+    }
+
+    async fn handle_queries(
+        connection: rusqlite::Connection,
+        mut rx_query: tokio::sync::mpsc::Receiver<client::Query>,
+    ) {
+        loop {
+            let query: client::Query = match rx_query.recv().await {
+                Some(n) => n,
+                None => todo!(),
+            };
+            match query {
+                client::Query::ReadConfiguration { respond_to } => {
+                    let all_game_params: Vec<schema::GameParams> =
+                        match schema::GameParams::select_all_game_params(&connection) {
                             Ok(n) => n,
                             Err(err) => todo!("{err}"),
                         };
 
-                        let privileged_users: Vec<&schema::User> = all_users
-                            .iter()
-                            .filter(|user| user.privileged_at_utc.is_some())
-                            .collect();
-
-                        let admin: &schema::User = match (privileged_users.first(), privileged_users.len()) {
-                            (Some(user), 1) => user,
-                            _ => {
-                                todo!("privileged users count: {count}", count = privileged_users.len());
-                            }
+                    let game_params: &schema::GameParams =
+                        match all_game_params.iter().max_by_key(|params| params.updated_at_utc) {
+                            Some(params) => params,
+                            None => todo!("no game params found"),
                         };
 
-                        let config: Configuration = Configuration {
+                    let all_users: Vec<schema::User> = match schema::User::select_all_users(&connection) {
+                        Ok(n) => n,
+                        Err(err) => todo!("{err}"),
+                    };
+
+                    let privileged_users: Vec<&schema::User> = all_users
+                        .iter()
+                        .filter(|user| user.privileged_at_utc.is_some())
+                        .collect();
+
+                    let admin: &schema::User = match (privileged_users.first(), privileged_users.len()) {
+                        (Some(user), 1) => user,
+                        _ => {
+                            todo!("privileged users count: {count}", count = privileged_users.len());
+                        }
+                    };
+
+                    let config: Configuration = Configuration {
                           game_world_seed: game_params.world_seed,
                           game_world_size: game_params.world_size as u16, // TODO: Remove cast: Declare the type as u16!
 
@@ -421,17 +431,12 @@ impl Database {
                           game_url_header: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Vexillum_aboense.jpg/1280px-Vexillum_aboense.jpg".to_string(),
                           game_url_logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Flag_of_Finland.svg/60px-Flag_of_Finland.svg.png".to_string(),
                         };
-                        if respond_to.send(config).is_err() {
-                            todo!();
-                        }
+                    if respond_to.send(config).is_err() {
+                        todo!();
                     }
                 }
             }
-        };
-
-        self.ctoken.run_until_cancelled(job).await;
-
-        Summary
+        }
     }
 
     pub fn init_connect(
