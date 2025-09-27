@@ -34,7 +34,7 @@ impl Database {
             }
         }
 
-        let job = Self::handle_queries(self.connection, self.rx_query);
+        let job = Self::handle_queries(&self.connection, self.rx_query);
 
         self.ctoken.run_until_cancelled(job).await;
 
@@ -42,7 +42,7 @@ impl Database {
     }
 
     async fn handle_queries(
-        connection: rusqlite::Connection,
+        connection: &rusqlite::Connection,
         mut rx_query: tokio::sync::mpsc::Receiver<client::Query>,
     ) {
         loop {
