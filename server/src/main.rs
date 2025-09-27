@@ -92,9 +92,9 @@ fn main() -> std::process::ExitCode {
     let terminator = actors::terminator::Terminator::new(ctoken, rx_activate);
 
     /*
-     * Let's go!
+     * Non-blocking workloads.
      */
-    let runtime_job = async {
+    let jobs_non_blocking = async {
         tokio::join!(
             terminator.work(),
             aggregator.work(),
@@ -102,18 +102,45 @@ fn main() -> std::process::ExitCode {
             controller.work(),
             game_monitor.work(),
             web_server.work(),
-            database.work(),
         )
     };
-    let _runtime_done: (
+
+    /*
+     * Blocking workloads in a dedicated OS thread.
+     */
+    let blocking_workloads_thread = std::thread::spawn(move || {
+        let job_db = async move {
+            log::debug!("Database work starting in dedicated runtime");
+            let _result = database.work().await;
+            log::debug!("Database work completed in dedicated runtime");
+        };
+
+        let runtime: tokio::runtime::Runtime = match init::build_runtime() {
+            Ok(n) => n,
+            Err(code) => todo!("{code:?}"),
+        };
+
+        log::debug!("Blocking workloads's runtime starting");
+        runtime.block_on(job_db);
+        log::debug!("Blocking workloads's runtime done");
+    });
+
+    log::debug!("Starting non-blocking workloads");
+    let _non_blocking_done: (
         actors::terminator::Summary,
         actors::aggregator::Summary,
         actors::monitor::Summary,
         actors::gsc::Summary,
         actors::game_monitor::Summary,
         actors::web_server::Summary,
-        actors::database::Summary,
-    ) = runtime.block_on(runtime_job);
+    ) = runtime.block_on(jobs_non_blocking);
+    log::debug!("Non-blocking workloads completed");
 
+    log::debug!("Waiting for blocking workloads's runtime");
+    if let Err(_) = blocking_workloads_thread.join() {
+        todo!();
+    };
+
+    log::info!("Done");
     std::process::ExitCode::SUCCESS
 }
