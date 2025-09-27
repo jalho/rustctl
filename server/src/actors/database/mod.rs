@@ -1,4 +1,4 @@
-pub struct Configuration {
+pub struct GameParameters {
     pub game_world_size: u16,
     pub game_world_seed: u32,
 
@@ -15,7 +15,7 @@ pub struct Configuration {
     pub game_url_logo: String,
 }
 
-impl Configuration {
+impl GameParameters {
     pub fn get_installer_args(&self) -> Vec<&'static str> {
         vec![
             "+login",
@@ -48,12 +48,12 @@ pub mod client {
             Self { tx_query }
         }
 
-        pub async fn get_config(&mut self) -> crate::actors::database::Configuration {
+        pub async fn get_config(&mut self) -> crate::actors::database::GameParameters {
             let (tx, rx) = tokio::sync::oneshot::channel();
             if let Err(err) = self.tx_query.send(Query::ReadConfiguration { respond_to: tx }).await {
                 todo!("{err}");
             }
-            let config: crate::actors::database::Configuration = match rx.await {
+            let config: crate::actors::database::GameParameters = match rx.await {
                 Ok(n) => n,
                 Err(err) => todo!("{err}"),
             };
@@ -63,7 +63,7 @@ pub mod client {
 
     pub enum Query {
         ReadConfiguration {
-            respond_to: tokio::sync::oneshot::Sender<crate::actors::database::Configuration>,
+            respond_to: tokio::sync::oneshot::Sender<crate::actors::database::GameParameters>,
         },
     }
 }
@@ -150,7 +150,7 @@ impl Database {
                         }
                     };
 
-                    let config: Configuration = Configuration {
+                    let config: GameParameters = GameParameters {
                           game_world_seed: game_params.world_seed,
                           game_world_size: game_params.world_size as u16,
 

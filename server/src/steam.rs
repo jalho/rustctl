@@ -43,7 +43,7 @@ impl RustDedicated {
         Ok(build_id)
     }
 
-    pub async fn install(config: &crate::actors::database::Configuration) -> Result<BuildID, String> {
+    pub async fn install(config: &crate::actors::database::GameParameters) -> Result<BuildID, String> {
         let mut command = tokio::process::Command::new(rustctl_backend::constants::paths::INSTALLER);
         command.current_dir(rustctl_backend::constants::paths::ROOT_DIR);
         command.args(config.get_installer_args());

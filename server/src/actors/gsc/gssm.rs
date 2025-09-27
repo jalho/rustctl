@@ -124,7 +124,7 @@ impl GameServerStateMachine {
                  * Install or update `RustDedicated` using `steamcmd`.
                  */
                 Self::InstallingUpdates { mut ctx } => {
-                    let config: crate::actors::database::Configuration = ctx.cfg_client.get_config().await;
+                    let config: crate::actors::database::GameParameters = ctx.cfg_client.get_config().await;
 
                     /*
                      * Install/update game server.
@@ -770,7 +770,7 @@ async fn install_plugin() -> Result<(), String> {
 }
 
 /// Install or update Carbon Modding Framework (https://carbonmod.gg/).
-async fn install_or_update_carbon(config: &crate::actors::database::Configuration) -> Result<String, String> {
+async fn install_or_update_carbon(config: &crate::actors::database::GameParameters) -> Result<String, String> {
     let download_url: &str = &config.carbon_download_url;
 
     log::debug!("Downloading Carbon from: {download_url}");
@@ -839,7 +839,7 @@ async fn install_or_update_carbon(config: &crate::actors::database::Configuratio
 
 /// Generate a Bash script to be used as game server's entry point.
 async fn generate_game_server_startup_script(
-    config: &crate::actors::database::Configuration,
+    config: &crate::actors::database::GameParameters,
 ) -> Result<String, String> {
     let script_content: String = format!(
         r#"#!/bin/bash
