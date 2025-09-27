@@ -1,43 +1,3 @@
-pub struct GameParameters {
-    pub game_world_size: u16,
-    pub game_world_seed: u32,
-
-    pub rcon_port: u16,
-    pub rcon_password: String,
-    pub game_owner_steamid: String,
-
-    pub carbon_download_url: String,
-
-    pub game_name: String,
-    pub game_description: String,
-    pub game_url_home: String,
-    pub game_url_header: String,
-    pub game_url_logo: String,
-}
-
-impl GameParameters {
-    pub fn get_installer_args(&self) -> Vec<&'static str> {
-        vec![
-            "+login",
-            "anonymous",
-            "+force_install_dir",
-            rustctl_backend::constants::paths::ROOT_DIR,
-            "+app_update",
-            "258550",
-            "validate",
-            "+quit",
-        ]
-    }
-
-    pub fn get_rcon_connection_string(&self) -> String {
-        format!(
-            "ws://127.0.0.1:{port}/{password}",
-            port = self.rcon_port,
-            password = self.rcon_password,
-        )
-    }
-}
-
 pub mod client {
     pub struct Client {
         tx_query: tokio::sync::mpsc::Sender<Query>,
@@ -48,12 +8,12 @@ pub mod client {
             Self { tx_query }
         }
 
-        pub async fn get_config(&mut self) -> crate::actors::database::GameParameters {
+        pub async fn get_config(&mut self) -> rustctl_backend::GameParameters {
             let (tx, rx) = tokio::sync::oneshot::channel();
             if let Err(err) = self.tx_query.send(Query::ReadConfiguration { respond_to: tx }).await {
                 todo!("{err}");
             }
-            let config: crate::actors::database::GameParameters = match rx.await {
+            let config: rustctl_backend::GameParameters = match rx.await {
                 Ok(n) => n,
                 Err(err) => todo!("{err}"),
             };
@@ -63,7 +23,7 @@ pub mod client {
 
     pub enum Query {
         ReadConfiguration {
-            respond_to: tokio::sync::oneshot::Sender<crate::actors::database::GameParameters>,
+            respond_to: tokio::sync::oneshot::Sender<rustctl_backend::GameParameters>,
         },
     }
 }
@@ -150,7 +110,7 @@ impl Database {
                         }
                     };
 
-                    let config: GameParameters = GameParameters {
+                    let config: rustctl_backend::GameParameters = rustctl_backend::GameParameters {
                           game_world_seed: game_params.world_seed,
                           game_world_size: game_params.world_size as u16,
 

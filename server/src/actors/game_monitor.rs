@@ -115,7 +115,7 @@ impl GameMonitor {
 
     async fn loop_reconnect_rcon(
         mut rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
-        config: &crate::actors::database::GameParameters,
+        config: &rustctl_backend::GameParameters,
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
         players_tracker: std::sync::Arc<tokio::sync::Mutex<u16>>,
     ) -> () {
@@ -167,7 +167,7 @@ impl GameMonitor {
     async fn prepare_via_rcon(
         ws_sink: &mut WebSocketSink,
         ws_stream: &mut WebSocketStream,
-        config: &crate::actors::database::GameParameters,
+        config: &rustctl_backend::GameParameters,
     ) -> Result<(), Error> {
         /*
          * Render in-game world map as a .PNG file, and then move the file to a
