@@ -111,7 +111,7 @@ fn main() -> std::process::ExitCode {
     let blocking_workloads_thread = std::thread::spawn(move || {
         let job_db = async move {
             log::debug!("Database work starting in dedicated runtime");
-            let result: actors::database::Summary = database.work().await;
+            let result: actors::database::Summary = database.work_blocking().await;
             log::debug!("Database work completed in dedicated runtime");
             result
         };

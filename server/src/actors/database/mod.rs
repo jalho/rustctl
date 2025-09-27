@@ -10,7 +10,8 @@ pub struct Database {
 }
 
 impl Database {
-    pub async fn work(self) -> Summary {
+    /// The SQLite library provides a blocking API.
+    pub async fn work_blocking(self) -> Summary {
         let all_game_params: Vec<crate::data::schema::GameParams> =
             match crate::data::schema::GameParams::select_all_game_params(&self.connection) {
                 Ok(n) => n,
