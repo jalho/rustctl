@@ -23,6 +23,68 @@ mod schema {
         }
     }
 
+    impl User {
+        pub fn upsert_user(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+            let created_at_utc_str: String = self.created_at_utc.to_rfc3339();
+            let privileged_at_utc_str: Option<String> = self.privileged_at_utc.map(|dt| dt.to_rfc3339());
+
+            connection.execute(
+                UPSERT_USER,
+                (&self.id, &self.steam_id, &created_at_utc_str, &privileged_at_utc_str),
+            )?;
+
+            Ok(())
+        }
+
+        pub fn select_all_users(connection: &rusqlite::Connection) -> Result<Vec<User>, rusqlite::Error> {
+            let mut statement: rusqlite::Statement = connection.prepare(SELECT_ALL_USERS)?;
+
+            let selection = statement.query_map([], |row| {
+                let privileged_at_utc_str: Option<String> = row.get(3)?;
+                let privileged_at_utc = privileged_at_utc_str
+                    .map(|s| chrono::DateTime::parse_from_rfc3339(&s))
+                    .transpose()
+                    .map_err(|err| {
+                        log::error!("{err}");
+                        rusqlite::Error::InvalidColumnType(
+                            3,
+                            "privileged_at_utc".to_string(),
+                            rusqlite::types::Type::Text,
+                        )
+                    })?
+                    .map(|dt| dt.with_timezone(&chrono::Utc));
+
+                let created_at_utc_str: String = row.get(2)?;
+                let created_at_utc: chrono::DateTime<chrono::Utc> =
+                    chrono::DateTime::parse_from_rfc3339(&created_at_utc_str)
+                        .map_err(|err| {
+                            log::error!("{err}");
+                            rusqlite::Error::InvalidColumnType(
+                                2,
+                                "created_at_utc".to_string(),
+                                rusqlite::types::Type::Text,
+                            )
+                        })?
+                        .with_timezone(&chrono::Utc);
+
+                Ok(User {
+                    id: row.get(0)?,
+                    steam_id: row.get(1)?,
+                    created_at_utc,
+                    privileged_at_utc,
+                })
+            })?;
+
+            let mut users: Vec<User> = Vec::new();
+            for selected in selection {
+                let user: User = selected?;
+                users.push(user);
+            }
+
+            Ok(users)
+        }
+    }
+
     #[derive(Debug)]
     pub struct GameParams {
         pub instance_id: String,
@@ -45,6 +107,55 @@ mod schema {
         }
     }
 
+    impl GameParams {
+        pub fn upsert_game_params(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+            let updated_at_utc_str = self.updated_at_utc.to_rfc3339();
+
+            connection.execute(
+                UPSERT_GAME_PARAMS,
+                (
+                    &self.instance_id,
+                    &updated_at_utc_str,
+                    &self.world_size,
+                    &self.world_seed,
+                    &self.rcon_password,
+                ),
+            )?;
+
+            Ok(())
+        }
+
+        pub fn select_all_game_params(connection: &rusqlite::Connection) -> Result<Vec<GameParams>, rusqlite::Error> {
+            let mut statement: rusqlite::Statement = connection.prepare(SELECT_ALL_GAME_PARAMS)?;
+
+            let selection = statement.query_map([], |row| {
+                let updated_at_utc_str: String = row.get(1)?;
+                let updated_at_utc = chrono::DateTime::parse_from_rfc3339(&updated_at_utc_str)
+                    .map_err(|err| {
+                        log::error!("{err}");
+                        rusqlite::Error::InvalidColumnType(1, "updated_at_utc".to_string(), rusqlite::types::Type::Text)
+                    })?
+                    .with_timezone(&chrono::Utc);
+
+                Ok(GameParams {
+                    instance_id: row.get(0)?,
+                    updated_at_utc,
+                    world_size: row.get(2)?,
+                    world_seed: row.get(3)?,
+                    rcon_password: row.get(4)?,
+                })
+            })?;
+
+            let mut game_params: Vec<GameParams> = Vec::new();
+            for selected in selection {
+                let params: GameParams = selected?;
+                game_params.push(params);
+            }
+
+            Ok(game_params)
+        }
+    }
+
     pub const CREATE_TABLES: &str = r#"
     CREATE TABLE users (
         user_id              TEXT NOT NULL PRIMARY KEY,
@@ -63,30 +174,32 @@ mod schema {
     );
 "#;
 
-    pub const INSERT_ONE_USER: &str = r#"
+    pub const UPSERT_USER: &str = r#"
     INSERT INTO users(
         user_id,
         steam_id,
         created_at_utc,
         privileged_at_utc
     ) VALUES(
-        ?1,
-        ?2,
-        ?3,
-        ?4
-    );
+        $1,
+        $2,
+        $3,
+        $4
+    )
+    ON CONFLICT(user_id) DO UPDATE SET
+        steam_id = excluded.steam_id,
+        created_at_utc = excluded.created_at_utc,
+        privileged_at_utc = excluded.privileged_at_utc;
 "#;
 
-    pub const SELECT_ALL_PRIVILEGED_USERS: &str = r#"
+    pub const SELECT_ALL_USERS: &str = r#"
     SELECT
         user_id,
         steam_id,
         created_at_utc,
         privileged_at_utc
     FROM
-        users
-    WHERE
-        privileged_at_utc IS NOT NULL
+        users;
 "#;
 
     pub const UPSERT_GAME_PARAMS: &str = r#"
@@ -97,11 +210,11 @@ mod schema {
         world_seed,
         rcon_password
     ) VALUES(
-        ?1,
-        ?2,
-        ?3,
-        ?4,
-        ?5
+        $1,
+        $2,
+        $3,
+        $4,
+        $5
     )
     ON CONFLICT(instance_id) DO UPDATE SET
         updated_at_utc = excluded.updated_at_utc,
@@ -110,7 +223,7 @@ mod schema {
         rcon_password = excluded.rcon_password;
 "#;
 
-    pub const SELECT_GAME_PARAMS: &str = r#"
+    pub const SELECT_ALL_GAME_PARAMS: &str = r#"
     SELECT
         instance_id,
         updated_at_utc,
@@ -118,12 +231,19 @@ mod schema {
         world_seed,
         rcon_password
     FROM
-        game_params
-    ORDER BY updated_at_utc DESC
-    LIMIT 1;
+        game_params;
 "#;
 
     pub const READ_SQLITE_VERSION: &str = "SELECT sqlite_version()";
+
+    pub fn create_tables(connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+        let _created: () = connection.execute_batch(CREATE_TABLES)?;
+        Ok(())
+    }
+
+    pub fn check_version(connection: &rusqlite::Connection) -> Result<String, rusqlite::Error> {
+        connection.query_row(READ_SQLITE_VERSION, [], |row| row.get(0))
+    }
 }
 
 pub struct Configuration {
@@ -225,10 +345,15 @@ pub struct Database {
 
 impl Database {
     pub async fn work(mut self) -> Summary {
-        let game_params: Option<schema::GameParams> = match Self::select_game_params(&self.connection) {
-            Ok(n) => n,
-            Err(err) => todo!("{err}"),
-        };
+        let all_game_params: Vec<schema::GameParams> =
+            match schema::GameParams::select_all_game_params(&self.connection) {
+                Ok(n) => n,
+                Err(err) => todo!("{err}"),
+            };
+
+        let game_params: Option<&schema::GameParams> =
+            all_game_params.iter().max_by_key(|params| params.updated_at_utc);
+
         if game_params.is_none() {
             let init: schema::GameParams = schema::GameParams {
                 instance_id: "instance0".into(),
@@ -237,7 +362,7 @@ impl Database {
                 world_seed: 1,
                 rcon_password: uuid::Uuid::new_v4().to_string(),
             };
-            match Self::upsert_game_params(&self.connection, &init) {
+            match init.upsert_game_params(&self.connection) {
                 Ok(_) => log::info!("Initialized game params"),
                 Err(err) => todo!("{err}"),
             }
@@ -251,17 +376,27 @@ impl Database {
                 };
                 match query {
                     client::Query::ReadConfiguration { respond_to } => {
-                        let game_params: schema::GameParams = match Self::select_game_params(&self.connection) {
-                            Ok(Some(n)) => n,
-                            Ok(None) => todo!(),
-                            Err(err) => todo!("{err}"),
-                        };
-
-                        let privileged_users: Vec<schema::User> =
-                            match Self::select_all_privileged_users(&self.connection) {
+                        let all_game_params: Vec<schema::GameParams> =
+                            match schema::GameParams::select_all_game_params(&self.connection) {
                                 Ok(n) => n,
                                 Err(err) => todo!("{err}"),
                             };
+
+                        let game_params: &schema::GameParams =
+                            match all_game_params.iter().max_by_key(|params| params.updated_at_utc) {
+                                Some(params) => params,
+                                None => todo!("no game params found"),
+                            };
+
+                        let all_users: Vec<schema::User> = match schema::User::select_all_users(&self.connection) {
+                            Ok(n) => n,
+                            Err(err) => todo!("{err}"),
+                        };
+
+                        let privileged_users: Vec<&schema::User> = all_users
+                            .iter()
+                            .filter(|user| user.privileged_at_utc.is_some())
+                            .collect();
 
                         let admin: &schema::User = match (privileged_users.first(), privileged_users.len()) {
                             (Some(user), 1) => user,
@@ -275,7 +410,7 @@ impl Database {
                           game_world_size: game_params.world_size as u16, // TODO: Remove cast: Declare the type as u16!
 
                           rcon_port: 28016,
-                          rcon_password: game_params.rcon_password,
+                          rcon_password: game_params.rcon_password.clone(),
                           game_owner_steamid: admin.steam_id.to_string(),
 
                           carbon_download_url: "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz".to_string(),
@@ -312,7 +447,7 @@ impl Database {
             }
         };
 
-        match Self::check_version(&connection) {
+        match schema::check_version(&connection) {
             Ok(version) => log::info!(
                 r#"Connected SQLite version: {} -- File: "{file}""#,
                 version,
@@ -324,10 +459,10 @@ impl Database {
             }
         }
 
-        let users: Vec<schema::User> = match Self::select_all_privileged_users(&connection) {
+        let all_users: Vec<schema::User> = match schema::User::select_all_users(&connection) {
             Ok(n) => n,
             Err(_err) => {
-                match Self::create_tables(&connection) {
+                match schema::create_tables(&connection) {
                     Ok(_) => {
                         log::debug!("Tables created");
                     }
@@ -337,7 +472,7 @@ impl Database {
                     }
                 }
 
-                match Self::select_all_privileged_users(&connection) {
+                match schema::User::select_all_users(&connection) {
                     Ok(n) => n,
                     Err(err) => {
                         log::error!("{err}");
@@ -346,6 +481,11 @@ impl Database {
                 }
             }
         };
+
+        let users: Vec<&schema::User> = all_users
+            .iter()
+            .filter(|user| user.privileged_at_utc.is_some())
+            .collect();
 
         if users.is_empty()
             && let crate::init::PopulatePrivilegedUsers::Noop = populate_privileged_users
@@ -358,20 +498,37 @@ impl Database {
             for steam_id in steam_ids {
                 if let Some(existing) = users.iter().find(|n| &n.steam_id == steam_id) {
                     log::debug!("Appendable privileged user exists already: {existing}");
-                } else if let Err(err) = Self::insert_one_privileged_user(&connection, steam_id) {
-                    log::error!("{err}");
-                    return Err(std::process::ExitCode::FAILURE);
+                } else {
+                    let user_id: uuid::Uuid = uuid::Uuid::new_v4();
+                    let now: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+                    let new_user: schema::User = schema::User {
+                        id: user_id.to_string(),
+                        steam_id: *steam_id,
+                        created_at_utc: now,
+                        privileged_at_utc: Some(now),
+                    };
+
+                    if let Err(err) = new_user.upsert_user(&connection) {
+                        log::error!("{err}");
+                        return Err(std::process::ExitCode::FAILURE);
+                    }
                 }
             }
         }
 
-        let users: Vec<schema::User> = match Self::select_all_privileged_users(&connection) {
+        let all_users: Vec<schema::User> = match schema::User::select_all_users(&connection) {
             Ok(n) => n,
             Err(err) => {
                 log::error!("{err}");
                 return Err(std::process::ExitCode::FAILURE);
             }
         };
+
+        let users: Vec<&schema::User> = all_users
+            .iter()
+            .filter(|user| user.privileged_at_utc.is_some())
+            .collect();
+
         log::info!(
             "{count} privileged users in database: {listing}",
             count = users.len(),
@@ -383,110 +540,5 @@ impl Database {
             ctoken,
             rx_query,
         })
-    }
-
-    fn check_version(connection: &rusqlite::Connection) -> Result<String, rusqlite::Error> {
-        connection.query_row(schema::READ_SQLITE_VERSION, [], |row| row.get(0))
-    }
-
-    fn insert_one_privileged_user(connection: &rusqlite::Connection, steam_id: &u64) -> Result<(), rusqlite::Error> {
-        let user_id: uuid::Uuid = uuid::Uuid::new_v4();
-        let created_at_utc: String = chrono::Utc::now().to_rfc3339();
-        let privileged_at_utc: String = chrono::Utc::now().to_rfc3339();
-
-        connection.execute(
-            schema::INSERT_ONE_USER,
-            (
-                user_id.to_string(),
-                steam_id.to_string(),
-                created_at_utc,
-                privileged_at_utc,
-            ),
-        )?;
-
-        Ok(())
-    }
-
-    fn select_all_privileged_users(connection: &rusqlite::Connection) -> Result<Vec<schema::User>, rusqlite::Error> {
-        let mut statement: rusqlite::Statement = connection.prepare(schema::SELECT_ALL_PRIVILEGED_USERS)?;
-
-        let selection = statement.query_map([], |row| {
-            let privileged_at_utc_str: Option<String> = row.get(3)?;
-            let privileged_at_utc = privileged_at_utc_str
-                .map(|s| chrono::DateTime::parse_from_rfc3339(&s))
-                .transpose()
-                .map_err(|err| {
-                    log::error!("{err}");
-                    rusqlite::Error::InvalidColumnType(3, "privileged_at_utc".to_string(), rusqlite::types::Type::Text)
-                })?
-                .map(|dt| dt.with_timezone(&chrono::Utc));
-
-            Ok(schema::User {
-                id: row.get(0)?,
-                created_at_utc: row.get(2)?,
-                privileged_at_utc,
-                steam_id: row.get(1)?,
-            })
-        })?;
-
-        let mut users: Vec<schema::User> = Vec::new();
-        for selected in selection {
-            let user: schema::User = selected?;
-            users.push(user);
-        }
-
-        Ok(users)
-    }
-
-    fn upsert_game_params(
-        connection: &rusqlite::Connection,
-        game_params: &schema::GameParams,
-    ) -> Result<(), rusqlite::Error> {
-        let updated_at_utc: String = chrono::Utc::now().to_rfc3339();
-
-        connection.execute(
-            schema::UPSERT_GAME_PARAMS,
-            (
-                &game_params.instance_id,
-                updated_at_utc,
-                game_params.world_size,
-                game_params.world_seed,
-                &game_params.rcon_password,
-            ),
-        )?;
-
-        Ok(())
-    }
-
-    fn select_game_params(connection: &rusqlite::Connection) -> Result<Option<schema::GameParams>, rusqlite::Error> {
-        let mut statement: rusqlite::Statement = connection.prepare(schema::SELECT_GAME_PARAMS)?;
-
-        let mut selection = statement.query_map([], |row| {
-            let updated_at_utc_str: String = row.get(1)?;
-            let updated_at_utc = chrono::DateTime::parse_from_rfc3339(&updated_at_utc_str)
-                .map_err(|err| {
-                    log::error!("{err}");
-                    rusqlite::Error::InvalidColumnType(1, "updated_at_utc".to_string(), rusqlite::types::Type::Text)
-                })?
-                .with_timezone(&chrono::Utc);
-
-            Ok(schema::GameParams {
-                instance_id: row.get(0)?,
-                updated_at_utc,
-                world_size: row.get(2)?,
-                world_seed: row.get(3)?,
-                rcon_password: row.get(4)?,
-            })
-        })?;
-
-        match selection.next() {
-            Some(game_params) => Ok(Some(game_params?)),
-            None => Ok(None),
-        }
-    }
-
-    fn create_tables(connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
-        let _created: () = connection.execute_batch(schema::CREATE_TABLES)?;
-        Ok(())
     }
 }
