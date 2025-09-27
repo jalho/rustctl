@@ -1,10 +1,5 @@
 //! Utilities for working with Steam or apps distributed via Steam.
 
-/*
- * TODO: Remove all other defs related to SteamCMD from the project and define
- *       everything in this module!
- */
-
 pub struct RustDedicated;
 
 impl RustDedicated {
