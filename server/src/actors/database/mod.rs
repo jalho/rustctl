@@ -22,7 +22,7 @@ impl Database {
 
         if game_params.is_none() {
             let init: crate::data::schema::GameParams = crate::data::schema::GameParams {
-                instance_id: "instance0".into(),
+                instance_id: rustctl_backend::constants::names::GAME_INSTANCE_ID.into(),
                 updated_at_utc: chrono::Utc::now(),
                 world_size: 1000,
                 world_seed: 1,
