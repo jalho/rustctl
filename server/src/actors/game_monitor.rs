@@ -11,6 +11,8 @@ pub struct GameMonitor {
     tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
     rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
     tx_buildid: tokio::sync::mpsc::Sender<GameBuildIDUpdate>,
+
+    check_updates: bool,
 }
 
 impl GameMonitor {
@@ -24,6 +26,8 @@ impl GameMonitor {
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
         rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
         tx_buildid: tokio::sync::mpsc::Sender<GameBuildIDUpdate>,
+
+        check_updates: bool,
     ) -> Self {
         Self {
             ctoken,
@@ -35,6 +39,8 @@ impl GameMonitor {
             tx_agg_igs,
             rx_rconready,
             tx_buildid,
+
+            check_updates,
         }
     }
 
@@ -49,7 +55,7 @@ impl GameMonitor {
             self.tx_agg_igs,
             self.players_tracker.clone(),
         );
-        let job_updates = Self::loop_check_updates(self.tx_buildid, self.players_tracker.clone());
+        let job_updates = Self::loop_check_updates(self.tx_buildid, self.players_tracker.clone(), self.check_updates);
         let job = futures::future::join(job_rcon, job_updates);
 
         let done = ctoken.run_until_cancelled(job).await;
@@ -63,7 +69,12 @@ impl GameMonitor {
     async fn loop_check_updates(
         tx_buildid: tokio::sync::mpsc::Sender<GameBuildIDUpdate>,
         players_tracker: std::sync::Arc<tokio::sync::Mutex<u16>>,
+        check_updates: bool,
     ) -> () {
+        if !check_updates {
+            return ();
+        }
+
         let mut interval = tokio::time::interval(
             std::time::Duration::from_secs(60 * 10), // 10 minutes
         );

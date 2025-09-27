@@ -79,6 +79,7 @@ fn main() -> std::process::ExitCode {
         tx_igs,
         rx_rconready,
         tx_buildid,
+        !cli_args.skip,
     );
     let web_server = actors::web_server::WebServer::new(
         ctoken.child_token(),
