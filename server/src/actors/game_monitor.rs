@@ -72,7 +72,7 @@ impl GameMonitor {
         check_updates: bool,
     ) -> () {
         if !check_updates {
-            return ();
+            return;
         }
 
         let mut interval = tokio::time::interval(
