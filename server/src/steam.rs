@@ -52,10 +52,6 @@ impl RustDedicated {
             }
         };
 
-        /*
-         * TODO: Consider case "offline": Check status code of
-         *       installer process exit?
-         */
         let _output: std::process::Output = match process.wait_with_output().await {
             Ok(n) => n,
             Err(err) => {
