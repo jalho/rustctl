@@ -31,8 +31,7 @@ pub async fn websocket_handler(
 }
 
 pub async fn map_handler() -> impl axum::response::IntoResponse {
-    // TODO: Get the map path from the shared def...
-    match tokio::fs::read("/var/lib/rustctl/current-game-world-map.png").await {
+    match tokio::fs::read(rustctl_backend::constants::paths::GAME_MAP).await {
         Ok(bytes) => axum::response::Response::builder()
             .status(axum::http::StatusCode::OK)
             .header("Content-Type", "image/png")
