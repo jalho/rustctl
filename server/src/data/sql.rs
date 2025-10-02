@@ -17,7 +17,7 @@ pub const CREATE_TABLES: &str = r#"
 
     CREATE TABLE wipes (
         startup_initiated_at_utc TEXT NOT NULL PRIMARY KEY,
-        game_healthy_at_utc      TEXT NULL,
+        game_healthy_at_utc      TEXT NOT NULL,
         buildid                  INTEGER NOT NULL,
         carbon_version           TEXT NULL,
         world_size               INTEGER NOT NULL,
@@ -230,7 +230,7 @@ impl crate::data::schema::GameParams {
 impl crate::data::schema::Wipe {
     pub fn insert_wipe(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
         let startup_initiated_at_utc_str = self.startup_initiated_at_utc.to_rfc3339();
-        let game_healthy_at_utc_str = self.game_healthy_at_utc.map(|dt| dt.to_rfc3339());
+        let game_healthy_at_utc_str = self.game_healthy_at_utc.to_rfc3339();
 
         connection.execute(
             INSERT_WIPE,
@@ -265,19 +265,13 @@ impl crate::data::schema::Wipe {
                 })?
                 .with_timezone(&chrono::Utc);
 
-            let game_healthy_at_utc_str: Option<String> = row.get(1)?;
-            let game_healthy_at_utc = game_healthy_at_utc_str
-                .map(|s| chrono::DateTime::parse_from_rfc3339(&s))
-                .transpose()
+            let game_healthy_at_utc_str: String = row.get(1)?;
+            let game_healthy_at_utc = chrono::DateTime::parse_from_rfc3339(&game_healthy_at_utc_str)
                 .map_err(|err| {
                     log::error!("{err}");
-                    rusqlite::Error::InvalidColumnType(
-                        1,
-                        "game_healthy_at_utc".to_string(),
-                        rusqlite::types::Type::Text,
-                    )
+                    rusqlite::Error::InvalidColumnType(0, "game_heathy_at_utc".to_string(), rusqlite::types::Type::Text)
                 })?
-                .map(|dt| dt.with_timezone(&chrono::Utc));
+                .with_timezone(&chrono::Utc);
 
             Ok(crate::data::schema::Wipe {
                 startup_initiated_at_utc,
