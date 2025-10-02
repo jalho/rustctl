@@ -239,7 +239,7 @@ impl Aggregator {
                         let event: rustctl_common::in_game_events::InGameEvent = match serde_json::from_str(&utf8) {
                             Ok(n) => n,
                             Err(err) => {
-                                log::error!("TODO: {err}:\n{utf8}");
+                                log::error!("{err}: {utf8}");
                                 continue 'receive;
                             }
                         };

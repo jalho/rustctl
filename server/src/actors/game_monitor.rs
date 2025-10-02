@@ -272,21 +272,6 @@ impl GameMonitor {
             log::info!("Set game server owner by Steam ID: {result}", result = response.Message);
         }
 
-        /*
-         * TODO: Set up any necessary plugins and apply their necessary config
-         *       commands, if any.
-         *
-         *       Define the plugin script (327 lines (277 loc) · 11.1 KB)
-         *       in-mem and write to disk at runtime. That way we can reuse the
-         *       constant "Unix socket's name" i.e. its filesystem path... Use
-         *       `include_str!` macro?
-         *
-         *       N.B.: As of `Carbon Minimal 2.0.203.0/linux/2025.08.07.0`,
-         *       any plugin seems to be automatically loaded into a running
-         *       game when the corresponding `.cs` file is written to the
-         *       `carbon/plugins/` directory, and also automatically unloaded
-         *       when the file is removed from the directory.
-         */
         {
             /*
              * From docs:
@@ -632,51 +617,6 @@ impl std::error::Error for Error {
     }
 }
 
-/*
- * TODO: Add unit tests for:
- * - TryFrom<&RconMessage> for rustctl_common::rcon::EnvTime
- * - TryFrom<&RconMessage> for Vec<rustctl_common::rcon::PlayerPos>
- * - TryFrom<&RconMessage> for Vec<rustctl_common::rcon::Player>
- * - TryFrom<&RconMessage> for Vec<rustctl_common::rcon::Toolcupboard>
- *
- * Here are sample responses copied from in-game RCON client:
- *
- *       ```
- *       > listtoolcupboards
- *       EntityId Position              Authed
- *       4363     (81.60, 2.78, -32.58) 1
- *       > playerlistpos
- *       SteamID           DisplayName  POS                   ROT
- *       76561198135242017 [YKÄ]TompXXX (81.79, 2.78, -30.90) (-0.14, -0.33, -0.93)
- *       > playerlist
- *       [
- *         {
- *           "SteamID": "76561198135242017",
- *           "OwnerSteamID": "0",
- *           "DisplayName": "[YKÄ]TompXXX",
- *           "Ping": 2,
- *           "Address": "192.168.0.104:64009",
- *           "EntityId": 4335,
- *           "ConnectedSeconds": 80,
- *           "ViolationLevel": 0.0,
- *           "CurrentLevel": 0.0,
- *           "UnspentXp": 0.0,
- *           "Health": 58.4493828
- *         }
- *       ]
- *       > env.time
- *       env.time: "12.28928"
- *       ```
- *
- * Doctests would be nice but for that these RCON things should be moved to a
- * "library" crate as opposed to "application" crate because running doctests of
- * an app is only planned as of 2025-09-02:
- * - GitHub issue:
- *   https://github.com/rust-lang/rust/issues/50784
- * - comment about the plan:
- *   https://github.com/rust-lang/rust/issues/50784#issuecomment-3155115522
- *   > ...unlikely we'll get there before the end of the year
- */
 impl TryFrom<&RconMessage> for rustctl_common::rcon::EnvTime {
     type Error = Error;
 

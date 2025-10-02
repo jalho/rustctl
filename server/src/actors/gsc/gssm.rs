@@ -492,7 +492,7 @@ impl GameServerStateMachine {
                         }
 
                         GameCtlEvent::BuildIDUpdate { update } => {
-                            let buildid_current: crate::steam::BuildID = crate::steam::BuildID::new(game_meta.buildid); // TODO: Define game_meta.buildid as `crate::steam::BuildID`
+                            let buildid_current: crate::steam::BuildID = crate::steam::BuildID::new(game_meta.buildid);
                             let buildid_latest_avail: crate::steam::BuildID = update.latest_available_build_id;
                             let players_online: u16 = update.players_online;
 

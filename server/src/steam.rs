@@ -139,9 +139,6 @@ impl BuildID {
             None => todo!(),
         };
 
-        /*
-         * TODO: Remove panics; Instead, return Result::Err
-         */
         let depots: &keyvalues_parser::Obj = obj.get("depots").unwrap().first().unwrap().get_obj().unwrap();
         let branches: &keyvalues_parser::Obj = depots.get("branches").unwrap().first().unwrap().get_obj().unwrap();
         let public: &keyvalues_parser::Obj = branches.get("public").unwrap().first().unwrap().get_obj().unwrap();
@@ -169,9 +166,6 @@ impl BuildID {
             None => todo!(),
         };
 
-        /*
-         * TODO: Remove panics; Instead, return Result::Err
-         */
         let buildid: &keyvalues_parser::Value = obj.get("buildid").unwrap().first().unwrap();
         let buildid: String = buildid.to_string().trim_matches('"').to_owned();
         let buildid: u32 = buildid.parse::<u32>().unwrap();
