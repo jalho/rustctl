@@ -6,7 +6,7 @@ pub struct Context {
 
     pub skip: bool,
 
-    pub cfg_client: crate::actors::database::client::Client,
+    pub db_client: crate::actors::database::client::Client,
 
     pub rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
     /// "GSS" = "Game Server State"
@@ -59,7 +59,7 @@ impl GameServerStateMachine {
 
         skip: bool,
 
-        cfg_client: crate::actors::database::client::Client,
+        db_client: crate::actors::database::client::Client,
 
         rx_command: tokio::sync::mpsc::Receiver<rustctl_common::command::DownstreamClientMessage>,
         tx_agg_gss: tokio::sync::mpsc::Sender<rustctl_common::snapshot::GameServerStateExposed>,
@@ -73,7 +73,7 @@ impl GameServerStateMachine {
 
                 skip,
 
-                cfg_client,
+                db_client,
 
                 rx_command,
                 tx_agg_gss,
@@ -124,7 +124,7 @@ impl GameServerStateMachine {
                  * Install or update `RustDedicated` using `steamcmd`.
                  */
                 Self::InstallingUpdates { mut ctx } => {
-                    let config: rustctl_backend::GameParameters = ctx.cfg_client.get_config().await;
+                    let config: rustctl_backend::GameParameters = ctx.db_client.get_config().await;
 
                     /*
                      * Install/update game server.
