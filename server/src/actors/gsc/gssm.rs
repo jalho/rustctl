@@ -95,7 +95,7 @@ impl GameServerStateMachine {
     pub async fn loop_transitions(mut self) -> () {
         'loop_transitions: loop {
             self = match self {
-                Self::Init { ctx } => {
+                Self::Init { mut ctx } => {
                     let running_already: Vec<u32> = is_running_already().await;
                     if !running_already.is_empty() {
                         log::error!(
@@ -116,6 +116,8 @@ impl GameServerStateMachine {
                      *       assume it might be _the_ monthly "forced" content update, and so wipe
                      *       the map (and blueprints?) unless already wiped on the same day.
                      */
+                    let latest_wipe: Option<crate::data::schema::Wipe> = ctx.db_client.read_latest_wipe().await;
+                    dbg!(latest_wipe);
 
                     Self::InstallingUpdates { ctx }
                 }
@@ -124,7 +126,7 @@ impl GameServerStateMachine {
                  * Install or update `RustDedicated` using `steamcmd`.
                  */
                 Self::InstallingUpdates { mut ctx } => {
-                    let config: rustctl_backend::GameParameters = ctx.db_client.get_config().await;
+                    let config: rustctl_backend::GameParameters = ctx.db_client.read_current_config().await;
 
                     /*
                      * Install/update game server.

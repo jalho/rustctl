@@ -53,7 +53,7 @@ impl Aggregator {
         let job_agg_gss = Self::aggregate_game_server_state_machine_transitions(self.aggregated.clone(), self.rx_gss);
         let job_agg_igs = Self::aggregate_ingame_state(self.aggregated.clone(), self.rx_igs);
 
-        let game_world_size: u16 = self.db_client.get_config().await.game_world_size;
+        let game_world_size: u16 = self.db_client.read_current_config().await.game_world_size;
         let job_bcast_snapshots = Self::broadcast_snapshots(
             game_world_size.into(),
             self.aggregated.clone(),

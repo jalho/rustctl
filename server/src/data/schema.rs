@@ -44,7 +44,7 @@ impl std::fmt::Display for GameParams {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Wipe {
     pub startup_initiated_at_utc: chrono::DateTime<chrono::Utc>,
     pub game_healthy_at_utc: chrono::DateTime<chrono::Utc>,

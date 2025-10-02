@@ -52,7 +52,7 @@ impl Database {
                 None => todo!(),
             };
             match query {
-                client::Query::ReadConfiguration { respond_to } => {
+                client::Query::ReadCurrentConfiguration { respond_to } => {
                     let all_game_params: Vec<crate::data::schema::GameParams> =
                         match crate::data::schema::GameParams::select_all_game_params(connection) {
                             Ok(n) => n,
@@ -98,8 +98,21 @@ impl Database {
                           game_url_home: "https://github.com/jalho/rustctl".to_string(),
                           game_url_header: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Vexillum_aboense.jpg/1280px-Vexillum_aboense.jpg".to_string(),
                           game_url_logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Flag_of_Finland.svg/60px-Flag_of_Finland.svg.png".to_string(),
-                        };
+                    };
                     if respond_to.send(config).is_err() {
+                        todo!();
+                    }
+                }
+
+                client::Query::ReadLatestWipe { respond_to } => {
+                    let mut all_wipes: Vec<crate::data::schema::Wipe> =
+                        match crate::data::schema::Wipe::select_all_wipes(connection) {
+                            Ok(n) => n,
+                            Err(err) => todo!("{err}"),
+                        };
+                    all_wipes.sort_by_key(|n| n.startup_initiated_at_utc);
+                    let latest: Option<crate::data::schema::Wipe> = all_wipes.into_iter().last();
+                    if respond_to.send(latest).is_err() {
                         todo!();
                     }
                 }

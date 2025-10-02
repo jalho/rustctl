@@ -47,7 +47,7 @@ impl GameMonitor {
     pub async fn work(mut self) -> Summary {
         let ctoken = self.ctoken.child_token();
 
-        let config = self.cfg_client.get_config().await;
+        let config = self.cfg_client.read_current_config().await;
 
         let job_rcon = Self::loop_reconnect_rcon(
             self.rx_rconready,
