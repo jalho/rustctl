@@ -14,6 +14,15 @@ pub const CREATE_TABLES: &str = r#"
         world_seed           INTEGER NOT NULL,
         rcon_password        TEXT NOT NULL
     );
+
+    CREATE TABLE wipes (
+        startup_initiated_at_utc TEXT NOT NULL PRIMARY KEY,
+        game_healthy_at_utc      TEXT NULL,
+        buildid                  INTEGER NOT NULL,
+        carbon_version           TEXT NULL,
+        world_size               INTEGER NOT NULL,
+        world_seed               INTEGER NOT NULL
+    );
 "#;
 
 const UPSERT_USER: &str = r#"
@@ -74,6 +83,36 @@ const SELECT_ALL_GAME_PARAMS: &str = r#"
         rcon_password
     FROM
         game_params;
+"#;
+
+const INSERT_WIPE: &str = r#"
+    INSERT INTO wipes(
+        startup_initiated_at_utc,
+        game_healthy_at_utc,
+        buildid,
+        carbon_version,
+        world_size,
+        world_seed
+    ) VALUES(
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6
+    );
+"#;
+
+const SELECT_ALL_WIPES: &str = r#"
+    SELECT
+        startup_initiated_at_utc,
+        game_healthy_at_utc,
+        buildid,
+        carbon_version,
+        world_size,
+        world_seed
+    FROM
+        wipes;
 "#;
 
 pub fn create_tables(connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
@@ -185,5 +224,77 @@ impl crate::data::schema::GameParams {
         }
 
         Ok(game_params)
+    }
+}
+
+impl crate::data::schema::Wipe {
+    pub fn insert_wipe(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+        let startup_initiated_at_utc_str = self.startup_initiated_at_utc.to_rfc3339();
+        let game_healthy_at_utc_str = self.game_healthy_at_utc.map(|dt| dt.to_rfc3339());
+
+        connection.execute(
+            INSERT_WIPE,
+            (
+                &startup_initiated_at_utc_str,
+                &game_healthy_at_utc_str,
+                &self.buildid,
+                &self.carbon_version,
+                &self.world_size,
+                &self.world_seed,
+            ),
+        )?;
+
+        Ok(())
+    }
+
+    pub fn select_all_wipes(
+        connection: &rusqlite::Connection,
+    ) -> Result<Vec<crate::data::schema::Wipe>, rusqlite::Error> {
+        let mut statement: rusqlite::Statement = connection.prepare(SELECT_ALL_WIPES)?;
+
+        let selection = statement.query_map([], |row| {
+            let startup_initiated_at_utc_str: String = row.get(0)?;
+            let startup_initiated_at_utc = chrono::DateTime::parse_from_rfc3339(&startup_initiated_at_utc_str)
+                .map_err(|err| {
+                    log::error!("{err}");
+                    rusqlite::Error::InvalidColumnType(
+                        0,
+                        "startup_initiated_at_utc".to_string(),
+                        rusqlite::types::Type::Text,
+                    )
+                })?
+                .with_timezone(&chrono::Utc);
+
+            let game_healthy_at_utc_str: Option<String> = row.get(1)?;
+            let game_healthy_at_utc = game_healthy_at_utc_str
+                .map(|s| chrono::DateTime::parse_from_rfc3339(&s))
+                .transpose()
+                .map_err(|err| {
+                    log::error!("{err}");
+                    rusqlite::Error::InvalidColumnType(
+                        1,
+                        "game_healthy_at_utc".to_string(),
+                        rusqlite::types::Type::Text,
+                    )
+                })?
+                .map(|dt| dt.with_timezone(&chrono::Utc));
+
+            Ok(crate::data::schema::Wipe {
+                startup_initiated_at_utc,
+                game_healthy_at_utc,
+                buildid: row.get(2)?,
+                carbon_version: row.get(3)?,
+                world_size: row.get(4)?,
+                world_seed: row.get(5)?,
+            })
+        })?;
+
+        let mut wipes: Vec<crate::data::schema::Wipe> = Vec::new();
+        for selected in selection {
+            let wipe: crate::data::schema::Wipe = selected?;
+            wipes.push(wipe);
+        }
+
+        Ok(wipes)
     }
 }

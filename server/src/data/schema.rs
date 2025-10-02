@@ -44,6 +44,16 @@ impl std::fmt::Display for GameParams {
     }
 }
 
+#[derive(Debug)]
+pub struct Wipe {
+    pub startup_initiated_at_utc: chrono::DateTime<chrono::Utc>,
+    pub game_healthy_at_utc: Option<chrono::DateTime<chrono::Utc>>,
+    pub buildid: u32,
+    pub carbon_version: Option<String>,
+    pub world_size: u32,
+    pub world_seed: u32,
+}
+
 pub const READ_SQLITE_VERSION: &str = "SELECT sqlite_version()";
 
 pub fn check_version(connection: &rusqlite::Connection) -> Result<String, rusqlite::Error> {
