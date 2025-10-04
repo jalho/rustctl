@@ -1,3 +1,24 @@
+//! Conventions and design goals
+//!
+//! - Method names should convey SQL operations, selectors and operable resources.
+//!   Prefix with the SQL operation like _insert_ or _update_ and continue with
+//!   resource name (like _user_) and selector (like _all_ or `_by_id`).
+//!
+//! - `SELECT` implementations should be _associated functions_ of the structures
+//!   that they yield, i.e. not taking parameter `&self`.
+//!
+//! - All modifying implementations, i.e. everything else than `SELECT` (such as
+//!   `INSERT` or `UPDATE`) should be _methods_ and not _associated functions_, i.e.
+//!   taking parameter `&self`.
+//!
+//! - SQL should be kept minimal, and as much of the necessary complexity as
+//!   possible should be implemented in Rust instead. For example, prefer simply
+//!   selecting more than strictly necessary in SQL, and then narrowing the result
+//!   in Rust, rather than making an overly complicated SQL query.
+//!
+//! These are only design goals, not strict rules. Try to understand the spirit and
+//! follow that, instead of taking these goals too literally.
+
 pub const CREATE_TABLES: &str = r#"
     CREATE TABLE app_data_schema_version (
         populated_by TEXT NOT NULL PRIMARY KEY
