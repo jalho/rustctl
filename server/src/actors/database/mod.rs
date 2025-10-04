@@ -154,8 +154,26 @@ impl Database {
             }
         }
 
-        let all_users: Vec<crate::data::schema::User> = match crate::data::schema::User::select_all_users(&connection) {
-            Ok(n) => n,
+        let all_users = match crate::data::schema::AppDataSchemaVersion::select_app_data_schema_version(&connection) {
+            Ok(app_data_schema_version) => {
+                if !app_data_schema_version.is_compatible_with_current_app() {
+                    todo!("incompatible app data schema version {app_data_schema_version:?}");
+                }
+
+                match crate::data::schema::User::select_all_users(&connection) {
+                    Ok(n) => n,
+                    Err(err) => {
+                        log::error!("{err}");
+                        return Err(std::process::ExitCode::FAILURE);
+                    }
+                }
+            }
+
+            /*
+             * TODO: Consider using not a result but some other enum. The
+             *       meaning here is really that the database has not been
+             *       initialized yet, which is not failure per se.
+             */
             Err(_err) => {
                 match crate::data::sql::create_tables(&connection) {
                     Ok(_) => {
@@ -245,5 +263,23 @@ trait TimeWindowed {
 impl TimeWindowed for crate::data::schema::GameParams {
     fn is_active(&self, window_start_inclusive: &chrono::DateTime<chrono::Utc>) -> bool {
         &self.valid_starting_from_inclusive_utc >= window_start_inclusive
+    }
+}
+
+trait CompatibleWithCurrentApp {
+    fn is_compatible_with_current_app(&self) -> bool;
+}
+
+impl CompatibleWithCurrentApp for crate::data::schema::AppDataSchemaVersion {
+    /*
+     * TODO: Implement semver-like compatibility: Allow e.g. app version 0.2.1
+     *       to use app data schema 0.2.0, i.e. patch bumps are not breaking
+     *       changes. Also, use some more informative return value instead of
+     *       boolean.
+     */
+    fn is_compatible_with_current_app(&self) -> bool {
+        let app_version: &'static str = env!("CARGO_PKG_VERSION");
+        let app_data_schema_version: &String = &self.0;
+        app_version == app_data_schema_version
     }
 }

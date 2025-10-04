@@ -172,26 +172,26 @@ pub fn create_tables(connection: &rusqlite::Connection) -> Result<(), rusqlite::
     Ok(())
 }
 
-pub fn upsert_app_data_schema_version(
-    connection: &rusqlite::Connection,
-    app_data_schema_version: &str,
-) -> Result<(), rusqlite::Error> {
-    connection.execute(UPSERT_APP_DATA_SCHEMA_VERSION, [app_data_schema_version])?;
-    Ok(())
-}
+impl crate::data::schema::AppDataSchemaVersion {
+    pub fn upsert_app_data_schema_version(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+        let value: String = self.0.clone();
+        connection.execute(UPSERT_APP_DATA_SCHEMA_VERSION, [value])?;
+        Ok(())
+    }
 
-pub fn select_app_data_schema_version(
-    connection: &rusqlite::Connection,
-) -> Result<crate::data::schema::AppDataSchemaVersion, rusqlite::Error> {
-    let mut statement: rusqlite::Statement = connection.prepare(SELECT_APP_DATA_SCHEMA_VERSION)?;
-    let mut rows = statement.query([])?;
+    pub fn select_app_data_schema_version(
+        connection: &rusqlite::Connection,
+    ) -> Result<crate::data::schema::AppDataSchemaVersion, rusqlite::Error> {
+        let mut statement: rusqlite::Statement = connection.prepare(SELECT_APP_DATA_SCHEMA_VERSION)?;
+        let mut rows = statement.query([])?;
 
-    if let Some(row) = rows.next()? {
-        let value: String = row.get(0)?;
-        let app_data_schema_version = crate::data::schema::AppDataSchemaVersion(value);
-        Ok(app_data_schema_version)
-    } else {
-        todo!("app data schema version not found");
+        if let Some(row) = rows.next()? {
+            let value: String = row.get(0)?;
+            let app_data_schema_version = crate::data::schema::AppDataSchemaVersion(value);
+            Ok(app_data_schema_version)
+        } else {
+            todo!("app data schema version not found");
+        }
     }
 }
 
