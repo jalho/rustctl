@@ -8,7 +8,9 @@ pub struct AppDataSchemaVersion {
 
 impl AppDataSchemaVersion {
     pub fn new(value: &str) -> Self {
-        Self { application_version: value.to_owned() }
+        Self {
+            application_version: value.to_owned(),
+        }
     }
 }
 
