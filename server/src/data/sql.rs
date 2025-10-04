@@ -23,9 +23,9 @@
 //!
 //! # Error handling philosophy
 //!
-//! Only `select_app_data_schema_version` returns `Result` because it's used at
-//! startup to check database initialization and compatibility. All other functions
-//! either work, or panic to terminate the program immediately because:
+//! Only `check_database` returns `Result` because it's used at startup to check
+//! database initialization and compatibility. All other functions either work, or
+//! panic to terminate the program immediately because:
 //!
 //! - Database failures (backed by local filesystem) indicate either programming
 //!   errors or severe platform issues that cannot be recovered from
@@ -263,10 +263,7 @@ impl crate::data::schema::AppDataSchemaVersion {
             .expect("database upsert must succeed");
     }
 
-    /*
-     * TODO: Rename as `check_database` -- Also update the module docs etc!
-     */
-    pub fn select_app_data_schema_version(
+    pub fn check_database(
         connection: &rusqlite::Connection,
         expected: &str,
     ) -> Result<crate::data::schema::AppDataSchemaVersion, Error> {

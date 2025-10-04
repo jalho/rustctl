@@ -139,7 +139,7 @@ impl Database {
             }
         }
 
-        let all_users = match crate::data::schema::AppDataSchemaVersion::select_app_data_schema_version(
+        let all_users = match crate::data::schema::AppDataSchemaVersion::check_database(
             &connection,
             env!("CARGO_PKG_VERSION"),
         ) {
