@@ -1,5 +1,5 @@
 pub const CREATE_TABLES: &str = r#"
-    CREATE TABLE version (
+    CREATE TABLE app_data_schema_version (
         populated_by TEXT NOT NULL PRIMARY KEY
     );
 
@@ -42,13 +42,13 @@ pub const CREATE_TABLES: &str = r#"
     );
 "#;
 
-const UPSERT_VERSION: &str = r#"
-    INSERT INTO version(populated_by) VALUES($1)
+const UPSERT_APP_DATA_SCHEMA_VERSION: &str = r#"
+    INSERT INTO app_data_schema_version(populated_by) VALUES($1)
     ON CONFLICT(populated_by) DO UPDATE SET populated_by = excluded.populated_by;
 "#;
 
-const SELECT_VERSION: &str = r#"
-    SELECT populated_by FROM version;
+const SELECT_APP_DATA_SCHEMA_VERSION: &str = r#"
+    SELECT populated_by FROM app_data_schema_version;
 "#;
 
 const UPSERT_USER: &str = r#"
@@ -173,13 +173,13 @@ pub fn create_tables(connection: &rusqlite::Connection) -> Result<(), rusqlite::
     Ok(())
 }
 
-pub fn upsert_version(connection: &rusqlite::Connection, version: &str) -> Result<(), rusqlite::Error> {
-    connection.execute(UPSERT_VERSION, [version])?;
+pub fn upsert_app_data_schema_version(connection: &rusqlite::Connection, app_data_schema_version: &str) -> Result<(), rusqlite::Error> {
+    connection.execute(UPSERT_APP_DATA_SCHEMA_VERSION, [app_data_schema_version])?;
     Ok(())
 }
 
-pub fn select_version(connection: &rusqlite::Connection) -> Result<Option<String>, rusqlite::Error> {
-    let mut statement: rusqlite::Statement = connection.prepare(SELECT_VERSION)?;
+pub fn select_app_data_schema_version(connection: &rusqlite::Connection) -> Result<Option<String>, rusqlite::Error> {
+    let mut statement: rusqlite::Statement = connection.prepare(SELECT_APP_DATA_SCHEMA_VERSION)?;
     let mut rows = statement.query([])?;
 
     if let Some(row) = rows.next()? {
