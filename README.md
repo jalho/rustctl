@@ -106,6 +106,21 @@ $ dx serve --platform web --addr 192.168.0.103 --port 8000
 Now you should be able to connect to the dev server at `192.168.0.103:8000` from
 some other host in the LAN.
 
+SQLite cheatsheet:
+
+```
+$ sqlite3 /var/lib/rustctl/rustctl.db
+
+sqlite> .tables
+
+sqlite> .schema
+
+sqlite> SELECT * FROM app_data_schema_version;
+0.1.0-rc1
+
+sqlite> .quit
+```
+
 ## Tips
 
 ### Using `steamcmd`
