@@ -19,6 +19,51 @@
 //! These are only design goals, not strict rules. Try to understand the spirit and
 //! follow that, instead of taking these goals too literally.
 
+#[derive(Debug)]
+pub enum Error {
+    /// The database has not yet been initialized, i.e. the tables have not yet
+    /// been created. This is not a terminal failure point: Instead, the tables
+    /// should simply be created and initialized.
+    NotInitialized { seeked_file_absolute_path: String },
+
+    /// The existing database with some tables is not compatible with the
+    /// current version of the application. This is a terminal failure point
+    /// that cannot be recovered from automatically.
+    Incompatible {
+        actual: crate::data::schema::AppDataSchemaVersion,
+        expected: crate::data::schema::AppDataSchemaVersion,
+    },
+
+    /// Any failure cases propagated from the underlying database client
+    /// library. If such failure is propagated through, it should be considered
+    /// a non-recoverable failure.
+    NonRecoverableLibFailure { source: rusqlite::Error },
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::NotInitialized {
+                seeked_file_absolute_path: _,
+            } => None,
+            Error::Incompatible { actual: _, expected: _ } => None,
+            Error::NonRecoverableLibFailure { source } => Some(source),
+        }
+    }
+}
+
+impl From<rusqlite::Error> for Error {
+    fn from(source: rusqlite::Error) -> Self {
+        Self::NonRecoverableLibFailure { source }
+    }
+}
+
 pub const CREATE_TABLES: &str = r#"
     CREATE TABLE app_data_schema_version (
         populated_by TEXT NOT NULL PRIMARY KEY
@@ -188,7 +233,7 @@ const SELECT_ALL_GAME_UPDATES: &str = r#"
         game_updates;
 "#;
 
-pub fn create_tables(connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+pub fn create_tables(connection: &rusqlite::Connection) -> Result<(), Error> {
     let _created: () = connection.execute_batch(CREATE_TABLES)?;
     let app_data_schema_version: &'static str = env!("CARGO_PKG_VERSION");
     let app_data_schema_version = crate::data::schema::AppDataSchemaVersion(app_data_schema_version.to_owned());
@@ -197,7 +242,7 @@ pub fn create_tables(connection: &rusqlite::Connection) -> Result<(), rusqlite::
 }
 
 impl crate::data::schema::AppDataSchemaVersion {
-    pub fn upsert_app_data_schema_version(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+    pub fn upsert_app_data_schema_version(&self, connection: &rusqlite::Connection) -> Result<(), Error> {
         let value: String = self.0.clone();
         connection.execute(UPSERT_APP_DATA_SCHEMA_VERSION, [value])?;
         Ok(())
@@ -205,7 +250,7 @@ impl crate::data::schema::AppDataSchemaVersion {
 
     pub fn select_app_data_schema_version(
         connection: &rusqlite::Connection,
-    ) -> Result<crate::data::schema::AppDataSchemaVersion, rusqlite::Error> {
+    ) -> Result<crate::data::schema::AppDataSchemaVersion, Error> {
         let mut statement: rusqlite::Statement = connection.prepare(SELECT_APP_DATA_SCHEMA_VERSION)?;
         let mut rows = statement.query([])?;
 
@@ -220,7 +265,7 @@ impl crate::data::schema::AppDataSchemaVersion {
 }
 
 impl crate::data::schema::User {
-    pub fn upsert_user(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+    pub fn upsert_user(&self, connection: &rusqlite::Connection) -> Result<(), Error> {
         let created_at_utc_str: String = self.created_at_utc.to_rfc3339();
         let privileged_at_utc_str: Option<String> = self.privileged_at_utc.map(|dt| dt.to_rfc3339());
 
@@ -232,9 +277,7 @@ impl crate::data::schema::User {
         Ok(())
     }
 
-    pub fn select_all_users(
-        connection: &rusqlite::Connection,
-    ) -> Result<Vec<crate::data::schema::User>, rusqlite::Error> {
+    pub fn select_all_users(connection: &rusqlite::Connection) -> Result<Vec<crate::data::schema::User>, Error> {
         let mut statement: rusqlite::Statement = connection.prepare(SELECT_ALL_USERS)?;
 
         let selection = statement.query_map([], |row| {
@@ -276,7 +319,7 @@ impl crate::data::schema::User {
 }
 
 impl crate::data::schema::GameParams {
-    pub fn insert_game_params(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+    pub fn insert_game_params(&self, connection: &rusqlite::Connection) -> Result<(), Error> {
         let valid_starting_from_inclusive_utc_str = self.valid_starting_from_inclusive_utc.to_rfc3339();
 
         connection.execute(
@@ -296,7 +339,7 @@ impl crate::data::schema::GameParams {
 
     pub fn select_all_game_params(
         connection: &rusqlite::Connection,
-    ) -> Result<Vec<crate::data::schema::GameParams>, rusqlite::Error> {
+    ) -> Result<Vec<crate::data::schema::GameParams>, Error> {
         let mut statement: rusqlite::Statement = connection.prepare(SELECT_ALL_GAME_PARAMS)?;
 
         let selection = statement.query_map([], |row| {
@@ -334,7 +377,7 @@ impl crate::data::schema::GameParams {
 }
 
 impl crate::data::schema::Wipe {
-    pub fn insert_wipe(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+    pub fn insert_wipe(&self, connection: &rusqlite::Connection) -> Result<(), Error> {
         let game_install_or_update_initiated_at_utc_str = self.game_install_or_update_initiated_at_utc.to_rfc3339();
         let game_startup_initiated_at_utc_str = self.game_startup_initiated_at_utc.to_rfc3339();
         let game_healthy_at_utc_str = self.game_healthy_at_utc.to_rfc3339();
@@ -355,9 +398,7 @@ impl crate::data::schema::Wipe {
         Ok(())
     }
 
-    pub fn select_all_wipes(
-        connection: &rusqlite::Connection,
-    ) -> Result<Vec<crate::data::schema::Wipe>, rusqlite::Error> {
+    pub fn select_all_wipes(connection: &rusqlite::Connection) -> Result<Vec<crate::data::schema::Wipe>, Error> {
         let mut statement: rusqlite::Statement = connection.prepare(SELECT_ALL_WIPES)?;
 
         let selection = statement.query_map([], |row| {
@@ -421,7 +462,7 @@ impl crate::data::schema::Wipe {
 }
 
 impl crate::data::schema::GameUpdate {
-    pub fn insert_game_update(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+    pub fn insert_game_update(&self, connection: &rusqlite::Connection) -> Result<(), Error> {
         let detected_at_utc_str = self.detected_at_utc.to_rfc3339();
         let installed_at_utc_str = self.installed_at_utc.to_rfc3339();
 
@@ -440,7 +481,7 @@ impl crate::data::schema::GameUpdate {
 
     pub fn select_all_game_updates(
         connection: &rusqlite::Connection,
-    ) -> Result<Vec<crate::data::schema::GameUpdate>, rusqlite::Error> {
+    ) -> Result<Vec<crate::data::schema::GameUpdate>, Error> {
         let mut statement: rusqlite::Statement = connection.prepare(SELECT_ALL_GAME_UPDATES)?;
 
         let selection = statement.query_map([], |row| {
