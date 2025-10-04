@@ -73,7 +73,12 @@ impl std::error::Error for Error {
 
 impl From<rusqlite::Error> for Error {
     fn from(source: rusqlite::Error) -> Self {
-        Self::NonRecoverableLibFailure { source }
+        let display: String = source.to_string();
+        if display.contains("no such table") {
+            return Self::NotInitialized;
+        } else {
+            Self::NonRecoverableLibFailure { source }
+        }
     }
 }
 
@@ -265,11 +270,6 @@ impl crate::data::schema::AppDataSchemaVersion {
         connection: &rusqlite::Connection,
         expected: crate::data::schema::AppDataSchemaVersion,
     ) -> Result<crate::data::schema::AppDataSchemaVersion, Error> {
-        /*
-         * TODO: Implement return case `Error::NotInitialized`, which should
-         *       occur when the failure is precisely that the table doesn't
-         *       exist!
-         */
         let mut statement: rusqlite::Statement = connection.prepare(SELECT_APP_DATA_SCHEMA_VERSION)?;
         let mut rows = statement.query([])?;
 
