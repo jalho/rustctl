@@ -190,6 +190,9 @@ const SELECT_ALL_GAME_UPDATES: &str = r#"
 
 pub fn create_tables(connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
     let _created: () = connection.execute_batch(CREATE_TABLES)?;
+    let app_data_schema_version: &'static str = env!("CARGO_PKG_VERSION");
+    let app_data_schema_version = crate::data::schema::AppDataSchemaVersion(app_data_schema_version.to_owned());
+    app_data_schema_version.upsert_app_data_schema_version(connection)?;
     Ok(())
 }
 
