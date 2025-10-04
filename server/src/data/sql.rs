@@ -180,14 +180,18 @@ pub fn upsert_app_data_schema_version(
     Ok(())
 }
 
-pub fn select_app_data_schema_version(connection: &rusqlite::Connection) -> Result<Option<String>, rusqlite::Error> {
+pub fn select_app_data_schema_version(
+    connection: &rusqlite::Connection,
+) -> Result<crate::data::schema::AppDataSchemaVersion, rusqlite::Error> {
     let mut statement: rusqlite::Statement = connection.prepare(SELECT_APP_DATA_SCHEMA_VERSION)?;
     let mut rows = statement.query([])?;
 
     if let Some(row) = rows.next()? {
-        Ok(Some(row.get(0)?))
+        let value: String = row.get(0)?;
+        let app_data_schema_version = crate::data::schema::AppDataSchemaVersion(value);
+        Ok(app_data_schema_version)
     } else {
-        Ok(None)
+        todo!("app data schema version not found");
     }
 }
 

@@ -1,4 +1,7 @@
 #[derive(Debug)]
+pub struct AppDataSchemaVersion(pub String);
+
+#[derive(Debug)]
 pub struct User {
     pub id: String,
     pub created_at_utc: chrono::DateTime<chrono::Utc>,
