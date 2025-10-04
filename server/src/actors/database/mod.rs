@@ -262,7 +262,7 @@ trait TimeWindowed {
 
 impl TimeWindowed for crate::data::schema::GameParams {
     fn is_active(&self, window_start_inclusive: &chrono::DateTime<chrono::Utc>) -> bool {
-        &self.valid_starting_from_inclusive_utc >= window_start_inclusive
+        &self.valid_starting_from_inclusive_utc <= window_start_inclusive
     }
 }
 
