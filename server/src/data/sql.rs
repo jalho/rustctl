@@ -1,4 +1,7 @@
 pub const CREATE_TABLES: &str = r#"
+    /*
+     * Users known by the web app.
+     */
     CREATE TABLE users (
         user_id              TEXT NOT NULL PRIMARY KEY,
         steam_id             INTEGER NOT NULL,
@@ -6,6 +9,10 @@ pub const CREATE_TABLES: &str = r#"
         privileged_at_utc    TEXT NULL
     );
 
+    /*
+     * Game server parameters currently in use, or those that should be used at
+     * the next startup.
+     */
     CREATE TABLE game_params (
         instance_id          TEXT NOT NULL PRIMARY KEY,
         updated_at_utc       TEXT NOT NULL,
@@ -15,7 +22,16 @@ pub const CREATE_TABLES: &str = r#"
         rcon_password        TEXT NOT NULL
     );
 
-    CREATE TABLE wipes (
+    /*
+     * Completed game server wipes.
+     *
+     * The game tends to receive a content update from its developers monthly
+     * which often forces game servers to install the update and restart the
+     * game. Since content updates, by definition, change the game, this is
+     * typically also when in-game progress is reset and the game world starts
+     * over, hence the term "wiping".
+     */
+    CREATE TABLE game_wipes (
         startup_initiated_at_utc TEXT NOT NULL PRIMARY KEY,
         game_healthy_at_utc      TEXT NOT NULL,
         buildid                  INTEGER NOT NULL,
@@ -86,7 +102,7 @@ const SELECT_ALL_GAME_PARAMS: &str = r#"
 "#;
 
 const INSERT_WIPE: &str = r#"
-    INSERT INTO wipes(
+    INSERT INTO game_wipes(
         startup_initiated_at_utc,
         game_healthy_at_utc,
         buildid,
@@ -112,7 +128,7 @@ const SELECT_ALL_WIPES: &str = r#"
         world_size,
         world_seed
     FROM
-        wipes;
+        game_wipes;
 "#;
 
 pub fn create_tables(connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
