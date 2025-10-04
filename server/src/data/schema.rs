@@ -1,6 +1,6 @@
 #[derive(Debug, PartialEq)]
 pub struct AppDataSchemaVersion {
-    /// The application's version that is idiomatically defined Cargo.toml.
+    /// The application's version that is idiomatically defined `Cargo.toml`.
     ///
     /// For example: `0.1.0-rc1`.
     pub application_version: String,
