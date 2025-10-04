@@ -18,13 +18,16 @@ impl Database {
                 Err(err) => todo!("{err}"),
             };
 
-        let game_params: Option<&crate::data::schema::GameParams> =
-            all_game_params.iter().max_by_key(|params| params.updated_at_utc);
+        let current_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+        let game_params: Option<&crate::data::schema::GameParams> = all_game_params
+            .iter()
+            .filter(|n| n.is_active(&current_time))
+            .max_by_key(|n| n.valid_starting_from_inclusive_utc);
 
         if game_params.is_none() {
             let init: crate::data::schema::GameParams = crate::data::schema::GameParams {
                 instance_id: rustctl_backend::constants::names::GAME_INSTANCE_ID.into(),
-                updated_at_utc: chrono::Utc::now(),
+                valid_starting_from_inclusive_utc: current_time,
                 world_size: 1000,
                 world_seed: 1,
                 rcon_password: uuid::Uuid::new_v4().to_string(),
@@ -58,12 +61,17 @@ impl Database {
                             Ok(n) => n,
                             Err(err) => todo!("{err}"),
                         };
+                    let game_params_found_count: usize = all_game_params.len();
 
-                    let game_params: &crate::data::schema::GameParams =
-                        match all_game_params.iter().max_by_key(|params| params.updated_at_utc) {
-                            Some(params) => params,
-                            None => todo!("no game params found"),
-                        };
+                    let current_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+                    let game_params: Option<crate::data::schema::GameParams> = all_game_params
+                        .into_iter()
+                        .filter(|n| n.is_active(&current_time))
+                        .max_by_key(|n| n.valid_starting_from_inclusive_utc);
+                    let game_params: crate::data::schema::GameParams = match game_params {
+                        Some(n) => n,
+                        None => todo!("no game params found -- row count {game_params_found_count}"),
+                    };
 
                     let all_users: Vec<crate::data::schema::User> =
                         match crate::data::schema::User::select_all_users(connection) {
@@ -110,7 +118,7 @@ impl Database {
                             Ok(n) => n,
                             Err(err) => todo!("{err}"),
                         };
-                    all_wipes.sort_by_key(|n| n.startup_initiated_at_utc);
+                    all_wipes.sort_by_key(|n| n.game_healthy_at_utc);
                     let latest: Option<crate::data::schema::Wipe> = all_wipes.into_iter().last();
                     if respond_to.send(latest).is_err() {
                         todo!();
@@ -133,7 +141,7 @@ impl Database {
             }
         };
 
-        match crate::data::schema::check_version(&connection) {
+        match crate::data::schema::read_sqlite_version(&connection) {
             Ok(version) => log::info!(
                 r#"Connected SQLite version: {} -- File: "{file}""#,
                 version,
@@ -226,5 +234,15 @@ impl Database {
             ctoken,
             rx_query,
         })
+    }
+}
+
+trait TimeWindowed {
+    fn is_active(&self, window_start_inclusive: &chrono::DateTime<chrono::Utc>) -> bool;
+}
+
+impl TimeWindowed for crate::data::schema::GameParams {
+    fn is_active(&self, window_start_inclusive: &chrono::DateTime<chrono::Utc>) -> bool {
+        &self.valid_starting_from_inclusive_utc >= window_start_inclusive
     }
 }

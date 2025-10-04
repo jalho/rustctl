@@ -1,44 +1,54 @@
 pub const CREATE_TABLES: &str = r#"
-    /*
-     * Users known by the web app.
-     */
+    CREATE TABLE version (
+        populated_by TEXT NOT NULL PRIMARY KEY
+    );
+
     CREATE TABLE users (
         user_id              TEXT NOT NULL PRIMARY KEY,
         steam_id             INTEGER NOT NULL,
+
         created_at_utc       TEXT NOT NULL,
         privileged_at_utc    TEXT NULL
     );
 
-    /*
-     * Game server parameters currently in use, or those that should be used at
-     * the next startup.
-     */
     CREATE TABLE game_params (
-        instance_id          TEXT NOT NULL PRIMARY KEY,
-        updated_at_utc       TEXT NOT NULL,
+        instance_id                          TEXT NOT NULL PRIMARY KEY,
+        valid_starting_from_inclusive_utc    TEXT NOT NULL,
 
-        world_size           INTEGER NOT NULL,
-        world_seed           INTEGER NOT NULL,
-        rcon_password        TEXT NOT NULL
+        world_size                           INTEGER NOT NULL,
+        world_seed                           INTEGER NOT NULL,
+        rcon_password                        TEXT NOT NULL
     );
 
-    /*
-     * Completed game server wipes.
-     *
-     * The game tends to receive a content update from its developers monthly
-     * which often forces game servers to install the update and restart the
-     * game. Since content updates, by definition, change the game, this is
-     * typically also when in-game progress is reset and the game world starts
-     * over, hence the term "wiping".
-     */
     CREATE TABLE game_wipes (
-        startup_initiated_at_utc TEXT NOT NULL PRIMARY KEY,
-        game_healthy_at_utc      TEXT NOT NULL,
-        buildid                  INTEGER NOT NULL,
-        carbon_version           TEXT NULL,
-        world_size               INTEGER NOT NULL,
-        world_seed               INTEGER NOT NULL
+        game_install_or_update_initiated_at_utc TEXT NOT NULL,
+        game_startup_initiated_at_utc           TEXT NOT NULL PRIMARY KEY,
+        game_healthy_at_utc                     TEXT NOT NULL,
+
+        buildid                                 INTEGER NOT NULL,
+
+        carbon_version                          TEXT NULL,
+
+        world_size                              INTEGER NOT NULL,
+        world_seed                              INTEGER NOT NULL
     );
+
+    CREATE TABLE game_updates (
+        detected_at_utc  TEXT NOT NULL,
+        installed_at_utc TEXT NOT NULL,
+
+        buildid_old      INTEGER NOT NULL,
+        buildid_new      INTEGER NOT NULL PRIMARY KEY
+    );
+"#;
+
+const UPSERT_VERSION: &str = r#"
+    INSERT INTO version(populated_by) VALUES($1)
+    ON CONFLICT(populated_by) DO UPDATE SET populated_by = excluded.populated_by;
+"#;
+
+const SELECT_VERSION: &str = r#"
+    SELECT populated_by FROM version;
 "#;
 
 const UPSERT_USER: &str = r#"
@@ -72,7 +82,7 @@ const SELECT_ALL_USERS: &str = r#"
 const UPSERT_GAME_PARAMS: &str = r#"
     INSERT INTO game_params(
         instance_id,
-        updated_at_utc,
+        valid_starting_from_inclusive_utc,
         world_size,
         world_seed,
         rcon_password
@@ -84,7 +94,7 @@ const UPSERT_GAME_PARAMS: &str = r#"
         $5
     )
     ON CONFLICT(instance_id) DO UPDATE SET
-        updated_at_utc = excluded.updated_at_utc,
+        valid_starting_from_inclusive_utc = excluded.valid_starting_from_inclusive_utc,
         world_size = excluded.world_size,
         world_seed = excluded.world_seed,
         rcon_password = excluded.rcon_password;
@@ -93,7 +103,7 @@ const UPSERT_GAME_PARAMS: &str = r#"
 const SELECT_ALL_GAME_PARAMS: &str = r#"
     SELECT
         instance_id,
-        updated_at_utc,
+        valid_starting_from_inclusive_utc,
         world_size,
         world_seed,
         rcon_password
@@ -103,7 +113,8 @@ const SELECT_ALL_GAME_PARAMS: &str = r#"
 
 const INSERT_WIPE: &str = r#"
     INSERT INTO game_wipes(
-        startup_initiated_at_utc,
+        game_install_or_update_initiated_at_utc,
+        game_startup_initiated_at_utc,
         game_healthy_at_utc,
         buildid,
         carbon_version,
@@ -115,13 +126,15 @@ const INSERT_WIPE: &str = r#"
         $3,
         $4,
         $5,
-        $6
+        $6,
+        $7
     );
 "#;
 
 const SELECT_ALL_WIPES: &str = r#"
     SELECT
-        startup_initiated_at_utc,
+        game_install_or_update_initiated_at_utc,
+        game_startup_initiated_at_utc,
         game_healthy_at_utc,
         buildid,
         carbon_version,
@@ -131,9 +144,49 @@ const SELECT_ALL_WIPES: &str = r#"
         game_wipes;
 "#;
 
+const INSERT_GAME_UPDATE: &str = r#"
+    INSERT INTO game_updates(
+        detected_at_utc,
+        installed_at_utc,
+        buildid_old,
+        buildid_new
+    ) VALUES(
+        $1,
+        $2,
+        $3,
+        $4
+    );
+"#;
+
+const SELECT_ALL_GAME_UPDATES: &str = r#"
+    SELECT
+        detected_at_utc,
+        installed_at_utc,
+        buildid_old,
+        buildid_new
+    FROM
+        game_updates;
+"#;
+
 pub fn create_tables(connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
     let _created: () = connection.execute_batch(CREATE_TABLES)?;
     Ok(())
+}
+
+pub fn upsert_version(connection: &rusqlite::Connection, version: &str) -> Result<(), rusqlite::Error> {
+    connection.execute(UPSERT_VERSION, [version])?;
+    Ok(())
+}
+
+pub fn select_version(connection: &rusqlite::Connection) -> Result<Option<String>, rusqlite::Error> {
+    let mut statement: rusqlite::Statement = connection.prepare(SELECT_VERSION)?;
+    let mut rows = statement.query([])?;
+
+    if let Some(row) = rows.next()? {
+        Ok(Some(row.get(0)?))
+    } else {
+        Ok(None)
+    }
 }
 
 impl crate::data::schema::User {
@@ -194,13 +247,13 @@ impl crate::data::schema::User {
 
 impl crate::data::schema::GameParams {
     pub fn upsert_game_params(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
-        let updated_at_utc_str = self.updated_at_utc.to_rfc3339();
+        let valid_starting_from_inclusive_utc_str = self.valid_starting_from_inclusive_utc.to_rfc3339();
 
         connection.execute(
             UPSERT_GAME_PARAMS,
             (
                 &self.instance_id,
-                &updated_at_utc_str,
+                &valid_starting_from_inclusive_utc_str,
                 &self.world_size,
                 &self.world_seed,
                 &self.rcon_password,
@@ -216,17 +269,22 @@ impl crate::data::schema::GameParams {
         let mut statement: rusqlite::Statement = connection.prepare(SELECT_ALL_GAME_PARAMS)?;
 
         let selection = statement.query_map([], |row| {
-            let updated_at_utc_str: String = row.get(1)?;
-            let updated_at_utc = chrono::DateTime::parse_from_rfc3339(&updated_at_utc_str)
-                .map_err(|err| {
-                    log::error!("{err}");
-                    rusqlite::Error::InvalidColumnType(1, "updated_at_utc".to_string(), rusqlite::types::Type::Text)
-                })?
-                .with_timezone(&chrono::Utc);
+            let valid_starting_from_inclusive_utc_str: String = row.get(1)?;
+            let valid_starting_from_inclusive_utc =
+                chrono::DateTime::parse_from_rfc3339(&valid_starting_from_inclusive_utc_str)
+                    .map_err(|err| {
+                        log::error!("{err}");
+                        rusqlite::Error::InvalidColumnType(
+                            1,
+                            "valid_starting_from_inclusive_utc".to_string(),
+                            rusqlite::types::Type::Text,
+                        )
+                    })?
+                    .with_timezone(&chrono::Utc);
 
             Ok(crate::data::schema::GameParams {
                 instance_id: row.get(0)?,
-                updated_at_utc,
+                valid_starting_from_inclusive_utc,
                 world_size: row.get(2)?,
                 world_seed: row.get(3)?,
                 rcon_password: row.get(4)?,
@@ -245,13 +303,15 @@ impl crate::data::schema::GameParams {
 
 impl crate::data::schema::Wipe {
     pub fn insert_wipe(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
-        let startup_initiated_at_utc_str = self.startup_initiated_at_utc.to_rfc3339();
+        let game_install_or_update_initiated_at_utc_str = self.game_install_or_update_initiated_at_utc.to_rfc3339();
+        let game_startup_initiated_at_utc_str = self.game_startup_initiated_at_utc.to_rfc3339();
         let game_healthy_at_utc_str = self.game_healthy_at_utc.to_rfc3339();
 
         connection.execute(
             INSERT_WIPE,
             (
-                &startup_initiated_at_utc_str,
+                &game_install_or_update_initiated_at_utc_str,
+                &game_startup_initiated_at_utc_str,
                 &game_healthy_at_utc_str,
                 &self.buildid,
                 &self.carbon_version,
@@ -269,33 +329,52 @@ impl crate::data::schema::Wipe {
         let mut statement: rusqlite::Statement = connection.prepare(SELECT_ALL_WIPES)?;
 
         let selection = statement.query_map([], |row| {
-            let startup_initiated_at_utc_str: String = row.get(0)?;
-            let startup_initiated_at_utc = chrono::DateTime::parse_from_rfc3339(&startup_initiated_at_utc_str)
+            let game_install_or_update_initiated_at_utc_str: String = row.get(0)?;
+            let game_install_or_update_initiated_at_utc =
+                chrono::DateTime::parse_from_rfc3339(&game_install_or_update_initiated_at_utc_str)
+                    .map_err(|err| {
+                        log::error!("{err}");
+                        rusqlite::Error::InvalidColumnType(
+                            0,
+                            "game_install_or_update_initiated_at_utc".to_string(),
+                            rusqlite::types::Type::Text,
+                        )
+                    })?
+                    .with_timezone(&chrono::Utc);
+
+            let game_startup_initiated_at_utc_str: String = row.get(1)?;
+            let game_startup_initiated_at_utc =
+                chrono::DateTime::parse_from_rfc3339(&game_startup_initiated_at_utc_str)
+                    .map_err(|err| {
+                        log::error!("{err}");
+                        rusqlite::Error::InvalidColumnType(
+                            1,
+                            "game_startup_initiated_at_utc".to_string(),
+                            rusqlite::types::Type::Text,
+                        )
+                    })?
+                    .with_timezone(&chrono::Utc);
+
+            let game_healthy_at_utc_str: String = row.get(2)?;
+            let game_healthy_at_utc = chrono::DateTime::parse_from_rfc3339(&game_healthy_at_utc_str)
                 .map_err(|err| {
                     log::error!("{err}");
                     rusqlite::Error::InvalidColumnType(
-                        0,
-                        "startup_initiated_at_utc".to_string(),
+                        2,
+                        "game_healthy_at_utc".to_string(),
                         rusqlite::types::Type::Text,
                     )
                 })?
                 .with_timezone(&chrono::Utc);
 
-            let game_healthy_at_utc_str: String = row.get(1)?;
-            let game_healthy_at_utc = chrono::DateTime::parse_from_rfc3339(&game_healthy_at_utc_str)
-                .map_err(|err| {
-                    log::error!("{err}");
-                    rusqlite::Error::InvalidColumnType(0, "game_heathy_at_utc".to_string(), rusqlite::types::Type::Text)
-                })?
-                .with_timezone(&chrono::Utc);
-
             Ok(crate::data::schema::Wipe {
-                startup_initiated_at_utc,
+                game_install_or_update_initiated_at_utc,
+                game_startup_initiated_at_utc,
                 game_healthy_at_utc,
-                buildid: row.get(2)?,
-                carbon_version: row.get(3)?,
-                world_size: row.get(4)?,
-                world_seed: row.get(5)?,
+                buildid: row.get(3)?,
+                carbon_version: row.get(4)?,
+                world_size: row.get(5)?,
+                world_seed: row.get(6)?,
             })
         })?;
 
@@ -306,5 +385,63 @@ impl crate::data::schema::Wipe {
         }
 
         Ok(wipes)
+    }
+}
+
+impl crate::data::schema::GameUpdate {
+    pub fn insert_game_update(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+        let detected_at_utc_str = self.detected_at_utc.to_rfc3339();
+        let installed_at_utc_str = self.installed_at_utc.to_rfc3339();
+
+        connection.execute(
+            INSERT_GAME_UPDATE,
+            (
+                &detected_at_utc_str,
+                &installed_at_utc_str,
+                &self.buildid_old,
+                &self.buildid_new,
+            ),
+        )?;
+
+        Ok(())
+    }
+
+    pub fn select_all_game_updates(
+        connection: &rusqlite::Connection,
+    ) -> Result<Vec<crate::data::schema::GameUpdate>, rusqlite::Error> {
+        let mut statement: rusqlite::Statement = connection.prepare(SELECT_ALL_GAME_UPDATES)?;
+
+        let selection = statement.query_map([], |row| {
+            let detected_at_utc_str: String = row.get(0)?;
+            let detected_at_utc = chrono::DateTime::parse_from_rfc3339(&detected_at_utc_str)
+                .map_err(|err| {
+                    log::error!("{err}");
+                    rusqlite::Error::InvalidColumnType(0, "detected_at_utc".to_string(), rusqlite::types::Type::Text)
+                })?
+                .with_timezone(&chrono::Utc);
+
+            let installed_at_utc_str: String = row.get(1)?;
+            let installed_at_utc = chrono::DateTime::parse_from_rfc3339(&installed_at_utc_str)
+                .map_err(|err| {
+                    log::error!("{err}");
+                    rusqlite::Error::InvalidColumnType(1, "installed_at_utc".to_string(), rusqlite::types::Type::Text)
+                })?
+                .with_timezone(&chrono::Utc);
+
+            Ok(crate::data::schema::GameUpdate {
+                detected_at_utc,
+                installed_at_utc,
+                buildid_old: row.get(2)?,
+                buildid_new: row.get(3)?,
+            })
+        })?;
+
+        let mut game_updates: Vec<crate::data::schema::GameUpdate> = Vec::new();
+        for selected in selection {
+            let update: crate::data::schema::GameUpdate = selected?;
+            game_updates.push(update);
+        }
+
+        Ok(game_updates)
     }
 }

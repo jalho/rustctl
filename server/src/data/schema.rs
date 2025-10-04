@@ -25,7 +25,7 @@ impl std::fmt::Display for User {
 #[derive(Debug)]
 pub struct GameParams {
     pub instance_id: String,
-    pub updated_at_utc: chrono::DateTime<chrono::Utc>,
+    pub valid_starting_from_inclusive_utc: chrono::DateTime<chrono::Utc>,
     pub world_size: u32,
     pub world_seed: u32,
     pub rcon_password: String,
@@ -35,27 +35,40 @@ impl std::fmt::Display for GameParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "instance {instance_id}: world size {world_size}, seed {world_seed} (updated {updated_at})",
+            "instance {instance_id}: world size {world_size}, seed {world_seed} (valid from {valid_from})",
             instance_id = self.instance_id,
             world_size = self.world_size,
             world_seed = self.world_seed,
-            updated_at = self.updated_at_utc.date_naive()
+            valid_from = self.valid_starting_from_inclusive_utc.date_naive()
         )
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Wipe {
-    pub startup_initiated_at_utc: chrono::DateTime<chrono::Utc>,
+    pub game_install_or_update_initiated_at_utc: chrono::DateTime<chrono::Utc>,
+    pub game_startup_initiated_at_utc: chrono::DateTime<chrono::Utc>,
     pub game_healthy_at_utc: chrono::DateTime<chrono::Utc>,
+
     pub buildid: u32,
+
     pub carbon_version: Option<String>,
+
     pub world_size: u32,
     pub world_seed: u32,
 }
 
+#[derive(Debug, Clone)]
+pub struct GameUpdate {
+    pub detected_at_utc: chrono::DateTime<chrono::Utc>,
+    pub installed_at_utc: chrono::DateTime<chrono::Utc>,
+
+    pub buildid_old: u32,
+    pub buildid_new: u32,
+}
+
 pub const READ_SQLITE_VERSION: &str = "SELECT sqlite_version()";
 
-pub fn check_version(connection: &rusqlite::Connection) -> Result<String, rusqlite::Error> {
+pub fn read_sqlite_version(connection: &rusqlite::Connection) -> Result<String, rusqlite::Error> {
     connection.query_row(READ_SQLITE_VERSION, [], |row| row.get(0))
 }
