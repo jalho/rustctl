@@ -158,26 +158,37 @@ impl GameServerStateMachine {
                             }
                         }
                     } else {
+                        let install_start_at: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
                         buildid_after = match crate::steam::RustDedicated::install(&config).await {
                             Ok(buildid_installed) => {
-                                /*
-                                 * TODO: Maintain the table `game_updates` in the database:
-                                 *       - detected_at_utc  TEXT NOT NULL
-                                 *       - installed_at_utc TEXT NOT NULL
-                                 *       - buildid_old      INTEGER NOT NULL
-                                 *       - buildid_new      INTEGER NOT NULL PRIMARY KEY
-                                 */
+                                let install_completed_at: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
                                 if let Some(buildid_before) = buildid_before {
                                     if buildid_before == buildid_installed {
                                         log::info!(
                                             "Game server installation checked: Already up-to-date: Build ID: {buildid_installed}"
                                         );
                                     } else {
+                                        ctx.db_client
+                                            .write_game_update(&crate::data::schema::GameUpdate::new(
+                                                &install_start_at,
+                                                &install_completed_at,
+                                                &buildid_before,
+                                                &buildid_installed,
+                                            ))
+                                            .await;
                                         log::info!(
                                             "Game server updated: From build ID {buildid_before} to build ID {buildid_installed}"
                                         );
                                     }
                                 } else {
+                                    ctx.db_client
+                                        .write_game_update(&crate::data::schema::GameUpdate::new(
+                                            &install_start_at,
+                                            &install_completed_at,
+                                            &buildid_installed,
+                                            &buildid_installed,
+                                        ))
+                                        .await;
                                     log::info!("Game server installed: Build ID {buildid_installed}");
                                 }
                                 buildid_installed

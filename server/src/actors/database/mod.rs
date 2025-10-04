@@ -110,6 +110,16 @@ impl Database {
                         todo!();
                     }
                 }
+
+                client::Query::WriteGameUpdate {
+                    respond_to,
+                    game_update,
+                } => {
+                    game_update.insert_game_update(connection);
+                    if respond_to.send(()).is_err() {
+                        todo!();
+                    }
+                }
             }
         }
     }

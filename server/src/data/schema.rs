@@ -91,6 +91,22 @@ pub struct GameUpdate {
     pub buildid_new: u32,
 }
 
+impl GameUpdate {
+    pub fn new(
+        detected_at_utc: &chrono::DateTime<chrono::Utc>,
+        installed_at_utc: &chrono::DateTime<chrono::Utc>,
+        buildid_old: &crate::steam::BuildID,
+        buildid_new: &crate::steam::BuildID,
+    ) -> Self {
+        Self {
+            detected_at_utc: detected_at_utc.to_owned(),
+            installed_at_utc: installed_at_utc.to_owned(),
+            buildid_old: buildid_old.into(),
+            buildid_new: buildid_new.into(),
+        }
+    }
+}
+
 pub const READ_SQLITE_VERSION: &str = "SELECT sqlite_version()";
 
 pub fn read_sqlite_version(connection: &rusqlite::Connection) -> Result<String, rusqlite::Error> {

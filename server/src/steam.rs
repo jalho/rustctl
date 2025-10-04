@@ -83,6 +83,12 @@ impl From<BuildID> for u32 {
     }
 }
 
+impl From<&BuildID> for u32 {
+    fn from(value: &BuildID) -> Self {
+        value.0
+    }
+}
+
 impl BuildID {
     pub fn new(value: u32) -> Self {
         Self(value)
