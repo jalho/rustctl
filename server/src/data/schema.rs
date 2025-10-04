@@ -1,9 +1,20 @@
-#[derive(Debug)]
-pub struct AppDataSchemaVersion(pub String);
+#[derive(Debug, PartialEq)]
+pub struct AppDataSchemaVersion {
+    /// The application's version that is idiomatically defined Cargo.toml.
+    ///
+    /// For example: `0.1.0-rc1`.
+    pub application_version: String,
+}
+
+impl AppDataSchemaVersion {
+    pub fn new(value: &str) -> Self {
+        Self { application_version: value.to_owned() }
+    }
+}
 
 impl std::fmt::Display for AppDataSchemaVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.application_version)
     }
 }
 

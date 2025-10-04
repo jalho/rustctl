@@ -141,7 +141,7 @@ impl Database {
 
         let all_users = match crate::data::schema::AppDataSchemaVersion::check_database(
             &connection,
-            env!("CARGO_PKG_VERSION"),
+            crate::data::schema::AppDataSchemaVersion::new(env!("CARGO_PKG_VERSION")),
         ) {
             Ok(app_data_schema_version) => {
                 log::info!("App data schema version: {app_data_schema_version}");

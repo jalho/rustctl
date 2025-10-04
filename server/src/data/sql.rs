@@ -250,22 +250,20 @@ pub fn create_tables(connection: &rusqlite::Connection) {
     connection
         .execute_batch(CREATE_TABLES)
         .expect("database table creation must succeed");
-    let app_data_schema_version: &'static str = env!("CARGO_PKG_VERSION");
-    let app_data_schema_version = crate::data::schema::AppDataSchemaVersion(app_data_schema_version.to_owned());
+    let app_data_schema_version = crate::data::schema::AppDataSchemaVersion::new(env!("CARGO_PKG_VERSION"));
     app_data_schema_version.upsert_app_data_schema_version(connection);
 }
 
 impl crate::data::schema::AppDataSchemaVersion {
     pub fn upsert_app_data_schema_version(&self, connection: &rusqlite::Connection) {
-        let value: String = self.0.clone();
         connection
-            .execute(UPSERT_APP_DATA_SCHEMA_VERSION, [value])
+            .execute(UPSERT_APP_DATA_SCHEMA_VERSION, [self.application_version.clone()])
             .expect("database upsert must succeed");
     }
 
     pub fn check_database(
         connection: &rusqlite::Connection,
-        expected: &str,
+        expected: crate::data::schema::AppDataSchemaVersion,
     ) -> Result<crate::data::schema::AppDataSchemaVersion, Error> {
         /*
          * TODO: Implement return case `Error::NotInitialized`, which should
@@ -277,25 +275,19 @@ impl crate::data::schema::AppDataSchemaVersion {
 
         if let Some(row) = rows.next()? {
             let actual: String = row.get(0)?;
+            let actual: crate::data::schema::AppDataSchemaVersion =
+                crate::data::schema::AppDataSchemaVersion::new(&actual);
 
             /*
              * TODO: Implement semver-like compatibility: Allow e.g. app version
              *       0.2.1 to use app data schema 0.2.0, i.e. patch bumps are
              *       not breaking changes.
-             *
-             *       Also, only construct the `actual` and  `expected` once
-             *       as `AppDataSchemaVersion`, and impl comparison for
-             *       `AppDataSchemaVersion`.
              */
             if expected != actual {
-                return Err(Error::Incompatible {
-                    actual: crate::data::schema::AppDataSchemaVersion(actual),
-                    expected: crate::data::schema::AppDataSchemaVersion(expected.to_string()),
-                });
+                return Err(Error::Incompatible { actual, expected });
             }
 
-            let app_data_schema_version = crate::data::schema::AppDataSchemaVersion(actual);
-            Ok(app_data_schema_version)
+            Ok(actual)
         } else {
             Err(Error::NonRecoverableLibFailure {
                 source: rusqlite::Error::QueryReturnedNoRows,
