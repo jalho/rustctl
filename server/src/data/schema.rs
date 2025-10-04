@@ -24,6 +24,7 @@ impl std::fmt::Display for User {
 
 #[derive(Debug)]
 pub struct GameParams {
+    pub game_params_id: String,
     pub instance_id: String,
     pub valid_starting_from_inclusive_utc: chrono::DateTime<chrono::Utc>,
     pub world_size: u32,
@@ -35,7 +36,8 @@ impl std::fmt::Display for GameParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "instance {instance_id}: world size {world_size}, seed {world_seed} (valid from {valid_from})",
+            "params ID {game_params_id}, instance {instance_id}: world size {world_size}, seed {world_seed} (valid from {valid_from})",
+            game_params_id = self.game_params_id,
             instance_id = self.instance_id,
             world_size = self.world_size,
             world_seed = self.world_seed,

@@ -12,7 +12,8 @@ pub const CREATE_TABLES: &str = r#"
     );
 
     CREATE TABLE game_params (
-        instance_id                          TEXT NOT NULL PRIMARY KEY,
+        game_params_id                       TEXT NOT NULL PRIMARY KEY,
+        instance_id                          TEXT NOT NULL,
         valid_starting_from_inclusive_utc    TEXT NOT NULL,
 
         world_size                           INTEGER NOT NULL,
@@ -79,8 +80,9 @@ const SELECT_ALL_USERS: &str = r#"
         users;
 "#;
 
-const UPSERT_GAME_PARAMS: &str = r#"
+const INSERT_GAME_PARAMS: &str = r#"
     INSERT INTO game_params(
+        game_params_id,
         instance_id,
         valid_starting_from_inclusive_utc,
         world_size,
@@ -91,17 +93,14 @@ const UPSERT_GAME_PARAMS: &str = r#"
         $2,
         $3,
         $4,
-        $5
-    )
-    ON CONFLICT(instance_id) DO UPDATE SET
-        valid_starting_from_inclusive_utc = excluded.valid_starting_from_inclusive_utc,
-        world_size = excluded.world_size,
-        world_seed = excluded.world_seed,
-        rcon_password = excluded.rcon_password;
+        $5,
+        $6
+    );
 "#;
 
 const SELECT_ALL_GAME_PARAMS: &str = r#"
     SELECT
+        game_params_id,
         instance_id,
         valid_starting_from_inclusive_utc,
         world_size,
@@ -173,7 +172,10 @@ pub fn create_tables(connection: &rusqlite::Connection) -> Result<(), rusqlite::
     Ok(())
 }
 
-pub fn upsert_app_data_schema_version(connection: &rusqlite::Connection, app_data_schema_version: &str) -> Result<(), rusqlite::Error> {
+pub fn upsert_app_data_schema_version(
+    connection: &rusqlite::Connection,
+    app_data_schema_version: &str,
+) -> Result<(), rusqlite::Error> {
     connection.execute(UPSERT_APP_DATA_SCHEMA_VERSION, [app_data_schema_version])?;
     Ok(())
 }
@@ -246,12 +248,13 @@ impl crate::data::schema::User {
 }
 
 impl crate::data::schema::GameParams {
-    pub fn upsert_game_params(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+    pub fn insert_game_params(&self, connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
         let valid_starting_from_inclusive_utc_str = self.valid_starting_from_inclusive_utc.to_rfc3339();
 
         connection.execute(
-            UPSERT_GAME_PARAMS,
+            INSERT_GAME_PARAMS,
             (
+                &self.game_params_id,
                 &self.instance_id,
                 &valid_starting_from_inclusive_utc_str,
                 &self.world_size,
@@ -269,13 +272,13 @@ impl crate::data::schema::GameParams {
         let mut statement: rusqlite::Statement = connection.prepare(SELECT_ALL_GAME_PARAMS)?;
 
         let selection = statement.query_map([], |row| {
-            let valid_starting_from_inclusive_utc_str: String = row.get(1)?;
+            let valid_starting_from_inclusive_utc_str: String = row.get(2)?;
             let valid_starting_from_inclusive_utc =
                 chrono::DateTime::parse_from_rfc3339(&valid_starting_from_inclusive_utc_str)
                     .map_err(|err| {
                         log::error!("{err}");
                         rusqlite::Error::InvalidColumnType(
-                            1,
+                            2,
                             "valid_starting_from_inclusive_utc".to_string(),
                             rusqlite::types::Type::Text,
                         )
@@ -283,11 +286,12 @@ impl crate::data::schema::GameParams {
                     .with_timezone(&chrono::Utc);
 
             Ok(crate::data::schema::GameParams {
-                instance_id: row.get(0)?,
+                game_params_id: row.get(0)?,
+                instance_id: row.get(1)?,
                 valid_starting_from_inclusive_utc,
-                world_size: row.get(2)?,
-                world_seed: row.get(3)?,
-                rcon_password: row.get(4)?,
+                world_size: row.get(3)?,
+                world_seed: row.get(4)?,
+                rcon_password: row.get(5)?,
             })
         })?;
 

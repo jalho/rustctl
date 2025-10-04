@@ -26,13 +26,14 @@ impl Database {
 
         if game_params.is_none() {
             let init: crate::data::schema::GameParams = crate::data::schema::GameParams {
+                game_params_id: uuid::Uuid::new_v4().to_string(),
                 instance_id: rustctl_backend::constants::names::GAME_INSTANCE_ID.into(),
                 valid_starting_from_inclusive_utc: current_time,
                 world_size: 1000,
                 world_seed: 1,
                 rcon_password: uuid::Uuid::new_v4().to_string(),
             };
-            match crate::data::schema::GameParams::upsert_game_params(&init, &self.connection) {
+            match crate::data::schema::GameParams::insert_game_params(&init, &self.connection) {
                 Ok(_) => log::info!("Initialized game params"),
                 Err(err) => todo!("{err}"),
             }
