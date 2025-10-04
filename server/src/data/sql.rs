@@ -75,7 +75,7 @@ impl From<rusqlite::Error> for Error {
     fn from(source: rusqlite::Error) -> Self {
         let display: String = source.to_string();
         if display.contains("no such table") {
-            return Self::NotInitialized;
+            Self::NotInitialized
         } else {
             Self::NonRecoverableLibFailure { source }
         }
