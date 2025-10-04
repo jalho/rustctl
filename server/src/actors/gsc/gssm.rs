@@ -115,6 +115,8 @@ impl GameServerStateMachine {
                      * TODO: If the game server is being started on the first Thursday of the month,
                      *       assume it might be _the_ monthly "forced" content update, and so wipe
                      *       the map (and blueprints?) unless already wiped on the same day.
+                     *
+                     *       Use the `game_wipes` table in the database.
                      */
                     let latest_wipe: Option<crate::data::schema::Wipe> = ctx.db_client.read_latest_wipe().await;
                     dbg!(latest_wipe);
@@ -158,6 +160,13 @@ impl GameServerStateMachine {
                     } else {
                         buildid_after = match crate::steam::RustDedicated::install(&config).await {
                             Ok(buildid_installed) => {
+                                /*
+                                 * TODO: Maintain the table `game_updates` in the database:
+                                 *       - detected_at_utc  TEXT NOT NULL
+                                 *       - installed_at_utc TEXT NOT NULL
+                                 *       - buildid_old      INTEGER NOT NULL
+                                 *       - buildid_new      INTEGER NOT NULL PRIMARY KEY
+                                 */
                                 if let Some(buildid_before) = buildid_before {
                                     if buildid_before == buildid_installed {
                                         log::info!(
