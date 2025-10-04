@@ -1,4 +1,6 @@
-//! Conventions and design goals
+//! SQL implementations for the SQLite database of the application.
+//!
+//! # Module conventions and design goals
 //!
 //! - Method names should convey SQL operations, selectors and operable resources.
 //!   Prefix with the SQL operation like _insert_ or _update_ and continue with
@@ -18,26 +20,39 @@
 //!
 //! These are only design goals, not strict rules. Try to understand the spirit and
 //! follow that, instead of taking these goals too literally.
+//!
+//! # Error handling philosophy
+//!
+//! Only `select_app_data_schema_version` returns `Result` because it's used at
+//! startup to check database initialization and compatibility. All other functions
+//! either work, or panic to terminate the program immediately because:
+//!
+//! - Database failures (backed by local filesystem) indicate either programming
+//!   errors or severe platform issues that cannot be recovered from
+//!
+//! - There's no sensible way for the application to continue if the database is
+//!   corrupt or inaccessible
+//!
+//! - Panicking immediately makes these terminal failures obvious rather than
+//!   propagating errors that cannot be handled meaningfully
+//!
+//! I.e., the contract is: Check compatibility at startup, and then trust that
+//! database operations work. If not, then panic to terminate, and hopefully someone
+//! fixes the system or the program!
+//!
+//! To summarize the error handling philosophy: We want to distinguish between
+//! recoverable and non-recoverable fallible operations.
 
 #[derive(Debug)]
 pub enum Error {
-    /// The database has not yet been initialized, i.e. the tables have not yet
-    /// been created. This is not a terminal failure point: Instead, the tables
-    /// should simply be created and initialized.
-    NotInitialized { seeked_file_absolute_path: String },
-
-    /// The existing database with some tables is not compatible with the
-    /// current version of the application. This is a terminal failure point
-    /// that cannot be recovered from automatically.
+    NotInitialized,
     Incompatible {
         actual: crate::data::schema::AppDataSchemaVersion,
         expected: crate::data::schema::AppDataSchemaVersion,
     },
-
-    /// Any failure cases propagated from the underlying database client
-    /// library. If such failure is propagated through, it should be considered
-    /// a non-recoverable failure.
-    NonRecoverableLibFailure { source: rusqlite::Error },
+    NonRecoverableLibFailure {
+        source: rusqlite::Error,
+    },
 }
 
 impl std::fmt::Display for Error {
@@ -49,9 +64,7 @@ impl std::fmt::Display for Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Error::NotInitialized {
-                seeked_file_absolute_path: _,
-            } => None,
+            Error::NotInitialized => None,
             Error::Incompatible { actual: _, expected: _ } => None,
             Error::NonRecoverableLibFailure { source } => Some(source),
         }
@@ -233,288 +246,330 @@ const SELECT_ALL_GAME_UPDATES: &str = r#"
         game_updates;
 "#;
 
-pub fn create_tables(connection: &rusqlite::Connection) -> Result<(), Error> {
-    let _created: () = connection.execute_batch(CREATE_TABLES)?;
+pub fn create_tables(connection: &rusqlite::Connection) {
+    connection
+        .execute_batch(CREATE_TABLES)
+        .expect("database table creation must succeed");
     let app_data_schema_version: &'static str = env!("CARGO_PKG_VERSION");
     let app_data_schema_version = crate::data::schema::AppDataSchemaVersion(app_data_schema_version.to_owned());
-    app_data_schema_version.upsert_app_data_schema_version(connection)?;
-    Ok(())
+    app_data_schema_version.upsert_app_data_schema_version(connection);
 }
 
 impl crate::data::schema::AppDataSchemaVersion {
-    pub fn upsert_app_data_schema_version(&self, connection: &rusqlite::Connection) -> Result<(), Error> {
+    pub fn upsert_app_data_schema_version(&self, connection: &rusqlite::Connection) {
         let value: String = self.0.clone();
-        connection.execute(UPSERT_APP_DATA_SCHEMA_VERSION, [value])?;
-        Ok(())
+        connection
+            .execute(UPSERT_APP_DATA_SCHEMA_VERSION, [value])
+            .expect("database upsert must succeed");
     }
 
+    /*
+     * TODO: Rename as `check_database` -- Also update the module docs etc!
+     */
     pub fn select_app_data_schema_version(
         connection: &rusqlite::Connection,
+        expected: &str,
     ) -> Result<crate::data::schema::AppDataSchemaVersion, Error> {
+        /*
+         * TODO: Implement return case `Error::NotInitialized`, which should
+         *       occur when the failure is precisely that the table doesn't
+         *       exist!
+         */
         let mut statement: rusqlite::Statement = connection.prepare(SELECT_APP_DATA_SCHEMA_VERSION)?;
         let mut rows = statement.query([])?;
 
         if let Some(row) = rows.next()? {
-            let value: String = row.get(0)?;
-            let app_data_schema_version = crate::data::schema::AppDataSchemaVersion(value);
+            let actual: String = row.get(0)?;
+
+            /*
+             * TODO: Implement semver-like compatibility: Allow e.g. app version
+             *       0.2.1 to use app data schema 0.2.0, i.e. patch bumps are
+             *       not breaking changes.
+             *
+             *       Also, only construct the `actual` and  `expected` once
+             *       as `AppDataSchemaVersion`, and impl comparison for
+             *       `AppDataSchemaVersion`.
+             */
+            if expected != actual {
+                return Err(Error::Incompatible {
+                    actual: crate::data::schema::AppDataSchemaVersion(actual),
+                    expected: crate::data::schema::AppDataSchemaVersion(expected.to_string()),
+                });
+            }
+
+            let app_data_schema_version = crate::data::schema::AppDataSchemaVersion(actual);
             Ok(app_data_schema_version)
         } else {
-            todo!("app data schema version not found");
+            Err(Error::NonRecoverableLibFailure {
+                source: rusqlite::Error::QueryReturnedNoRows,
+            })
         }
     }
 }
 
 impl crate::data::schema::User {
-    pub fn upsert_user(&self, connection: &rusqlite::Connection) -> Result<(), Error> {
+    pub fn upsert_user(&self, connection: &rusqlite::Connection) {
         let created_at_utc_str: String = self.created_at_utc.to_rfc3339();
         let privileged_at_utc_str: Option<String> = self.privileged_at_utc.map(|dt| dt.to_rfc3339());
 
-        connection.execute(
-            UPSERT_USER,
-            (&self.id, &self.steam_id, &created_at_utc_str, &privileged_at_utc_str),
-        )?;
-
-        Ok(())
+        connection
+            .execute(
+                UPSERT_USER,
+                (&self.id, &self.steam_id, &created_at_utc_str, &privileged_at_utc_str),
+            )
+            .expect("database upsert must succeed");
     }
 
-    pub fn select_all_users(connection: &rusqlite::Connection) -> Result<Vec<crate::data::schema::User>, Error> {
-        let mut statement: rusqlite::Statement = connection.prepare(SELECT_ALL_USERS)?;
+    pub fn select_all_users(connection: &rusqlite::Connection) -> Vec<crate::data::schema::User> {
+        let mut statement: rusqlite::Statement = connection
+            .prepare(SELECT_ALL_USERS)
+            .expect("database query preparation must succeed");
 
-        let selection = statement.query_map([], |row| {
-            let privileged_at_utc_str: Option<String> = row.get(3)?;
-            let privileged_at_utc = privileged_at_utc_str
-                .map(|s| chrono::DateTime::parse_from_rfc3339(&s))
-                .transpose()
-                .map_err(|err| {
-                    log::error!("{err}");
-                    rusqlite::Error::InvalidColumnType(3, "privileged_at_utc".to_string(), rusqlite::types::Type::Text)
-                })?
-                .map(|dt| dt.with_timezone(&chrono::Utc));
-
-            let created_at_utc_str: String = row.get(2)?;
-            let created_at_utc: chrono::DateTime<chrono::Utc> =
-                chrono::DateTime::parse_from_rfc3339(&created_at_utc_str)
+        let selection = statement
+            .query_map([], |row| {
+                let privileged_at_utc_str: Option<String> = row.get(3)?;
+                let privileged_at_utc = privileged_at_utc_str
+                    .map(|s| chrono::DateTime::parse_from_rfc3339(&s))
+                    .transpose()
                     .map_err(|err| {
                         log::error!("{err}");
-                        rusqlite::Error::InvalidColumnType(2, "created_at_utc".to_string(), rusqlite::types::Type::Text)
+                        rusqlite::Error::InvalidColumnType(
+                            3,
+                            "privileged_at_utc".to_string(),
+                            rusqlite::types::Type::Text,
+                        )
                     })?
-                    .with_timezone(&chrono::Utc);
+                    .map(|dt| dt.with_timezone(&chrono::Utc));
 
-            Ok(crate::data::schema::User {
-                id: row.get(0)?,
-                steam_id: row.get(1)?,
-                created_at_utc,
-                privileged_at_utc,
+                let created_at_utc_str: String = row.get(2)?;
+                let created_at_utc: chrono::DateTime<chrono::Utc> =
+                    chrono::DateTime::parse_from_rfc3339(&created_at_utc_str)
+                        .map_err(|err| {
+                            log::error!("{err}");
+                            rusqlite::Error::InvalidColumnType(
+                                2,
+                                "created_at_utc".to_string(),
+                                rusqlite::types::Type::Text,
+                            )
+                        })?
+                        .with_timezone(&chrono::Utc);
+
+                Ok(crate::data::schema::User {
+                    id: row.get(0)?,
+                    steam_id: row.get(1)?,
+                    created_at_utc,
+                    privileged_at_utc,
+                })
             })
-        })?;
+            .expect("database query must succeed");
 
-        let mut users: Vec<crate::data::schema::User> = Vec::new();
-        for selected in selection {
-            let user: crate::data::schema::User = selected?;
-            users.push(user);
-        }
-
-        Ok(users)
+        selection
+            .map(|user| user.expect("database row parsing must succeed"))
+            .collect()
     }
 }
 
 impl crate::data::schema::GameParams {
-    pub fn insert_game_params(&self, connection: &rusqlite::Connection) -> Result<(), Error> {
+    pub fn insert_game_params(&self, connection: &rusqlite::Connection) {
         let valid_starting_from_inclusive_utc_str = self.valid_starting_from_inclusive_utc.to_rfc3339();
 
-        connection.execute(
-            INSERT_GAME_PARAMS,
-            (
-                &self.game_params_id,
-                &self.instance_id,
-                &valid_starting_from_inclusive_utc_str,
-                &self.world_size,
-                &self.world_seed,
-                &self.rcon_password,
-            ),
-        )?;
-
-        Ok(())
+        connection
+            .execute(
+                INSERT_GAME_PARAMS,
+                (
+                    &self.game_params_id,
+                    &self.instance_id,
+                    &valid_starting_from_inclusive_utc_str,
+                    &self.world_size,
+                    &self.world_seed,
+                    &self.rcon_password,
+                ),
+            )
+            .expect("database insert must succeed");
     }
 
-    pub fn select_all_game_params(
-        connection: &rusqlite::Connection,
-    ) -> Result<Vec<crate::data::schema::GameParams>, Error> {
-        let mut statement: rusqlite::Statement = connection.prepare(SELECT_ALL_GAME_PARAMS)?;
+    pub fn select_all_game_params(connection: &rusqlite::Connection) -> Vec<crate::data::schema::GameParams> {
+        let mut statement: rusqlite::Statement = connection
+            .prepare(SELECT_ALL_GAME_PARAMS)
+            .expect("database query preparation must succeed");
 
-        let selection = statement.query_map([], |row| {
-            let valid_starting_from_inclusive_utc_str: String = row.get(2)?;
-            let valid_starting_from_inclusive_utc =
-                chrono::DateTime::parse_from_rfc3339(&valid_starting_from_inclusive_utc_str)
-                    .map_err(|err| {
-                        log::error!("{err}");
-                        rusqlite::Error::InvalidColumnType(
-                            2,
-                            "valid_starting_from_inclusive_utc".to_string(),
-                            rusqlite::types::Type::Text,
-                        )
-                    })?
-                    .with_timezone(&chrono::Utc);
+        let selection = statement
+            .query_map([], |row| {
+                let valid_starting_from_inclusive_utc_str: String = row.get(2)?;
+                let valid_starting_from_inclusive_utc =
+                    chrono::DateTime::parse_from_rfc3339(&valid_starting_from_inclusive_utc_str)
+                        .map_err(|err| {
+                            log::error!("{err}");
+                            rusqlite::Error::InvalidColumnType(
+                                2,
+                                "valid_starting_from_inclusive_utc".to_string(),
+                                rusqlite::types::Type::Text,
+                            )
+                        })?
+                        .with_timezone(&chrono::Utc);
 
-            Ok(crate::data::schema::GameParams {
-                game_params_id: row.get(0)?,
-                instance_id: row.get(1)?,
-                valid_starting_from_inclusive_utc,
-                world_size: row.get(3)?,
-                world_seed: row.get(4)?,
-                rcon_password: row.get(5)?,
+                Ok(crate::data::schema::GameParams {
+                    game_params_id: row.get(0)?,
+                    instance_id: row.get(1)?,
+                    valid_starting_from_inclusive_utc,
+                    world_size: row.get(3)?,
+                    world_seed: row.get(4)?,
+                    rcon_password: row.get(5)?,
+                })
             })
-        })?;
+            .expect("database query must succeed");
 
-        let mut game_params: Vec<crate::data::schema::GameParams> = Vec::new();
-        for selected in selection {
-            let params: crate::data::schema::GameParams = selected?;
-            game_params.push(params);
-        }
-
-        Ok(game_params)
+        selection
+            .map(|params| params.expect("database row parsing must succeed"))
+            .collect()
     }
 }
 
 impl crate::data::schema::Wipe {
-    pub fn insert_wipe(&self, connection: &rusqlite::Connection) -> Result<(), Error> {
+    pub fn insert_wipe(&self, connection: &rusqlite::Connection) {
         let game_install_or_update_initiated_at_utc_str = self.game_install_or_update_initiated_at_utc.to_rfc3339();
         let game_startup_initiated_at_utc_str = self.game_startup_initiated_at_utc.to_rfc3339();
         let game_healthy_at_utc_str = self.game_healthy_at_utc.to_rfc3339();
 
-        connection.execute(
-            INSERT_WIPE,
-            (
-                &game_install_or_update_initiated_at_utc_str,
-                &game_startup_initiated_at_utc_str,
-                &game_healthy_at_utc_str,
-                &self.buildid,
-                &self.carbon_version,
-                &self.world_size,
-                &self.world_seed,
-            ),
-        )?;
-
-        Ok(())
+        connection
+            .execute(
+                INSERT_WIPE,
+                (
+                    &game_install_or_update_initiated_at_utc_str,
+                    &game_startup_initiated_at_utc_str,
+                    &game_healthy_at_utc_str,
+                    &self.buildid,
+                    &self.carbon_version,
+                    &self.world_size,
+                    &self.world_seed,
+                ),
+            )
+            .expect("database insert must succeed");
     }
 
-    pub fn select_all_wipes(connection: &rusqlite::Connection) -> Result<Vec<crate::data::schema::Wipe>, Error> {
-        let mut statement: rusqlite::Statement = connection.prepare(SELECT_ALL_WIPES)?;
+    pub fn select_all_wipes(connection: &rusqlite::Connection) -> Vec<crate::data::schema::Wipe> {
+        let mut statement: rusqlite::Statement = connection
+            .prepare(SELECT_ALL_WIPES)
+            .expect("database query preparation must succeed");
 
-        let selection = statement.query_map([], |row| {
-            let game_install_or_update_initiated_at_utc_str: String = row.get(0)?;
-            let game_install_or_update_initiated_at_utc =
-                chrono::DateTime::parse_from_rfc3339(&game_install_or_update_initiated_at_utc_str)
+        let selection = statement
+            .query_map([], |row| {
+                let game_install_or_update_initiated_at_utc_str: String = row.get(0)?;
+                let game_install_or_update_initiated_at_utc =
+                    chrono::DateTime::parse_from_rfc3339(&game_install_or_update_initiated_at_utc_str)
+                        .map_err(|err| {
+                            log::error!("{err}");
+                            rusqlite::Error::InvalidColumnType(
+                                0,
+                                "game_install_or_update_initiated_at_utc".to_string(),
+                                rusqlite::types::Type::Text,
+                            )
+                        })?
+                        .with_timezone(&chrono::Utc);
+
+                let game_startup_initiated_at_utc_str: String = row.get(1)?;
+                let game_startup_initiated_at_utc =
+                    chrono::DateTime::parse_from_rfc3339(&game_startup_initiated_at_utc_str)
+                        .map_err(|err| {
+                            log::error!("{err}");
+                            rusqlite::Error::InvalidColumnType(
+                                1,
+                                "game_startup_initiated_at_utc".to_string(),
+                                rusqlite::types::Type::Text,
+                            )
+                        })?
+                        .with_timezone(&chrono::Utc);
+
+                let game_healthy_at_utc_str: String = row.get(2)?;
+                let game_healthy_at_utc = chrono::DateTime::parse_from_rfc3339(&game_healthy_at_utc_str)
                     .map_err(|err| {
                         log::error!("{err}");
                         rusqlite::Error::InvalidColumnType(
-                            0,
-                            "game_install_or_update_initiated_at_utc".to_string(),
+                            2,
+                            "game_healthy_at_utc".to_string(),
                             rusqlite::types::Type::Text,
                         )
                     })?
                     .with_timezone(&chrono::Utc);
 
-            let game_startup_initiated_at_utc_str: String = row.get(1)?;
-            let game_startup_initiated_at_utc =
-                chrono::DateTime::parse_from_rfc3339(&game_startup_initiated_at_utc_str)
-                    .map_err(|err| {
-                        log::error!("{err}");
-                        rusqlite::Error::InvalidColumnType(
-                            1,
-                            "game_startup_initiated_at_utc".to_string(),
-                            rusqlite::types::Type::Text,
-                        )
-                    })?
-                    .with_timezone(&chrono::Utc);
-
-            let game_healthy_at_utc_str: String = row.get(2)?;
-            let game_healthy_at_utc = chrono::DateTime::parse_from_rfc3339(&game_healthy_at_utc_str)
-                .map_err(|err| {
-                    log::error!("{err}");
-                    rusqlite::Error::InvalidColumnType(
-                        2,
-                        "game_healthy_at_utc".to_string(),
-                        rusqlite::types::Type::Text,
-                    )
-                })?
-                .with_timezone(&chrono::Utc);
-
-            Ok(crate::data::schema::Wipe {
-                game_install_or_update_initiated_at_utc,
-                game_startup_initiated_at_utc,
-                game_healthy_at_utc,
-                buildid: row.get(3)?,
-                carbon_version: row.get(4)?,
-                world_size: row.get(5)?,
-                world_seed: row.get(6)?,
+                Ok(crate::data::schema::Wipe {
+                    game_install_or_update_initiated_at_utc,
+                    game_startup_initiated_at_utc,
+                    game_healthy_at_utc,
+                    buildid: row.get(3)?,
+                    carbon_version: row.get(4)?,
+                    world_size: row.get(5)?,
+                    world_seed: row.get(6)?,
+                })
             })
-        })?;
+            .expect("database query must succeed");
 
-        let mut wipes: Vec<crate::data::schema::Wipe> = Vec::new();
-        for selected in selection {
-            let wipe: crate::data::schema::Wipe = selected?;
-            wipes.push(wipe);
-        }
-
-        Ok(wipes)
+        selection
+            .map(|wipe| wipe.expect("database row parsing must succeed"))
+            .collect()
     }
 }
 
 impl crate::data::schema::GameUpdate {
-    pub fn insert_game_update(&self, connection: &rusqlite::Connection) -> Result<(), Error> {
+    pub fn insert_game_update(&self, connection: &rusqlite::Connection) {
         let detected_at_utc_str = self.detected_at_utc.to_rfc3339();
         let installed_at_utc_str = self.installed_at_utc.to_rfc3339();
 
-        connection.execute(
-            INSERT_GAME_UPDATE,
-            (
-                &detected_at_utc_str,
-                &installed_at_utc_str,
-                &self.buildid_old,
-                &self.buildid_new,
-            ),
-        )?;
-
-        Ok(())
+        connection
+            .execute(
+                INSERT_GAME_UPDATE,
+                (
+                    &detected_at_utc_str,
+                    &installed_at_utc_str,
+                    &self.buildid_old,
+                    &self.buildid_new,
+                ),
+            )
+            .expect("database insert must succeed");
     }
 
-    pub fn select_all_game_updates(
-        connection: &rusqlite::Connection,
-    ) -> Result<Vec<crate::data::schema::GameUpdate>, Error> {
-        let mut statement: rusqlite::Statement = connection.prepare(SELECT_ALL_GAME_UPDATES)?;
+    pub fn select_all_game_updates(connection: &rusqlite::Connection) -> Vec<crate::data::schema::GameUpdate> {
+        let mut statement: rusqlite::Statement = connection
+            .prepare(SELECT_ALL_GAME_UPDATES)
+            .expect("database query preparation must succeed");
 
-        let selection = statement.query_map([], |row| {
-            let detected_at_utc_str: String = row.get(0)?;
-            let detected_at_utc = chrono::DateTime::parse_from_rfc3339(&detected_at_utc_str)
-                .map_err(|err| {
-                    log::error!("{err}");
-                    rusqlite::Error::InvalidColumnType(0, "detected_at_utc".to_string(), rusqlite::types::Type::Text)
-                })?
-                .with_timezone(&chrono::Utc);
+        let selection = statement
+            .query_map([], |row| {
+                let detected_at_utc_str: String = row.get(0)?;
+                let detected_at_utc = chrono::DateTime::parse_from_rfc3339(&detected_at_utc_str)
+                    .map_err(|err| {
+                        log::error!("{err}");
+                        rusqlite::Error::InvalidColumnType(
+                            0,
+                            "detected_at_utc".to_string(),
+                            rusqlite::types::Type::Text,
+                        )
+                    })?
+                    .with_timezone(&chrono::Utc);
 
-            let installed_at_utc_str: String = row.get(1)?;
-            let installed_at_utc = chrono::DateTime::parse_from_rfc3339(&installed_at_utc_str)
-                .map_err(|err| {
-                    log::error!("{err}");
-                    rusqlite::Error::InvalidColumnType(1, "installed_at_utc".to_string(), rusqlite::types::Type::Text)
-                })?
-                .with_timezone(&chrono::Utc);
+                let installed_at_utc_str: String = row.get(1)?;
+                let installed_at_utc = chrono::DateTime::parse_from_rfc3339(&installed_at_utc_str)
+                    .map_err(|err| {
+                        log::error!("{err}");
+                        rusqlite::Error::InvalidColumnType(
+                            1,
+                            "installed_at_utc".to_string(),
+                            rusqlite::types::Type::Text,
+                        )
+                    })?
+                    .with_timezone(&chrono::Utc);
 
-            Ok(crate::data::schema::GameUpdate {
-                detected_at_utc,
-                installed_at_utc,
-                buildid_old: row.get(2)?,
-                buildid_new: row.get(3)?,
+                Ok(crate::data::schema::GameUpdate {
+                    detected_at_utc,
+                    installed_at_utc,
+                    buildid_old: row.get(2)?,
+                    buildid_new: row.get(3)?,
+                })
             })
-        })?;
+            .expect("database query must succeed");
 
-        let mut game_updates: Vec<crate::data::schema::GameUpdate> = Vec::new();
-        for selected in selection {
-            let update: crate::data::schema::GameUpdate = selected?;
-            game_updates.push(update);
-        }
-
-        Ok(game_updates)
+        selection
+            .map(|update| update.expect("database row parsing must succeed"))
+            .collect()
     }
 }

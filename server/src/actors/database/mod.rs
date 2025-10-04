@@ -13,10 +13,7 @@ impl Database {
     /// The SQLite library provides a blocking API.
     pub async fn work_blocking(self) -> Summary {
         let all_game_params: Vec<crate::data::schema::GameParams> =
-            match crate::data::schema::GameParams::select_all_game_params(&self.connection) {
-                Ok(n) => n,
-                Err(err) => todo!("{err}"),
-            };
+            crate::data::schema::GameParams::select_all_game_params(&self.connection);
 
         let current_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
         let game_params: Option<&crate::data::schema::GameParams> = all_game_params
@@ -33,10 +30,7 @@ impl Database {
                 world_seed: 1,
                 rcon_password: uuid::Uuid::new_v4().to_string(),
             };
-            match crate::data::schema::GameParams::insert_game_params(&init, &self.connection) {
-                Ok(_) => log::info!("Initialized game params"),
-                Err(err) => todo!("{err}"),
-            }
+            crate::data::schema::GameParams::insert_game_params(&init, &self.connection);
         }
 
         let job = Self::handle_queries(&self.connection, self.rx_query);
@@ -58,10 +52,7 @@ impl Database {
             match query {
                 client::Query::ReadCurrentConfiguration { respond_to } => {
                     let all_game_params: Vec<crate::data::schema::GameParams> =
-                        match crate::data::schema::GameParams::select_all_game_params(connection) {
-                            Ok(n) => n,
-                            Err(err) => todo!("{err}"),
-                        };
+                        crate::data::schema::GameParams::select_all_game_params(connection);
                     let game_params_found_count: usize = all_game_params.len();
 
                     let current_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
@@ -75,10 +66,7 @@ impl Database {
                     };
 
                     let all_users: Vec<crate::data::schema::User> =
-                        match crate::data::schema::User::select_all_users(connection) {
-                            Ok(n) => n,
-                            Err(err) => todo!("{err}"),
-                        };
+                        crate::data::schema::User::select_all_users(connection);
 
                     let privileged_users: Vec<&crate::data::schema::User> = all_users
                         .iter()
@@ -115,10 +103,7 @@ impl Database {
 
                 client::Query::ReadLatestWipe { respond_to } => {
                     let mut all_wipes: Vec<crate::data::schema::Wipe> =
-                        match crate::data::schema::Wipe::select_all_wipes(connection) {
-                            Ok(n) => n,
-                            Err(err) => todo!("{err}"),
-                        };
+                        crate::data::schema::Wipe::select_all_wipes(connection);
                     all_wipes.sort_by_key(|n| n.game_healthy_at_utc);
                     let latest: Option<crate::data::schema::Wipe> = all_wipes.into_iter().last();
                     if respond_to.send(latest).is_err() {
@@ -154,44 +139,28 @@ impl Database {
             }
         }
 
-        let all_users = match crate::data::schema::AppDataSchemaVersion::select_app_data_schema_version(&connection) {
+        let all_users = match crate::data::schema::AppDataSchemaVersion::select_app_data_schema_version(
+            &connection,
+            env!("CARGO_PKG_VERSION"),
+        ) {
             Ok(app_data_schema_version) => {
-                if !app_data_schema_version.is_compatible_with_current_app() {
-                    todo!("incompatible app data schema version {app_data_schema_version:?}");
-                }
-
-                match crate::data::schema::User::select_all_users(&connection) {
-                    Ok(n) => n,
-                    Err(err) => {
-                        log::error!("{err}");
-                        return Err(std::process::ExitCode::FAILURE);
-                    }
-                }
+                log::info!("App data schema version: {app_data_schema_version}");
+                crate::data::schema::User::select_all_users(&connection)
             }
 
-            /*
-             * TODO: Consider using not a result but some other enum. The
-             *       meaning here is really that the database has not been
-             *       initialized yet, which is not failure per se.
-             */
-            Err(_err) => {
-                match crate::data::sql::create_tables(&connection) {
-                    Ok(_) => {
-                        log::debug!("Tables created");
-                    }
-                    Err(err) => {
-                        log::error!("{err}");
-                        return Err(std::process::ExitCode::FAILURE);
-                    }
-                }
+            Err(crate::data::sql::Error::NotInitialized) => {
+                crate::data::sql::create_tables(&connection);
+                crate::data::schema::User::select_all_users(&connection)
+            }
 
-                match crate::data::schema::User::select_all_users(&connection) {
-                    Ok(n) => n,
-                    Err(err) => {
-                        log::error!("{err}");
-                        return Err(std::process::ExitCode::FAILURE);
-                    }
-                }
+            Err(crate::data::sql::Error::Incompatible { actual, expected }) => {
+                log::error!("Incompatible database: Expected {expected}, got {actual}");
+                return Err(std::process::ExitCode::FAILURE);
+            }
+
+            Err(crate::data::sql::Error::NonRecoverableLibFailure { source }) => {
+                log::error!("Unusable database: {source}");
+                return Err(std::process::ExitCode::FAILURE);
             }
         };
 
@@ -221,21 +190,12 @@ impl Database {
                         privileged_at_utc: Some(now),
                     };
 
-                    if let Err(err) = crate::data::schema::User::upsert_user(&new_user, &connection) {
-                        log::error!("{err}");
-                        return Err(std::process::ExitCode::FAILURE);
-                    }
+                    crate::data::schema::User::upsert_user(&new_user, &connection);
                 }
             }
         }
 
-        let all_users: Vec<crate::data::schema::User> = match crate::data::schema::User::select_all_users(&connection) {
-            Ok(n) => n,
-            Err(err) => {
-                log::error!("{err}");
-                return Err(std::process::ExitCode::FAILURE);
-            }
-        };
+        let all_users: Vec<crate::data::schema::User> = crate::data::schema::User::select_all_users(&connection);
 
         let users: Vec<&crate::data::schema::User> = all_users
             .iter()
@@ -263,23 +223,5 @@ trait TimeWindowed {
 impl TimeWindowed for crate::data::schema::GameParams {
     fn is_active(&self, window_start_inclusive: &chrono::DateTime<chrono::Utc>) -> bool {
         &self.valid_starting_from_inclusive_utc <= window_start_inclusive
-    }
-}
-
-trait CompatibleWithCurrentApp {
-    fn is_compatible_with_current_app(&self) -> bool;
-}
-
-impl CompatibleWithCurrentApp for crate::data::schema::AppDataSchemaVersion {
-    /*
-     * TODO: Implement semver-like compatibility: Allow e.g. app version 0.2.1
-     *       to use app data schema 0.2.0, i.e. patch bumps are not breaking
-     *       changes. Also, use some more informative return value instead of
-     *       boolean.
-     */
-    fn is_compatible_with_current_app(&self) -> bool {
-        let app_version: &'static str = env!("CARGO_PKG_VERSION");
-        let app_data_schema_version: &String = &self.0;
-        app_version == app_data_schema_version
     }
 }
