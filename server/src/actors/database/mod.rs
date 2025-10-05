@@ -22,14 +22,8 @@ impl Database {
             .max_by_key(|n| n.valid_starting_from_inclusive_utc);
 
         if game_params.is_none() {
-            let init: crate::data::schema::GameParams = crate::data::schema::GameParams {
-                game_params_id: uuid::Uuid::new_v4().to_string(),
-                instance_id: rustctl_backend::constants::names::GAME_INSTANCE_ID.into(),
-                valid_starting_from_inclusive_utc: current_time,
-                world_size: 1000,
-                world_seed: 1,
-                rcon_password: uuid::Uuid::new_v4().to_string(),
-            };
+            let init: crate::data::schema::GameParams =
+                crate::data::schema::GameParams::new(&chrono::Utc::now(), 1000, 1);
             crate::data::schema::GameParams::insert_game_params(&init, &self.connection);
         }
 
@@ -50,53 +44,45 @@ impl Database {
                 None => todo!(),
             };
             match query {
-                client::Query::ReadCurrentConfiguration { respond_to } => {
-                    let all_game_params: Vec<crate::data::schema::GameParams> =
-                        crate::data::schema::GameParams::select_all_game_params(connection);
-                    let game_params_found_count: usize = all_game_params.len();
-
-                    let current_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
-                    let game_params: Option<crate::data::schema::GameParams> = all_game_params
-                        .into_iter()
-                        .filter(|n| n.is_active(&current_time))
-                        .max_by_key(|n| n.valid_starting_from_inclusive_utc);
-                    let game_params: crate::data::schema::GameParams = match game_params {
-                        Some(n) => n,
-                        None => todo!("no game params found -- row count {game_params_found_count}"),
-                    };
-
-                    let all_users: Vec<crate::data::schema::User> =
+                client::Query::ReadUsers { respond_to } => {
+                    let users_all: Vec<crate::data::schema::User> =
                         crate::data::schema::User::select_all_users(connection);
+                    if respond_to.send(users_all).is_err() {
+                        todo!();
+                    }
+                }
 
-                    let privileged_users: Vec<&crate::data::schema::User> = all_users
-                        .iter()
-                        .filter(|user| user.privileged_at_utc.is_some())
-                        .collect();
+                client::Query::WriteUser { respond_to, user } => {
+                    user.upsert_user(connection);
+                    if respond_to.send(()).is_err() {
+                        todo!();
+                    }
+                }
 
-                    let admin: &crate::data::schema::User = match (privileged_users.first(), privileged_users.len()) {
-                        (Some(user), 1) => user,
-                        _ => {
-                            todo!("privileged users count: {count}", count = privileged_users.len());
-                        }
-                    };
+                client::Query::ReadGameParams {
+                    respond_to,
+                    for_instant,
+                } => {
+                    let mut game_params_all: Vec<crate::data::schema::GameParams> =
+                        crate::data::schema::GameParams::select_all_game_params(connection);
+                    game_params_all.sort_by_key(|n| n.valid_starting_from_inclusive_utc);
+                    let active: Option<crate::data::schema::GameParams> = game_params_all
+                        .into_iter()
+                        .filter(|n| n.is_active(&for_instant))
+                        .next_back();
 
-                    let config: rustctl_backend::GameParameters = rustctl_backend::GameParameters {
-                          game_world_seed: game_params.world_seed,
-                          game_world_size: game_params.world_size as u16,
+                    if respond_to.send(active).is_err() {
+                        todo!();
+                    }
+                }
 
-                          rcon_port: 28016,
-                          rcon_password: game_params.rcon_password.clone(),
-                          game_owner_steamid: admin.steam_id.to_string(),
+                client::Query::WriteGameParams {
+                    respond_to,
+                    game_params,
+                } => {
+                    game_params.insert_game_params(connection);
 
-                          carbon_download_url: "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz".to_string(),
-
-                          game_name: "rustctl".to_string(),
-                          game_description: "rustctl managed server".to_string(),
-                          game_url_home: "https://github.com/jalho/rustctl".to_string(),
-                          game_url_header: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Vexillum_aboense.jpg/1280px-Vexillum_aboense.jpg".to_string(),
-                          game_url_logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Flag_of_Finland.svg/60px-Flag_of_Finland.svg.png".to_string(),
-                    };
-                    if respond_to.send(config).is_err() {
+                    if respond_to.send(()).is_err() {
                         todo!();
                     }
                 }

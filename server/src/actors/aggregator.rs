@@ -41,7 +41,7 @@ impl Aggregator {
         }
     }
 
-    pub async fn work(mut self) -> Summary {
+    pub async fn work(self) -> Summary {
         let ctoken = self.ctoken.child_token();
 
         /*
@@ -53,12 +53,8 @@ impl Aggregator {
         let job_agg_gss = Self::aggregate_game_server_state_machine_transitions(self.aggregated.clone(), self.rx_gss);
         let job_agg_igs = Self::aggregate_ingame_state(self.aggregated.clone(), self.rx_igs);
 
-        let game_world_size: u16 = self.db_client.read_current_config().await.game_world_size;
-        let job_bcast_snapshots = Self::broadcast_snapshots(
-            game_world_size.into(),
-            self.aggregated.clone(),
-            self.tx_broadcast.clone(),
-        );
+        let job_bcast_snapshots =
+            Self::broadcast_snapshots(self.db_client, self.aggregated.clone(), self.tx_broadcast.clone());
 
         let job_agg_and_bcast_ige =
             Self::aggregate_and_broadcast_ingame_events(self.aggregated.clone(), self.tx_broadcast.clone());
@@ -106,7 +102,7 @@ impl Aggregator {
     }
 
     async fn broadcast_snapshots(
-        game_world_size: f64,
+        mut db_client: crate::actors::database::client::Client,
         aggregated: std::sync::Arc<tokio::sync::Mutex<Aggregated>>,
         tx_broadcast: tokio::sync::broadcast::Sender<rustctl_common::BroadcastMessage>,
     ) -> () {
@@ -129,6 +125,14 @@ impl Aggregator {
                 ingame_state = lock.ingame_state.clone();
             }
 
+            let game_params: Option<crate::data::schema::GameParams> =
+                db_client.read_game_params(&chrono::Utc::now()).await;
+            let game_params: crate::data::schema::GameParams = match game_params {
+                Some(n) => n,
+                None => todo!(),
+            };
+            let game_world_size: u32 = game_params.world_size;
+
             let snapshot: rustctl_common::snapshot::Snapshot = rustctl_common::snapshot::Snapshot {
                 game_server_state,
                 ingame_state,
@@ -142,7 +146,7 @@ impl Aggregator {
                         usage
                     })
                     .collect::<Vec<rustctl_common::snapshot::CpuUsage>>(),
-                game_world_size,
+                game_world_size: game_world_size.into(),
             };
             _ = tx_broadcast.send(rustctl_common::BroadcastMessage::Snapshot(snapshot));
         }

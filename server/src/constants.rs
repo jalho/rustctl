@@ -24,3 +24,13 @@ pub mod paths {
 pub mod names {
   pub const GAME_INSTANCE_ID: &str = "instance0";
 }
+
+#[rustfmt::skip]
+pub mod urls {
+    pub const GET_CARBON: &str = "https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz";
+}
+
+#[rustfmt::skip]
+pub mod ports {
+    pub const RCON: u16 = 28016;
+}

@@ -44,7 +44,7 @@ impl std::fmt::Display for User {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GameParams {
     pub game_params_id: String,
     pub instance_id: String,
@@ -52,6 +52,23 @@ pub struct GameParams {
     pub world_size: u32,
     pub world_seed: u32,
     pub rcon_password: String,
+}
+
+impl GameParams {
+    pub fn new(
+        valid_starting_from_inclusive_utc: &chrono::DateTime<chrono::Utc>,
+        world_size: u32,
+        world_seed: u32,
+    ) -> Self {
+        Self {
+            game_params_id: uuid::Uuid::new_v4().to_string(),
+            instance_id: rustctl_backend::constants::names::GAME_INSTANCE_ID.into(),
+            valid_starting_from_inclusive_utc: valid_starting_from_inclusive_utc.to_owned(),
+            world_size,
+            world_seed,
+            rcon_password: uuid::Uuid::new_v4().to_string(),
+        }
+    }
 }
 
 impl std::fmt::Display for GameParams {

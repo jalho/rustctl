@@ -3,7 +3,7 @@ use futures_util::SinkExt;
 pub struct GameMonitor {
     ctoken: tokio_util::sync::CancellationToken,
 
-    cfg_client: crate::actors::database::client::Client,
+    db_client: crate::actors::database::client::Client,
 
     players_tracker: std::sync::Arc<tokio::sync::Mutex<u16>>,
 
@@ -21,7 +21,7 @@ impl GameMonitor {
     pub fn new(
         ctoken: tokio_util::sync::CancellationToken,
 
-        cfg_client: crate::actors::database::client::Client,
+        db_client: crate::actors::database::client::Client,
 
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
         rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
@@ -32,7 +32,7 @@ impl GameMonitor {
         Self {
             ctoken,
 
-            cfg_client,
+            db_client,
 
             players_tracker: std::sync::Arc::new(tokio::sync::Mutex::new(0)),
 
@@ -47,13 +47,27 @@ impl GameMonitor {
     pub async fn work(mut self) -> Summary {
         let ctoken = self.ctoken.child_token();
 
-        let config = self.cfg_client.read_current_config().await;
+        let game_params: Option<crate::data::schema::GameParams> =
+            self.db_client.read_game_params(&chrono::Utc::now()).await;
+        let game_params: crate::data::schema::GameParams = match game_params {
+            Some(n) => n,
+            None => todo!(),
+        };
+
+        let mut privileged_users: Vec<crate::data::schema::User> = self.db_client.read_users_privileged().await;
+        privileged_users.sort_by_key(|n| n.privileged_at_utc);
+        let server_owner: Option<&crate::data::schema::User> = privileged_users.first();
+        let server_owner: &crate::data::schema::User = match server_owner {
+            Some(n) => n,
+            None => todo!(),
+        };
 
         let job_rcon = Self::loop_reconnect_rcon(
             self.rx_rconready,
-            &config,
             self.tx_agg_igs,
             self.players_tracker.clone(),
+            &game_params.rcon_password,
+            server_owner.steam_id,
         );
         let job_updates = Self::loop_check_updates(self.tx_buildid, self.players_tracker.clone(), self.check_updates);
         let job = futures::future::join(job_rcon, job_updates);
@@ -115,9 +129,10 @@ impl GameMonitor {
 
     async fn loop_reconnect_rcon(
         mut rx_rconready: tokio::sync::mpsc::Receiver<crate::actors::gsc::gssm::ReadyForRcon>,
-        config: &rustctl_backend::GameParameters,
         tx_agg_igs: tokio::sync::mpsc::Sender<rustctl_common::snapshot::InGameStateExposed>,
         players_tracker: std::sync::Arc<tokio::sync::Mutex<u16>>,
+        rcon_password: &str,
+        server_owner_steam_id: u64,
     ) -> () {
         'reconnect: loop {
             match rx_rconready.recv().await {
@@ -131,8 +146,11 @@ impl GameMonitor {
                 }
             };
 
-            let websocket: WebSocket = match tokio_tungstenite::connect_async(config.get_rcon_connection_string()).await
-            {
+            let rcon_connection_string: String = format!(
+                "ws://127.0.0.1:{port}/{rcon_password}",
+                port = rustctl_backend::constants::ports::RCON
+            );
+            let websocket: WebSocket = match tokio_tungstenite::connect_async(rcon_connection_string).await {
                 Ok(n) => {
                     log::info!("RCON client connected");
                     let (websocket, _response): (WebSocket, Response) = n;
@@ -146,7 +164,7 @@ impl GameMonitor {
             let (mut ws_sink, mut ws_stream): (WebSocketSink, WebSocketStream) =
                 futures_util::StreamExt::split(websocket);
 
-            if let Err(err) = Self::prepare_via_rcon(&mut ws_sink, &mut ws_stream, config).await {
+            if let Err(err) = Self::prepare_via_rcon(&mut ws_sink, &mut ws_stream, server_owner_steam_id).await {
                 log::error!("Failed to prepare via RCON: {err}");
                 continue 'reconnect;
             }
@@ -167,7 +185,7 @@ impl GameMonitor {
     async fn prepare_via_rcon(
         ws_sink: &mut WebSocketSink,
         ws_stream: &mut WebSocketStream,
-        config: &rustctl_backend::GameParameters,
+        server_owner_steam_id: u64,
     ) -> Result<(), Error> {
         /*
          * Render in-game world map as a .PNG file, and then move the file to a
@@ -262,10 +280,7 @@ impl GameMonitor {
          * server.
          */
         {
-            let cmd: RconMessage = RconMessage::new(&format!(
-                "ownerid {game_owner_steamid}",
-                game_owner_steamid = config.game_owner_steamid,
-            ));
+            let cmd: RconMessage = RconMessage::new(&format!("ownerid {server_owner_steam_id}",));
             let response: RconMessage = cmd
                 .send_and_wait_response(ws_sink, ws_stream, std::time::Duration::from_secs(3))
                 .await?;

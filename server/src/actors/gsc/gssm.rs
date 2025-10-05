@@ -119,14 +119,47 @@ impl GameServerStateMachine {
                         let should_wipe = is_monthly_content_update_wipe_due(&latest_wipe, &current_time);
                         match should_wipe {
                             ShouldWipe::Yes => {
-                                todo!("set wipe by setting new seed in game params stored in the database")
+                                let game_params: Option<crate::data::schema::GameParams> =
+                                    ctx.db_client.read_game_params(&current_time).await;
+                                match game_params {
+                                    Some(game_params) => {
+                                        log::info!(
+                                            "Wiping using stored game world seed {seed} and world size {size}",
+                                            seed = game_params.world_seed,
+                                            size = game_params.world_size,
+                                        );
+                                    }
+                                    None => {
+                                        let game_params = crate::data::schema::GameParams::new(
+                                            &current_time,
+                                            1000, // TODO: Generate new seed randomly
+                                            1,
+                                        );
+                                        ctx.db_client.write_game_params(&game_params).await;
+                                        log::info!(
+                                            "Wiping using newly generated game world seed {seed} and world size {size}",
+                                            seed = game_params.world_seed,
+                                            size = game_params.world_size,
+                                        );
+                                    }
+                                }
                             }
                             ShouldWipe::No(reason) => {
                                 log::info!("Not wiping: {reason:?}");
                             }
                         }
                     } else {
-                        log::info!("No previous wipes on record");
+                        let game_params: Option<crate::data::schema::GameParams> =
+                            ctx.db_client.read_game_params(&current_time).await;
+                        let game_params: crate::data::schema::GameParams = match game_params {
+                            Some(n) => n,
+                            None => todo!(),
+                        };
+                        log::info!(
+                            "No previous wipes on record -- Initial wipe using game world seed {seed} and world size {size}",
+                            seed = game_params.world_seed,
+                            size = game_params.world_size,
+                        );
                     }
 
                     Self::InstallingUpdates { ctx }
@@ -136,8 +169,6 @@ impl GameServerStateMachine {
                  * Install or update `RustDedicated` using `steamcmd`.
                  */
                 Self::InstallingUpdates { mut ctx } => {
-                    let config: rustctl_backend::GameParameters = ctx.db_client.read_current_config().await;
-
                     /*
                      * Install/update game server.
                      */
@@ -167,7 +198,7 @@ impl GameServerStateMachine {
                         }
                     } else {
                         let install_start_at: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
-                        buildid_after = match crate::steam::RustDedicated::install(&config).await {
+                        buildid_after = match crate::steam::RustDedicated::install().await {
                             Ok(buildid_installed) => {
                                 let install_completed_at: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
                                 if let Some(buildid_before) = buildid_before {
@@ -213,7 +244,7 @@ impl GameServerStateMachine {
                      * Install/update modding framework.
                      */
                     if !ctx.skip {
-                        let carbon_installation_checksum: String = match install_or_update_carbon(&config).await {
+                        let carbon_installation_checksum: String = match install_or_update_carbon().await {
                             Ok(n) => n,
                             Err(err) => {
                                 log::error!("Installing or updating Carbon Modding Framework failed: {err}");
@@ -235,7 +266,13 @@ impl GameServerStateMachine {
                         todo!("{err}");
                     }
 
-                    let startup_script: String = match generate_game_server_startup_script(&config).await {
+                    let game_params: Option<crate::data::schema::GameParams> =
+                        ctx.db_client.read_game_params(&chrono::Utc::now()).await;
+                    let game_params: crate::data::schema::GameParams = match game_params {
+                        Some(n) => n,
+                        None => todo!(),
+                    };
+                    let startup_script: String = match generate_game_server_startup_script(&game_params).await {
                         Ok(n) => n,
                         Err(err) => {
                             log::error!("Failed to generate game server startup script: {err}");
@@ -800,14 +837,15 @@ async fn install_plugin() -> Result<(), String> {
 }
 
 /// Install or update Carbon Modding Framework (https://carbonmod.gg/).
-async fn install_or_update_carbon(config: &rustctl_backend::GameParameters) -> Result<String, String> {
-    let download_url: &str = &config.carbon_download_url;
-
-    log::debug!("Downloading Carbon from: {download_url}");
+async fn install_or_update_carbon() -> Result<String, String> {
+    log::debug!(
+        "Downloading Carbon from: {download_url}",
+        download_url = rustctl_backend::constants::urls::GET_CARBON
+    );
     let output: std::process::Output = tokio::process::Command::new("wget")
         .arg("-O")
         .arg(rustctl_backend::constants::paths::TMP_ARCHIVE)
-        .arg(download_url)
+        .arg(rustctl_backend::constants::urls::GET_CARBON)
         .output()
         .await
         .map_err(|err| format!("failed to execute wget: {err}"))?;
@@ -868,7 +906,7 @@ async fn install_or_update_carbon(config: &rustctl_backend::GameParameters) -> R
 }
 
 /// Generate a Bash script to be used as game server's entry point.
-async fn generate_game_server_startup_script(config: &rustctl_backend::GameParameters) -> Result<String, String> {
+async fn generate_game_server_startup_script(game_params: &crate::data::schema::GameParams) -> Result<String, String> {
     let script_content: String = format!(
         r#"#!/bin/bash
 
@@ -880,15 +918,15 @@ source {carbon_env_init}
 
 {game_executable} \
     -batchmode \
-    +server.hostname "{game_name}" \
-    +server.description "{game_description}" \
-    +server.url "{game_url_home}" \
-    +server.headerimage "{game_url_header}" \
-    +server.logoimage "{game_url_logo}" \
+    +server.hostname "rustctl" \
+    +server.description "rustctl lorem ipsum" \
+    +server.url "http://rustctl.internal:8080" \
+    +server.headerimage "http://rustctl.internal:8080/header.png" \
+    +server.logoimage "http://rustctl.internal:8080/logo.png" \
     +server.maxplayers "42" \
     +server.premium "1" \
     +server.identity "{game_instance_id}" \
-    +rcon.port "{rcon_port}" \
+    +rcon.port "28016" \
     +rcon.web "1" \
     +rcon.password "{rcon_password}" \
     +server.worldsize "{game_world_size}" \
@@ -896,17 +934,11 @@ source {carbon_env_init}
 "#,
         carbon_env_init = rustctl_backend::constants::paths::CARBON_INIT,
         game_executable = rustctl_backend::constants::paths::GAME,
-        game_name = config.game_name,
-        game_description = config.game_description,
-        game_url_home = config.game_url_home,
-        game_url_header = config.game_url_header,
-        game_url_logo = config.game_url_logo,
         game_server_libs = rustctl_backend::constants::paths::ROOT_DIR,
         game_instance_id = rustctl_backend::constants::names::GAME_INSTANCE_ID,
-        rcon_port = config.rcon_port,
-        rcon_password = config.rcon_password,
-        game_world_size = config.game_world_size,
-        game_world_seed = config.game_world_seed,
+        rcon_password = game_params.rcon_password,
+        game_world_size = game_params.world_size,
+        game_world_seed = game_params.world_seed,
     );
 
     tokio::fs::write(rustctl_backend::constants::paths::STARTUP, &script_content)

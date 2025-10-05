@@ -38,10 +38,19 @@ impl RustDedicated {
         Ok(build_id)
     }
 
-    pub async fn install(config: &rustctl_backend::GameParameters) -> Result<BuildID, String> {
+    pub async fn install() -> Result<BuildID, String> {
         let mut command = tokio::process::Command::new(rustctl_backend::constants::paths::INSTALLER);
         command.current_dir(rustctl_backend::constants::paths::ROOT_DIR);
-        command.args(config.get_installer_args());
+        command.args(vec![
+            "+login",
+            "anonymous",
+            "+force_install_dir",
+            rustctl_backend::constants::paths::ROOT_DIR,
+            "+app_update",
+            "258550",
+            "validate",
+            "+quit",
+        ]);
         command.stdout(std::process::Stdio::null());
         command.stderr(std::process::Stdio::null());
 
