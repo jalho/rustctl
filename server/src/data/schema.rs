@@ -56,13 +56,26 @@ pub struct GameParams {
 
 impl GameParams {
     pub fn new_with_random_seed(valid_starting_from_inclusive_utc: &chrono::DateTime<chrono::Utc>) -> Self {
+        /*
+         * TODO: Parameterize the world size, instead of defining as a constant?
+         *       Using the minimum world size 1000 during development for fast
+         *       startups...
+         */
         const WORLD_SIZE: u32 = 1000;
+
+        /// Docs:
+        /// > This number can be any value 0-2147483647
+        ///
+        /// https://wiki.facepunch.com/rust/Creating-a-server
+        /// (Accessed 2025-10-05)
+        const SEED_MAX: u32 = i32::MAX as u32;
+
         Self {
             game_params_id: uuid::Uuid::new_v4().to_string(),
             instance_id: rustctl_backend::constants::names::GAME_INSTANCE_ID.into(),
             valid_starting_from_inclusive_utc: valid_starting_from_inclusive_utc.to_owned(),
             world_size: WORLD_SIZE,
-            world_seed: rand::random_range(1..u32::MAX),
+            world_seed: rand::random_range(0..=SEED_MAX),
             rcon_password: uuid::Uuid::new_v4().to_string(),
         }
     }
