@@ -62,7 +62,7 @@ impl GameParams {
             instance_id: rustctl_backend::constants::names::GAME_INSTANCE_ID.into(),
             valid_starting_from_inclusive_utc: valid_starting_from_inclusive_utc.to_owned(),
             world_size: WORLD_SIZE,
-            world_seed: 1, // TODO: Generate random seed!
+            world_seed: rand::random_range(1..u32::MAX),
             rcon_password: uuid::Uuid::new_v4().to_string(),
         }
     }
