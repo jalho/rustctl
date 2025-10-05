@@ -74,6 +74,23 @@ impl Client {
         latest_wipe
     }
 
+    pub async fn write_wipe(&mut self, wipe: &crate::data::schema::Wipe) -> () {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        if let Err(err) = self
+            .tx_query
+            .send(Query::WriteWipe {
+                respond_to: tx,
+                wipe: wipe.clone(),
+            })
+            .await
+        {
+            todo!("{err}");
+        }
+        if let Err(err) = rx.await {
+            todo!("{err}");
+        };
+    }
+
     pub async fn write_game_update(&mut self, game_update: &crate::data::schema::GameUpdate) -> () {
         let (tx, rx) = tokio::sync::oneshot::channel();
         if let Err(err) = self
@@ -93,6 +110,9 @@ impl Client {
 }
 
 pub enum Query {
+    /*
+     * Users.
+     */
     ReadUsers {
         respond_to: tokio::sync::oneshot::Sender<Vec<crate::data::schema::User>>,
     },
@@ -101,6 +121,9 @@ pub enum Query {
         user: crate::data::schema::User,
     },
 
+    /*
+     * Game parameters.
+     */
     ReadGameParams {
         respond_to: tokio::sync::oneshot::Sender<Option<crate::data::schema::GameParams>>,
         for_instant: chrono::DateTime<chrono::Utc>,
@@ -110,9 +133,20 @@ pub enum Query {
         game_params: crate::data::schema::GameParams,
     },
 
+    /*
+     * Wipes -- Not to be confused with game updates!
+     */
     ReadLatestWipe {
         respond_to: tokio::sync::oneshot::Sender<Option<crate::data::schema::Wipe>>,
     },
+    WriteWipe {
+        respond_to: tokio::sync::oneshot::Sender<()>,
+        wipe: crate::data::schema::Wipe,
+    },
+
+    /*
+     * Game updates -- Not to be confused with wipes!
+     */
     WriteGameUpdate {
         respond_to: tokio::sync::oneshot::Sender<()>,
         game_update: crate::data::schema::GameUpdate,

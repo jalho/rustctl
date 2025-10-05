@@ -459,6 +459,9 @@ impl GameServerStateMachine {
                                 Self::request_termination(ctx.tx_activate.clone()).await;
                                 break 'loop_transitions;
                             }
+                            /*
+                             * TODO: Write wipe, if this launch was a wipe.
+                             */
                             Self::GameRunningHealthy {
                                 process,
                                 game_meta,

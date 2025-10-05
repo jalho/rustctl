@@ -97,6 +97,13 @@ impl Database {
                     }
                 }
 
+                client::Query::WriteWipe { respond_to, wipe } => {
+                    wipe.insert_wipe(connection);
+                    if respond_to.send(()).is_err() {
+                        todo!();
+                    }
+                }
+
                 client::Query::WriteGameUpdate {
                     respond_to,
                     game_update,
