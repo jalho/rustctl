@@ -82,7 +82,7 @@ impl From<rusqlite::Error> for Error {
     }
 }
 
-pub const CREATE_TABLES: &str = r#"
+const CREATE_TABLES: &str = r#"
     CREATE TABLE app_data_schema_version (
         populated_by TEXT NOT NULL PRIMARY KEY
     );
@@ -119,11 +119,11 @@ pub const CREATE_TABLES: &str = r#"
     );
 
     CREATE TABLE game_updates (
-        detected_at_utc  TEXT NOT NULL,
-        installed_at_utc TEXT NOT NULL,
+        install_started_at_utc   TEXT NOT NULL,
+        install_completed_at_utc TEXT NOT NULL,
 
-        buildid_old      INTEGER NOT NULL,
-        buildid_new      INTEGER NOT NULL PRIMARY KEY
+        buildid_old              INTEGER NOT NULL,
+        buildid_new              INTEGER NOT NULL PRIMARY KEY
     );
 "#;
 
@@ -229,8 +229,8 @@ const SELECT_ALL_WIPES: &str = r#"
 
 const INSERT_GAME_UPDATE: &str = r#"
     INSERT INTO game_updates(
-        detected_at_utc,
-        installed_at_utc,
+        install_started_at_utc,
+        install_completed_at_utc,
         buildid_old,
         buildid_new
     ) VALUES(
@@ -243,8 +243,8 @@ const INSERT_GAME_UPDATE: &str = r#"
 
 const SELECT_ALL_GAME_UPDATES: &str = r#"
     SELECT
-        detected_at_utc,
-        installed_at_utc,
+        install_started_at_utc,
+        install_completed_at_utc,
         buildid_old,
         buildid_new
     FROM
@@ -501,15 +501,15 @@ impl crate::data::schema::Wipe {
 
 impl crate::data::schema::GameUpdate {
     pub fn insert_game_update(&self, connection: &rusqlite::Connection) {
-        let detected_at_utc_str = self.detected_at_utc.to_rfc3339();
-        let installed_at_utc_str = self.installed_at_utc.to_rfc3339();
+        let install_started_at_utc_str = self.install_started_at_utc.to_rfc3339();
+        let install_completed_at_utc_str = self.install_completed_at_utc.to_rfc3339();
 
         connection
             .execute(
                 INSERT_GAME_UPDATE,
                 (
-                    &detected_at_utc_str,
-                    &installed_at_utc_str,
+                    &install_started_at_utc_str,
+                    &install_completed_at_utc_str,
                     &self.buildid_old,
                     &self.buildid_new,
                 ),
@@ -524,33 +524,33 @@ impl crate::data::schema::GameUpdate {
 
         let selection = statement
             .query_map([], |row| {
-                let detected_at_utc_str: String = row.get(0)?;
-                let detected_at_utc = chrono::DateTime::parse_from_rfc3339(&detected_at_utc_str)
+                let install_started_at_utc_str: String = row.get(0)?;
+                let install_started_at_utc = chrono::DateTime::parse_from_rfc3339(&install_started_at_utc_str)
                     .map_err(|err| {
                         log::error!("{err}");
                         rusqlite::Error::InvalidColumnType(
                             0,
-                            "detected_at_utc".to_string(),
+                            "install_started_at_utc".to_string(),
                             rusqlite::types::Type::Text,
                         )
                     })?
                     .with_timezone(&chrono::Utc);
 
-                let installed_at_utc_str: String = row.get(1)?;
-                let installed_at_utc = chrono::DateTime::parse_from_rfc3339(&installed_at_utc_str)
+                let install_completed_at_utc_str: String = row.get(1)?;
+                let install_completed_at_utc = chrono::DateTime::parse_from_rfc3339(&install_completed_at_utc_str)
                     .map_err(|err| {
                         log::error!("{err}");
                         rusqlite::Error::InvalidColumnType(
                             1,
-                            "installed_at_utc".to_string(),
+                            "install_completed_at_utc".to_string(),
                             rusqlite::types::Type::Text,
                         )
                     })?
                     .with_timezone(&chrono::Utc);
 
                 Ok(crate::data::schema::GameUpdate {
-                    detected_at_utc,
-                    installed_at_utc,
+                    install_started_at_utc,
+                    install_completed_at_utc,
                     buildid_old: row.get(2)?,
                     buildid_new: row.get(3)?,
                 })

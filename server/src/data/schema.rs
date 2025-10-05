@@ -84,8 +84,8 @@ pub struct Wipe {
 
 #[derive(Debug, Clone)]
 pub struct GameUpdate {
-    pub detected_at_utc: chrono::DateTime<chrono::Utc>,
-    pub installed_at_utc: chrono::DateTime<chrono::Utc>,
+    pub install_started_at_utc: chrono::DateTime<chrono::Utc>,
+    pub install_completed_at_utc: chrono::DateTime<chrono::Utc>,
 
     pub buildid_old: u32,
     pub buildid_new: u32,
@@ -93,14 +93,14 @@ pub struct GameUpdate {
 
 impl GameUpdate {
     pub fn new(
-        detected_at_utc: &chrono::DateTime<chrono::Utc>,
-        installed_at_utc: &chrono::DateTime<chrono::Utc>,
+        install_started_at_utc: &chrono::DateTime<chrono::Utc>,
+        install_completed_at_utc: &chrono::DateTime<chrono::Utc>,
         buildid_old: &crate::steam::BuildID,
         buildid_new: &crate::steam::BuildID,
     ) -> Self {
         Self {
-            detected_at_utc: detected_at_utc.to_owned(),
-            installed_at_utc: installed_at_utc.to_owned(),
+            install_started_at_utc: install_started_at_utc.to_owned(),
+            install_completed_at_utc: install_completed_at_utc.to_owned(),
             buildid_old: buildid_old.into(),
             buildid_new: buildid_new.into(),
         }
