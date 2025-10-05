@@ -1,5 +1,7 @@
 //! Game Server State Machine (GSSM).
 
+use chrono::Datelike;
+
 pub struct Context {
     pub ctoken: tokio_util::sync::CancellationToken,
     pub tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
@@ -111,15 +113,21 @@ impl GameServerStateMachine {
                         break 'loop_transitions;
                     }
 
-                    /*
-                     * TODO: If the game server is being started on the first Thursday of the month,
-                     *       assume it might be _the_ monthly "forced" content update, and so wipe
-                     *       the map (and blueprints?) unless already wiped on the same day.
-                     *
-                     *       Use the `game_wipes` table in the database.
-                     */
                     let latest_wipe: Option<crate::data::schema::Wipe> = ctx.db_client.read_latest_wipe().await;
-                    dbg!(latest_wipe);
+                    let current_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+                    if let Some(latest_wipe) = latest_wipe {
+                        let should_wipe = is_monthly_content_update_wipe_due(&latest_wipe, &current_time);
+                        match should_wipe {
+                            ShouldWipe::Yes => {
+                                todo!("set wipe by setting new seed in game params stored in the database")
+                            }
+                            ShouldWipe::No(reason) => {
+                                log::info!("Not wiping: {reason:?}");
+                            }
+                        }
+                    } else {
+                        log::info!("No previous wipes on record");
+                    }
 
                     Self::InstallingUpdates { ctx }
                 }
@@ -978,4 +986,57 @@ async fn is_running_already() -> Vec<u32> {
     }
 
     running
+}
+
+#[derive(Debug)]
+enum Reason {
+    NotThursday,
+    NotFirstThursdayOfMonth,
+    AlreadyWipedOnCurrentDate,
+}
+
+#[derive(Debug)]
+enum ShouldWipe {
+    Yes,
+    No(Reason),
+}
+
+/// Determine whether a monthly game content update wipe is due.
+///
+/// The game server tends to receive a content update from its developers monthly.
+/// Typically this happens on the first Thursday of every month, some time during
+/// the evening (UTC). The monthly content update is also referred to as "force
+/// wipe", because game servers are mandated to install the update and reset the
+/// game with the new content.
+///
+/// There is no programmatic way to distinguish an unscheduled optional update from
+/// a forced monthly content update, and the schedule is also only an approximation.
+fn is_monthly_content_update_wipe_due(
+    latest_wipe: &crate::data::schema::Wipe,
+    current_time: &chrono::DateTime<chrono::Utc>,
+) -> ShouldWipe {
+    /*
+     * Check if Thursday.
+     */
+    let current_date: chrono::NaiveDate = current_time.date_naive();
+    if current_date.weekday() != chrono::Weekday::Thu {
+        return ShouldWipe::No(Reason::NotThursday);
+    }
+
+    /*
+     * Check if 1st Thursday of the month.
+     */
+    if current_date.day() > 7 {
+        return ShouldWipe::No(Reason::NotFirstThursdayOfMonth);
+    }
+
+    /*
+     * Check if already wiped on the current date.
+     */
+    let last_wipe_date: chrono::NaiveDate = latest_wipe.game_healthy_at_utc.date_naive();
+    if last_wipe_date == current_date {
+        return ShouldWipe::No(Reason::AlreadyWipedOnCurrentDate);
+    }
+
+    ShouldWipe::Yes
 }
