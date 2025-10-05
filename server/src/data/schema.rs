@@ -70,13 +70,12 @@ impl std::fmt::Display for GameParams {
 
 #[derive(Debug, Clone)]
 pub struct Wipe {
-    pub game_install_or_update_initiated_at_utc: chrono::DateTime<chrono::Utc>,
-    pub game_startup_initiated_at_utc: chrono::DateTime<chrono::Utc>,
+    pub game_launched_at_utc: chrono::DateTime<chrono::Utc>,
     pub game_healthy_at_utc: chrono::DateTime<chrono::Utc>,
 
     pub buildid: u32,
 
-    pub carbon_version: Option<String>,
+    pub carbon_version: String,
 
     pub world_size: u32,
     pub world_seed: u32,
