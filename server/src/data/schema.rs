@@ -55,17 +55,14 @@ pub struct GameParams {
 }
 
 impl GameParams {
-    pub fn new(
-        valid_starting_from_inclusive_utc: &chrono::DateTime<chrono::Utc>,
-        world_size: u32,
-        world_seed: u32,
-    ) -> Self {
+    pub fn new_with_random_seed(valid_starting_from_inclusive_utc: &chrono::DateTime<chrono::Utc>) -> Self {
+        const WORLD_SIZE: u32 = 1000;
         Self {
             game_params_id: uuid::Uuid::new_v4().to_string(),
             instance_id: rustctl_backend::constants::names::GAME_INSTANCE_ID.into(),
             valid_starting_from_inclusive_utc: valid_starting_from_inclusive_utc.to_owned(),
-            world_size,
-            world_seed,
+            world_size: WORLD_SIZE,
+            world_seed: 1, // TODO: Generate random seed!
             rcon_password: uuid::Uuid::new_v4().to_string(),
         }
     }
@@ -96,6 +93,26 @@ pub struct Wipe {
 
     pub world_size: u32,
     pub world_seed: u32,
+}
+
+impl Wipe {
+    pub fn new(
+        game_launched_at_utc: &chrono::DateTime<chrono::Utc>,
+        game_healthy_at_utc: &chrono::DateTime<chrono::Utc>,
+        buildid: u32,
+        carbon_version: &str,
+        world_size: u32,
+        world_seed: u32,
+    ) -> Self {
+        Self {
+            game_launched_at_utc: game_launched_at_utc.to_owned(),
+            game_healthy_at_utc: game_healthy_at_utc.to_owned(),
+            buildid,
+            carbon_version: carbon_version.to_owned(),
+            world_size,
+            world_seed,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

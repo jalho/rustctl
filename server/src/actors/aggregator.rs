@@ -125,12 +125,12 @@ impl Aggregator {
                 ingame_state = lock.ingame_state.clone();
             }
 
-            let game_params: Option<crate::data::schema::GameParams> =
-                db_client.read_game_params(&chrono::Utc::now()).await;
-            let game_params: crate::data::schema::GameParams = match game_params {
-                Some(n) => n,
-                None => todo!(),
-            };
+            let game_params = Self::wait_game_params(&mut db_client);
+            let game_params: crate::data::schema::GameParams =
+                match tokio::time::timeout(std::time::Duration::from_secs(3), game_params).await {
+                    Ok(n) => n,
+                    Err(err) => todo!("{err}"),
+                };
             let game_world_size: u32 = game_params.world_size;
 
             let snapshot: rustctl_common::snapshot::Snapshot = rustctl_common::snapshot::Snapshot {
@@ -149,6 +149,19 @@ impl Aggregator {
                 game_world_size: game_world_size.into(),
             };
             _ = tx_broadcast.send(rustctl_common::BroadcastMessage::Snapshot(snapshot));
+        }
+    }
+
+    async fn wait_game_params(
+        db_client: &mut crate::actors::database::client::Client,
+    ) -> crate::data::schema::GameParams {
+        loop {
+            match db_client.read_game_params(&chrono::Utc::now()).await {
+                Some(n) => return n,
+                None => {
+                    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                }
+            }
         }
     }
 

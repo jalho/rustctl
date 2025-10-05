@@ -12,21 +12,6 @@ pub struct Database {
 impl Database {
     /// The SQLite library provides a blocking API.
     pub async fn work_blocking(self) -> Summary {
-        let all_game_params: Vec<crate::data::schema::GameParams> =
-            crate::data::schema::GameParams::select_all_game_params(&self.connection);
-
-        let current_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
-        let game_params: Option<&crate::data::schema::GameParams> = all_game_params
-            .iter()
-            .filter(|n| n.is_active(&current_time))
-            .max_by_key(|n| n.valid_starting_from_inclusive_utc);
-
-        if game_params.is_none() {
-            let init: crate::data::schema::GameParams =
-                crate::data::schema::GameParams::new(&chrono::Utc::now(), 1000, 1);
-            crate::data::schema::GameParams::insert_game_params(&init, &self.connection);
-        }
-
         let job = Self::handle_queries(&self.connection, self.rx_query);
 
         self.ctoken.run_until_cancelled(job).await;

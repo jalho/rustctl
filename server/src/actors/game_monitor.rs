@@ -47,12 +47,12 @@ impl GameMonitor {
     pub async fn work(mut self) -> Summary {
         let ctoken = self.ctoken.child_token();
 
-        let game_params: Option<crate::data::schema::GameParams> =
-            self.db_client.read_game_params(&chrono::Utc::now()).await;
-        let game_params: crate::data::schema::GameParams = match game_params {
-            Some(n) => n,
-            None => todo!(),
-        };
+        let game_params = Self::wait_game_params(&mut self.db_client);
+        let game_params: crate::data::schema::GameParams =
+            match tokio::time::timeout(std::time::Duration::from_secs(3), game_params).await {
+                Ok(n) => n,
+                Err(err) => todo!("{err}"),
+            };
 
         let mut privileged_users: Vec<crate::data::schema::User> = self.db_client.read_users_privileged().await;
         privileged_users.sort_by_key(|n| n.privileged_at_utc);
@@ -78,6 +78,19 @@ impl GameMonitor {
             let _done: ((), ()) = done;
         }
         Summary {}
+    }
+
+    async fn wait_game_params(
+        db_client: &mut crate::actors::database::client::Client,
+    ) -> crate::data::schema::GameParams {
+        loop {
+            match db_client.read_game_params(&chrono::Utc::now()).await {
+                Some(n) => return n,
+                None => {
+                    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                }
+            }
+        }
     }
 
     async fn loop_check_updates(

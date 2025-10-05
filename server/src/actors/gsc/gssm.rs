@@ -28,6 +28,11 @@ pub enum GameServerStateMachine {
         ctx: Context,
         game_meta: rustctl_common::snapshot::GameServerMetaExposed,
         startup_script: String,
+
+        wiping: bool,
+        carbon_version: String,
+        world_size: u32,
+        world_seed: u32,
     },
     LaunchingGame {
         ctx: Context,
@@ -35,6 +40,12 @@ pub enum GameServerStateMachine {
         process: tokio::process::Child,
         stdout: tokio::process::ChildStdout,
         stderr: tokio::process::ChildStderr,
+
+        wiping: bool,
+        carbon_version: String,
+        world_size: u32,
+        world_seed: u32,
+        game_launched_at_utc: chrono::DateTime<chrono::Utc>,
     },
     GameRunningHealthy {
         ctx: Context,
@@ -97,7 +108,7 @@ impl GameServerStateMachine {
     pub async fn loop_transitions(mut self) -> () {
         'loop_transitions: loop {
             self = match self {
-                Self::Init { mut ctx } => {
+                Self::Init { ctx } => {
                     let running_already: Vec<u32> = is_running_already().await;
                     if !running_already.is_empty() {
                         log::error!(
@@ -113,55 +124,6 @@ impl GameServerStateMachine {
                         break 'loop_transitions;
                     }
 
-                    let latest_wipe: Option<crate::data::schema::Wipe> = ctx.db_client.read_latest_wipe().await;
-                    let current_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
-                    if let Some(latest_wipe) = latest_wipe {
-                        let should_wipe = is_monthly_content_update_wipe_due(&latest_wipe, &current_time);
-                        match should_wipe {
-                            ShouldWipe::Yes => {
-                                let game_params: Option<crate::data::schema::GameParams> =
-                                    ctx.db_client.read_game_params(&current_time).await;
-                                match game_params {
-                                    Some(game_params) => {
-                                        log::info!(
-                                            "Wiping using stored game world seed {seed} and world size {size}",
-                                            seed = game_params.world_seed,
-                                            size = game_params.world_size,
-                                        );
-                                    }
-                                    None => {
-                                        let game_params = crate::data::schema::GameParams::new(
-                                            &current_time,
-                                            1000, // TODO: Generate new seed randomly
-                                            1,
-                                        );
-                                        ctx.db_client.write_game_params(&game_params).await;
-                                        log::info!(
-                                            "Wiping using newly generated game world seed {seed} and world size {size}",
-                                            seed = game_params.world_seed,
-                                            size = game_params.world_size,
-                                        );
-                                    }
-                                }
-                            }
-                            ShouldWipe::No(reason) => {
-                                log::info!("Not wiping: {reason:?}");
-                            }
-                        }
-                    } else {
-                        let game_params: Option<crate::data::schema::GameParams> =
-                            ctx.db_client.read_game_params(&current_time).await;
-                        let game_params: crate::data::schema::GameParams = match game_params {
-                            Some(n) => n,
-                            None => todo!(),
-                        };
-                        log::info!(
-                            "No previous wipes on record -- Initial wipe using game world seed {seed} and world size {size}",
-                            seed = game_params.world_seed,
-                            size = game_params.world_size,
-                        );
-                    }
-
                     Self::InstallingUpdates { ctx }
                 }
 
@@ -169,6 +131,69 @@ impl GameServerStateMachine {
                  * Install or update `RustDedicated` using `steamcmd`.
                  */
                 Self::InstallingUpdates { mut ctx } => {
+                    let current_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+                    let latest_wipe: Option<crate::data::schema::Wipe> = ctx.db_client.read_latest_wipe().await;
+                    let game_params: Option<crate::data::schema::GameParams> =
+                        ctx.db_client.read_game_params(&current_time).await;
+
+                    let (game_params, wiping): (crate::data::schema::GameParams, bool) =
+                        match (latest_wipe, game_params) {
+                            /*
+                             * Case initial wipe, no params -- Generate initial params.
+                             */
+                            (None, None) => {
+                                let initial_params: crate::data::schema::GameParams =
+                                    crate::data::schema::GameParams::new_with_random_seed(&current_time);
+                                ctx.db_client.write_game_params(&initial_params).await;
+                                let wiping: bool = true;
+                                (initial_params, wiping)
+                            }
+
+                            /*
+                             * Case initial wipe, params set already -- Use the set params.
+                             */
+                            (None, Some(stored_params)) => {
+                                let wiping: bool = true;
+                                (stored_params, wiping)
+                            }
+
+                            /*
+                             * Case not initial wipe, no params -- Check if wipe is due and generate params.
+                             */
+                            (Some(latest_wipe), None) => {
+                                let wiping: bool = match is_monthly_content_update_wipe_due(&latest_wipe, &current_time)
+                                {
+                                    ShouldWipe::Yes => true,
+                                    ShouldWipe::No(_reason) => false,
+                                };
+                                let wipe_params: crate::data::schema::GameParams =
+                                    crate::data::schema::GameParams::new_with_random_seed(&current_time);
+                                ctx.db_client.write_game_params(&wipe_params).await;
+                                (wipe_params, wiping)
+                            }
+
+                            /*
+                             * Case not initial wipe, params set already -- Check if wipe is due and use the set params.
+                             */
+                            (Some(latest_wipe), Some(stored_params)) => {
+                                let wiping: bool = match is_monthly_content_update_wipe_due(&latest_wipe, &current_time)
+                                {
+                                    ShouldWipe::Yes => true,
+                                    ShouldWipe::No(_reason) => false,
+                                };
+                                (stored_params, wiping)
+                            }
+                        };
+                    log::info!(
+                        "{wiping}, using game params world seed {seed}, size {size}",
+                        wiping = match wiping {
+                            true => "Wiping",
+                            false => "Not wiping",
+                        },
+                        seed = game_params.world_seed,
+                        size = game_params.world_size,
+                    );
+
                     /*
                      * Install/update game server.
                      */
@@ -266,12 +291,6 @@ impl GameServerStateMachine {
                         todo!("{err}");
                     }
 
-                    let game_params: Option<crate::data::schema::GameParams> =
-                        ctx.db_client.read_game_params(&chrono::Utc::now()).await;
-                    let game_params: crate::data::schema::GameParams = match game_params {
-                        Some(n) => n,
-                        None => todo!(),
-                    };
                     let startup_script: String = match generate_game_server_startup_script(&game_params).await {
                         Ok(n) => n,
                         Err(err) => {
@@ -287,6 +306,11 @@ impl GameServerStateMachine {
                         },
                         ctx,
                         startup_script,
+
+                        wiping,
+                        carbon_version: "TODO: Read Carbon version".to_owned(),
+                        world_size: game_params.world_size,
+                        world_seed: game_params.world_seed,
                     }
                 }
 
@@ -294,6 +318,11 @@ impl GameServerStateMachine {
                     ctx,
                     game_meta,
                     startup_script,
+
+                    wiping,
+                    carbon_version,
+                    world_size,
+                    world_seed,
                 } => {
                     let mut command = tokio::process::Command::new(startup_script);
 
@@ -336,6 +365,7 @@ impl GameServerStateMachine {
                             break 'loop_transitions;
                         }
                     };
+                    let game_launched_at_utc: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
 
                     /*
                      * Hook the spawned process group to the termination mechanism.
@@ -372,6 +402,12 @@ impl GameServerStateMachine {
                         stdout,
                         stderr,
                         ctx,
+
+                        wiping,
+                        carbon_version,
+                        world_size,
+                        world_seed,
+                        game_launched_at_utc,
                     }
                 }
 
@@ -380,7 +416,13 @@ impl GameServerStateMachine {
                     process,
                     stdout,
                     stderr,
-                    ctx,
+                    mut ctx,
+
+                    wiping,
+                    carbon_version,
+                    world_size,
+                    world_seed,
+                    game_launched_at_utc,
                 } => {
                     let timeout = std::time::Duration::from_secs(60 * 30); // 30 minutes
                     let mut stdout_reader = tokio::io::BufReader::new(stdout);
@@ -452,6 +494,8 @@ impl GameServerStateMachine {
 
                     match tokio::time::timeout(timeout, ready_rx).await {
                         Ok(Ok(_)) => {
+                            let game_healthy_at_utc: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+
                             if let Err(err) = ctx.tx_rconready.send(ReadyForRcon).await {
                                 log::error!(
                                     "Inter-actor readiness signaling channel between GSSM and RCON client closed unexpectedly: {err}"
@@ -459,9 +503,18 @@ impl GameServerStateMachine {
                                 Self::request_termination(ctx.tx_activate.clone()).await;
                                 break 'loop_transitions;
                             }
-                            /*
-                             * TODO: Write wipe, if this launch was a wipe.
-                             */
+
+                            if wiping {
+                                let wipe: crate::data::schema::Wipe = crate::data::schema::Wipe::new(
+                                    &game_launched_at_utc,
+                                    &game_healthy_at_utc,
+                                    game_meta.buildid,
+                                    &carbon_version,
+                                    world_size,
+                                    world_seed,
+                                );
+                                ctx.db_client.write_wipe(&wipe).await;
+                            }
                             Self::GameRunningHealthy {
                                 process,
                                 game_meta,
