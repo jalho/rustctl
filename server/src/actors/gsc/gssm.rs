@@ -982,7 +982,7 @@ source {carbon_env_init}
     +server.maxplayers "42" \
     +server.premium "1" \
     +server.identity "{game_instance_id}" \
-    +rcon.port "28016" \
+    +rcon.port "{rcon_port}" \
     +rcon.web "1" \
     +rcon.password "{rcon_password}" \
     +server.worldsize "{game_world_size}" \
@@ -995,6 +995,7 @@ source {carbon_env_init}
         rcon_password = game_params.rcon_password,
         game_world_size = game_params.world_size,
         game_world_seed = game_params.world_seed,
+        rcon_port = rustctl_backend::constants::ports::RCON,
     );
 
     tokio::fs::write(rustctl_backend::constants::paths::STARTUP, &script_content)
