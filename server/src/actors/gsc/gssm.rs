@@ -30,7 +30,6 @@ pub enum GameServerStateMachine {
         startup_script: String,
 
         wiping: bool,
-        carbon_version: String,
         world_size: u32,
         world_seed: u32,
     },
@@ -42,7 +41,6 @@ pub enum GameServerStateMachine {
         stderr: tokio::process::ChildStderr,
 
         wiping: bool,
-        carbon_version: String,
         world_size: u32,
         world_seed: u32,
         game_launched_at_utc: chrono::DateTime<chrono::Utc>,
@@ -308,7 +306,6 @@ impl GameServerStateMachine {
                         startup_script,
 
                         wiping,
-                        carbon_version: "TODO: Read Carbon version".to_owned(),
                         world_size: game_params.world_size,
                         world_seed: game_params.world_seed,
                     }
@@ -320,7 +317,6 @@ impl GameServerStateMachine {
                     startup_script,
 
                     wiping,
-                    carbon_version,
                     world_size,
                     world_seed,
                 } => {
@@ -404,7 +400,6 @@ impl GameServerStateMachine {
                         ctx,
 
                         wiping,
-                        carbon_version,
                         world_size,
                         world_seed,
                         game_launched_at_utc,
@@ -419,7 +414,6 @@ impl GameServerStateMachine {
                     mut ctx,
 
                     wiping,
-                    carbon_version,
                     world_size,
                     world_seed,
                     game_launched_at_utc,
@@ -496,13 +490,34 @@ impl GameServerStateMachine {
                         Ok(Ok(_)) => {
                             let game_healthy_at_utc: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
 
-                            if let Err(err) = ctx.tx_rconready.send(ReadyForRcon).await {
+                            let (carbonv_tx, carbonv_rx): (
+                                tokio::sync::oneshot::Sender<CarbonVersion>,
+                                tokio::sync::oneshot::Receiver<CarbonVersion>,
+                            ) = tokio::sync::oneshot::channel();
+
+                            if let Err(err) = ctx.tx_rconready.send(ReadyForRcon::new(carbonv_tx)).await {
                                 log::error!(
                                     "Inter-actor readiness signaling channel between GSSM and RCON client closed unexpectedly: {err}"
                                 );
                                 Self::request_termination(ctx.tx_activate.clone()).await;
                                 break 'loop_transitions;
                             }
+
+                            /*
+                             * Carbon version is read during an initialization
+                             * process done via RCON on a running game server.
+                             * In the process, some other lengthy operations are
+                             * taken, such as rendering the game world map. The
+                             * timeout needs to be sufficient for that.
+                             */
+                            let carbonv_timeout = std::time::Duration::from_secs(60);
+                            let carbonv_fut = carbonv_rx;
+                            let carbon_version: CarbonVersion =
+                                match tokio::time::timeout(carbonv_timeout, carbonv_fut).await {
+                                    Ok(Ok(n)) => n,
+                                    Ok(Err(err)) => todo!("{err}"),
+                                    Err(err) => todo!("{err}"),
+                                };
 
                             if wiping {
                                 let wipe: crate::data::schema::Wipe = crate::data::schema::Wipe::new(
@@ -880,7 +895,36 @@ impl From<&GameServerStateMachine> for rustctl_common::snapshot::GameServerState
     }
 }
 
-pub struct ReadyForRcon;
+#[derive(Debug, Clone)]
+pub struct CarbonVersion(String);
+
+impl CarbonVersion {
+    pub fn new(value: &str) -> Self {
+        Self(value.into())
+    }
+}
+
+impl std::fmt::Display for CarbonVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+pub struct ReadyForRcon {
+    respond_to: tokio::sync::oneshot::Sender<CarbonVersion>,
+}
+
+impl ReadyForRcon {
+    pub fn new(respond_to: tokio::sync::oneshot::Sender<CarbonVersion>) -> Self {
+        Self { respond_to }
+    }
+
+    pub fn report_carbon_version(self, carbon_version: &CarbonVersion) {
+        if self.respond_to.send(carbon_version.to_owned()).is_err() {
+            todo!();
+        }
+    }
+}
 
 async fn install_plugin() -> Result<(), String> {
     let plugin_contents: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../carbon/plugin.cs"));

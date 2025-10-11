@@ -148,10 +148,10 @@ impl GameMonitor {
         server_owner_steam_id: u64,
     ) -> () {
         'reconnect: loop {
-            match rx_rconready.recv().await {
+            let ready: super::gsc::gssm::ReadyForRcon = match rx_rconready.recv().await {
                 Some(ready) => {
-                    let _ready: super::gsc::gssm::ReadyForRcon = ready;
                     log::debug!("Game server state machine signaled readiness for RCON");
+                    ready
                 }
                 None => {
                     log::debug!("Channel for receiving RCON readiness signal closed -- Stopping reconnect loop");
@@ -177,10 +177,15 @@ impl GameMonitor {
             let (mut ws_sink, mut ws_stream): (WebSocketSink, WebSocketStream) =
                 futures_util::StreamExt::split(websocket);
 
-            if let Err(err) = Self::prepare_via_rcon(&mut ws_sink, &mut ws_stream, server_owner_steam_id).await {
-                log::error!("Failed to prepare via RCON: {err}");
-                continue 'reconnect;
-            }
+            let carbon_version: crate::actors::gsc::gssm::CarbonVersion =
+                match Self::prepare_via_rcon(&mut ws_sink, &mut ws_stream, server_owner_steam_id).await {
+                    Ok(n) => n,
+                    Err(err) => {
+                        log::error!("Failed to prepare via RCON: {err}");
+                        continue 'reconnect;
+                    }
+                };
+            ready.report_carbon_version(&carbon_version);
 
             if let Err(err) =
                 Self::loop_query_rcon(ws_sink, ws_stream, tx_agg_igs.clone(), players_tracker.clone()).await
@@ -199,7 +204,7 @@ impl GameMonitor {
         ws_sink: &mut WebSocketSink,
         ws_stream: &mut WebSocketStream,
         server_owner_steam_id: u64,
-    ) -> Result<(), Error> {
+    ) -> Result<super::gsc::gssm::CarbonVersion, Error> {
         /*
          * Render in-game world map as a .PNG file, and then move the file to a
          * static path (to be served by a web server).
@@ -248,6 +253,7 @@ impl GameMonitor {
          * (boolean) JSON filesystem config, but IIRC the `carbon.gocommunity`
          * RCON command is more reliable.
          */
+        let carbon_version: super::gsc::gssm::CarbonVersion;
         {
             let cmd: RconMessage = RconMessage::new("carbon.version");
             let response: RconMessage = cmd
@@ -263,6 +269,7 @@ impl GameMonitor {
                 "Carbon Modding Framework version: {version}",
                 version = response.Message
             );
+            carbon_version = super::gsc::gssm::CarbonVersion::new(&response.Message);
 
             /*
              * From docs:
@@ -386,7 +393,7 @@ impl GameMonitor {
             log::debug!("carbon.plugins --json:\n{result}", result = response.Message);
         }
 
-        Ok(())
+        Ok(carbon_version)
     }
 
     async fn loop_query_rcon(

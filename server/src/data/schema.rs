@@ -102,7 +102,7 @@ pub struct Wipe {
 
     pub buildid: u32,
 
-    pub carbon_version: String,
+    pub carbon_version: crate::actors::gsc::gssm::CarbonVersion,
 
     pub world_size: u32,
     pub world_seed: u32,
@@ -113,7 +113,7 @@ impl Wipe {
         game_launched_at_utc: &chrono::DateTime<chrono::Utc>,
         game_healthy_at_utc: &chrono::DateTime<chrono::Utc>,
         buildid: u32,
-        carbon_version: &str,
+        carbon_version: &crate::actors::gsc::gssm::CarbonVersion,
         world_size: u32,
         world_seed: u32,
     ) -> Self {

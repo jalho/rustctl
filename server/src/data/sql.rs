@@ -422,7 +422,7 @@ impl crate::data::schema::Wipe {
                     &game_launched_at_utc_str,
                     &game_healthy_at_utc_str,
                     &self.buildid,
-                    &self.carbon_version,
+                    &self.carbon_version.to_string(),
                     &self.world_size,
                     &self.world_seed,
                 ),
@@ -461,11 +461,12 @@ impl crate::data::schema::Wipe {
                     })?
                     .with_timezone(&chrono::Utc);
 
+                let carbon_version: String = row.get(3)?;
                 Ok(crate::data::schema::Wipe {
                     game_launched_at_utc,
                     game_healthy_at_utc,
                     buildid: row.get(2)?,
-                    carbon_version: row.get(3)?,
+                    carbon_version: crate::actors::gsc::gssm::CarbonVersion::new(&carbon_version),
                     world_size: row.get(4)?,
                     world_seed: row.get(5)?,
                 })
