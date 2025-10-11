@@ -275,9 +275,9 @@ impl crate::data::schema::AppDataSchemaVersion {
                 crate::data::schema::AppDataSchemaVersion::new(&actual);
 
             /*
-             * TODO: Implement semver-like compatibility: Allow e.g. app version
-             *       0.2.1 to use app data schema 0.2.0, i.e. patch bumps are
-             *       not breaking changes.
+             * WONTFIX: Implement semver-like compatibility: Allow e.g. app
+             *          version 0.2.1 to use app data schema 0.2.0, i.e. patch
+             *          bumps are not breaking changes.
              */
             if expected != actual {
                 return Err(Error::Incompatible { actual, expected });
