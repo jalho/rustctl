@@ -45,24 +45,55 @@ impl std::fmt::Display for User {
 }
 
 #[derive(Debug, Clone)]
+pub struct GameWorldSize(u32);
+
+impl GameWorldSize {
+    /// The smallest value that I've successfully used. Idk what's the actual
+    /// minimum.
+    const MIN_INT: u32 = 1000;
+
+    /// The biggest value that I've successfully used or care about. Idk what's
+    /// the actual maximum.
+    const MAX_INT: u32 = 4500;
+
+    pub const MIN: GameWorldSize = Self::new(Self::MIN_INT);
+    pub const MAX: GameWorldSize = Self::new(Self::MAX_INT);
+
+    pub const fn new(value: u32) -> Self {
+        match value {
+            Self::MIN_INT..Self::MAX_INT => Self(value),
+            _ => todo!(),
+        }
+    }
+}
+
+impl std::fmt::Display for GameWorldSize {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<&GameWorldSize> for u32 {
+    fn from(value: &GameWorldSize) -> Self {
+        value.0
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct GameParams {
     pub game_params_id: String,
     pub instance_id: String,
     pub valid_starting_from_inclusive_utc: chrono::DateTime<chrono::Utc>,
-    pub world_size: u32,
+    pub world_size: GameWorldSize,
     pub world_seed: u32,
     pub rcon_password: String,
 }
 
 impl GameParams {
-    pub fn new_with_random_seed(valid_starting_from_inclusive_utc: &chrono::DateTime<chrono::Utc>) -> Self {
-        /*
-         * TODO: Parameterize the world size, instead of defining as a constant?
-         *       Using the minimum world size 1000 during development for fast
-         *       startups...
-         */
-        const WORLD_SIZE: u32 = 1000;
-
+    pub fn new_with_random_seed(
+        valid_starting_from_inclusive_utc: &chrono::DateTime<chrono::Utc>,
+        world_size: &GameWorldSize,
+    ) -> Self {
         /// Docs:
         /// > This number can be any value 0-2147483647
         ///
@@ -74,7 +105,7 @@ impl GameParams {
             game_params_id: uuid::Uuid::new_v4().to_string(),
             instance_id: rustctl_backend::constants::names::GAME_INSTANCE_ID.into(),
             valid_starting_from_inclusive_utc: valid_starting_from_inclusive_utc.to_owned(),
-            world_size: WORLD_SIZE,
+            world_size: world_size.to_owned(),
             world_seed: rand::random_range(0..=SEED_MAX),
             rcon_password: uuid::Uuid::new_v4().to_string(),
         }
@@ -104,7 +135,7 @@ pub struct Wipe {
 
     pub carbon_version: crate::actors::gsc::gssm::CarbonVersion,
 
-    pub world_size: u32,
+    pub world_size: GameWorldSize,
     pub world_seed: u32,
 }
 
@@ -114,7 +145,7 @@ impl Wipe {
         game_healthy_at_utc: &chrono::DateTime<chrono::Utc>,
         buildid: u32,
         carbon_version: &crate::actors::gsc::gssm::CarbonVersion,
-        world_size: u32,
+        world_size: &GameWorldSize,
         world_seed: u32,
     ) -> Self {
         Self {
@@ -122,7 +153,7 @@ impl Wipe {
             game_healthy_at_utc: game_healthy_at_utc.to_owned(),
             buildid,
             carbon_version: carbon_version.to_owned(),
-            world_size,
+            world_size: world_size.to_owned(),
             world_seed,
         }
     }

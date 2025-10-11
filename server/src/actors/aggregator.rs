@@ -131,7 +131,7 @@ impl Aggregator {
                     Ok(n) => n,
                     Err(err) => todo!("{err}"),
                 };
-            let game_world_size: u32 = game_params.world_size;
+            let game_world_size: u32 = (&game_params.world_size).into();
 
             let snapshot: rustctl_common::snapshot::Snapshot = rustctl_common::snapshot::Snapshot {
                 game_server_state,

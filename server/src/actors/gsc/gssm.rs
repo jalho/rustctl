@@ -30,7 +30,7 @@ pub enum GameServerStateMachine {
         startup_script: String,
 
         wiping: bool,
-        world_size: u32,
+        world_size: crate::data::schema::GameWorldSize,
         world_seed: u32,
     },
     LaunchingGame {
@@ -41,7 +41,7 @@ pub enum GameServerStateMachine {
         stderr: tokio::process::ChildStderr,
 
         wiping: bool,
-        world_size: u32,
+        world_size: crate::data::schema::GameWorldSize,
         world_seed: u32,
         game_launched_at_utc: chrono::DateTime<chrono::Utc>,
     },
@@ -141,7 +141,10 @@ impl GameServerStateMachine {
                              */
                             (None, None) => {
                                 let initial_params: crate::data::schema::GameParams =
-                                    crate::data::schema::GameParams::new_with_random_seed(&current_time);
+                                    crate::data::schema::GameParams::new_with_random_seed(
+                                        &current_time,
+                                        &crate::data::schema::GameWorldSize::MIN,
+                                    );
                                 ctx.db_client.write_game_params(&initial_params).await;
                                 let wiping: bool = true;
                                 (initial_params, wiping)
@@ -165,7 +168,10 @@ impl GameServerStateMachine {
                                     ShouldWipe::No(_reason) => false,
                                 };
                                 let wipe_params: crate::data::schema::GameParams =
-                                    crate::data::schema::GameParams::new_with_random_seed(&current_time);
+                                    crate::data::schema::GameParams::new_with_random_seed(
+                                        &current_time,
+                                        &latest_wipe.world_size,
+                                    );
                                 ctx.db_client.write_game_params(&wipe_params).await;
                                 (wipe_params, wiping)
                             }
@@ -525,7 +531,7 @@ impl GameServerStateMachine {
                                     &game_healthy_at_utc,
                                     game_meta.buildid,
                                     &carbon_version,
-                                    world_size,
+                                    &world_size,
                                     world_seed,
                                 );
                                 ctx.db_client.write_wipe(&wipe).await;

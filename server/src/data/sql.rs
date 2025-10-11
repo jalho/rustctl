@@ -358,6 +358,7 @@ impl crate::data::schema::GameParams {
     pub fn insert_game_params(&self, connection: &rusqlite::Connection) {
         let valid_starting_from_inclusive_utc_str = self.valid_starting_from_inclusive_utc.to_rfc3339();
 
+        let game_world_size: u32 = (&self.world_size).into();
         connection
             .execute(
                 INSERT_GAME_PARAMS,
@@ -365,7 +366,7 @@ impl crate::data::schema::GameParams {
                     &self.game_params_id,
                     &self.instance_id,
                     &valid_starting_from_inclusive_utc_str,
-                    &self.world_size,
+                    &game_world_size,
                     &self.world_seed,
                     &self.rcon_password,
                 ),
@@ -393,11 +394,15 @@ impl crate::data::schema::GameParams {
                         })?
                         .with_timezone(&chrono::Utc);
 
+                let game_world_size: u32 = row.get(3)?;
+                let game_world_size: crate::data::schema::GameWorldSize =
+                    crate::data::schema::GameWorldSize::new(game_world_size);
+
                 Ok(crate::data::schema::GameParams {
                     game_params_id: row.get(0)?,
                     instance_id: row.get(1)?,
                     valid_starting_from_inclusive_utc,
-                    world_size: row.get(3)?,
+                    world_size: game_world_size,
                     world_seed: row.get(4)?,
                     rcon_password: row.get(5)?,
                 })
@@ -415,6 +420,8 @@ impl crate::data::schema::Wipe {
         let game_launched_at_utc_str = self.game_launched_at_utc.to_rfc3339();
         let game_healthy_at_utc_str = self.game_healthy_at_utc.to_rfc3339();
 
+        let game_world_size: u32 = (&self.world_size).into();
+
         connection
             .execute(
                 INSERT_WIPE,
@@ -423,7 +430,7 @@ impl crate::data::schema::Wipe {
                     &game_healthy_at_utc_str,
                     &self.buildid,
                     &self.carbon_version.to_string(),
-                    &self.world_size,
+                    game_world_size,
                     &self.world_seed,
                 ),
             )
@@ -462,12 +469,13 @@ impl crate::data::schema::Wipe {
                     .with_timezone(&chrono::Utc);
 
                 let carbon_version: String = row.get(3)?;
+                let game_world_size: u32 = row.get(4)?;
                 Ok(crate::data::schema::Wipe {
                     game_launched_at_utc,
                     game_healthy_at_utc,
                     buildid: row.get(2)?,
                     carbon_version: crate::actors::gsc::gssm::CarbonVersion::new(&carbon_version),
-                    world_size: row.get(4)?,
+                    world_size: crate::data::schema::GameWorldSize::new(game_world_size),
                     world_seed: row.get(5)?,
                 })
             })
