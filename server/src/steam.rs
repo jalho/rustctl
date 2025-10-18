@@ -16,6 +16,17 @@ impl RustDedicated {
     /// documented HTTP API existed instead, but unfortunately it doesn't and so
     /// we're forced to use SteamCMD!
     pub async fn query_latest_available_build_id() -> Result<BuildID, String> {
+        let local_app_info_cache: String = match Self::find_steam_app_info_local_cache().await {
+            Ok(n) => n,
+            Err(_err) => return Err("failed to find local Steam app info cache to be pruned".to_string()),
+        };
+
+        if let Err(err) = tokio::fs::remove_file(&local_app_info_cache).await {
+            return Err(format!(
+                "failed to remove local Steam app info cache: {local_app_info_cache}: {err}"
+            ));
+        }
+
         let mut cmd = tokio::process::Command::new(rustctl_backend::constants::paths::INSTALLER);
         cmd.args([
             "+login",
@@ -36,6 +47,83 @@ impl RustDedicated {
         };
         let build_id: BuildID = BuildID::from_vdf_steamcmd_contaminated(&output).unwrap();
         Ok(build_id)
+    }
+
+    /// Find locally cached Steam app info (i.e. a file named `appinfo.vdf`).
+    ///
+    /// One place it's been seen at as of 2025-10-18 is:
+    /// ```
+    /// ~/.local/share/Steam/appcache/appinfo.vdf
+    /// ```
+    async fn find_steam_app_info_local_cache() -> Result<String, ()> {
+        let results: Vec<std::path::PathBuf> = match tokio::task::spawn_blocking(|| {
+            let mut results: Vec<std::path::PathBuf> = Vec::new();
+
+            let walker: walkdir::IntoIter = walkdir::WalkDir::new("/").follow_links(false).into_iter();
+
+            for n in walker {
+                let n: walkdir::DirEntry = match n {
+                    Ok(n) => n,
+                    Err(_) => continue,
+                };
+
+                let path: &std::path::Path = n.path();
+
+                /*
+                 * Skip Windows stuff (in case running in WSL). Checking the Windows
+                 * filesystem from within WSL is very slow and also not necessary in
+                 * our case!
+                 */
+                if path.starts_with("/mnt") {
+                    continue;
+                }
+
+                if let Some(name) = path.file_name()
+                    && name == "appinfo.vdf"
+                {
+                    results.push(path.to_path_buf());
+                }
+            }
+
+            results
+        })
+        .await
+        {
+            Ok(n) => n,
+            Err(_) => return Err(()),
+        };
+
+        /*
+         * Not supporting multiple Steam installations for now!
+         */
+        if results.len() != 1 {
+            return Err(());
+        }
+
+        let target: &std::path::PathBuf = &results[0];
+
+        let meta: std::fs::Metadata = match tokio::fs::metadata(&target).await {
+            Ok(n) => n,
+            Err(_) => return Err(()),
+        };
+
+        /*
+         * Only a cache owned by the current user should be relevant.
+         */
+        let current_uid: u32 = unsafe { libc::geteuid() };
+        let cache_uid: u32;
+        {
+            use std::os::unix::fs::MetadataExt;
+            cache_uid = meta.uid();
+        }
+        if cache_uid != current_uid {
+            return Err(());
+        }
+
+        match target.canonicalize() {
+            Ok(n) => Ok(n.to_string_lossy().to_string()),
+            Err(_) => Err(()),
+        }
     }
 
     pub async fn install() -> Result<BuildID, String> {
