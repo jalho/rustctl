@@ -6,28 +6,34 @@ mod websocket;
 use components::{AggregatedView, CodeView, MapView};
 use dioxus::prelude::*;
 use web_sys::wasm_bindgen::JsCast;
+use web_sys::{HtmlBodyElement, window};
 
 fn main() {
     dioxus::launch(App);
 }
 
-use web_sys::{HtmlBodyElement, window};
-
 #[component]
 fn App() -> Element {
-    use_effect(move || {
-        websocket::start_websocket_connection();
+    let app_tx = use_signal(|| None::<async_channel::Sender<String>>);
 
-        if let Some(document) = window().and_then(|w| w.document())
-            && let Some(body) = document.body()
-        {
-            let body: HtmlBodyElement = body.dyn_into().unwrap();
-            let style = body.style();
-            style.set_property("background-color", "#0B3B4A").ok();
-            style.set_property("color", "white").ok();
-            style.set_property("margin", "1rem").ok();
-            style.set_property("font-family", "sans-serif").ok();
-            style.set_property("min-height", "100vh").ok();
+    use_effect({
+        let mut app_tx = app_tx.clone();
+        move || {
+            let (tx, rx) = async_channel::unbounded::<String>();
+            websocket::start_websocket_connection(rx);
+            app_tx.set(Some(tx));
+
+            if let Some(document) = window().and_then(|w| w.document())
+                && let Some(body) = document.body()
+            {
+                let body: HtmlBodyElement = body.dyn_into().unwrap();
+                let style = body.style();
+                style.set_property("background-color", "#0B3B4A").ok();
+                style.set_property("color", "white").ok();
+                style.set_property("margin", "1rem").ok();
+                style.set_property("font-family", "sans-serif").ok();
+                style.set_property("min-height", "100vh").ok();
+            }
         }
     });
 
@@ -45,6 +51,15 @@ fn App() -> Element {
 
     rsx! {
         div {
+            button {
+                onclick: move |_| {
+                    if let Some(tx) = &*app_tx.read() {
+                        let _ = tx.try_send("some command here".to_string());
+                    }
+                },
+                "Do something"
+            }
+
             h2 { "Game World Map" }
             MapView { state: state.clone(), backend_url: config::BACKEND_URL }
 
@@ -56,3 +71,4 @@ fn App() -> Element {
         }
     }
 }
+
