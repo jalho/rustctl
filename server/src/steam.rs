@@ -61,7 +61,22 @@ impl RustDedicated {
 
             let walker: walkdir::IntoIter = walkdir::WalkDir::new("/").follow_links(false).into_iter();
 
+            let mut traversed_fs_counter: u128 = 0;
             for n in walker {
+                {
+                    /*
+                     * TODO: Take the global cancellation token as an argument, and break out of
+                     *       the filesystem traversal iterator when canceled!
+                     */
+                    traversed_fs_counter = traversed_fs_counter + 1;
+                    if traversed_fs_counter % 10000 == 0 {
+                        println!(
+                            "DEBUG: Traversing file system... {count} paths traversed...",
+                            count = traversed_fs_counter,
+                        );
+                    }
+                }
+
                 let n: walkdir::DirEntry = match n {
                     Ok(n) => n,
                     Err(_) => continue,
