@@ -10,6 +10,8 @@ pub fn MapView(state: crate::state::State, backend_url: &'static str) -> Element
     let world_half = world_size / 2.0;
 
     rsx! {
+        h2 { "MapView" }
+
         div { style: "position: relative; width: {map_width}px; height: {map_height}px;",
             img {
                 src: format!("{}{}", backend_url, rustctl_common::web_app::MAP_URL_PATH),

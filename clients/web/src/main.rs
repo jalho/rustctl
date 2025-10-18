@@ -3,7 +3,7 @@ mod config;
 mod state;
 mod websocket;
 
-use components::{AggregatedView, CodeView, MapView};
+use components::{AggregatedView, CodeView, MapView, ControlsView};
 use dioxus::prelude::*;
 use web_sys::wasm_bindgen::JsCast;
 use web_sys::{HtmlBodyElement, window};
@@ -51,24 +51,13 @@ fn App() -> Element {
 
     rsx! {
         div {
-            button {
-                onclick: move |_| {
-                    if let Some(tx) = &*app_tx.read() {
-                        let _ = tx.try_send("some command here".to_string());
-                    }
-                },
-                "Do something"
-            }
+            ControlsView { state: state.clone(), app_tx }
 
-            h2 { "Game World Map" }
             MapView { state: state.clone(), backend_url: config::BACKEND_URL }
 
-            h2 { "Aggregated Resources" }
             AggregatedView { state: state.clone() }
 
-            h2 { "Debug" }
             CodeView { state: state.clone() }
         }
     }
 }
-

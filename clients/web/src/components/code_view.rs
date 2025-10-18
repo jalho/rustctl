@@ -4,10 +4,12 @@ use dioxus::prelude::*;
 pub fn CodeView(state: crate::state::State) -> Element {
     if let Ok(pretty) = serde_json::to_string_pretty(&state) {
         rsx!(
+            h2 { "CodeView" }
             pre { "{pretty}" }
         )
     } else {
         rsx!(
+            h2 { "CodeView" }
             p { "Failed to render snapshot" }
         )
     }
