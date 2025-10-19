@@ -145,8 +145,30 @@ interesting. (Not in any meaningful order!)
      $ wget https://cloud.debian.org/images/cloud/trixie/20251006-2257/debian-13-generic-amd64-20251006-2257.qcow2
      ```
 
-  2. TODO: Document the _virsh_ steps: How to boot up a VM with a cloud-init
-     disc etc. See if the script `./create-cloud-init-seed.sh` is any good!
+  2. Create a _cloud-init_ disc (`seed.iso`):
+
+     ```
+     $ bash ./create-cloud-init-seed.sh
+
+     $ file seed.iso
+     seed.iso: ISO 9660 CD-ROM filesystem data 'cidata'
+     ```
+
+  3. Create and boot a VM with the virtual hard disk and the cloud-init disc attached:
+
+     ```
+     $ virt-install \
+       --name debian-13 \
+       --memory 8192 \
+       --vcpus 4 \
+       --disk ~/Downloads/debian-13-generic-amd64-20251006-2257.qcow2 \
+       --disk path=seed.iso,device=cdrom \
+       --import \
+       --os-variant debian11 \
+       --network network=default \
+       --graphics vnc,listen=127.0.0.1 \
+       --video qxl
+     ```
 
 ## Tips
 
@@ -167,22 +189,12 @@ $ ln -s /usr/games/steamcmd /usr/bin/steamcmd
 ```
 $ virsh list --all && virsh net-list --all && virsh pool-list --all
 
-$ virt-install \
-  --name debian-13 \
-  --memory 8192 \
-  --vcpus 4 \
-  --disk ~/Downloads/debian-13-generic-amd64-20251006-2257.qcow2 \
-  --import \
-  --os-variant debian11 \
-  --network network=default \
-  --graphics vnc,listen=127.0.0.1 \
-  --video qxl
-
 $ virsh shutdown debian-13
+$ virsh destroy debian-13
+$ virsh undefine debian-13
 
 $ virsh snapshot-create-as debian-13 000_init
-
 $ virsh snapshot-list debian-13
-
 $ virsh snapshot-revert debian-13 000_init
+$ virsh snapshot-delete debian-13 000_init
 ```
