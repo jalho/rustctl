@@ -192,6 +192,7 @@ $ virsh list --all && virsh net-list --all && virsh pool-list --all
 $ virsh shutdown debian-13
 $ virsh destroy debian-13
 $ virsh undefine debian-13
+$ virt-manager
 
 $ virsh snapshot-create-as debian-13 000_init
 $ virsh snapshot-list debian-13
