@@ -30,7 +30,6 @@ Version: $VERSION
 Section: base
 Priority: optional
 Architecture: $ARCH
-Depends: steamcmd:i386
 Maintainer: TODO <todo@todo>
 Description: rustctl
  Tooling for running a Rust (the game) server and an integrated web service.
