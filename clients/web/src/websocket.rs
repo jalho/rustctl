@@ -4,7 +4,6 @@ use gloo_net::websocket::{Message, futures::WebSocket};
 use rustctl_common::BroadcastMessage;
 use wasm_bindgen_futures::spawn_local;
 
-use crate::config::WS_URL;
 use crate::state::{clear_state, handle_incremental_event, handle_snapshot};
 
 const RECONNECT_INTERVAL_SECS: u64 = 1;
@@ -23,7 +22,17 @@ pub fn start_websocket_connection(app_rx: Receiver<String>) {
 }
 
 async fn run_websocket_connection(app_rx: Receiver<String>) -> Result<(), Box<dyn std::error::Error>> {
-    let ws_url = format!("{}{}", WS_URL, rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH);
+    let ws_url = if cfg!(debug_assertions) {
+        format!(
+            "ws://rustctl.internal:8080{url_path}",
+            url_path = rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH,
+        )
+    } else {
+        format!(
+            "{url_path}",
+            url_path = rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH,
+        )
+    };
 
     let ws = WebSocket::open(&ws_url)?;
     let (mut tx, mut rx) = ws.split();

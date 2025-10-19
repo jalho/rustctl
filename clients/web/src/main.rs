@@ -1,5 +1,4 @@
 mod components;
-mod config;
 mod state;
 mod websocket;
 
@@ -53,7 +52,7 @@ fn App() -> Element {
         div {
             ControlsView { state: state.clone(), app_tx }
 
-            MapView { state: state.clone(), backend_url: config::BACKEND_URL }
+            MapView { state: state.clone() }
 
             AggregatedView { state: state.clone() }
 

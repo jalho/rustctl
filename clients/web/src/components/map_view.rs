@@ -3,18 +3,27 @@ use dioxus::prelude::*;
 const WORLD_MAP_RENDER_MARGIN: f64 = 1000.0;
 
 #[component]
-pub fn MapView(state: crate::state::State, backend_url: &'static str) -> Element {
+pub fn MapView(state: crate::state::State) -> Element {
     let map_width = 800.0;
     let map_height = 800.0;
     let world_size = state.snapshot.game_world_size + WORLD_MAP_RENDER_MARGIN;
     let world_half = world_size / 2.0;
+
+    let map_url = if cfg!(debug_assertions) {
+        format!(
+            "http://rustctl.internal:8080{url_path}",
+            url_path = rustctl_common::web_app::MAP_URL_PATH,
+        )
+    } else {
+        format!("{url_path}", url_path = rustctl_common::web_app::MAP_URL_PATH,)
+    };
 
     rsx! {
         h2 { "MapView" }
 
         div { style: "position: relative; width: {map_width}px; height: {map_height}px;",
             img {
-                src: format!("{}{}", backend_url, rustctl_common::web_app::MAP_URL_PATH),
+                src: "{map_url}",
                 alt: "Current game world map",
                 style: "width: 100%; height: 100%; display: block;",
             }
