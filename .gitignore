@@ -1,4 +1,4 @@
 target
 
-# mock game server's savefiles
-*.sav
+cloud-init-seed-root/
+seed.iso

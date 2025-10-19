@@ -147,6 +147,21 @@ interesting. (Not in any meaningful order!)
      PS C:\Users\alhoj> & "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" convertfromraw "C:\Users\alhoj\Documents\ISO\debian-13-generic-amd64-20251006-2257.raw" "C:\Users\alhoj\Documents\ISO\debian-13-generic-amd64-20251006-2257.vdi" --format VDI
      ```
 
+  3. Create a VM, using the `.vdi` as its virtual hard disk.
+
+     Create a cloud init seed disk:
+
+     ```
+     $ apt install cloud-image-utils
+     $ create-cloud-init-seed.sh
+     ```
+
+     The script uses `cloud-localds` from `cloud-image-utils` to create a
+     `seed.iso` cloud init disc.
+
+     Start the VM with both the virtual hard drive and the cloud init disc
+     attached.
+
 ## Tips
 
 ### Using `steamcmd`
