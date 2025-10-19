@@ -9,21 +9,27 @@ mkdir -p "$WORKDIR"
 cat > "$WORKDIR/user-data" <<EOF
 #cloud-config
 users:
-  - name: foo
+  - name: foo2
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
 chpasswd:
   expire: False
   list: |
-    foo:bar
+    foo2:bar
 ssh_pwauth: True
+packages:
+  - kbd
+  - console-data
+runcmd:
+  - loadkeys fi
 EOF
 
 cat > "$WORKDIR/meta-data" <<EOF
 instance-id: iid-local01
-local-hostname: foo-vbox
+local-hostname: foo2-vbox
 EOF
 
 cloud-localds "$OUTPUT_ISO" "$WORKDIR/user-data" "$WORKDIR/meta-data"
 
 echo "Seed ISO created: $OUTPUT_ISO"
+
