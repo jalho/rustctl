@@ -82,9 +82,7 @@ pub fn ControlsView(state: crate::state::State, app_tx: Signal<Option<async_chan
             rsx!(
                 h2 { "ControlsView" }
 
-                p {
-                    {state_display}
-                }
+                p { {state_display} }
             )
         }
     }
