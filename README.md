@@ -170,6 +170,22 @@ interesting. (Not in any meaningful order!)
        --video qxl
      ```
 
+  4. Download the `.deb` package built with `./build.sh`, from the host to the
+     guest.
+
+     For example, in the host, serve:
+
+     ```
+     $ cd ./target/debian/
+     $ python3 -m http.server
+     ```
+
+     And then, in the guest, `wget`:
+
+     ```
+     $ wget http://192.168.122.1:8000/rustctl_0.1.0-rc2_amd64.deb
+     ```
+
 ## Tips
 
 ### Using `steamcmd`
