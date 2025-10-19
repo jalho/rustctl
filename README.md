@@ -177,4 +177,12 @@ $ virt-install \
   --network network=default \
   --graphics vnc,listen=127.0.0.1 \
   --video qxl
+
+$ virsh shutdown debian-13
+
+$ virsh snapshot-create-as debian-13 000_init
+
+$ virsh snapshot-list debian-13
+
+$ virsh snapshot-revert debian-13 000_init
 ```
