@@ -141,10 +141,10 @@ interesting. (Not in any meaningful order!)
 
   1. Get a `.raw` Debian image: `https://cloud.debian.org/images/cloud/trixie/20251006-2257/debian-13-generic-amd64-20251006-2257.raw`
 
-  2. Convert the image to a VirtualBox compatible format:
+  2. Convert the `.raw` image to a VirtualBox compatible format `.vdi`:
 
      ```
-     TODO.
+     PS C:\Users\alhoj> & "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" convertfromraw "C:\Users\alhoj\Documents\ISO\debian-13-generic-amd64-20251006-2257.raw" "C:\Users\alhoj\Documents\ISO\debian-13-generic-amd64-20251006-2257.vdi" --format VDI
      ```
 
 ## Tips
