@@ -3,7 +3,7 @@ mod config;
 mod state;
 mod websocket;
 
-use components::{AggregatedView, CodeView, MapView, ControlsView};
+use components::{AggregatedView, CodeView, ControlsView, MapView};
 use dioxus::prelude::*;
 use web_sys::wasm_bindgen::JsCast;
 use web_sys::{HtmlBodyElement, window};
