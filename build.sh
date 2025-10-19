@@ -11,6 +11,11 @@ dx bundle --platform web
 cd -
 
 #
-# TODO: Build a `.deb` package
+# TODO: Build a `.deb` package that installs:
 #
-mv ./target/dx/rustctl-web/release/web/public /var/lib/rustctl/web
+# - `./target/dx/rustctl-web/release/web/public` -> `/var/lib/rustctl/web`
+#   (a Dioxus web app bundle)
+#
+# - `./target/x86_64-unknown-linux-musl/release/rustctl-backend` -> `/usr/bin/rustctl-backend`
+#   (a static linked native executable)
+#
