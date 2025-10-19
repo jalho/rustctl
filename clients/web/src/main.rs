@@ -17,7 +17,7 @@ fn App() -> Element {
     let app_tx = use_signal(|| None::<async_channel::Sender<String>>);
 
     use_effect({
-        let mut app_tx = app_tx.clone();
+        let mut app_tx = app_tx;
         move || {
             let (tx, rx) = async_channel::unbounded::<String>();
             websocket::start_websocket_connection(rx);

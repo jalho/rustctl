@@ -23,13 +23,12 @@ impl RustDedicated {
             Err(_err) => return Err("failed to find local Steam app info cache to be pruned".to_string()),
         };
 
-        if let Some(local_app_info_cache) = local_app_info_cache {
-            if let Err(err) = tokio::fs::remove_file(&local_app_info_cache).await {
+        if let Some(local_app_info_cache) = local_app_info_cache
+            && let Err(err) = tokio::fs::remove_file(&local_app_info_cache).await {
                 return Err(format!(
                     "failed to remove local Steam app info cache: {local_app_info_cache}: {err}"
                 ));
             }
-        }
 
         let mut cmd = tokio::process::Command::new(rustctl_backend::constants::paths::INSTALLER);
         cmd.args([
