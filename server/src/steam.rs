@@ -15,16 +15,20 @@ impl RustDedicated {
     /// RANT: It would be nice if a regular, professionally maintained and
     /// documented HTTP API existed instead, but unfortunately it doesn't and so
     /// we're forced to use SteamCMD!
-    pub async fn query_latest_available_build_id() -> Result<BuildID, String> {
-        let local_app_info_cache: String = match Self::find_steam_app_info_local_cache().await {
+    pub async fn query_latest_available_build_id(
+        ctoken: tokio_util::sync::CancellationToken,
+    ) -> Result<BuildID, String> {
+        let local_app_info_cache: Option<String> = match Self::find_steam_app_info_local_cache(ctoken).await {
             Ok(n) => n,
             Err(_err) => return Err("failed to find local Steam app info cache to be pruned".to_string()),
         };
 
-        if let Err(err) = tokio::fs::remove_file(&local_app_info_cache).await {
-            return Err(format!(
-                "failed to remove local Steam app info cache: {local_app_info_cache}: {err}"
-            ));
+        if let Some(local_app_info_cache) = local_app_info_cache {
+            if let Err(err) = tokio::fs::remove_file(&local_app_info_cache).await {
+                return Err(format!(
+                    "failed to remove local Steam app info cache: {local_app_info_cache}: {err}"
+                ));
+            }
         }
 
         let mut cmd = tokio::process::Command::new(rustctl_backend::constants::paths::INSTALLER);
@@ -55,26 +59,17 @@ impl RustDedicated {
     /// ```
     /// ~/.local/share/Steam/appcache/appinfo.vdf
     /// ```
-    async fn find_steam_app_info_local_cache() -> Result<String, ()> {
-        let results: Vec<std::path::PathBuf> = match tokio::task::spawn_blocking(|| {
+    async fn find_steam_app_info_local_cache(
+        ctoken: tokio_util::sync::CancellationToken,
+    ) -> Result<Option<String>, ()> {
+        let results: Vec<std::path::PathBuf> = match tokio::task::spawn_blocking(move || {
             let mut results: Vec<std::path::PathBuf> = Vec::new();
 
             let walker: walkdir::IntoIter = walkdir::WalkDir::new("/").follow_links(false).into_iter();
 
-            let mut traversed_fs_counter: u128 = 0;
             for n in walker {
-                {
-                    /*
-                     * TODO: Take the global cancellation token as an argument, and break out of
-                     *       the filesystem traversal iterator when canceled!
-                     */
-                    traversed_fs_counter = traversed_fs_counter + 1;
-                    if traversed_fs_counter % 10000 == 0 {
-                        println!(
-                            "DEBUG: Traversing file system... {count} paths traversed...",
-                            count = traversed_fs_counter,
-                        );
-                    }
+                if ctoken.is_cancelled() {
+                    return Vec::new();
                 }
 
                 let n: walkdir::DirEntry = match n {
@@ -108,14 +103,16 @@ impl RustDedicated {
             Err(_) => return Err(()),
         };
 
-        /*
-         * Not supporting multiple Steam installations for now!
-         */
-        if results.len() != 1 {
-            return Err(());
-        }
+        let target: &std::path::PathBuf = match results.len() {
+            0 => return Ok(None),
 
-        let target: &std::path::PathBuf = &results[0];
+            1 => &results[0],
+
+            /*
+             * Not supporting multiple Steam installations for now!
+             */
+            1.. => return Err(()),
+        };
 
         let meta: std::fs::Metadata = match tokio::fs::metadata(&target).await {
             Ok(n) => n,
@@ -136,7 +133,7 @@ impl RustDedicated {
         }
 
         match target.canonicalize() {
-            Ok(n) => Ok(n.to_string_lossy().to_string()),
+            Ok(n) => Ok(Some(n.to_string_lossy().to_string())),
             Err(_) => Err(()),
         }
     }

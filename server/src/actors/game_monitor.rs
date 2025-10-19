@@ -45,7 +45,7 @@ impl GameMonitor {
     }
 
     pub async fn work(mut self) -> Summary {
-        let ctoken = self.ctoken.child_token();
+        let ctoken: tokio_util::sync::CancellationToken = self.ctoken.child_token();
 
         let game_params = Self::wait_game_params(&mut self.db_client);
         let game_params: crate::data::schema::GameParams =
@@ -69,7 +69,12 @@ impl GameMonitor {
             &game_params.rcon_password,
             server_owner.steam_id,
         );
-        let job_updates = Self::loop_check_updates(self.tx_buildid, self.players_tracker.clone(), self.check_updates);
+        let job_updates = Self::loop_check_updates(
+            ctoken.child_token(),
+            self.tx_buildid,
+            self.players_tracker.clone(),
+            self.check_updates,
+        );
         let job = futures::future::join(job_rcon, job_updates);
 
         let done = ctoken.run_until_cancelled(job).await;
@@ -94,6 +99,7 @@ impl GameMonitor {
     }
 
     async fn loop_check_updates(
+        ctoken: tokio_util::sync::CancellationToken,
         tx_buildid: tokio::sync::mpsc::Sender<GameBuildIDUpdate>,
         players_tracker: std::sync::Arc<tokio::sync::Mutex<u16>>,
         check_updates: bool,
@@ -111,7 +117,7 @@ impl GameMonitor {
             interval.tick().await;
 
             let latest_available_build_id: crate::steam::BuildID =
-                match crate::steam::RustDedicated::query_latest_available_build_id().await {
+                match crate::steam::RustDedicated::query_latest_available_build_id(ctoken.child_token()).await {
                     Ok(buildid) => {
                         log::debug!("Latest available game server build ID: {buildid}");
                         buildid
