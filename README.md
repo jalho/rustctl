@@ -137,30 +137,16 @@ interesting. (Not in any meaningful order!)
 
   The web server will serve the bundle from `/var/lib/rustctl/web/`.
 
-- Try in VirtualBox on Windows:
+- Try in a virtual machine (QEMU guest on Debian, using _virsh_):
 
-  1. Get a `.raw` Debian image: `https://cloud.debian.org/images/cloud/trixie/20251006-2257/debian-13-generic-amd64-20251006-2257.raw`
-
-  2. Convert the `.raw` image to a VirtualBox compatible format `.vdi`:
+  1. Get a disk image:
 
      ```
-     PS C:\Users\alhoj> & "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" convertfromraw "C:\Users\alhoj\Documents\ISO\debian-13-generic-amd64-20251006-2257.raw" "C:\Users\alhoj\Documents\ISO\debian-13-generic-amd64-20251006-2257.vdi" --format VDI
+     $ wget https://cloud.debian.org/images/cloud/trixie/20251006-2257/debian-13-generic-amd64-20251006-2257.qcow2
      ```
 
-  3. Create a VM, using the `.vdi` as its virtual hard disk.
-
-     Create a cloud init seed disk:
-
-     ```
-     $ apt install cloud-image-utils
-     $ create-cloud-init-seed.sh
-     ```
-
-     The script uses `cloud-localds` from `cloud-image-utils` to create a
-     `seed.iso` cloud init disc.
-
-     Start the VM with both the virtual hard drive and the cloud init disc
-     attached.
+  2. TODO: Document the _virsh_ steps: How to boot up a VM with a cloud-init
+     disc etc. See if the script `./create-cloud-init-seed.sh` is any good!
 
 ## Tips
 
