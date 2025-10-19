@@ -24,11 +24,12 @@ impl RustDedicated {
         };
 
         if let Some(local_app_info_cache) = local_app_info_cache
-            && let Err(err) = tokio::fs::remove_file(&local_app_info_cache).await {
-                return Err(format!(
-                    "failed to remove local Steam app info cache: {local_app_info_cache}: {err}"
-                ));
-            }
+            && let Err(err) = tokio::fs::remove_file(&local_app_info_cache).await
+        {
+            return Err(format!(
+                "failed to remove local Steam app info cache: {local_app_info_cache}: {err}"
+            ));
+        }
 
         let mut cmd = tokio::process::Command::new(rustctl_backend::constants::paths::INSTALLER);
         cmd.args([
@@ -87,8 +88,14 @@ impl RustDedicated {
                     continue;
                 }
 
+                let seems_cache: bool = match path.to_str() {
+                    Some(n) => n.contains("cache"),
+                    None => false,
+                };
+
                 if let Some(name) = path.file_name()
                     && name == "appinfo.vdf"
+                    && seems_cache
                 {
                     results.push(path.to_path_buf());
                 }
@@ -110,7 +117,7 @@ impl RustDedicated {
             /*
              * Not supporting multiple Steam installations for now!
              */
-            1.. => return Err(()),
+            2.. => return Err(()),
         };
 
         let meta: std::fs::Metadata = match tokio::fs::metadata(&target).await {
