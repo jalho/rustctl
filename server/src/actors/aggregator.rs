@@ -232,7 +232,7 @@ impl Aggregator {
             rustctl_backend::constants::paths::SOCKET
         );
 
-        loop {
+        'accept: loop {
             match listener.accept().await {
                 Ok((stream, _)) => {
                     log::debug!("New Unix domain socket connection established");
@@ -241,13 +241,21 @@ impl Aggregator {
                     'receive: loop {
                         line.clear();
                         let utf8: String = match tokio::io::AsyncBufReadExt::read_line(&mut reader, &mut line).await {
+                            /*
+                             * Case 0 read: Presumably game server closed.
+                             * Continue to accept a new connecton because the
+                             * game should be restarted!
+                             */
                             Ok(0) => {
-                                todo!("terminate gracefully: connection closed");
+                                log::debug!("Unix domain socket connection closed");
+                                continue 'accept;
                             }
+
                             Ok(_) => {
                                 let payload: &str = line.trim();
                                 payload.to_string()
                             }
+
                             Err(err) => {
                                 todo!("terminate gracefully: error reading from socket: {}", err);
                             }
