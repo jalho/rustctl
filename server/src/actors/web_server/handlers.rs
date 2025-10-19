@@ -1,3 +1,5 @@
+use axum::response::IntoResponse;
+
 type DownstreamSink = futures_util::stream::SplitSink<axum::extract::ws::WebSocket, axum::extract::ws::Message>;
 type DownstreamStream = futures_util::stream::SplitStream<axum::extract::ws::WebSocket>;
 
@@ -48,28 +50,55 @@ pub async fn map_handler() -> impl axum::response::IntoResponse {
 }
 
 /// Serve the web app.
-pub async fn web_app_handler() -> impl axum::response::IntoResponse {
-    /*
-     * TODO: Serve index.html, .js and .wasm (or .br) from the web dir. The dir
-     *       looks like the following:
-     *
-     *       ```
-     *       $ tree /var/lib/rustctl/web
-     *       /var/lib/rustctl/web
-     *       ├── assets
-     *       │   ├── rustctl-web-10c6fdaee3286dde.js
-     *       │   ├── rustctl-web-10c6fdaee3286dde.js.br
-     *       │   ├── rustctl-web_bg-a5d465d285bbadf8.wasm
-     *       │   └── rustctl-web_bg-a5d465d285bbadf8.wasm.br
-     *       ├── index.html
-     *       └── wasm
-     *
-     *       3 directories, 5 files
-     *       ```
-     */
-    rustctl_backend::constants::paths::WEB_DIR; // = "/var/lib/rustctl/web"
+pub async fn web_app_handler(req: axum::extract::Request) -> impl axum::response::IntoResponse {
+    use axum::http::header;
 
-    axum::http::StatusCode::IM_A_TEAPOT
+    let path: &str = req.uri().path();
+
+    let file_servable: String = if path == "/" || path.is_empty() {
+        format!(
+            "{web_dir_abs}/index.html",
+            web_dir_abs = rustctl_backend::constants::paths::WEB_DIR,
+        )
+    } else {
+        let path_normalized = path.trim_start_matches('/');
+        format!(
+            "{web_dir_abs}/{path_normalized}",
+            web_dir_abs = rustctl_backend::constants::paths::WEB_DIR,
+            path_normalized = path_normalized,
+        )
+    };
+
+    let bytes: Vec<u8> = match tokio::fs::read(&file_servable).await {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            log::error!("Failed to read file {file_servable}: {err}");
+            return axum::http::StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+
+    let content_type: &'static str = if file_servable.ends_with(".html") {
+        "text/html"
+    } else if file_servable.contains(".js") {
+        "application/javascript"
+    } else if file_servable.contains(".wasm") {
+        "application/wasm"
+    } else {
+        log::error!("Failed to determine content type for {file_servable}");
+        return axum::http::StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    };
+
+    let mut response: axum::http::response::Builder = axum::response::Response::builder()
+        .status(axum::http::StatusCode::OK)
+        .header(header::CONTENT_TYPE, content_type);
+
+    if file_servable.ends_with(".br") {
+        response = response.header(header::CONTENT_ENCODING, "br");
+    }
+
+    response
+        .body(axum::body::Body::from(bytes))
+        .expect("response should be buildable")
 }
 
 fn ws_msg_transform(

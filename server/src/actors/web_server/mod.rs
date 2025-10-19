@@ -30,6 +30,7 @@ impl WebServer {
                 axum::routing::get(handlers::map_handler),
             )
             .route("/", axum::routing::get(handlers::web_app_handler))
+            .route("/assets/{*path}", axum::routing::get(handlers::web_app_handler))
             .with_state(state);
 
         Self {

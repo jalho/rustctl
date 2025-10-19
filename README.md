@@ -128,6 +128,14 @@ $ cd ./clients/web
 $ dx bundle --platform web
 $ cd -
 $ mv ./target/dx/rustctl-web/release/web/public /var/lib/rustctl/web
+$ tree /var/lib/rustctl/web/ --prune
+/var/lib/rustctl/web/
+├── assets
+│   ├── rustctl-web-10c6fdaee3286dde.js
+│   ├── rustctl-web-10c6fdaee3286dde.js.br
+│   ├── rustctl-web_bg-a5d465d285bbadf8.wasm
+│   └── rustctl-web_bg-a5d465d285bbadf8.wasm.br
+└── index.html
 ```
 
 The web server will serve the bundle from `/var/lib/rustctl/web/`.
