@@ -10,12 +10,34 @@ cd ./clients/web/
 dx bundle --platform web
 cd -
 
-#
-# TODO: Build a `.deb` package that installs:
-#
-# - `./target/dx/rustctl-web/release/web/public` -> `/var/lib/rustctl/web`
-#   (a Dioxus web app bundle)
-#
-# - `./target/x86_64-unknown-linux-musl/release/rustctl-backend` -> `/usr/bin/rustctl-backend`
-#   (a static linked native executable)
-#
+PACKAGE_NAME="rustctl"
+VERSION="0.1.0-rc2"
+ARCH="amd64"
+DEB_DIR="target/debian"
+PACKAGE_DIR="$DEB_DIR/${PACKAGE_NAME}_${VERSION}_$ARCH"
+
+rm -rf "$DEB_DIR"
+mkdir -p "$PACKAGE_DIR/DEBIAN"
+mkdir -p "$PACKAGE_DIR/usr/bin"
+mkdir -p "$PACKAGE_DIR/var/lib/rustctl/web"
+
+cp ./target/x86_64-unknown-linux-musl/release/rustctl-backend "$PACKAGE_DIR/usr/bin/rustctl-backend"
+cp -r ./target/dx/rustctl-web/release/web/public/* "$PACKAGE_DIR/var/lib/rustctl/web/"
+
+cat > "$PACKAGE_DIR/DEBIAN/control" << EOF
+Package: $PACKAGE_NAME
+Version: $VERSION
+Section: base
+Priority: optional
+Architecture: $ARCH
+Depends: steamcmd:i386
+Maintainer: TODO <todo@todo>
+Description: rustctl
+ Tooling for running a Rust (the game) server and an integrated web service.
+EOF
+
+dpkg-deb --build "$PACKAGE_DIR"
+
+file "$PACKAGE_DIR.deb"
+
+echo "Package built: $PACKAGE_DIR.deb"
