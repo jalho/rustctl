@@ -121,6 +121,17 @@ sqlite> SELECT * FROM app_data_schema_version;
 sqlite> .quit
 ```
 
+Bundle web app:
+
+```
+$ cd ./clients/web
+$ dx bundle --platform web
+$ cd -
+$ mv ./target/dx/rustctl-web/release/web/public /var/lib/rustctl/web
+```
+
+The web server will serve the bundle from `/var/lib/rustctl/web/`.
+
 ## Tips
 
 ### Using `steamcmd`

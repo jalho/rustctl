@@ -18,6 +18,7 @@ pub mod paths {
   pub const PLUGIN: &str      = "/var/lib/rustctl/carbon/plugins/rustctl_sock.cs";
 
   pub const GAME_MAP: &str    = "/var/lib/rustctl/current-game-world-map.png";
+  pub const WEB_DIR: &str     = "/var/lib/rustctl/web";
 }
 
 #[rustfmt::skip]

@@ -49,6 +49,26 @@ pub async fn map_handler() -> impl axum::response::IntoResponse {
 
 /// Serve the web app.
 pub async fn web_app_handler() -> impl axum::response::IntoResponse {
+    /*
+     * TODO: Serve index.html, .js and .wasm (or .br) from the web dir. The dir
+     *       looks like the following:
+     *
+     *       ```
+     *       $ tree /var/lib/rustctl/web
+     *       /var/lib/rustctl/web
+     *       ├── assets
+     *       │   ├── rustctl-web-10c6fdaee3286dde.js
+     *       │   ├── rustctl-web-10c6fdaee3286dde.js.br
+     *       │   ├── rustctl-web_bg-a5d465d285bbadf8.wasm
+     *       │   └── rustctl-web_bg-a5d465d285bbadf8.wasm.br
+     *       ├── index.html
+     *       └── wasm
+     *
+     *       3 directories, 5 files
+     *       ```
+     */
+    rustctl_backend::constants::paths::WEB_DIR; // = "/var/lib/rustctl/web"
+
     axum::http::StatusCode::IM_A_TEAPOT
 }
 
