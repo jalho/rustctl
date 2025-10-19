@@ -198,3 +198,14 @@ $ virsh snapshot-list debian-13
 $ virsh snapshot-revert debian-13 000_init
 $ virsh snapshot-delete debian-13 000_init
 ```
+
+```
+$ virsh domblklist debian-13
+
+ Target   Source
+---------------------------------------------------------------------------
+ vda      /home/jka/Downloads/debian-13-generic-amd64-20251006-2257.qcow2
+ sda      /home/jka/repos/rustctl/seed.iso
+
+$ virsh detach-disk debian-13 sda --config
+```
