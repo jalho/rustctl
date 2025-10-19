@@ -8,7 +8,10 @@ pub fn ControlsView(state: crate::state::State, app_tx: Signal<Option<async_chan
         button {
             onclick: move |_| {
                 if let Some(tx) = &*app_tx.read() {
-                    let _ = tx.try_send("some command here".to_string());
+                    let command = rustctl_common::command::DownstreamClientMessage::ServerSaveAndClose;
+                    let serialized: String = serde_json::to_string(&command)
+                        .expect("serializing a static command should succeed");
+                    let _ = tx.try_send(serialized);
                 }
             },
             "Do something"
