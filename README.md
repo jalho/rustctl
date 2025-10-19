@@ -161,3 +161,9 @@ installation path if they differ:
 ```
 $ ln -s /usr/games/steamcmd /usr/bin/steamcmd
 ```
+
+### Using `virsh`
+
+```
+$ virsh list --all && virsh net-list --all && virsh pool-list --all
+```
