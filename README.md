@@ -186,6 +186,15 @@ interesting. (Not in any meaningful order!)
      $ wget http://192.168.122.1:8000/rustctl_0.1.0-rc2_amd64.deb
      ```
 
+  **TODO:** Define the cloud-init so that `steamcmd` gets installed:
+
+  1. Somewhere in `/etc/apt/sources.list.d/`, add `non-free`.
+
+  2. Do `dpkg --add-architecture i386 && apt update`.
+
+  3. Do `apt install -y steamcmd`. Also, figure out how to non-interactively
+     accept the installer's prompts.
+
 ## Tips
 
 ### Using `steamcmd`
