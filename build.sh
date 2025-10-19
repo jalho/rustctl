@@ -3,7 +3,7 @@
 set -e
 
 cd ./server/
-cargo build --release
+cargo build --release --target x86_64-unknown-linux-musl
 cd -
 
 cd ./clients/web/
