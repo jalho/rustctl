@@ -47,6 +47,11 @@ pub async fn map_handler() -> impl axum::response::IntoResponse {
     }
 }
 
+/// Serve the web app.
+pub async fn web_app_handler() -> impl axum::response::IntoResponse {
+    axum::http::StatusCode::IM_A_TEAPOT
+}
+
 fn ws_msg_transform(
     arg: &axum::extract::ws::Message,
 ) -> Result<rustctl_common::command::DownstreamClientMessage, serde_json::Error> {

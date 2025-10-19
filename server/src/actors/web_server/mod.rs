@@ -29,6 +29,7 @@ impl WebServer {
                 rustctl_common::web_app::MAP_URL_PATH,
                 axum::routing::get(handlers::map_handler),
             )
+            .route("/", axum::routing::get(handlers::web_app_handler))
             .with_state(state);
 
         Self {
