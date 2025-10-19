@@ -166,4 +166,15 @@ $ ln -s /usr/games/steamcmd /usr/bin/steamcmd
 
 ```
 $ virsh list --all && virsh net-list --all && virsh pool-list --all
+
+$ virt-install \
+  --name debian-13 \
+  --memory 8192 \
+  --vcpus 4 \
+  --disk ~/Downloads/debian-13-generic-amd64-20251006-2257.qcow2 \
+  --import \
+  --os-variant debian11 \
+  --network network=default \
+  --graphics vnc,listen=127.0.0.1 \
+  --video qxl
 ```
