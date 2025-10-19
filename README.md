@@ -91,54 +91,61 @@ interesting. (Not in any meaningful order!)
 
 ## Development cheatsheet
 
-Start backend in its root:
+- Start backend in its root:
 
-```
-$ cargo run -- -i 192.168.0.103 -p 8080 --steam-id-append 76561198135242017
-```
+  ```
+  $ cargo run -- -i 192.168.0.103 -p 8080 --steam-id-append 76561198135242017
+  ```
 
-Start web app dev server in its root:
+- Start web app dev server in its root:
 
-```
-$ dx serve --platform web --addr 192.168.0.103 --port 8000
-```
+  ```
+  $ dx serve --platform web --addr 192.168.0.103 --port 8000
+  ```
 
-Now you should be able to connect to the dev server at `192.168.0.103:8000` from
-some other host in the LAN.
+- SQLite cheatsheet:
 
-SQLite cheatsheet:
+  ```
+  $ sqlite3 /var/lib/rustctl/rustctl.db
 
-```
-$ sqlite3 /var/lib/rustctl/rustctl.db
+  sqlite> .tables
 
-sqlite> .tables
+  sqlite> .schema
 
-sqlite> .schema
+  sqlite> SELECT * FROM app_data_schema_version;
+  0.1.0-rc1
 
-sqlite> SELECT * FROM app_data_schema_version;
-0.1.0-rc1
+  sqlite> .quit
+  ```
 
-sqlite> .quit
-```
+- Bundle web app:
 
-Bundle web app:
+  ```
+  $ cd ./clients/web
+  $ dx bundle --platform web
+  $ cd -
+  $ mv ./target/dx/rustctl-web/release/web/public /var/lib/rustctl/web
+  $ tree /var/lib/rustctl/web/ --prune
+  /var/lib/rustctl/web/
+  ├── assets
+  │   ├── rustctl-web-10c6fdaee3286dde.js
+  │   ├── rustctl-web-10c6fdaee3286dde.js.br
+  │   ├── rustctl-web_bg-a5d465d285bbadf8.wasm
+  │   └── rustctl-web_bg-a5d465d285bbadf8.wasm.br
+  └── index.html
+  ```
 
-```
-$ cd ./clients/web
-$ dx bundle --platform web
-$ cd -
-$ mv ./target/dx/rustctl-web/release/web/public /var/lib/rustctl/web
-$ tree /var/lib/rustctl/web/ --prune
-/var/lib/rustctl/web/
-├── assets
-│   ├── rustctl-web-10c6fdaee3286dde.js
-│   ├── rustctl-web-10c6fdaee3286dde.js.br
-│   ├── rustctl-web_bg-a5d465d285bbadf8.wasm
-│   └── rustctl-web_bg-a5d465d285bbadf8.wasm.br
-└── index.html
-```
+  The web server will serve the bundle from `/var/lib/rustctl/web/`.
 
-The web server will serve the bundle from `/var/lib/rustctl/web/`.
+- Try in VirtualBox on Windows:
+
+  1. Get a `.raw` Debian image: `https://cloud.debian.org/images/cloud/trixie/20251006-2257/debian-13-generic-amd64-20251006-2257.raw`
+
+  2. Convert the image to a VirtualBox compatible format:
+
+     ```
+     TODO.
+     ```
 
 ## Tips
 
