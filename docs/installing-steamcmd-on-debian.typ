@@ -97,3 +97,19 @@ more sensible location.
   # ln -s /usr/games/steamcmd /usr/bin/steamcmd
   ```
 ]
+
+SteamCMD updates itself outside of the system package manager. As of 2025-11-01,
+the latest version seems to be `1759461699`, as reported by the program when run
+with `--help`.
+
+#block(fill: global_block_fill, inset: global_block_inset)[
+  ```
+  # steamcmd --help
+  [  0%] Checking for available updates...
+  [----] Verifying installation...
+  Steam Console Client (c) Valve Corporation - version 1759461699
+  ```
+]
+
+The version number `1759461699` translates to `2025-10-03 03:21:39 UTC`, if
+interpreted as a Unix timestamp, which seems reasonable as of 2025-11-01.
