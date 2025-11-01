@@ -29,15 +29,18 @@
   [guest OS],    [Debian GNU/Linux], [13 (trixie)],    [],
 )
 
-= Steps
+= Setting Up a Virtual Machine (VM)
 
-== Get an image for a virtual machine (VM)
+== Get an image for a VM
 
 #block(fill: global_block_fill, inset: global_block_inset)[
   ```
   $ wget https://cloud.debian.org/images/cloud/trixie/20251006-2257/debian-13-nocloud-amd64-20251006-2257.qcow2
   ```
 ]
+
+The download URL can be found from https://cloud.debian.org/images/cloud
+(accessed 2025-11-01).
 
 #block(fill: global_block_fill, inset: global_block_inset)[
   ```
