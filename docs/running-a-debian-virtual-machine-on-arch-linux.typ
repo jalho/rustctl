@@ -2,7 +2,7 @@
  * $ typst --version
  * typst 0.14.0 (unknown hash)
  *
- * $ typst compile docs/running-virtual-machine-on-linux.typ docs/running-virtual-machine-on-linux.pdf
+ * $ typst compile ./source-file.typ ./target-file.pdf
  */
 
 #let global_block_fill  = luma(230)
