@@ -27,98 +27,96 @@ following table:
 
 == Steps
 
-#enum[
-  Get an image for a virtual machine (VM).
+=== Get an image for a virtual machine (VM)
 
-  #block(fill: global_block_fill, inset: global_block_inset)[
-    ```
-    $ wget https://cloud.debian.org/images/cloud/trixie/20251006-2257/debian-13-nocloud-amd64-20251006-2257.qcow2
-    ```
-  ]
+#block(fill: global_block_fill, inset: global_block_inset)[
+  ```
+  $ wget https://cloud.debian.org/images/cloud/trixie/20251006-2257/debian-13-nocloud-amd64-20251006-2257.qcow2
+  ```
+]
 
-  #block(fill: global_block_fill, inset: global_block_inset)[
-    ```
-    $ file debian-13-nocloud-amd64-20251006-2257.qcow2
-    debian-13-nocloud-amd64-20251006-2257.qcow2: QEMU QCOW Image (v3), 3221225472 bytes (v3), 3221225472 bytes
-    ```
-  ]
-][
-  Create and launch a VM.
+#block(fill: global_block_fill, inset: global_block_inset)[
+  ```
+  $ file debian-13-nocloud-amd64-20251006-2257.qcow2
+  debian-13-nocloud-amd64-20251006-2257.qcow2: QEMU QCOW Image (v3), 3221225472 bytes (v3), 3221225472 bytes
+  ```
+]
 
-  #block(fill: global_block_fill, inset: global_block_inset)[
-    ```
-    $ virt-install \
-      --name debian-13 \
-      --memory 4096 \
-      --vcpus 2 \
-      --disk ~/Downloads/debian-13-nocloud-amd64-20251006-2257.qcow2 \
-      --import \
-      --os-variant debian13 \
-      --network user
-    ```
-  ]
+=== Create and launch a VM
 
-  View available options for the `--os-variant` argument:
+#block(fill: global_block_fill, inset: global_block_inset)[
+  ```
+  $ virt-install \
+    --name debian-13 \
+    --memory 4096 \
+    --vcpus 2 \
+    --disk ~/Downloads/debian-13-nocloud-amd64-20251006-2257.qcow2 \
+    --import \
+    --os-variant debian13 \
+    --network user
+  ```
+]
 
-  #block(fill: global_block_fill, inset: global_block_inset)[
-    ```
-    $ osinfo-query os | grep debian
-    ```
-  ]
+View available options for the `--os-variant` argument:
 
-  In the guest, set Finnish keyboard layout by installing
-  `console-setup`[#footnote[https://packages.debian.org/trixie/console-setup
-  (accessed 2025-11-01)]]: The installer of version 1.240 includes an
-  interactive keyboard layout selection.
+#block(fill: global_block_fill, inset: global_block_inset)[
+  ```
+  $ osinfo-query os | grep debian
+  ```
+]
 
-  #colbreak()
-][
-  View, shutdown and restart the VM.
+In the guest, set Finnish keyboard layout by installing
+`console-setup`[#footnote[https://packages.debian.org/trixie/console-setup
+(accessed 2025-11-01)]]: The installer of version 1.240 includes an interactive
+keyboard layout selection.
 
-  #block(fill: global_block_fill, inset: global_block_inset)[
-    ```
-    $ virsh list --all
-     Id   Name        State
-    ---------------------------
-     1    debian-13   running
-    ```
-  ]
+#pagebreak()
 
-  #block(fill: global_block_fill, inset: global_block_inset)[
-    ```
-    $ virsh shutdown debian-13
-    ```
-  ]
+=== View, shutdown and restart the VM
 
-  #block(fill: global_block_fill, inset: global_block_inset)[
-    ```
-    $ virsh start debian-13
-    $ virsh console debian-13
-    ```
-  ]
-][
-  Take snapshots of a shut off VM, and revert a VM to a snapshot.
+#block(fill: global_block_fill, inset: global_block_inset)[
+  ```
+  $ virsh list --all
+   Id   Name        State
+  ---------------------------
+   1    debian-13   running
+  ```
+]
 
-  #block(fill: global_block_fill, inset: global_block_inset)[
-    ```
-    $ virsh snapshot-create-as debian-13 000_init
-    $ virsh snapshot-list debian-13
-    $ virsh snapshot-revert debian-13 000_init
-    ```
-  ]
+#block(fill: global_block_fill, inset: global_block_inset)[
+  ```
+  $ virsh shutdown debian-13
+  ```
+]
 
-  #block(fill: global_block_fill, inset: global_block_inset)[
-    ```
-    $ virsh snapshot-delete debian-13 000_init
-    ```
-  ]
-][
-  Destroy a VM.
+#block(fill: global_block_fill, inset: global_block_inset)[
+  ```
+  $ virsh start debian-13
+  $ virsh console debian-13
+  ```
+]
 
-  #block(fill: global_block_fill, inset: global_block_inset)[
-    ```
-    $ virsh destroy debian-13
-    $ virsh undefine debian-13
-    ```
-  ]
+=== Take snapshots of a shut off VM, and revert a VM to a snapshot
+
+#block(fill: global_block_fill, inset: global_block_inset)[
+  ```
+  $ virsh snapshot-create-as debian-13 000_init
+  $ virsh snapshot-list debian-13
+  $ virsh snapshot-revert debian-13 000_init
+  ```
+]
+
+#block(fill: global_block_fill, inset: global_block_inset)[
+  ```
+  $ virsh snapshot-delete debian-13 000_init
+  ```
+]
+
+=== Destroy a VM
+
+#block(fill: global_block_fill, inset: global_block_inset)[
+  ```
+  $ virsh destroy debian-13
+  $ virsh undefine debian-13
+  ```
 ]
