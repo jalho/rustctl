@@ -137,64 +137,6 @@ interesting. (Not in any meaningful order!)
 
   The web server will serve the bundle from `/var/lib/rustctl/web/`.
 
-- Try in a virtual machine (QEMU guest on Debian, using _virsh_):
-
-  1. Get a disk image:
-
-     ```
-     $ wget https://cloud.debian.org/images/cloud/trixie/20251006-2257/debian-13-generic-amd64-20251006-2257.qcow2
-     ```
-
-  2. Create a _cloud-init_ disc (`seed.iso`):
-
-     ```
-     $ bash ./create-cloud-init-seed.sh
-
-     $ file seed.iso
-     seed.iso: ISO 9660 CD-ROM filesystem data 'cidata'
-     ```
-
-  3. Create and boot a VM with the virtual hard disk and the cloud-init disc attached:
-
-     ```
-     $ virt-install \
-       --name debian-13 \
-       --memory 8192 \
-       --vcpus 4 \
-       --disk ~/Downloads/debian-13-generic-amd64-20251006-2257.qcow2 \
-       --disk path=seed.iso,device=cdrom \
-       --import \
-       --os-variant debian11 \
-       --network network=default \
-       --graphics vnc,listen=127.0.0.1 \
-       --video qxl
-     ```
-
-  4. Download the `.deb` package built with `./build.sh`, from the host to the
-     guest.
-
-     For example, in the host, serve:
-
-     ```
-     $ cd ./target/debian/
-     $ python3 -m http.server
-     ```
-
-     And then, in the guest, `wget`:
-
-     ```
-     $ wget http://192.168.122.1:8000/rustctl_0.1.0-rc2_amd64.deb
-     ```
-
-  **TODO:** Define the cloud-init so that `steamcmd` gets installed:
-
-  1. Somewhere in `/etc/apt/sources.list.d/`, add `non-free`.
-
-  2. Do `dpkg --add-architecture i386 && apt update`.
-
-  3. Do `apt install -y steamcmd`. Also, figure out how to non-interactively
-     accept the installer's prompts.
-
 ## Tips
 
 ### Using `steamcmd`
@@ -207,31 +149,4 @@ installation path if they differ:
 
 ```
 $ ln -s /usr/games/steamcmd /usr/bin/steamcmd
-```
-
-### Using `virsh`
-
-```
-$ virsh list --all && virsh net-list --all && virsh pool-list --all
-
-$ virsh shutdown debian-13
-$ virsh destroy debian-13
-$ virsh undefine debian-13
-$ virt-manager
-
-$ virsh snapshot-create-as debian-13 000_init
-$ virsh snapshot-list debian-13
-$ virsh snapshot-revert debian-13 000_init
-$ virsh snapshot-delete debian-13 000_init
-```
-
-```
-$ virsh domblklist debian-13
-
- Target   Source
----------------------------------------------------------------------------
- vda      /home/jka/Downloads/debian-13-generic-amd64-20251006-2257.qcow2
- sda      /home/jka/repos/rustctl/seed.iso
-
-$ virsh detach-disk debian-13 sda --config
 ```
