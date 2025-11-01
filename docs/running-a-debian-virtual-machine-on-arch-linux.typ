@@ -29,11 +29,12 @@
   [],            [QEMU],             [10.1.2],         [executable: `/usr/bin/qemu-x86_64`],
   [],            [virsh],            [11.8.0],         [executable: `/usr/bin/virsh`],
   [guest OS],    [Debian GNU/Linux], [13 (trixie)],    [],
+  [],            [libguestfs],       [1.56.2],         [executable: `/usr/bin/virt-copy-in`],
 )
 
 = Setting Up a Virtual Machine (VM)
 
-== Get an image for a VM
+== Get an Image For a VM
 
 #block(fill: global_block_fill, inset: global_block_inset)[
   ```
@@ -51,7 +52,7 @@ The download URL can be found from https://cloud.debian.org/images/cloud
   ```
 ]
 
-== Create and launch a VM
+== Create And Launch a VM
 
 #block(fill: global_block_fill, inset: global_block_inset)[
   ```
@@ -75,13 +76,13 @@ View available options for the `--os-variant` argument:
 ]
 
 In the guest, set Finnish keyboard layout by installing
-`console-setup`[#footnote[https://packages.debian.org/trixie/console-setup
-(accessed 2025-11-01)]]: The installer of version 1.240 includes an interactive
+`console-setup`#footnote[https://packages.debian.org/trixie/console-setup
+(accessed 2025-11-01)]: The installer of version 1.240 includes an interactive
 keyboard layout selection.
 
 #pagebreak()
 
-== View, shutdown and restart the VM
+== View, Shutdown And Restart a VM
 
 #block(fill: global_block_fill, inset: global_block_inset)[
   ```
@@ -105,7 +106,7 @@ keyboard layout selection.
   ```
 ]
 
-== Take snapshots of a shut off VM, and revert a VM to a snapshot
+== Take Snapshots Of a Shut Off VM, And Revert a VM To a Snapshot
 
 #block(fill: global_block_fill, inset: global_block_inset)[
   ```
@@ -127,5 +128,27 @@ keyboard layout selection.
   ```
   $ virsh destroy debian-13
   $ virsh undefine debian-13
+  ```
+]
+
+= Copying a File From Host To Guest
+
+Install
+`qemu-guest-agent`#footnote[https://packages.debian.org/trixie/qemu-guest-agent
+(accessed 2025-11-01)] in the guest. An associated `systemd` service needs to be
+manually started once installed.
+
+#block(fill: global_block_fill, inset: global_block_inset)[
+  ```
+  # systemctl start qemu-guest-agent
+  ```
+]
+
+Shut down the guest. Then, on the host, use `virt-copy-in` from package
+`libguestfs` to copy a file to the guest.
+
+#block(fill: global_block_fill, inset: global_block_inset)[
+  ```
+  $ virt-copy-in -d debian-13 ~/Downloads/hello-from-host-to-guest.txt /root/
   ```
 ]
