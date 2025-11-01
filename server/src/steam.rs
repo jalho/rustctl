@@ -3,8 +3,19 @@
 pub struct RustDedicated;
 
 impl RustDedicated {
-    const APP_ID: AppID = AppID::new(258550);
+    pub fn check_dependencies() -> Result<(), std::process::ExitCode> {
+        let installer: &std::path::Path = std::path::Path::new(rustctl_backend::constants::paths::INSTALLER);
+        if let Err(err) = installer.canonicalize() {
+            log::error!(
+                "Game server installer missing: {installer_path_expected}: {err}",
+                installer_path_expected = rustctl_backend::constants::paths::INSTALLER,
+            );
+            return Err(std::process::ExitCode::FAILURE);
+        }
+        Ok(())
+    }
 
+    const APP_ID: AppID = AppID::new(258550);
     pub fn app_id() -> AppID {
         Self::APP_ID
     }

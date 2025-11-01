@@ -25,6 +25,10 @@ fn main() -> std::process::ExitCode {
         version = env!("CARGO_PKG_VERSION"),
     );
 
+    if let Err(code) = steam::RustDedicated::check_dependencies() {
+        return code;
+    }
+
     /*
      * Actors's connectors.
      */
