@@ -1,0 +1,331 @@
+Redirecting stderr to '/root/.local/share/Steam/logs/stderr.txt'
+Looks like steam didn't shutdown cleanly, scheduling immediate update check
+ILocalize::AddFile() failed to load file "public/steambootstrapper_english.txt".
+[  0%] Checking for available update...
+[----] Downloading update (0 of 52579 KB)...
+[  0%] Downloading update (0 of 52579 KB)...
+[  0%] Downloading update (0 of 52522 KB)...
+[  0%] Downloading update (832 of 52522 KB)...
+[  1%] Downloading update (1892 of 52522 KB)...
+[  3%] Downloading update (3231 of 52522 KB)...
+[  6%] Downloading update (5132 of 52522 KB)...
+[  9%] Downloading update (6710 of 52522 KB)...
+[ 12%] Downloading update (8102 of 52522 KB)...
+[ 15%] Downloading update (9715 of 52522 KB)...
+[ 18%] Downloading update (11019 of 52522 KB)...
+[ 20%] Downloading update (12299 of 52522 KB)...
+[ 23%] Downloading update (13564 of 52522 KB)...
+[ 25%] Downloading update (15020 of 52522 KB)...
+[ 28%] Downloading update (16349 of 52522 KB)...
+[ 31%] Downloading update (17614 of 52522 KB)...
+[ 33%] Downloading update (18943 of 52522 KB)...
+[ 36%] Downloading update (20210 of 52522 KB)...
+[ 38%] Downloading update (21603 of 52522 KB)...
+[ 41%] Downloading update (22931 of 52522 KB)...
+[ 43%] Downloading update (24260 of 52522 KB)...
+[ 46%] Downloading update (25526 of 52522 KB)...
+[ 48%] Downloading update (26855 of 52522 KB)...
+[ 51%] Downloading update (28184 of 52522 KB)...
+[ 53%] Downloading update (29449 of 52522 KB)...
+[ 56%] Downloading update (30754 of 52522 KB)...
+[ 58%] Downloading update (32083 of 52522 KB)...
+[ 61%] Downloading update (33349 of 52522 KB)...
+[ 63%] Downloading update (34678 of 52522 KB)...
+[ 66%] Downloading update (36007 of 52522 KB)...
+[ 68%] Downloading update (37272 of 52522 KB)...
+[ 70%] Downloading update (38601 of 52522 KB)...
+[ 73%] Downloading update (39930 of 52522 KB)...
+[ 76%] Downloading update (41196 of 52522 KB)...
+[ 78%] Downloading update (42463 of 52522 KB)...
+[ 80%] Downloading update (43729 of 52522 KB)...
+[ 83%] Downloading update (45057 of 52522 KB)...
+[ 85%] Downloading update (46323 of 52522 KB)...
+[ 88%] Downloading update (47589 of 52522 KB)...
+[ 90%] Downloading update (48404 of 52522 KB)...
+[ 92%] Downloading update (49669 of 52522 KB)...
+[ 94%] Downloading update (50302 of 52522 KB)...
+[ 95%] Downloading update (50935 of 52522 KB)...
+[ 96%] Downloading update (51568 of 52522 KB)...
+[ 98%] Downloading update (52201 of 52522 KB)...
+[ 99%] Downloading update (52522 of 52522 KB)...
+[100%] Download Complete.
+[----] Applying update...
+[----] Extracting package...
+[----] Extracting package...
+[----] Extracting package...
+[----] Extracting package...
+[----] Installing update...
+[----] Installing update...
+[----] Installing update...
+[----] Installing update...
+[----] Installing update...
+[----] Installing update...
+[----] Installing update...
+[----] Cleaning up...
+[----] Update complete, launching...
+WARNING: setlocale('en_US.UTF-8') failed, using locale: 'C'. International characters may not work.
+Redirecting stderr to '/root/.local/share/Steam/logs/stderr.txt'
+Logging directory: '/root/.local/share/Steam/logs'
+[  0%] Checking for available updates...
+[----] Installing update...
+[----] Extracting package...
+[----] Extracting package...
+[----] Extracting package...
+[----] Extracting package...
+[----] Installing update...
+[----] Installing update...
+[----] Installing update...
+[----] Installing update...
+[----] Installing update...
+[----] Installing update...
+[----] Installing update...
+[----] Cleaning up...
+[----] Update complete, launching Steamcmd...
+UpdateUI: skip show logo
+WARNING: setlocale('en_US.UTF-8') failed, using locale: 'C'. International characters may not work.
+Redirecting stderr to '/root/.local/share/Steam/logs/stderr.txt'
+Logging directory: '/root/.local/share/Steam/logs'
+[  0%] Checking for available updates...
+[----] Verifying installation...
+UpdateUI: skip show logo
+Steam Console Client (c) Valve Corporation - version 1759461699
+-- type 'quit' to exit --
+Loading Steam API...[0mIPC function call IClientUtils::GetSteamRealm took too long: 55 msec
+OK
+[0m
+Connecting anonymously to Steam Public...[0mOK
+[0mWaiting for client config...[0mOK
+[0mWaiting for user info...[0mOK
+[0mAppID : 258550, change number : 32018827/32018827, last change : Sat Nov  1 17:19:20 2025 
+"258550"
+{
+	"common"
+	{
+		"name"		"Rust Dedicated Server"
+		"type"		"Game"
+		"ReleaseState"		"released"
+		"oslist"		"windows,linux"
+		"osarch"		""
+		"osextended"		""
+		"associations"
+		{
+		}
+		"gameid"		"258550"
+		"store_tags"
+		{
+		}
+	}
+	"extended"
+	{
+		"gamedir"		""
+	}
+	"config"
+	{
+		"contenttype"		"3"
+		"installdir"		"rust_dedicated"
+	}
+	"depots"
+	{
+		"overridescddb"		"1"
+		"markdlcdepots"		"1"
+		"258551"
+		{
+			"systemdefined"		"1"
+			"config"
+			{
+				"oslist"		"windows"
+			}
+			"manifests"
+			{
+				"public"
+				{
+					"gid"		"2666202724111975267"
+					"size"		"791545364"
+					"download"		"543854960"
+				}
+				"aux01-staging"
+				{
+					"gid"		"4362955870003955550"
+					"size"		"797383562"
+					"download"		"545144384"
+				}
+				"aux02"
+				{
+					"gid"		"3027648084176055883"
+					"size"		"796495721"
+					"download"		"544785696"
+				}
+				"debug"
+				{
+					"gid"		"2591346971987511447"
+					"size"		"631208934"
+					"download"		"393851888"
+				}
+				"last-month"
+				{
+					"gid"		"9114229720404427203"
+					"size"		"785939662"
+					"download"		"539828608"
+				}
+				"release"
+				{
+					"gid"		"8945486277885517748"
+					"size"		"791545364"
+					"download"		"543854992"
+				}
+				"staging"
+				{
+					"gid"		"4333069358882790640"
+					"size"		"796394205"
+					"download"		"545166000"
+				}
+			}
+		}
+		"258552"
+		{
+			"config"
+			{
+				"oslist"		"linux"
+			}
+			"manifests"
+			{
+				"public"
+				{
+					"gid"		"6205253561909558416"
+					"size"		"914043034"
+					"download"		"575143776"
+				}
+				"aux01-staging"
+				{
+					"gid"		"8515753231399430777"
+					"size"		"919739094"
+					"download"		"577239632"
+				}
+				"aux02"
+				{
+					"gid"		"4331615751106216509"
+					"size"		"918840279"
+					"download"		"576411952"
+				}
+				"debug"
+				{
+					"gid"		"8305401038939912362"
+					"size"		"139415558"
+					"download"		"34397936"
+				}
+				"last-month"
+				{
+					"gid"		"6009790042682409864"
+					"size"		"862732244"
+					"download"		"549711776"
+				}
+				"release"
+				{
+					"gid"		"8964387813325566335"
+					"size"		"914043034"
+					"download"		"575143760"
+				}
+				"staging"
+				{
+					"gid"		"2421584562917514514"
+					"size"		"919075355"
+					"download"		"576565888"
+				}
+			}
+		}
+		"258554"
+		{
+			"manifests"
+			{
+				"public"
+				{
+					"gid"		"2309031136821872827"
+					"size"		"7415754252"
+					"download"		"2157806112"
+				}
+				"aux01-staging"
+				{
+					"gid"		"5879361609839886359"
+					"size"		"7943537996"
+					"download"		"2567747712"
+				}
+				"aux02"
+				{
+					"gid"		"1709865931820493324"
+					"size"		"7181197360"
+					"download"		"2142109488"
+				}
+				"debug"
+				{
+					"gid"		"9050441631359858310"
+					"size"		"8000428058"
+					"download"		"1942290304"
+				}
+				"last-month"
+				{
+					"gid"		"3241201920354679778"
+					"size"		"7355389235"
+					"download"		"2128336896"
+				}
+				"release"
+				{
+					"gid"		"2309031136821872827"
+					"size"		"7415754252"
+					"download"		"2157806112"
+				}
+				"staging"
+				{
+					"gid"		"5459325395241319755"
+					"size"		"7182090231"
+					"download"		"2142321184"
+				}
+			}
+		}
+		"branches"
+		{
+			"public"
+			{
+				"buildid"		"20511092"
+				"timeupdated"		"1761236562"
+			}
+			"aux01-staging"
+			{
+				"buildid"		"20624820"
+				"description"		"Pre-Staging"
+				"timeupdated"		"1761928727"
+			}
+			"aux02"
+			{
+				"buildid"		"20579660"
+				"description"		"Up and coming"
+				"timeupdated"		"1761681931"
+			}
+			"debug"
+			{
+				"buildid"		"17041002"
+				"description"		"2021 testing"
+				"timeupdated"		"1737126347"
+			}
+			"last-month"
+			{
+				"buildid"		"19968088"
+				"description"		"last-month"
+				"timeupdated"		"1759424806"
+			}
+			"release"
+			{
+				"buildid"		"20517794"
+				"description"		"Release, before public"
+				"timeupdated"		"1761246799"
+			}
+			"staging"
+			{
+				"buildid"		"20626743"
+				"timeupdated"		"1761938477"
+			}
+		}
+		"privatebranches"		"1"
+	}
+}
+Unloading Steam API...[0mOK
+[0m

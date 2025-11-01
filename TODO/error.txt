@@ -1,0 +1,6 @@
+failed to parse VDF: Failed parsing input Error:  --> 2:1
+  |
+2 | [  0%] Checking for available update...
+  | ^---
+  |
+  = expected EOI [server/src/actors/game_monitor.rs:126]
