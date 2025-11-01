@@ -98,6 +98,10 @@ more sensible location.
   ```
 ]
 
+(The corresponding package for Arch
+Linux#footnote[https://aur.archlinux.org/packages/steamcmd (accessed
+2025-11-01)] installs in `/usr/bin/steamcmd`.)
+
 SteamCMD updates itself outside of the system package manager. As of 2025-11-01,
 the latest version seems to be `1759461699`, as reported by the program when run
 with `--help`.
