@@ -50,17 +50,29 @@ impl RustDedicated {
             &Self::APP_ID.to_string(),
             "+quit",
         ]);
-        let output: String = match cmd.output().await {
-            Ok(n) => match n.status.success() {
-                true => match String::from_utf8(n.stdout) {
+        let build_id: BuildID = match cmd.output().await {
+            Ok(n) => {
+                let output_raw: Vec<u8> = n.stdout;
+                let utf8: String = match n.status.success() {
+                    true => match String::from_utf8(output_raw.clone()) {
+                        Ok(n) => n,
+                        Err(_) => todo!(),
+                    },
+                    false => todo!(),
+                };
+                let build_id: BuildID = match BuildID::from_vdf_steamcmd_contaminated(&utf8) {
                     Ok(n) => n,
-                    Err(_) => todo!(),
-                },
-                false => todo!(),
-            },
+                    Err(err) => {
+                        return Err(format!(
+                            "failed to parse buildid from SteamCMD output: hex: {output_hex_encoded}: {err}",
+                            output_hex_encoded = output_raw.to_hex_encoded_string(),
+                        ));
+                    }
+                };
+                build_id
+            }
             Err(_) => todo!(),
         };
-        let build_id: BuildID = BuildID::from_vdf_steamcmd_contaminated(&output).unwrap();
         Ok(build_id)
     }
 
@@ -619,4 +631,14 @@ fn test_from_vdf_appmanifest() {
         }
 }"#;
     let _buildid: BuildID = BuildID::from_vdf_appmanifest(input).unwrap();
+}
+
+trait DisplayHex {
+    fn to_hex_encoded_string(&self) -> String;
+}
+
+impl DisplayHex for Vec<u8> {
+    fn to_hex_encoded_string(&self) -> String {
+        self.iter().map(|byte| format!("{:02x}", byte)).collect()
+    }
 }
