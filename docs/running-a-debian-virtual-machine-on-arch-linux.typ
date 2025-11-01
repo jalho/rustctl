@@ -5,12 +5,14 @@
  * $ typst compile ./source-file.typ ./target-file.pdf
  */
 
-#let global_block_fill  = luma(230)
+#let global_block_fill  = rgb(50,50,50)
 #let global_block_inset = 8pt
 
 #set document(
   title: [Running a Debian Virtual Machine On Arch Linux]
 )
+#set page(fill: rgb(20, 20, 20))
+#set text(fill: rgb(230, 230, 230))
 #set heading(numbering: "1.1")
 
 #title()
