@@ -15,7 +15,7 @@ pub fn MapView(state: crate::state::State) -> Element {
             url_path = rustctl_common::web_app::MAP_URL_PATH,
         )
     } else {
-        format!("{url_path}", url_path = rustctl_common::web_app::MAP_URL_PATH,)
+        rustctl_common::web_app::MAP_URL_PATH.to_string()
     };
 
     rsx! {

@@ -28,10 +28,7 @@ async fn run_websocket_connection(app_rx: Receiver<String>) -> Result<(), Box<dy
             url_path = rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH,
         )
     } else {
-        format!(
-            "{url_path}",
-            url_path = rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH,
-        )
+        rustctl_common::web_app::WEBSOCKET_CONNECT_URL_PATH.to_string()
     };
 
     let ws = WebSocket::open(&ws_url)?;
