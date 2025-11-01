@@ -8,26 +8,30 @@
 #let global_block_fill  = luma(230)
 #let global_block_inset = 8pt
 
-= Running a Debian Virtual Machine On Arch Linux
+#set document(
+  title: [Running a Debian Virtual Machine On Arch Linux]
+)
+#set heading(numbering: "1.1")
+
+#title()
 
 2025-11-01
 
-Documentation for running a virtual machine on a system like described in the
-following table:
+= Overview
 
 #table(
   columns: 4,
-  [*component*],           [*name*],                       [*version*],      [*notes*],
-  [kernel],                [Linux],                        [6.17.6-arch1-1], [],
-  [operating system (OS)], [Arch Linux],                   [],               [],
-  [emulator],              [QEMU],                         [10.1.2],         [executable: `/usr/bin/qemu-x86_64`],
-  [],                      [virsh],                        [11.8.0],         [executable: `/usr/bin/virsh`],
-  [guest OS],              [Debian GNU/Linux],             [13 (trixie)],    [],
+  [*component*], [*name*],           [*version*],      [*notes*],
+  [host kernel], [Linux],            [6.17.6-arch1-1], [],
+  [host OS],     [Arch Linux],       [],               [],
+  [],            [QEMU],             [10.1.2],         [executable: `/usr/bin/qemu-x86_64`],
+  [],            [virsh],            [11.8.0],         [executable: `/usr/bin/virsh`],
+  [guest OS],    [Debian GNU/Linux], [13 (trixie)],    [],
 )
 
-== Steps
+= Steps
 
-=== Get an image for a virtual machine (VM)
+== Get an image for a virtual machine (VM)
 
 #block(fill: global_block_fill, inset: global_block_inset)[
   ```
@@ -42,7 +46,7 @@ following table:
   ```
 ]
 
-=== Create and launch a VM
+== Create and launch a VM
 
 #block(fill: global_block_fill, inset: global_block_inset)[
   ```
@@ -72,7 +76,7 @@ keyboard layout selection.
 
 #pagebreak()
 
-=== View, shutdown and restart the VM
+== View, shutdown and restart the VM
 
 #block(fill: global_block_fill, inset: global_block_inset)[
   ```
@@ -96,7 +100,7 @@ keyboard layout selection.
   ```
 ]
 
-=== Take snapshots of a shut off VM, and revert a VM to a snapshot
+== Take snapshots of a shut off VM, and revert a VM to a snapshot
 
 #block(fill: global_block_fill, inset: global_block_inset)[
   ```
@@ -112,7 +116,7 @@ keyboard layout selection.
   ```
 ]
 
-=== Destroy a VM
+== Destroy a VM
 
 #block(fill: global_block_fill, inset: global_block_inset)[
   ```
