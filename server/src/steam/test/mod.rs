@@ -23,8 +23,9 @@ impl DecodeHex for &str {
 
 #[test]
 fn from_vdf_steamcmd_contaminated() {
-    let hex: &'static str = include_str!("./sample-001.hex");
+    let hex: &'static str = include_str!("./2025-11-01_sample-001.hex");
     let decoded: Vec<u8> = hex.to_decoded().unwrap();
     let utf8: String = String::from_utf8(decoded).unwrap();
-    let _buildid = crate::steam::BuildID::from_vdf_steamcmd_contaminated(&utf8).unwrap();
+    let buildid: crate::steam::BuildID = crate::steam::BuildID::from_vdf_steamcmd_contaminated(&utf8).unwrap();
+    assert_eq!(buildid, crate::steam::BuildID::new(20511092));
 }
