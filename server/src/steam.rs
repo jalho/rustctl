@@ -665,3 +665,11 @@ impl DisplayHex for Vec<u8> {
         self.iter().map(|byte| format!("{:02x}", byte)).collect()
     }
 }
+
+#[test]
+fn test_from_vdf_steamcmd_contaminated_2() {
+    let hex: &'static str = include_str!("../../TODO/sample.hex");
+    let decoded: Vec<u8> = hex.to_decoded().unwrap();
+    let utf8: String = String::from_utf8(decoded).unwrap();
+    let buildid = BuildID::from_vdf_steamcmd_contaminated(&utf8).unwrap();
+}
