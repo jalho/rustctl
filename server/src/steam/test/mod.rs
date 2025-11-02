@@ -23,7 +23,7 @@ impl DecodeHex for &str {
 
 #[test]
 fn from_vdf_steamcmd_contaminated() {
-    let hex: &'static str = include_str!("./test-sample-001.hex");
+    let hex: &'static str = include_str!("./sample-001.hex");
     let decoded: Vec<u8> = hex.to_decoded().unwrap();
     let utf8: String = String::from_utf8(decoded).unwrap();
     let _buildid = crate::steam::BuildID::from_vdf_steamcmd_contaminated(&utf8).unwrap();
