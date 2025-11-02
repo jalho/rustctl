@@ -649,7 +649,7 @@ impl DecodeHex for &str {
                 };
                 match u8::from_str_radix(hex_byte, 16) {
                     Ok(n) => Ok(n),
-                    Err(err) => return Err(err.to_string()),
+                    Err(err) => Err(err.to_string()),
                 }
             })
             .collect()
