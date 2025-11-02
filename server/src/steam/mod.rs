@@ -260,7 +260,9 @@ impl BuildID {
          * Strip the "contamination" i.e. whatever precedes the actual "VDF"
          * data.
          */
-        let vdf_start_incl: usize = contaminated_vdf.find(r#""258550""#).ok_or("could not find start of VDF")?;
+        let vdf_start_incl: usize = contaminated_vdf
+            .find(r#""258550""#)
+            .ok_or("could not find start of VDF")?;
         let vdf_end_incl = contaminated_vdf.rfind('}').ok_or("could not find end of VDF")?;
         let data: &str = &contaminated_vdf[vdf_start_incl..=vdf_end_incl];
 
