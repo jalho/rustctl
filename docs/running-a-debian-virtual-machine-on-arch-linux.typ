@@ -48,7 +48,7 @@ The download URL can be found from https://cloud.debian.org/images/cloud
 #block(fill: global_block_fill, inset: global_block_inset)[
   ```
   $ file debian-13-nocloud-amd64-20251006-2257.qcow2
-  debian-13-nocloud-amd64-20251006-2257.qcow2: QEMU QCOW Image (v3), 3221225472 bytes (v3), 3221225472 bytes
+  .. QEMU QCOW Image (v3), ...
   ```
 ]
 
@@ -63,8 +63,7 @@ The download URL can be found from https://cloud.debian.org/images/cloud
 #block(fill: global_block_fill, inset: global_block_inset)[
   ```
   $ virt-resize --expand /dev/sda1 \
-    debian-13-nocloud-amd64-20251006-2257.qcow2 \
-    debian-13-resized.qcow2
+    debian-13-nocloud-amd64-20251006-2257.qcow2 debian-13-resized.qcow2
   ```
 ]
 
@@ -74,8 +73,7 @@ The download URL can be found from https://cloud.debian.org/images/cloud
   ```
   $ virt-install \
     --name debian-13 \
-    --memory 4096 \
-    --vcpus 2 \
+    --memory 4096 --vcpus 2 \
     --disk ~/Downloads/debian-13-resized.qcow2 \
     --import \
     --os-variant debian13 \
@@ -95,8 +93,6 @@ In the guest, set Finnish keyboard layout by installing
 `console-setup`#footnote[https://packages.debian.org/trixie/console-setup
 (accessed 2025-11-01)]: The installer of version 1.240 includes an interactive
 keyboard layout selection.
-
-#pagebreak()
 
 == View, Shutdown And Restart a VM
 
@@ -149,19 +145,9 @@ keyboard layout selection.
 
 = Copying a File From Host To Guest
 
-Install
-`qemu-guest-agent`#footnote[https://packages.debian.org/trixie/qemu-guest-agent
-(accessed 2025-11-01)] in the guest. An associated `systemd` service needs to be
-manually started once installed.
-
-#block(fill: global_block_fill, inset: global_block_inset)[
-  ```
-  # systemctl start qemu-guest-agent
-  ```
-]
-
 Shut down the guest. Then, on the host, use `virt-copy-in` from package
-`libguestfs` to copy a file to the guest.
+`libguestfs`#footnote[https://archlinux.org/packages/extra/x86_64/libguestfs/
+(accessed 2025-11-13)] to copy a file to the guest.
 
 #block(fill: global_block_fill, inset: global_block_inset)[
   ```
