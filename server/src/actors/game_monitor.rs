@@ -220,7 +220,7 @@ impl GameMonitor {
 
             let cmd_start: std::time::Instant = std::time::Instant::now();
             let response: RconMessage = cmd
-                .send_and_wait_response(ws_sink, ws_stream, std::time::Duration::from_secs(10))
+                .send_and_wait_response(ws_sink, ws_stream, std::time::Duration::from_secs(60))
                 .await?;
             let cmd_time: std::time::Duration = cmd_start.elapsed();
 
