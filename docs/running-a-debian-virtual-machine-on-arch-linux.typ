@@ -52,6 +52,20 @@ The download URL can be found from https://cloud.debian.org/images/cloud
   ```
 ]
 
+== Resize The Image From 3 GB To 32 GB
+
+#block(fill: global_block_fill, inset: global_block_inset)[
+  ```
+  $ qemu-img create -f qcow2 -o preallocation=metadata debian-13-resized.qcow2 32G
+  ```
+]
+
+#block(fill: global_block_fill, inset: global_block_inset)[
+  ```
+  $ virt-resize --expand /dev/sda1 debian-13-nocloud-amd64-20251006-2257.qcow2 debian-13-resized.qcow2
+  ```
+]
+
 == Create And Launch a VM
 
 #block(fill: global_block_fill, inset: global_block_inset)[
@@ -60,7 +74,7 @@ The download URL can be found from https://cloud.debian.org/images/cloud
     --name debian-13 \
     --memory 4096 \
     --vcpus 2 \
-    --disk ~/Downloads/debian-13-nocloud-amd64-20251006-2257.qcow2 \
+    --disk ~/Downloads/debian-13-resized.qcow2 \
     --import \
     --os-variant debian13 \
     --network user
