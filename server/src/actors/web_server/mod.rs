@@ -44,7 +44,14 @@ impl WebServer {
 
     pub async fn work(self) -> Summary {
         let tcp_listener: tokio::net::TcpListener = match tokio::net::TcpListener::bind(&self.listen_addr).await {
-            Ok(n) => n,
+            Ok(n) => {
+                log::info!(
+                    r#"Web server TCP listener bound at "{host}:{port}""#,
+                    host = self.listen_addr.0,
+                    port = self.listen_addr.1,
+                );
+                n
+            }
             Err(err) => {
                 log::error!(
                     r#"Failed to bind TCP listener at "{host}:{port}": {err}"#,
