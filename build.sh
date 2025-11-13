@@ -10,6 +10,15 @@ cd ./clients/web/
 dx bundle --platform web
 cd -
 
+#
+# TODO: Define dependencies somehow:
+#
+# - `steamcmd`: Cannot be automatically installed: Installer requires
+#               interactivity, and there are other quirks too.
+#
+# - `wget`: Can be automatically installed.
+#
+
 PACKAGE_NAME="rustctl"
 VERSION="0.1.0-rc2"
 ARCH="amd64"
