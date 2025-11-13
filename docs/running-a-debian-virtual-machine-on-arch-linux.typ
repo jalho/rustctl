@@ -62,7 +62,9 @@ The download URL can be found from https://cloud.debian.org/images/cloud
 
 #block(fill: global_block_fill, inset: global_block_inset)[
   ```
-  $ virt-resize --expand /dev/sda1 debian-13-nocloud-amd64-20251006-2257.qcow2 debian-13-resized.qcow2
+  $ virt-resize --expand /dev/sda1 \
+    debian-13-nocloud-amd64-20251006-2257.qcow2 \
+    debian-13-resized.qcow2
   ```
 ]
 
