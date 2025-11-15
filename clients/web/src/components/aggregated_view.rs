@@ -3,10 +3,10 @@ use dioxus::prelude::*;
 #[component]
 pub fn AggregatedView(state: crate::state::State) -> Element {
     let player_suffix = if state.aggregated.len() != 1 { "s" } else { "" };
-    
+
     if state.aggregated.is_empty() {
         return rsx! {
-            div { style: "background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; height: 100%;",
+            div { style: "background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px;",
                 h2 { style: "color: #e6edf3; font-size: 16px; font-weight: 600; margin: 0 0 12px 0;",
                     "Player Resources"
                 }
@@ -16,7 +16,7 @@ pub fn AggregatedView(state: crate::state::State) -> Element {
             }
         };
     }
-    
+
     rsx! {
         div { style: "background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; height: 100%;",
             h2 { style: "color: #e6edf3; font-size: 16px; font-weight: 600; margin: 0 0 12px 0;",
@@ -54,4 +54,4 @@ pub fn AggregatedView(state: crate::state::State) -> Element {
             }
         }
     }
-    }
+}

@@ -74,19 +74,19 @@ pub fn ControlsView(state: crate::state::State, app_tx: Signal<Option<async_chan
             state_display,
         } => {
             rsx!(
-                div { style: "background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; margin-bottom: 16px;",
-                    div { style: "display: flex; align-items: center; justify-content: space-between;",
-                        div { style: "display: flex; align-items: center; gap: 12px;",
-                            h2 { style: "color: #e6edf3; font-size: 16px; font-weight: 600; margin: 0;",
+                div { style: "background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px; margin-bottom: 16px;",
+                    div { style: "display: flex; flex-direction: column; gap: 10px;",
+                        div { style: "display: flex; align-items: center; gap: 10px; flex-wrap: wrap;",
+                            h2 { style: "color: #e6edf3; font-size: 15px; font-weight: 600; margin: 0;",
                                 "Server Control"
                             }
-                            div { style: "display: inline-flex; align-items: center; gap: 6px; background: #238636; color: #ffffff; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;",
+                            div { style: "display: inline-flex; align-items: center; gap: 6px; background: #238636; color: #ffffff; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;",
                                 span { "●" }
                                 span { "{state_display}" }
                             }
                         }
                         button {
-                            style: "background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; padding: 5px 16px; font-size: 14px; font-weight: 500; cursor: pointer;",
+                            style: "background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; padding: 8px 16px; font-size: 14px; font-weight: 500; cursor: pointer; width: 100%;",
                             onclick: move |_| {
                                 if let Some(tx) = &*app_tx.read() {
                                     let _ = tx.try_send(command_serialized.clone());
@@ -99,14 +99,17 @@ pub fn ControlsView(state: crate::state::State, app_tx: Signal<Option<async_chan
             )
         }
 
-        Controls::NotActionable { state_display, state_color } => {
+        Controls::NotActionable {
+            state_display,
+            state_color,
+        } => {
             rsx!(
-                div { style: "background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; margin-bottom: 16px;",
-                    div { style: "display: flex; align-items: center; gap: 12px;",
-                        h2 { style: "color: #e6edf3; font-size: 16px; font-weight: 600; margin: 0;",
+                div { style: "background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px; margin-bottom: 16px;",
+                    div { style: "display: flex; align-items: center; gap: 10px; flex-wrap: wrap;",
+                        h2 { style: "color: #e6edf3; font-size: 15px; font-weight: 600; margin: 0;",
                             "Server Control"
                         }
-                        div { style: "display: inline-flex; align-items: center; gap: 6px; background: #1f6feb; color: #ffffff; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;",
+                        div { style: "display: inline-flex; align-items: center; gap: 6px; background: #1f6feb; color: #ffffff; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;",
                             span { style: "color: {state_color};", "●" }
                             span { "{state_display}" }
                         }

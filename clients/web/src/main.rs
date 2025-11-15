@@ -31,7 +31,12 @@ fn App() -> Element {
                 style.set_property("color", "#e6edf3").ok();
                 style.set_property("margin", "0").ok();
                 style.set_property("padding", "0").ok();
-                style.set_property("font-family", "-apple-system,BlinkMacSystemFont,Segoe UI,Noto Sans,Helvetica,Arial,sans-serif").ok();
+                style
+                    .set_property(
+                        "font-family",
+                        "-apple-system,BlinkMacSystemFont,Segoe UI,Noto Sans,Helvetica,Arial,sans-serif",
+                    )
+                    .ok();
                 style.set_property("min-height", "100vh").ok();
             }
         }
@@ -56,25 +61,26 @@ fn App() -> Element {
     };
 
     rsx! {
-        div { style: "background: #0d1117; min-height: 100vh; padding: 24px;",
+        div { style: "background: #0d1117; min-height: 100vh; padding: 16px;",
             div { style: "max-width: 1280px; margin: 0 auto;",
                 div { style: "margin-bottom: 16px;",
-                    h1 { style: "color: #e6edf3; font-size: 32px; font-weight: 600; margin: 0 0 8px 0;",
+                    h1 { style: "color: #e6edf3; font-size: 24px; font-weight: 600; margin: 0 0 4px 0;",
                         "rustctl"
                     }
-                    p { style: "color: #7d8590; font-size: 14px; margin: 0;",
+                    p { style: "color: #7d8590; font-size: 13px; margin: 0;",
                         "Rust game server management"
                     }
                 }
 
                 ControlsView { state: state.clone(), app_tx }
 
-                div { style: "display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;",
+                div { style: "display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px;",
                     MapView { state: state.clone() }
                     AggregatedView { state: state.clone() }
                 }
-
-                CodeView { state: state.clone() }
+                div { style: "margin-top: 16px;",
+                    CodeView { state: state.clone() }
+                }
             }
         }
     }
