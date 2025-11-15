@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 #[component]
-pub fn AggregatedView(state: crate::state::State) -> Element {
+pub fn PlayerResourcesView(state: crate::state::State) -> Element {
     if state.aggregated.is_empty() {
         return rsx! {
             div { style: "background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px;",

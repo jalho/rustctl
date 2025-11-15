@@ -1,9 +1,9 @@
-mod aggregated_view;
-mod code_view;
+mod connected_players_view;
 mod controls_view;
 mod map_view;
+mod player_resources_view;
 
-pub use aggregated_view::AggregatedView;
-pub use code_view::CodeView;
+pub use connected_players_view::ConnectedPlayersView;
 pub use controls_view::ControlsView;
 pub use map_view::MapView;
+pub use player_resources_view::PlayerResourcesView;

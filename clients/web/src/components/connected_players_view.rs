@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 #[component]
-pub fn CodeView(state: crate::state::State) -> Element {
+pub fn ConnectedPlayersView(state: crate::state::State) -> Element {
     let players = &state.snapshot.ingame_state.players;
     let player_count = players.len();
     let player_suffix = if player_count != 1 { "s" } else { "" };

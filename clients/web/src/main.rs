@@ -2,7 +2,7 @@ mod components;
 mod state;
 mod websocket;
 
-use components::{AggregatedView, CodeView, ControlsView, MapView};
+use components::{ConnectedPlayersView, ControlsView, MapView, PlayerResourcesView};
 use dioxus::prelude::*;
 use web_sys::wasm_bindgen::JsCast;
 use web_sys::{HtmlBodyElement, window};
@@ -76,10 +76,8 @@ fn App() -> Element {
 
                 div { style: "display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px;",
                     MapView { state: state.clone() }
-                    AggregatedView { state: state.clone() }
-                }
-                div { style: "margin-top: 16px;",
-                    CodeView { state: state.clone() }
+                    PlayerResourcesView { state: state.clone() }
+                    ConnectedPlayersView { state: state.clone() }
                 }
             }
         }
