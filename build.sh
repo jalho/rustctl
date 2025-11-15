@@ -25,7 +25,7 @@ cd -
 #
 
 PACKAGE_NAME="rustctl"
-VERSION="0.1.0-rc3"
+VERSION="0.1.0-rc4"
 ARCH="amd64"
 DEB_DIR="target/debian"
 PACKAGE_DIR="$DEB_DIR/${PACKAGE_NAME}_${VERSION}_$ARCH"
