@@ -5,6 +5,8 @@ Work in progress!
 Tooling for running a *Rust* (the game) server and an integrated web service
 on Linux.
 
+Video demo as of commit `b7a1e5e1` (2025-11-16): [YouTube](https://youtu.be/kVfzuFWOvZY).
+
 ## Features
 
 Features are listed in the [`./CHANGELOG.md`](./CHANGELOG.md).
