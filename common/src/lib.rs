@@ -48,6 +48,10 @@ pub mod snapshot {
         pub fn new(value: u64) -> Self {
             Self(value)
         }
+
+        pub fn into_u64(&self) -> u64 {
+            self.0
+        }
     }
 
     impl std::fmt::Display for MemoryUsage {
