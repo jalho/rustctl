@@ -136,7 +136,9 @@ impl Percentage {
         let active_diff: u64 = current.active() - earlier.active();
         let usage: f64 = (active_diff as f64 / total_diff as f64) * 100.0;
 
-        if (0.0..=100.0).contains(&usage) {
+        if total_diff == 0 {
+            Ok(Self(0.0))
+        } else if (0.0..=100.0).contains(&usage) {
             Ok(Self(usage))
         } else {
             Err(ErrorDeterminingUsage::InvalidValueOutOfRangePercentage {
