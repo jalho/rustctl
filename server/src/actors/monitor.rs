@@ -1,8 +1,17 @@
 pub struct Monitor {
     ctoken: tokio_util::sync::CancellationToken,
+
     tx_activate: tokio::sync::mpsc::Sender<crate::actors::terminator::Activator>,
     tx_resuse: tokio::sync::mpsc::Sender<SystemResourceUsageReading>,
+
     previous_stats: Option<AllCpusStats>,
+
+    /// In case the program goes down due to Out Of Memory (OOM), we'd like to
+    /// be able to retrospectively inspect memory usage trend from logs written
+    /// to disk. We only care about significant changes in memory usage. We
+    /// store the last logged usage in this pointer, in order to determine
+    /// whether a new log is due for current usage.
+    last_logged_memory_usage_kib: Option<(chrono::DateTime<chrono::Utc>, u64)>,
 }
 
 impl Monitor {
@@ -16,6 +25,7 @@ impl Monitor {
             tx_activate,
             tx_resuse,
             previous_stats: None,
+            last_logged_memory_usage_kib: None,
         }
     }
 
@@ -47,6 +57,33 @@ impl Monitor {
                     }
                 };
                 let memory_reading = SystemResourceUsageReading::MemoryUsage { kibibytes_in_use };
+
+                match self.last_logged_memory_usage_kib {
+                    Some(prev) => {
+                        let (last_logged_at, previous_kib) = prev;
+                        let current_kib: u64 = kibibytes_in_use;
+
+                        let delta_kib: u64 = previous_kib.abs_diff(current_kib);
+                        let delta_mib: f64 = delta_kib as f64 / 1024.0;
+
+                        const LOG_THRESHOLD_MIB: f64 = 256.0;
+                        if delta_mib > LOG_THRESHOLD_MIB {
+                            log::debug!(
+                                "Memory usage changed by at least {LOG_THRESHOLD_MIB} MiB ({delta_mib:.2} MiB) since {last_logged_at}: {previous_mib:.2} MiB ({previous_kib} KiB) -> {current_mib:.2} MiB ({current_kib} KiB)",
+                                previous_mib = kib_to_mib(previous_kib),
+                                current_mib = kib_to_mib(current_kib),
+                            );
+                        }
+                    }
+                    None => {
+                        log::debug!(
+                            "Memory usage: {mib:.2} MiB ({kibibytes_in_use} KiB)",
+                            mib = kib_to_mib(kibibytes_in_use),
+                        );
+                        self.last_logged_memory_usage_kib = Some((chrono::Utc::now(), kibibytes_in_use));
+                    }
+                }
+
                 if let Err(err) = self.send_reading(memory_reading).await {
                     log::error!("Failed to send reading: {err}");
                     self.request_termination().await;
@@ -417,4 +454,9 @@ impl std::str::FromStr for CpuStats {
             guest_nice: values[9],
         })
     }
+}
+
+fn kib_to_mib(kib: u64) -> f64 {
+    let kib: f64 = kib as f64;
+    kib / 1024.0
 }
