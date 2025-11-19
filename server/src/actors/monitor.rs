@@ -73,6 +73,7 @@ impl Monitor {
                                 previous_mib = kib_to_mib(previous_kib),
                                 current_mib = kib_to_mib(current_kib),
                             );
+                            self.last_logged_memory_usage_kib = Some((chrono::Utc::now(), kibibytes_in_use));
                         }
                     }
                     None => {
