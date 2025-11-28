@@ -7,6 +7,8 @@ members = [
   "./clients/web",
 
   "./common",
+
+   "xtask",
 ]
 
 [workspace.metadata.tooling]

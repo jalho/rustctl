@@ -1,0 +1,8 @@
+[package]
+edition = "2024"
+name    = "xtask"
+
+[dependencies]
+clap   = { workspace = true, default-features = false, features = [ "color", "derive", "error-context", "help", "std", "suggestions", "usage" ] }
+log4rs = { workspace = true, default-features = false, features = [ "console_appender" ] }
+log    = { workspace = true, default-features = false, features = [ ] }

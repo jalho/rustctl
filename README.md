@@ -93,51 +93,79 @@ interesting. (Not in any meaningful order!)
 
 ## Development cheatsheet
 
-- Start backend in its root:
+Make a Debian package (a `.deb` file):
 
-  ```
-  $ cargo run -- -i 192.168.0.103 -p 8080 --steam-id-append 76561198135242017
-  ```
+```sh
+cargo xtask dist
+```
 
-- Start web app dev server in its root:
+For more tasks, check `--help`:
 
-  ```
-  $ dx serve --platform web --addr 192.168.0.103 --port 8000
-  ```
+```sh
+cargo xtask --help
+```
 
-- SQLite cheatsheet:
+The idea of implementing the auxiliary tasks of a software project using the
+main programming language (as opposed to e.g. Bash scripts) was inspired by:
 
-  ```
-  $ sqlite3 /var/lib/rustctl/rustctl.db
+- [`nob.h` by `tsoding`](https://github.com/tsoding/nob.h)
 
-  sqlite> .tables
+  > The idea is that you should not need anything but a C compiler to build
+  > a C project. No make, no cmake, no shell, no cmd, no PowerShell etc. Only
+  > C compiler.
 
-  sqlite> .schema
+- [`cargo-xtask` by `matklad`](https://github.com/matklad/cargo-xtask)
 
-  sqlite> SELECT * FROM app_data_schema_version;
-  0.1.0-rc1
+  > cargo-xtask is way to add free-form automation to a Rust project ...
+  > distinguishing features of xtask are: It doesn't require any other binaries
+  > besides cargo and rustc ...
 
-  sqlite> .quit
-  ```
+Some other commands:
 
-- Bundle web app:
+```sh
+cargo run -- -i 192.168.0.103 -p 8080 --steam-id-append 76561198135242017
+```
 
-  ```
-  $ cd ./clients/web
-  $ dx bundle --platform web
-  $ cd -
-  $ mv ./target/dx/rustctl-web/release/web/public /var/lib/rustctl/web
-  $ tree /var/lib/rustctl/web/ --prune
-  /var/lib/rustctl/web/
-  ├── assets
-  │   ├── rustctl-web-10c6fdaee3286dde.js
-  │   ├── rustctl-web-10c6fdaee3286dde.js.br
-  │   ├── rustctl-web_bg-a5d465d285bbadf8.wasm
-  │   └── rustctl-web_bg-a5d465d285bbadf8.wasm.br
-  └── index.html
-  ```
+Start web app dev server in its root:
 
-  The web server will serve the bundle from `/var/lib/rustctl/web/`.
+```sh
+dx serve --platform web --addr 192.168.0.103 --port 8000
+```
+
+SQLite cheatsheet:
+
+```sh
+sqlite3 /var/lib/rustctl/rustctl.db
+
+sqlite> .tables
+
+sqlite> .schema
+
+sqlite> SELECT * FROM app_data_schema_version;
+0.1.0-rc1
+
+sqlite> .quit
+```
+
+Bundle web app:
+
+```sh
+cd ./clients/web
+dx bundle --platform web
+cd -
+mv ./target/dx/rustctl-web/release/web/public /var/lib/rustctl/web
+```
+
+```
+├── assets
+│   ├── rustctl-web-10c6fdaee3286dde.js
+│   ├── rustctl-web-10c6fdaee3286dde.js.br
+│   ├── rustctl-web_bg-a5d465d285bbadf8.wasm
+│   └── rustctl-web_bg-a5d465d285bbadf8.wasm.br
+└── index.html
+```
+
+The web server will serve the bundle from `/var/lib/rustctl/web/`.
 
 ## Tips
 
