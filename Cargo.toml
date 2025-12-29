@@ -2,6 +2,9 @@
 resolver = "3"
 members  = [ "xtask", "backend" ]
 
+[workspace.package]
+rust-version = "1.92" # Minimum Supported Rust Version (MSRV): Latest as of 2025-12-29.
+
 [workspace.dependencies]
 clap   = { version = "=4.5.51", default-features = false, features = [] }
 log4rs = { version = "=1.4.0",  default-features = false, features = [] }
