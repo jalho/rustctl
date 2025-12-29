@@ -1,0 +1,9 @@
+[package]
+edition = "2024"
+name    = "backend"
+
+[dependencies]
+clap   = { workspace = true, default-features = false, features = [ "color", "derive", "error-context", "help", "std", "suggestions", "usage" ] }
+log    = { workspace = true, features = [] }
+log4rs = { workspace = true, default-features = false, features = [ "console_appender" ] }
+tokio  = { workspace = true, features = [ "rt", "time" ] }

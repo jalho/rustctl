@@ -13,8 +13,7 @@ impl Cli {
 
 #[derive(clap::Subcommand)]
 pub enum Command {
-    /// Check errors, formatting and lints.
-    Ci,
+    Asd,
 }
 
 pub fn init_logger() -> Result<log4rs::Handle, std::process::ExitCode> {
