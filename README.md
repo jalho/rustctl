@@ -6,5 +6,5 @@ cargo xtask --help
 
 ```sh
 cargo xtask ci && \
-cargo run --bin backend
+  cargo run --bin backend
 ```
