@@ -79,38 +79,45 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
          * Read from FIFO pipes.
          */
         init::Command::Service => {
-            let out_fifo: tokio::fs::File = tokio::fs::File::open(GAME_SERVER_FIFO_OUT)
-                .await
-                .expect("Failed to open stdout FIFO");
-            let err_fifo: tokio::fs::File = tokio::fs::File::open(GAME_SERVER_FIFO_ERR)
-                .await
-                .expect("Failed to open stderr FIFO");
-
-            let out_reader: tokio::io::BufReader<tokio::fs::File> =
-                tokio::io::BufReader::new(out_fifo);
-            let err_reader: tokio::io::BufReader<tokio::fs::File> =
-                tokio::io::BufReader::new(err_fifo);
-
-            let mut out_lines: tokio::io::Lines<tokio::io::BufReader<tokio::fs::File>> =
-                tokio::io::AsyncBufReadExt::lines(out_reader);
-            let mut err_lines: tokio::io::Lines<tokio::io::BufReader<tokio::fs::File>> =
-                tokio::io::AsyncBufReadExt::lines(err_reader);
-
             loop {
-                tokio::select! {
-                    res = out_lines.next_line() => {
-                        match res {
-                            Ok(Some(line)) => log::debug!("[STDOUT] {}", line),
-                            _ => break,
+                let out_fifo: tokio::fs::File = tokio::fs::File::open(GAME_SERVER_FIFO_OUT)
+                    .await
+                    .expect("Failed to open stdout FIFO");
+                let err_fifo: tokio::fs::File = tokio::fs::File::open(GAME_SERVER_FIFO_ERR)
+                    .await
+                    .expect("Failed to open stderr FIFO");
+
+                let out_reader: tokio::io::BufReader<tokio::fs::File> =
+                    tokio::io::BufReader::new(out_fifo);
+                let err_reader: tokio::io::BufReader<tokio::fs::File> =
+                    tokio::io::BufReader::new(err_fifo);
+
+                let mut out_lines: tokio::io::Lines<tokio::io::BufReader<tokio::fs::File>> =
+                    tokio::io::AsyncBufReadExt::lines(out_reader);
+                let mut err_lines: tokio::io::Lines<tokio::io::BufReader<tokio::fs::File>> =
+                    tokio::io::AsyncBufReadExt::lines(err_reader);
+
+                loop {
+                    tokio::select! {
+                        res = out_lines.next_line() => {
+                            match res {
+                                Ok(Some(line)) => log::debug!("[STDOUT] {}", line),
+                                // EOF reached: break inner loop to re-open FIFOs
+                                _ => break,
+                            }
                         }
-                    }
-                    res = err_lines.next_line() => {
-                        match res {
-                            Ok(Some(line)) => log::debug!("[STDERR] {}", line),
-                            _ => break,
+                        res = err_lines.next_line() => {
+                            match res {
+                                Ok(Some(line)) => log::debug!("[STDERR] {}", line),
+                                // EOF reached: break inner loop to re-open FIFOs
+                                _ => break,
+                            }
                         }
                     }
                 }
+
+                log::debug!("FIFO EOF reached, waiting for Game restart...");
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
             }
         }
     }
