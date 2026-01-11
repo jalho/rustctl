@@ -55,6 +55,24 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
          * Write the game server's STDOUT and STDERR to FIFO pipes.
          */
         init::Command::Game => {
+            use std::os::unix::fs::OpenOptionsExt;
+
+            /*
+             * Keep a read-end open for both FIFOs. This ensures that even if
+             * the Service restarts, the Game process always sees at least one
+             * reader and thus doesn't terminate when readers drop to 0.
+             */
+            let _keep_stdout_open: std::fs::File = std::fs::OpenOptions::new()
+                .read(true)
+                .custom_flags(nix::libc::O_NONBLOCK)
+                .open(GAME_SERVER_FIFO_OUT)
+                .expect("Failed to open dummy stdout reader");
+            let _keep_stderr_open: std::fs::File = std::fs::OpenOptions::new()
+                .read(true)
+                .custom_flags(nix::libc::O_NONBLOCK)
+                .open(GAME_SERVER_FIFO_ERR)
+                .expect("Failed to open dummy stderr reader");
+
             let out_file: std::fs::File = std::fs::OpenOptions::new()
                 .write(true)
                 .open(GAME_SERVER_FIFO_OUT)

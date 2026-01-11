@@ -7,5 +7,5 @@ rust-version = { workspace = true }
 clap   = { workspace = true, default-features = false, features = [ "color", "derive", "error-context", "help", "std", "suggestions", "usage" ] }
 log4rs = { workspace = true, default-features = false, features = [ "console_appender" ] }
 log    = { workspace = true, features = [] }
-nix    = { workspace = true, features = [ "fs" ] }
+nix    = { workspace = true, features = [ "fs", "signal" ] }
 tokio  = { workspace = true, features = [ "rt", "time", "process", "fs", "io-util", "macros" ] }

@@ -16,7 +16,8 @@ pub enum Command {
     /// Start the game server, reading startup parameters from storage and
     /// emitting STDOUT and STDERR to FIFO pipes. Not to be confused with the
     /// controlling and observability service that is run as a separate OS
-    /// process.
+    /// process. Terminating the game does not affect the running controlling &
+    /// observability service.
     Game,
 
     /// Start the controlling & observability service that reads the outputs of
