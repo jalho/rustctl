@@ -1,7 +1,7 @@
 #[derive(clap::Parser)]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Option<Command>,
+    pub command: Command,
 }
 
 impl Cli {
@@ -13,7 +13,16 @@ impl Cli {
 
 #[derive(clap::Subcommand)]
 pub enum Command {
-    Asd,
+    /// Start the game server, reading startup parameters from storage and
+    /// emitting STDOUT and STDERR to FIFO pipes. Not to be confused with the
+    /// controlling and observability service that is run as a separate OS
+    /// process.
+    Game,
+
+    /// Start the controlling & observability service that reads the outputs of
+    /// a game server that is running as a separate OS process. Terminating the
+    /// service does not affect the running game server.
+    Service,
 }
 
 pub fn init_logger() -> Result<log4rs::Handle, std::process::ExitCode> {
