@@ -59,3 +59,25 @@ pub fn init_logger() -> Result<log4rs::Handle, std::process::ExitCode> {
 
     Ok(handle)
 }
+
+pub const GAME_SERVER_FIFO_DIR: &str = "/tmp/rustctl";
+pub const GAME_SERVER_FIFO_OUT: &str = "/tmp/rustctl/game-server.out";
+pub const GAME_SERVER_FIFO_ERR: &str = "/tmp/rustctl/game-server.err";
+pub fn prepare_filesystem() {
+    let fifo_dir: &std::path::Path = std::path::Path::new(GAME_SERVER_FIFO_DIR);
+    if !fifo_dir.exists() {
+        std::fs::create_dir_all(fifo_dir).expect("Failed to create FIFO dir");
+    }
+
+    let fifos: [&str; 2] = [GAME_SERVER_FIFO_OUT, GAME_SERVER_FIFO_ERR];
+    for fifo in fifos {
+        let path: &std::path::Path = std::path::Path::new(fifo);
+        if !path.exists() {
+            let mode: nix::sys::stat::Mode = nix::sys::stat::Mode::S_IRUSR
+                | nix::sys::stat::Mode::S_IWUSR
+                | nix::sys::stat::Mode::S_IRGRP
+                | nix::sys::stat::Mode::S_IWGRP;
+            nix::unistd::mkfifo(path, mode).expect("Failed to create FIFO pipe");
+        }
+    }
+}
