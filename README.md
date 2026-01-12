@@ -144,6 +144,8 @@ sqlite> .schema
 sqlite> SELECT * FROM app_data_schema_version;
 0.1.0-rc1
 
+sqlite> UPDATE game_params SET world_seed = 1234 WHERE game_params_id = '00000000-0000-0000-0000-000000000000';
+
 sqlite> .quit
 ```
 
