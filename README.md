@@ -5,7 +5,15 @@ Work in progress!
 Tooling for running a *Rust* (the game) server and an integrated web service
 on Linux.
 
-Video demo as of commit `b7a1e5e1` (2025-11-16): [YouTube](https://youtu.be/cil5wLN7vUo).
+Video demos:
+
+- as of commit `b7a1e5e1` (2025-11-16): [YouTube](https://youtu.be/cil5wLN7vUo)
+
+  Short video.
+
+- as of commit `a830dec0` (2026-01-12): [YouTube](https://youtu.be/FfFGGVR0OK8)
+
+  Longer video, as presented for UTU course Advanced Software Project DTEK2058-3005.
 
 ## Features
 
