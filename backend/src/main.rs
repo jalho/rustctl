@@ -35,7 +35,7 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
          * Write the game server's STDOUT and STDERR to FIFO pipes.
          */
         init::Command::Game => {
-            fifo::ensure_fifos_exist().await;
+            game::ensure_fifos_exist().await;
 
             /*
              * Keep a read-end open for both FIFOs. This ensures that even if
@@ -46,21 +46,21 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
             let _keep_stdout_open: std::fs::File = std::fs::OpenOptions::new()
                 .read(true)
                 .custom_flags(nix::libc::O_NONBLOCK)
-                .open(fifo::GAME_SERVER_FIFO_OUT)
+                .open(game::GAME_SERVER_FIFO_OUT)
                 .unwrap();
             let _keep_stderr_open: std::fs::File = std::fs::OpenOptions::new()
                 .read(true)
                 .custom_flags(nix::libc::O_NONBLOCK)
-                .open(fifo::GAME_SERVER_FIFO_ERR)
+                .open(game::GAME_SERVER_FIFO_ERR)
                 .unwrap();
 
             let out_file: std::fs::File = std::fs::OpenOptions::new()
                 .write(true)
-                .open(fifo::GAME_SERVER_FIFO_OUT)
+                .open(game::GAME_SERVER_FIFO_OUT)
                 .unwrap();
             let err_file: std::fs::File = std::fs::OpenOptions::new()
                 .write(true)
-                .open(fifo::GAME_SERVER_FIFO_ERR)
+                .open(game::GAME_SERVER_FIFO_ERR)
                 .unwrap();
 
             let mut child: tokio::process::Child = tokio::process::Command::new("RustDedicated")
@@ -77,7 +77,7 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
          * Read from FIFO pipes.
          */
         init::Command::Service => {
-            fifo::log_game_server_output().await;
+            game::log_game_server_output().await;
         }
     }
 
@@ -86,7 +86,7 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
 
 struct RtDone;
 
-mod fifo {
+mod game {
     const GAME_SERVER_FIFO_DIR: &str = "/tmp/rustctl";
     pub const GAME_SERVER_FIFO_OUT: &str = "/tmp/rustctl/game-server.out";
     pub const GAME_SERVER_FIFO_ERR: &str = "/tmp/rustctl/game-server.err";
