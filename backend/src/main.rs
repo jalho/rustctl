@@ -30,51 +30,16 @@ fn main() -> std::process::ExitCode {
 async fn async_tasks(cli_args: &init::Cli) -> RtDone {
     match cli_args.command {
         /*
-         * Spawn the game server, i.e. an executable named `RustDedicated`.
-         *
-         * Write the game server's STDOUT and STDERR to FIFO pipes.
+         * Spawn the game server. Write the game server's STDOUT and STDERR to
+         * FIFO pipes.
          */
         init::Command::Game => {
-            game::ensure_fifos_exist().await;
-
-            /*
-             * Keep a read-end open for both FIFOs. This ensures that even if
-             * the Service restarts, the Game process always sees at least one
-             * reader and thus doesn't terminate when readers drop to 0.
-             */
-            use std::os::unix::fs::OpenOptionsExt;
-            let _keep_stdout_open: std::fs::File = std::fs::OpenOptions::new()
-                .read(true)
-                .custom_flags(nix::libc::O_NONBLOCK)
-                .open(game::GAME_SERVER_FIFO_OUT)
-                .unwrap();
-            let _keep_stderr_open: std::fs::File = std::fs::OpenOptions::new()
-                .read(true)
-                .custom_flags(nix::libc::O_NONBLOCK)
-                .open(game::GAME_SERVER_FIFO_ERR)
-                .unwrap();
-
-            let out_file: std::fs::File = std::fs::OpenOptions::new()
-                .write(true)
-                .open(game::GAME_SERVER_FIFO_OUT)
-                .unwrap();
-            let err_file: std::fs::File = std::fs::OpenOptions::new()
-                .write(true)
-                .open(game::GAME_SERVER_FIFO_ERR)
-                .unwrap();
-
-            let mut child: tokio::process::Child = tokio::process::Command::new("RustDedicated")
-                .stdout(std::process::Stdio::from(out_file))
-                .stderr(std::process::Stdio::from(err_file))
-                .spawn()
-                .expect("Failed to spawn game server");
-
-            let _status: std::process::ExitStatus = child.wait().await.unwrap();
+            game::spawn("RustDedicated").await;
         }
 
         /*
-         * Log the outputs of a game server running as a separate OS process:
-         * Read from FIFO pipes.
+         * Log the outputs of a game server running as a separate OS process by
+         * reading from FIFO pipes.
          */
         init::Command::Service => {
             game::log_game_server_output().await;
@@ -87,32 +52,10 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
 struct RtDone;
 
 mod game {
-    const GAME_SERVER_FIFO_DIR: &str = "/tmp/rustctl";
     pub const GAME_SERVER_FIFO_OUT: &str = "/tmp/rustctl/game-server.out";
     pub const GAME_SERVER_FIFO_ERR: &str = "/tmp/rustctl/game-server.err";
 
-    pub async fn ensure_fifos_exist() {
-        let fifo_dir: &std::path::Path = std::path::Path::new(GAME_SERVER_FIFO_DIR);
-        if !fifo_dir.exists() {
-            tokio::fs::create_dir_all(fifo_dir).await.unwrap();
-        }
-
-        let fifos: [&str; 2] = [GAME_SERVER_FIFO_OUT, GAME_SERVER_FIFO_ERR];
-        for fifo in fifos {
-            let path: &std::path::Path = std::path::Path::new(fifo);
-            if !path.exists() {
-                let mode: nix::sys::stat::Mode = nix::sys::stat::Mode::S_IRUSR
-                    | nix::sys::stat::Mode::S_IWUSR
-                    | nix::sys::stat::Mode::S_IRGRP
-                    | nix::sys::stat::Mode::S_IWGRP;
-                nix::unistd::mkfifo(path, mode).unwrap();
-            }
-        }
-    }
-
     pub async fn log_game_server_output() {
-        ensure_fifos_exist().await;
-
         loop {
             let out_fifo: tokio::fs::File = tokio::fs::File::open(GAME_SERVER_FIFO_OUT)
                 .await
@@ -152,5 +95,49 @@ mod game {
 
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         }
+    }
+
+    async fn open_dummy_handles() -> (std::fs::File, std::fs::File) {
+        use std::os::unix::fs::OpenOptionsExt;
+        let keep_stdout_open: std::fs::File = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(nix::libc::O_NONBLOCK)
+            .open(GAME_SERVER_FIFO_OUT)
+            .unwrap();
+        let keep_stderr_open: std::fs::File = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(nix::libc::O_NONBLOCK)
+            .open(GAME_SERVER_FIFO_ERR)
+            .unwrap();
+        (keep_stdout_open, keep_stderr_open)
+    }
+
+    async fn open_fifos() -> (std::fs::File, std::fs::File) {
+        let out_file: std::fs::File = std::fs::OpenOptions::new()
+            .write(true)
+            .open(GAME_SERVER_FIFO_OUT)
+            .unwrap();
+        let err_file: std::fs::File = std::fs::OpenOptions::new()
+            .write(true)
+            .open(GAME_SERVER_FIFO_ERR)
+            .unwrap();
+        (out_file, err_file)
+    }
+
+    pub async fn spawn(executable: &str) -> () {
+        /*
+         * Keep a read-end open for both FIFOs. This ensures that even if
+         * the Service restarts, the Game process always sees at least one
+         * reader and thus doesn't terminate when readers drop to 0.
+         */
+        let _dummies = open_dummy_handles().await;
+
+        let (out_file, err_file) = open_fifos().await;
+        let mut child: tokio::process::Child = tokio::process::Command::new(executable)
+            .stdout(std::process::Stdio::from(out_file))
+            .stderr(std::process::Stdio::from(err_file))
+            .spawn()
+            .expect("Failed to spawn game server");
+        let _status: std::process::ExitStatus = child.wait().await.unwrap();
     }
 }
