@@ -59,10 +59,10 @@ mod game {
         loop {
             let out_fifo: tokio::fs::File = tokio::fs::File::open(GAME_SERVER_FIFO_OUT)
                 .await
-                .expect("Failed to open stdout FIFO");
+                .unwrap();
             let err_fifo: tokio::fs::File = tokio::fs::File::open(GAME_SERVER_FIFO_ERR)
                 .await
-                .expect("Failed to open stderr FIFO");
+                .unwrap();
 
             let out_reader: tokio::io::BufReader<tokio::fs::File> =
                 tokio::io::BufReader::new(out_fifo);
