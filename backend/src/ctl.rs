@@ -68,17 +68,13 @@ mod hetzner {
         availability_zone: String,
         #[serde(rename = "local-ipv4")]
         local_ipv4: String,
-        #[serde(rename = "public-ipv4")]
-        public_ipv4: String,
         #[serde(rename = "network-config")]
         network_config: NetworkConfig,
-        #[serde(rename = "vendor_data")]
         vendor_data: String,
         #[serde(rename = "public-keys")]
         public_keys: Vec<String>,
-        runcmd: Vec<String>,
-        #[serde(rename = "system_info")]
-        system_info: SystemInfo,
+        #[serde(rename = "public-ipv4")]
+        public_ipv4: String,
     }
 
     #[derive(Debug, serde::Deserialize)]
