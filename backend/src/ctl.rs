@@ -14,7 +14,7 @@ pub async fn handle_commands_from_web_clients(mut rx: tokio::sync::mpsc::Receive
 
 async fn reboot_using_systemctl() {
     if let Ok(metadata) = is_hetzner_vm().await {
-        log::info!("Rebooting cloud instance: {metadata:?}");
+        log::info!("Rebooting cloud instance: {metadata}");
     } else {
         log::info!("Skipping reboot: Not in cloud");
         return;
@@ -75,6 +75,18 @@ mod hetzner {
         public_keys: Vec<String>,
         #[serde(rename = "public-ipv4")]
         public_ipv4: String,
+    }
+
+    impl std::fmt::Display for Metadata {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(
+                f,
+                "{hostname} ({public_ipv4} at {availability_zone})",
+                hostname = self.hostname,
+                public_ipv4 = self.public_ipv4,
+                availability_zone = self.availability_zone,
+            )
+        }
     }
 
     #[derive(Debug, serde::Deserialize)]
