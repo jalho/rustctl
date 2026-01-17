@@ -8,6 +8,8 @@ fn main() -> std::process::ExitCode {
         return code;
     }
 
+    log::info!("rustctl v{}", env!("CARGO_PKG_VERSION"));
+
     let mut rt_builder: tokio::runtime::Builder = tokio::runtime::Builder::new_current_thread();
     rt_builder.enable_time();
     rt_builder.enable_io();
