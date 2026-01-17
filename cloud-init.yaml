@@ -1,0 +1,73 @@
+#cloud-config
+users:
+  - name: rustctl
+    groups: sudo
+    shell: /usr/bin/fish
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN0pUS3zNMEM1cGCYj7TfT2ADP0PYQrGiZHlB8kFxQXf
+
+package_update: true
+packages:
+  - git
+  - curl
+  - build-essential
+  - pkg-config
+  - libssl-dev
+  - rustup
+  - fish
+
+write_files:
+  - path: /etc/systemd/system/rustctl-game.service
+    content: |
+      [Unit]
+      Description=Rustctl Game Server
+      After=network.target
+      [Service]
+      Type=simple
+      User=rustctl
+      WorkingDirectory=/home/rustctl/rustctl
+      ExecStart=/usr/bin/cargo run --bin backend -- game
+      Restart=always
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/systemd/system/rustctl-service.service
+    content: |
+      [Unit]
+      Description=Rustctl Observability Service
+      After=network.target
+      [Service]
+      Type=simple
+      User=rustctl
+      WorkingDirectory=/home/rustctl/rustctl
+      ExecStart=/usr/bin/cargo run --bin backend -- service
+      Restart=always
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/systemd/system/nightly-reboot.timer
+    content: |
+      [Unit]
+      Description=Daily Reboot at 03:00 UTC
+      [Timer]
+      OnCalendar=*-*-* 03:00:00 UTC
+      Unit=reboot.target
+      [Install]
+      WantedBy=timers.target
+
+  - path: /etc/sudoers.d/rustctl-deploy
+    content: |
+      rustctl ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart rustctl-service.service
+
+runcmd:
+  - ln -s /usr/bin/yes /usr/local/bin/RustDedicated
+  - sudo -u rustctl -i rustup default stable
+  - mkdir -p /tmp/rustctl
+  - chown rustctl:rustctl /tmp/rustctl
+  - git clone -b rewrite https://github.com/jalho/rustctl.git /home/rustctl/rustctl
+  - chown -R rustctl:rustctl /home/rustctl/rustctl
+  - systemctl daemon-reload
+  - systemctl enable nightly-reboot.timer
+  - systemctl enable --now rustctl-game.service
+  - systemctl enable --now rustctl-service.service
