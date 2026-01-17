@@ -31,6 +31,9 @@ nix = { workspace = true, features = [
   "signal",
 ] }
 
+reqwest = { workspace = true, features = [
+] }
+
 tokio = { workspace = true, features = [
   "fs",
   "io-util",
