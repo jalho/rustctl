@@ -1,0 +1,25 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - rewrite
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        run: |
+          eval $(ssh-agent -s)
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' | ssh-add -
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
+
+          ssh rustctl@${{ secrets.VM_IP }} "
+            cd /home/rustctl/rustctl && \
+            git fetch origin rewrite && \
+            git reset --hard origin/rewrite && \
+            sudo systemctl restart rustctl-service.service
+          "
