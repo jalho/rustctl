@@ -14,7 +14,7 @@ pub async fn handle_commands_from_web_clients(mut rx: tokio::sync::mpsc::Receive
 
 async fn reboot_using_systemctl() {
     if let Ok(metadata) = is_hetzner_vm().await {
-        log::info!("Rebooting cloud instance: {metadata}");
+        log::info!("Rebooting cloud instance: {metadata:?}");
     } else {
         log::info!("Skipping reboot: Not in cloud");
         return;
@@ -31,7 +31,7 @@ async fn reboot_using_systemctl() {
     }
 }
 
-async fn is_hetzner_vm() -> Result<String, reqwest::Error> {
+async fn is_hetzner_vm() -> Result<hetzner::Metadata, reqwest::Error> {
     /*
      * Docs: https://docs.hetzner.cloud/reference/cloud
      *       Accessed 2026-01-17.
@@ -48,7 +48,57 @@ async fn is_hetzner_vm() -> Result<String, reqwest::Error> {
         Err(err) => return Err(err),
     };
 
-    let instance_metadata: String = response.text().await.unwrap();
+    let instance_metadata_utf8: String = response.text().await.unwrap();
+
+    let instance_metadata: hetzner::Metadata =
+        serde_yaml::from_str(&instance_metadata_utf8).unwrap();
 
     Ok(instance_metadata)
+}
+
+mod hetzner {
+    #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
+    pub struct Metadata {
+        #[serde(rename = "instance-id")]
+        instance_id: u64,
+        hostname: String,
+        region: String,
+        #[serde(rename = "availability-zone")]
+        availability_zone: String,
+        #[serde(rename = "local-ipv4")]
+        local_ipv4: String,
+        #[serde(rename = "public-ipv4")]
+        public_ipv4: String,
+        #[serde(rename = "network-config")]
+        network_config: NetworkConfig,
+        #[serde(rename = "vendor_data")]
+        vendor_data: String,
+        #[serde(rename = "public-keys")]
+        public_keys: Vec<String>,
+        runcmd: Vec<String>,
+        #[serde(rename = "system_info")]
+        system_info: SystemInfo,
+    }
+
+    #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
+    struct NetworkConfig {
+        version: u32,
+        config: Vec<serde_yaml::Value>,
+    }
+
+    #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
+    struct SystemInfo {
+        default_user: DefaultUser,
+    }
+
+    #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
+    struct DefaultUser {
+        lock_passwd: bool,
+        name: String,
+        shell: String,
+    }
 }

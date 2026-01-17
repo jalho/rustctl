@@ -6,10 +6,12 @@ members  = [ "xtask", "backend" ]
 rust-version = "1.92" # Minimum Supported Rust Version (MSRV): Latest as of 2025-12-29.
 
 [workspace.dependencies]
-axum    = { version = "=0.8.4",  default-features = false, features = [] }
-clap    = { version = "=4.5.51", default-features = false, features = [] }
-log4rs  = { version = "=1.4.0",  default-features = false, features = [] }
-log     = { version = "=0.4.28", default-features = false, features = [] }
-nix     = { version = "=0.30.1", default-features = false, features = [] }
-reqwest = { version = "=0.13.1", default-features = false, features = [] }
-tokio   = { version = "=1.48.0", default-features = false, features = [] }
+axum       = { version = "=0.8.4",   default-features = false, features = [] }
+clap       = { version = "=4.5.51",  default-features = false, features = [] }
+log4rs     = { version = "=1.4.0",   default-features = false, features = [] }
+log        = { version = "=0.4.28",  default-features = false, features = [] }
+nix        = { version = "=0.30.1",  default-features = false, features = [] }
+reqwest    = { version = "=0.13.1",  default-features = false, features = [] }
+serde      = { version = "=1.0.228", default-features = false, features = [] }
+serde_yaml = { version = "=0.9.34",  default-features = false, features = [] }
+tokio      = { version = "=1.48.0",  default-features = false, features = [] }

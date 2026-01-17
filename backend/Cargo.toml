@@ -34,6 +34,13 @@ nix = { workspace = true, features = [
 reqwest = { workspace = true, features = [
 ] }
 
+serde = { workspace = true, features = [
+  "serde_derive",
+] }
+
+serde_yaml = { workspace = true, features = [
+] }
+
 tokio = { workspace = true, features = [
   "fs",
   "io-util",
