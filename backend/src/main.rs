@@ -48,15 +48,20 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
         init::Command::Service => {
             let (tx, rx) = tokio::sync::mpsc::channel::<ctl::Command>(1);
 
+            /*
+             * Each task here is supposed to run indefinitely. Therefore, any
+             * premature termination should be logged as an ERROR, and in any
+             * case the whole program should terminate.
+             */
             tokio::select! {
                 _ = game::log_game_server_output() => {
-                    log::debug!("Task terminated: game::log_game_server_output");
+                    log::error!("Task terminated: game::log_game_server_output");
                 }
                 _ = web::serve(("0.0.0.0", 8080), tx) => {
-                    log::debug!("Task terminated: web::serve");
+                    log::error!("Task terminated: web::serve");
                 }
                 _ = ctl::handle_commands_from_web_clients(rx) => {
-                    log::debug!("Task terminated: ctl::handle_commands_from_web_clients");
+                    log::error!("Task terminated: ctl::handle_commands_from_web_clients");
                 }
             }
         }
