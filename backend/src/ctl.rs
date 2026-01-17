@@ -20,7 +20,8 @@ async fn reboot_using_systemctl() {
         return;
     }
 
-    let status = tokio::process::Command::new("systemctl")
+    let status: std::process::ExitStatus = tokio::process::Command::new("sudo")
+        .arg("/usr/bin/systemctl")
         .arg("reboot")
         .status()
         .await
