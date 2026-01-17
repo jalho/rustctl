@@ -61,7 +61,6 @@ write_files:
       rustctl ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart rustctl-service.service
 
 runcmd:
-  - ln -s /usr/bin/yes /usr/local/bin/RustDedicated
   - sudo -u rustctl -i rustup default stable
   - mkdir -p /tmp/rustctl
   - chown rustctl:rustctl /tmp/rustctl
