@@ -47,6 +47,10 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
          * reading from FIFO pipes.
          */
         init::Command::Service => {
+            /*
+             * Channel for passing commands from web clients to a Controller
+             * (see module `ctl`).
+             */
             let (tx, rx) = tokio::sync::mpsc::channel::<ctl::Command>(1);
 
             /*
