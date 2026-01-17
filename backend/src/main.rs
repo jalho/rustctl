@@ -45,7 +45,19 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
          * reading from FIFO pipes.
          */
         init::Command::Service => {
-            game::log_game_server_output().await;
+            let (tx, rx) = tokio::sync::mpsc::channel::<ctl::Command>(1);
+
+            tokio::select! {
+                _ = game::log_game_server_output() => {
+                    log::debug!("Task terminated: game::log_game_server_output");
+                }
+                _ = web::serve(("0.0.0.0", 8080), tx) => {
+                    log::debug!("Task terminated: web::serve");
+                }
+                _ = ctl::handle_commands_from_web_clients(rx) => {
+                    log::debug!("Task terminated: ctl::handle_commands_from_web_clients");
+                }
+            }
         }
     }
 
@@ -53,3 +65,68 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
 }
 
 struct RtDone;
+
+mod ctl {
+    pub enum Command {
+        Reboot,
+    }
+
+    pub async fn handle_commands_from_web_clients(mut rx: tokio::sync::mpsc::Receiver<Command>) {
+        loop {
+            if let Some(n) = rx.recv().await {
+                match n {
+                    Command::Reboot => reboot().await,
+                }
+            }
+        }
+    }
+
+    async fn reboot() {
+        log::debug!("TODO: Reboot");
+    }
+}
+
+mod web {
+    type MakeService = axum::extract::connect_info::IntoMakeServiceWithConnectInfo<
+        axum::Router,
+        std::net::SocketAddr,
+    >;
+
+    pub async fn serve<A: tokio::net::ToSocketAddrs>(
+        addr: A,
+        tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
+    ) {
+        let tcp_listener: tokio::net::TcpListener =
+            tokio::net::TcpListener::bind(addr).await.unwrap();
+
+        let router: axum::Router = axum::Router::new()
+            .route("/", axum::routing::get(handler))
+            .with_state(State::new(tx));
+
+        let service: MakeService =
+            router.into_make_service_with_connect_info::<std::net::SocketAddr>();
+
+        axum::serve(tcp_listener, service).await.unwrap();
+    }
+
+    async fn handler(
+        axum::extract::State(state): axum::extract::State<State>,
+    ) -> axum::response::Response {
+        state.tx.send(crate::ctl::Command::Reboot).await.unwrap();
+
+        let payload: Vec<u8> = Vec::new();
+        let body: axum::body::Body = payload.into();
+        axum::response::Response::new(body)
+    }
+
+    #[derive(Clone)]
+    struct State {
+        tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
+    }
+
+    impl State {
+        fn new(tx: tokio::sync::mpsc::Sender<crate::ctl::Command>) -> Self {
+            Self { tx }
+        }
+    }
+}

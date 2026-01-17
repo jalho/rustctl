@@ -4,8 +4,40 @@ name         = "backend"
 rust-version = { workspace = true }
 
 [dependencies]
-clap   = { workspace = true, default-features = false, features = [ "color", "derive", "error-context", "help", "std", "suggestions", "usage" ] }
-log4rs = { workspace = true, default-features = false, features = [ "console_appender" ] }
-log    = { workspace = true, features = [] }
-nix    = { workspace = true, features = [ "fs", "signal" ] }
-tokio  = { workspace = true, features = [ "rt", "time", "process", "fs", "io-util", "macros" ] }
+axum = { workspace = true, features = [
+  "http1", # for compatibility with curl for testing purposes
+  "tokio",
+] }
+
+clap = { workspace = true, default-features = false, features = [
+  "color",
+  "derive",
+  "error-context",
+  "help",
+  "std",
+  "suggestions",
+  "usage",
+] }
+
+log4rs = { workspace = true, default-features = false, features = [
+ "console_appender",
+] }
+
+log = { workspace = true, features = [
+] }
+
+nix = { workspace = true, features = [
+  "fs",
+  "signal",
+] }
+
+tokio = { workspace = true, features = [
+  "fs",
+  "io-util",
+  "macros",
+  "net",
+  "process",
+  "rt",
+  "time",
+] }
+
