@@ -67,7 +67,7 @@ async fn send_command(
     };
 
     let json_query: String = serde_json::to_string(&query).unwrap();
-    log::debug!("[RCON Query] {}", json_query);
+    log::debug!("[RCON Outbound] {}", json_query);
     futures_util::SinkExt::send(
         ws_stream,
         tokio_tungstenite::tungstenite::protocol::Message::Text(json_query.into()),
@@ -77,7 +77,7 @@ async fn send_command(
 
 fn process_message(text: String) {
     if let Ok(payload) = serde_json::from_str::<RconPayload>(&text) {
-        log::debug!("[RCON Response] {}", payload.Message);
+        log::debug!("[RCON Inbound] {}", payload.Message);
     }
 }
 
