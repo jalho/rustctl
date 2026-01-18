@@ -185,8 +185,13 @@ async fn spawn_game_server(executable: &std::path::Path, params: &GameServerPara
     let command_string = format!(
         "export TERM=xterm && source ./carbon/tools/environment.sh && ./RustDedicated \
         -batchmode -nographics +server.port 28015 +server.worldsize {} +server.seed {} \
-        +server.maxplayers {} +server.hostname \"{}\" +rcon.port 28016 +rcon.password \"{}\"",
-        params.worldsize, params.seed, params.maxplayers, params.hostname, params.rcon_password
+        +server.maxplayers {} +server.hostname \"{}\" +rcon.port {rcon_port} +rcon.password \"{}\"",
+        params.worldsize,
+        params.seed,
+        params.maxplayers,
+        params.hostname,
+        params.rcon_password,
+        rcon_port = params.rcon_port,
     );
 
     let mut child = tokio::process::Command::new("bash");
@@ -214,6 +219,7 @@ pub struct GameServerParameters {
     pub worldsize: u32,
     pub seed: u32,
     pub rcon_password: String,
+    pub rcon_port: u16,
     pub maxplayers: u16,
     pub hostname: String,
 }
@@ -226,6 +232,7 @@ impl Default for GameServerParameters {
             rcon_password: "000000000".to_string(),
             maxplayers: 50,
             hostname: "Rust Server".to_string(),
+            rcon_port: 28016,
         }
     }
 }

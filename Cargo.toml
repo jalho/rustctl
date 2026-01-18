@@ -10,17 +10,19 @@ members  = [
 rust-version = "1.92" # Minimum Supported Rust Version (MSRV): Latest as of 2025-12-29.
 
 [workspace.dependencies]
-axum         = { version = "=0.8.4",   default-features = false, features = [] }
-clap         = { version = "=4.5.51",  default-features = false, features = [] }
-dioxus       = { version = "=0.7.3",   default-features = false, features = [] }
-futures-util = { version = "=0.3.31",  default-features = false, features = [] }
-gloo-net     = { version = "=0.6.0",   default-features = false, features = [] }
-gloo-timers  = { version = "=0.3.0",   default-features = false, features = [] }
-log4rs       = { version = "=1.4.0",   default-features = false, features = [] }
-log          = { version = "=0.4.28",  default-features = false, features = [] }
-nix          = { version = "=0.30.1",  default-features = false, features = [] }
-reqwest      = { version = "=0.13.1",  default-features = false, features = [] }
-serde        = { version = "=1.0.228", default-features = false, features = [] }
-serde_yaml   = { version = "=0.9.34",  default-features = false, features = [] }
-tokio        = { version = "=1.48.0",  default-features = false, features = [] }
-tower-http   = { version = "=0.6.8",   default-features = false, features = [] }
+axum              = { version = "=0.8.4",   default-features = false, features = [] }
+clap              = { version = "=4.5.51",  default-features = false, features = [] }
+dioxus            = { version = "=0.7.3",   default-features = false, features = [] }
+futures-util      = { version = "=0.3.31",  default-features = false, features = [] }
+gloo-net          = { version = "=0.6.0",   default-features = false, features = [] }
+gloo-timers       = { version = "=0.3.0",   default-features = false, features = [] }
+log               = { version = "=0.4.28",  default-features = false, features = [] }
+log4rs            = { version = "=1.4.0",   default-features = false, features = [] }
+nix               = { version = "=0.30.1",  default-features = false, features = [] }
+reqwest           = { version = "=0.13.1",  default-features = false, features = [] }
+serde             = { version = "=1.0.228", default-features = false, features = [] }
+serde_json        = { version = "=1.0.149", default-features = false, features = [] }
+serde_yaml        = { version = "=0.9.34",  default-features = false, features = [] }
+tokio             = { version = "=1.48.0",  default-features = false, features = [] }
+tokio-tungstenite = { version = "=0.28.0",  default-features = false, features = [] }
+tower-http        = { version = "=0.6.8",   default-features = false, features = [] }
