@@ -64,8 +64,10 @@ runcmd:
 
   - mkdir -p /tmp/rustctl
   - chown rustctl:rustctl /tmp/rustctl
+
   - git clone -b rewrite https://github.com/jalho/rustctl.git /home/rustctl/rustctl
   - chown -R rustctl:rustctl /home/rustctl/rustctl
+
   - systemctl daemon-reload
   - systemctl enable --now rustctl-game.service
   - systemctl enable --now rustctl-service.service
