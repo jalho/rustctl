@@ -30,7 +30,7 @@ async fn handle_connection(
     loop {
         tokio::select! {
             _ = interval.tick() => {
-                if let Err(err) = send_version_query(&mut ws_stream).await {
+                if let Err(err) = send_command(&mut ws_stream, "c.version").await {
                     log::error!("Failed to send RCON query: {err}");
                     break;
                 }
@@ -40,8 +40,8 @@ async fn handle_connection(
                     Some(Ok(tokio_tungstenite::tungstenite::protocol::Message::Text(text))) => {
                         process_message(text.to_string());
                     }
-                    Some(Err(e)) => {
-                        log::error!("RCON stream error: {e}");
+                    Some(Err(err)) => {
+                        log::error!("RCON stream error: {err}");
                         break;
                     }
                     None => {
@@ -55,17 +55,19 @@ async fn handle_connection(
     }
 }
 
-async fn send_version_query(
+async fn send_command(
     ws_stream: &mut tokio_tungstenite::WebSocketStream<
         tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
     >,
+    command: &str,
 ) -> Result<(), tokio_tungstenite::tungstenite::Error> {
     let query = RconPayload {
         Identifier: 1,
-        Message: "c.version".to_string(),
+        Message: command.to_string(),
     };
 
     let json_query: String = serde_json::to_string(&query).unwrap();
+    log::debug!("[RCON Query] {}", json_query);
     futures_util::SinkExt::send(
         ws_stream,
         tokio_tungstenite::tungstenite::protocol::Message::Text(json_query.into()),
