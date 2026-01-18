@@ -26,7 +26,7 @@ pub enum Command {
     Service,
 }
 
-pub fn init_logger() -> Result<log4rs::Handle, std::process::ExitCode> {
+pub fn init_logger(level: log::LevelFilter) -> Result<log4rs::Handle, std::process::ExitCode> {
     const APPENDER_NAME: &str = "stdout";
 
     let stdout = log4rs::append::console::ConsoleAppender::builder()
@@ -40,7 +40,7 @@ pub fn init_logger() -> Result<log4rs::Handle, std::process::ExitCode> {
         .build(
             log4rs::config::Root::builder()
                 .appender(APPENDER_NAME)
-                .build(log::LevelFilter::max()),
+                .build(level),
         ) {
         Ok(n) => n,
         Err(err) => {
