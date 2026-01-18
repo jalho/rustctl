@@ -28,16 +28,14 @@ impl GlobalState {
     }
 
     async fn handle_socket_receive_messages(mut socket: Socket) {
-        use futures_util::StreamExt;
-
-        match socket.next().await {
+        match futures_util::StreamExt::next(&mut socket).await {
             Some(Ok(n)) => {
                 let _n: gloo_net::websocket::Message = n;
             }
             Some(Err(err)) => {
                 let _err: gloo_net::websocket::WebSocketError = err;
             }
-            None => return,
+            None => (),
         }
     }
 }
