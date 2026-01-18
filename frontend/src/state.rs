@@ -16,11 +16,13 @@ impl GlobalState {
         let mut state: GlobalState = dioxus::hooks::use_context::<GlobalState>();
 
         loop {
+            dioxus::signals::WritableExt::with_mut(&mut state.connection_attempts, |n| *n += 1);
+
             if let Ok(socket) = gloo_net::websocket::futures::WebSocket::open("/websocket") {
                 Self::handle_socket(socket).await;
+            } else {
+                gloo_timers::future::sleep(std::time::Duration::from_secs(1)).await;
             };
-            dioxus::signals::WritableExt::with_mut(&mut state.connection_attempts, |n| *n += 1);
-            gloo_timers::future::sleep(std::time::Duration::from_secs(1)).await;
         }
     }
 
