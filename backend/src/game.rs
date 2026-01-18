@@ -83,7 +83,45 @@ pub async fn log_game_server_output() {
 
 pub async fn install_and_spawn_game_server(params: &GameServerParameters) {
     let installed: std::path::PathBuf = install_or_update_game_server().await;
+    install_or_update_carbon_modding_framework(&installed).await;
     spawn_game_server(&installed, params).await;
+}
+
+async fn install_or_update_carbon_modding_framework(game_executable: &std::path::Path) {
+    let location: &std::path::Path = game_executable.parent().unwrap();
+
+    let archive_path: &'static str = "/tmp/carbon.tar.gz";
+
+    log::info!("Installing/Updating Carbon Modding Framework...");
+    let wget_status: std::process::ExitStatus = tokio::process::Command::new("wget")
+        .arg("-q")
+        .arg("-O")
+        .arg(archive_path)
+        .arg("https://github.com/CarbonCommunity/Carbon/releases/download/production_build/Carbon.Linux.Minimal.tar.gz")
+        .status()
+        .await
+        .unwrap();
+
+    if !wget_status.success() {
+        panic!("Failed to download Carbon Modding Framework via wget: {wget_status}");
+    }
+
+    let tar_status = tokio::process::Command::new("tar")
+        .arg("-xzf")
+        .arg(archive_path)
+        .arg("-C")
+        .arg(location)
+        .status()
+        .await
+        .expect("Failed to execute tar");
+
+    if !tar_status.success() {
+        panic!("Failed to extract Carbon Modding Framework: {tar_status}");
+    }
+
+    tokio::fs::remove_file(archive_path).await.unwrap();
+
+    log::info!("Carbon Modding Framework installed in {location:?}");
 }
 
 async fn install_or_update_game_server() -> std::path::PathBuf {
@@ -144,29 +182,25 @@ async fn spawn_game_server(executable: &std::path::Path, params: &GameServerPara
 
     let location: &std::path::Path = executable.parent().unwrap();
 
-    let mut child = tokio::process::Command::new(executable);
+    let command_string = format!(
+        "export TERM=xterm && source ./carbon/tools/environment.sh && ./RustDedicated \
+        -batchmode -nographics +server.port 28015 +server.worldsize {} +server.seed {} \
+        +server.maxplayers {} +server.hostname \"{}\" +rcon.port 28016 +rcon.password \"{}\"",
+        params.worldsize, params.seed, params.maxplayers, params.hostname, params.rcon_password
+    );
+
+    let mut child = tokio::process::Command::new("bash");
 
     child
         .current_dir(location)
-        .env("LD_LIBRARY_PATH", location)
+        .env(
+            "LD_LIBRARY_PATH",
+            format!("{}:./RustDedicated_Data/Plugins/x86_64", location.display()),
+        )
         .stdout(stdout_std)
         .stderr(stderr_std)
-        .arg("-batchmode")
-        .arg("-nographics")
-        .arg("+server.port")
-        .arg("28015")
-        .arg("+server.worldsize")
-        .arg(params.worldsize.to_string())
-        .arg("+server.seed")
-        .arg(params.seed.to_string())
-        .arg("+server.maxplayers")
-        .arg(params.maxplayers.to_string())
-        .arg("+server.hostname")
-        .arg(&params.hostname)
-        .arg("+rcon.port")
-        .arg("28016")
-        .arg("+rcon.password")
-        .arg(&params.rcon_password);
+        .arg("-c")
+        .arg(command_string);
 
     let mut child_process = child.spawn().unwrap();
     let _status = child_process.wait().await.unwrap();
