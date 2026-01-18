@@ -25,7 +25,7 @@ async fn handle_connection(
     >,
 ) {
     let mut interval: tokio::time::Interval =
-        tokio::time::interval(tokio::time::Duration::from_secs(10));
+        tokio::time::interval(tokio::time::Duration::from_secs(60 * 60));
 
     loop {
         tokio::select! {
