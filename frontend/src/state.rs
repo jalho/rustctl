@@ -13,17 +13,13 @@ impl GlobalState {
     pub async fn connect_websocket() {
         let mut state: GlobalState = dioxus::hooks::use_context::<GlobalState>();
 
-        'reconnect: loop {
+        loop {
             dioxus::signals::WritableExt::with_mut(&mut state.connection_attempts, |n| *n += 1);
 
-            let socket: Socket = match gloo_net::websocket::futures::WebSocket::open("/websocket") {
-                Ok(n) => n,
-                Err(_) => continue 'reconnect,
+            match gloo_net::websocket::futures::WebSocket::open("/websocket") {
+                Ok(socket) => Self::handle_socket_receive_messages(socket).await,
+                Err(_err) => gloo_timers::future::sleep(std::time::Duration::from_secs(1)).await,
             };
-
-            Self::handle_socket_receive_messages(socket).await;
-
-            gloo_timers::future::sleep(std::time::Duration::from_secs(1)).await;
         }
     }
 
