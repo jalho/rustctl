@@ -15,6 +15,9 @@ impl Cli {
 pub enum Command {
     /// Check errors, formatting and lints.
     Ci,
+
+    /// Make a release bundle.
+    Dist,
 }
 
 pub fn init_logger() -> Result<log4rs::Handle, std::process::ExitCode> {

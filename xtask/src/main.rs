@@ -1,4 +1,5 @@
 mod ci;
+mod dist;
 mod init;
 
 fn main() -> Result<(), std::process::ExitCode> {
@@ -8,6 +9,11 @@ fn main() -> Result<(), std::process::ExitCode> {
     match cli.command {
         None | Some(init::Command::Ci) => {
             ci::check_format_lint()?;
+        }
+
+        Some(init::Command::Dist) => {
+            ci::check_format_lint()?;
+            dist::make_release()?;
         }
     }
 
