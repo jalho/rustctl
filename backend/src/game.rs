@@ -142,7 +142,11 @@ async fn spawn_game_server(executable: &std::path::Path) {
     let stdout_std = fifos.stdout.into_std().await;
     let stderr_std = fifos.stderr.into_std().await;
 
+    let location: &std::path::Path = executable.parent().unwrap();
+
     let mut child: tokio::process::Child = tokio::process::Command::new(executable)
+        .current_dir(location)
+        .env("LD_LIBRARY_PATH", location)
         .stdout(stdout_std)
         .stderr(stderr_std)
         .spawn()
