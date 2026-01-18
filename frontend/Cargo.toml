@@ -1,0 +1,16 @@
+[package]
+name         = "frontend"
+edition      = "2024"
+rust-version = { workspace = true }
+
+[dependencies]
+dioxus = { workspace = true, features = [
+  "devtools",
+  "launch",
+  "lib",
+  "logger",
+] }
+
+[features]
+default = [ "web" ]
+web     = [ "dioxus/web" ]
