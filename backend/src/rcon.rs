@@ -75,7 +75,7 @@ async fn send_version_query(
 
 fn process_message(text: String) {
     if let Ok(payload) = serde_json::from_str::<RconPayload>(&text) {
-        log::info!("[RCON Response] {}", payload.Message);
+        log::debug!("[RCON Response] {}", payload.Message);
     }
 }
 
