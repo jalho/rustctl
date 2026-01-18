@@ -23,7 +23,7 @@ impl GlobalState {
         }
     }
 
-    async fn handle_socket_receive_messages(mut socket: Socket) {
+    async fn handle_socket_receive_messages(mut socket: gloo_net::websocket::futures::WebSocket) {
         match futures_util::StreamExt::next(&mut socket).await {
             Some(Ok(n)) => {
                 let _n: gloo_net::websocket::Message = n;
@@ -35,5 +35,3 @@ impl GlobalState {
         }
     }
 }
-
-type Socket = gloo_net::websocket::futures::WebSocket;
