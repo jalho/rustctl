@@ -12,7 +12,7 @@ impl GlobalState {
         }
     }
 
-    pub async fn connect_websocket() {
+    pub async fn keep_connected() {
         let mut state: GlobalState = dioxus::hooks::use_context::<GlobalState>();
 
         loop {
@@ -36,14 +36,8 @@ impl GlobalState {
             dioxus::signals::WritableExt::set(&mut state.ws_tx, Some(tx));
         }
 
-        match futures_util::StreamExt::next(&mut rx).await {
-            Some(Ok(n)) => {
-                let _n: gloo_net::websocket::Message = n;
-            }
-            Some(Err(err)) => {
-                let _err: gloo_net::websocket::WebSocketError = err;
-            }
-            None => (),
+        while let Some(Ok(message)) = futures_util::StreamExt::next(&mut rx).await {
+            Self::handle_message(message).await;
         }
 
         /*
@@ -54,6 +48,8 @@ impl GlobalState {
             dioxus::signals::WritableExt::set(&mut state.ws_tx, None);
         }
     }
+
+    async fn handle_message(_message: gloo_net::websocket::Message) {}
 }
 
 /// Writeable half of a WebSocket.

@@ -10,7 +10,7 @@ pub fn App() -> dioxus::core::Element {
      * Initialize a global state, and hook it to a WebSocket.
      */
     dioxus::hooks::use_context_provider(crate::state::GlobalState::init);
-    dioxus::prelude::use_future(crate::state::GlobalState::connect_websocket);
+    dioxus::prelude::use_future(crate::state::GlobalState::keep_connected);
 
     /*
      * Render stuff from the global state.
