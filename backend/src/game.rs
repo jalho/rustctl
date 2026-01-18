@@ -154,7 +154,7 @@ async fn spawn_game_server(executable: &std::path::Path, params: &GameServerPara
         .arg("-batchmode")
         .arg("-nographics")
         .arg("+server.port")
-        .arg(params.server_port.to_string())
+        .arg("28015")
         .arg("+server.worldsize")
         .arg(params.worldsize.to_string())
         .arg("+server.seed")
@@ -164,7 +164,7 @@ async fn spawn_game_server(executable: &std::path::Path, params: &GameServerPara
         .arg("+server.hostname")
         .arg(&params.hostname)
         .arg("+rcon.port")
-        .arg(params.rcon_port.to_string())
+        .arg("28016")
         .arg("+rcon.password")
         .arg(&params.rcon_password);
 
@@ -180,8 +180,6 @@ pub struct GameServerParameters {
     pub worldsize: u32,
     pub seed: u32,
     pub rcon_password: String,
-    pub rcon_port: u16,
-    pub server_port: u16,
     pub maxplayers: u16,
     pub hostname: String,
 }
@@ -192,8 +190,6 @@ impl Default for GameServerParameters {
             worldsize: 1000,
             seed: 1234,
             rcon_password: "000000000".to_string(),
-            rcon_port: 28016,
-            server_port: 28015,
             maxplayers: 50,
             hostname: "Rust Server".to_string(),
         }
