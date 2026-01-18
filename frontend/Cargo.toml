@@ -3,6 +3,10 @@ name         = "frontend"
 edition      = "2024"
 rust-version = { workspace = true }
 
+[features]
+default = [ "web" ]
+web     = [ "dioxus/web" ]
+
 [dependencies]
 dioxus = { workspace = true, features = [
   "devtools",
@@ -11,6 +15,12 @@ dioxus = { workspace = true, features = [
   "logger",
 ] }
 
-[features]
-default = [ "web" ]
-web     = [ "dioxus/web" ]
+futures-util = { workspace = true, features = [
+] }
+
+gloo-net = { workspace = true, features = [
+  "websocket",
+] }
+
+gloo-timers = { workspace = true, features = [
+] }
