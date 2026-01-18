@@ -55,6 +55,13 @@ write_files:
 runcmd:
   - sudo -u rustctl -i rustup default stable
   - sudo -u rustctl -i rustup target add x86_64-unknown-linux-musl
+  - sudo -u rustctl -i rustup target add wasm32-unknown-unknown
+
+  - wget https://github.com/DioxusLabs/dioxus/releases/download/v0.7.3/dx-x86_64-unknown-linux-gnu.tar.gz -O /tmp/dx.tar.gz
+  - tar -xzf /tmp/dx.tar.gz -C /usr/local/bin
+  - chmod +x /usr/local/bin/dx
+  - rm /tmp/dx.tar.gz
+
   - mkdir -p /tmp/rustctl
   - chown rustctl:rustctl /tmp/rustctl
   - git clone -b rewrite https://github.com/jalho/rustctl.git /home/rustctl/rustctl
