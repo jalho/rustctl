@@ -81,7 +81,55 @@ pub async fn log_game_server_output() {
     }
 }
 
-pub async fn spawn(executable: &str) -> () {
+pub async fn install_and_spawn_game_server() {
+    let installed: std::path::PathBuf = install_or_update_game_server().await;
+    spawn_game_server(&installed).await;
+}
+
+async fn install_or_update_game_server() -> std::path::PathBuf {
+    let install_dir: &'static str = "/home/rustctl/";
+
+    log::info!("Installing or updating game server...");
+    let output: std::process::Output = tokio::process::Command::new("steamcmd")
+        .arg("+force_install_dir")
+        .arg(install_dir)
+        .arg("+login")
+        .arg("anonymous")
+        .arg("+app_update")
+        .arg("258550")
+        .arg("validate")
+        .arg("+quit")
+        .output()
+        .await
+        .unwrap();
+
+    if output.status.success() {
+        let mut installed = std::path::Path::new(install_dir).to_path_buf();
+        installed.push("RustDedicated");
+
+        let metadata: std::fs::Metadata = tokio::fs::metadata(&installed).await.unwrap();
+        log::info!("Game server installed or updated successfully: {metadata:?}");
+
+        installed
+    } else {
+        let stdout: String = match String::from_utf8(output.stdout.clone()) {
+            Ok(n) => n.trim().to_owned(),
+            Err(_err) => format!("hex: {hex}", hex = to_hex(&output.stdout)),
+        };
+
+        let stderr: String = match String::from_utf8(output.stderr.clone()) {
+            Ok(n) => n.trim().to_owned(),
+            Err(_err) => format!("hex: {hex}", hex = to_hex(&output.stderr)),
+        };
+
+        panic!(
+            r#"Failed to install or update game server: {status}, STDOUT: "{stdout}", STDERR: "{stderr}""#,
+            status = output.status,
+        );
+    }
+}
+
+async fn spawn_game_server(executable: &std::path::Path) {
     /*
      * Keep a read-end open for both FIFOs. This ensures that even if
      * the Service restarts, the Game process always sees at least one
@@ -98,6 +146,10 @@ pub async fn spawn(executable: &str) -> () {
         .stdout(stdout_std)
         .stderr(stderr_std)
         .spawn()
-        .expect("Failed to spawn game server");
+        .unwrap();
     let _status: std::process::ExitStatus = child.wait().await.unwrap();
+}
+
+fn to_hex(buf: &[u8]) -> String {
+    buf.iter().map(|byte| format!("{:02x}", byte)).collect()
 }
