@@ -7,21 +7,38 @@ pub async fn serve<A: tokio::net::ToSocketAddrs>(
 ) {
     let tcp_listener: tokio::net::TcpListener = tokio::net::TcpListener::bind(addr).await.unwrap();
 
-    let router: axum::Router = axum::Router::new()
-        .route("/", axum::routing::get(handle_web))
-        .route("/reboot", axum::routing::post(handle_reboot))
-        .nest_service(
-            "/assets",
-            tower_http::services::ServeDir::new(format!(
-                "{}/assets",
-                "/home/rustctl/rustctl/target/dx/frontend/release/web/public"
-            )),
-        )
-        .with_state(State::new(tx));
+    let mut router: axum::Router<State> = axum::Router::new();
+
+    /*
+     * Web routes.
+     */
+    router = router.route("/", axum::routing::get(handle_web));
+    router = router.route("/favicon.ico", axum::routing::get(handle_favicon));
+    router = router.nest_service(
+        "/assets",
+        tower_http::services::ServeDir::new(format!(
+            "{}/assets",
+            "/home/rustctl/rustctl/target/dx/frontend/release/web/public"
+        )),
+    );
+
+    /*
+     * Logic routes.
+     */
+    router = router.route("/reboot", axum::routing::post(handle_reboot));
+
+    let router: axum::Router = router.with_state(State::new(tx));
 
     let service: MakeService = router.into_make_service_with_connect_info::<std::net::SocketAddr>();
 
     axum::serve(tcp_listener, service).await.unwrap();
+}
+
+async fn handle_favicon() -> axum::response::Response {
+    axum::response::Response::builder()
+        .status(axum::http::StatusCode::NO_CONTENT)
+        .body(axum::body::Body::empty())
+        .unwrap()
 }
 
 async fn handle_web() -> impl axum::response::IntoResponse {
