@@ -39,7 +39,7 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
          * FIFO pipes.
          */
         init::Command::Game => {
-            game::install_and_spawn_game_server().await;
+            game::install_and_spawn_game_server(&game::GameServerParameters::default()).await;
         }
 
         /*

@@ -81,9 +81,9 @@ pub async fn log_game_server_output() {
     }
 }
 
-pub async fn install_and_spawn_game_server() {
+pub async fn install_and_spawn_game_server(params: &GameServerParameters) {
     let installed: std::path::PathBuf = install_or_update_game_server().await;
-    spawn_game_server(&installed).await;
+    spawn_game_server(&installed, params).await;
 }
 
 async fn install_or_update_game_server() -> std::path::PathBuf {
@@ -129,7 +129,7 @@ async fn install_or_update_game_server() -> std::path::PathBuf {
     }
 }
 
-async fn spawn_game_server(executable: &std::path::Path) {
+async fn spawn_game_server(executable: &std::path::Path, params: &GameServerParameters) {
     /*
      * Keep a read-end open for both FIFOs. This ensures that even if
      * the Service restarts, the Game process always sees at least one
@@ -144,26 +144,58 @@ async fn spawn_game_server(executable: &std::path::Path) {
 
     let location: &std::path::Path = executable.parent().unwrap();
 
-    let mut child: tokio::process::Child = tokio::process::Command::new(executable)
+    let mut child = tokio::process::Command::new(executable);
+
+    child
         .current_dir(location)
         .env("LD_LIBRARY_PATH", location)
-        .arg("-batchmode")
-        .arg("+server.worldsize")
-        .arg("1000")
-        .arg("+server.seed")
-        .arg("1234")
-        .arg("+rcon.password")
-        .arg("00000000")
-        .arg("+rcon.port")
-        .arg("28016")
         .stdout(stdout_std)
         .stderr(stderr_std)
-        .spawn()
-        .unwrap();
+        .arg("-batchmode")
+        .arg("-nographics")
+        .arg("+server.port")
+        .arg(params.server_port.to_string())
+        .arg("+server.worldsize")
+        .arg(params.worldsize.to_string())
+        .arg("+server.seed")
+        .arg(params.seed.to_string())
+        .arg("+server.maxplayers")
+        .arg(params.maxplayers.to_string())
+        .arg("+server.hostname")
+        .arg(&params.hostname)
+        .arg("+rcon.port")
+        .arg(params.rcon_port.to_string())
+        .arg("+rcon.password")
+        .arg(&params.rcon_password);
 
-    let _status: std::process::ExitStatus = child.wait().await.unwrap();
+    let mut child_process = child.spawn().unwrap();
+    let _status = child_process.wait().await.unwrap();
 }
 
 fn to_hex(buf: &[u8]) -> String {
     buf.iter().map(|byte| format!("{:02x}", byte)).collect()
+}
+
+pub struct GameServerParameters {
+    pub worldsize: u32,
+    pub seed: u32,
+    pub rcon_password: String,
+    pub rcon_port: u16,
+    pub server_port: u16,
+    pub maxplayers: u16,
+    pub hostname: String,
+}
+
+impl Default for GameServerParameters {
+    fn default() -> Self {
+        Self {
+            worldsize: 1000,
+            seed: 1234,
+            rcon_password: "000000000".to_string(),
+            rcon_port: 28016,
+            server_port: 28015,
+            maxplayers: 50,
+            hostname: "Rust Server".to_string(),
+        }
+    }
 }
