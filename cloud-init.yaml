@@ -16,6 +16,7 @@ packages:
   - libssl-dev
   - rustup
   - fish
+  - musl-tools
 
 write_files:
   - path: /etc/systemd/system/rustctl-game.service
@@ -27,7 +28,7 @@ write_files:
       Type=simple
       User=rustctl
       WorkingDirectory=/home/rustctl/rustctl
-      ExecStart=/usr/bin/cargo run --bin backend -- game
+      ExecStart=/bin/sh -c '/usr/bin/cargo xtask dist && ./target/x86_64-unknown-linux-musl/release/backend game'
       Restart=always
       [Install]
       WantedBy=multi-user.target
@@ -41,7 +42,7 @@ write_files:
       Type=simple
       User=rustctl
       WorkingDirectory=/home/rustctl/rustctl
-      ExecStart=/usr/bin/cargo run --bin backend -- service
+      ExecStart=/bin/sh -c '/usr/bin/cargo xtask dist && ./target/x86_64-unknown-linux-musl/release/backend service'
       Restart=always
       [Install]
       WantedBy=multi-user.target
@@ -53,6 +54,7 @@ write_files:
 
 runcmd:
   - sudo -u rustctl -i rustup default stable
+  - sudo -u rustctl -i rustup target add x86_64-unknown-linux-musl
   - mkdir -p /tmp/rustctl
   - chown rustctl:rustctl /tmp/rustctl
   - git clone -b rewrite https://github.com/jalho/rustctl.git /home/rustctl/rustctl
