@@ -107,8 +107,8 @@ async fn install_or_update_game_server() -> std::path::PathBuf {
         let mut installed = std::path::Path::new(install_dir).to_path_buf();
         installed.push("RustDedicated");
 
-        let metadata: std::fs::Metadata = tokio::fs::metadata(&installed).await.unwrap();
-        log::info!("Game server installed or updated successfully: {metadata:?}");
+        let _metadata: std::fs::Metadata = tokio::fs::metadata(&installed).await.unwrap();
+        log::info!("Game server installed or updated successfully");
 
         installed
     } else {
