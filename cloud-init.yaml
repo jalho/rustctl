@@ -68,6 +68,7 @@ runcmd:
   - git clone -b rewrite https://github.com/jalho/rustctl.git /home/rustctl/rustctl
   - chown -R rustctl:rustctl /home/rustctl/rustctl
 
+  - sudo -u rustctl -i sh -c "cd /home/rustctl/rustctl && cargo xtask dist"
   - systemctl daemon-reload
   - systemctl enable --now rustctl-game.service
   - systemctl enable --now rustctl-service.service
