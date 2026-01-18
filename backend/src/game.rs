@@ -147,10 +147,20 @@ async fn spawn_game_server(executable: &std::path::Path) {
     let mut child: tokio::process::Child = tokio::process::Command::new(executable)
         .current_dir(location)
         .env("LD_LIBRARY_PATH", location)
+        .arg("-batchmode")
+        .arg("+server.worldsize")
+        .arg("1000")
+        .arg("+server.seed")
+        .arg("1234")
+        .arg("+rcon.password")
+        .arg("00000000")
+        .arg("+rcon.port")
+        .arg("28016")
         .stdout(stdout_std)
         .stderr(stderr_std)
         .spawn()
         .unwrap();
+
     let _status: std::process::ExitStatus = child.wait().await.unwrap();
 }
 
