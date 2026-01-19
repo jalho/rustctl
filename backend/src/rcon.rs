@@ -65,7 +65,11 @@ async fn write_loop(mut sender: WsTx) {
         };
 
         if let Ok(json_query) = serde_json::to_string(&query) {
-            log::debug!("[RCON Outbound] {}", json_query);
+            log::debug!(
+                "[RCON Outbound #{id}] {message}",
+                id = query.Identifier,
+                message = query.Message,
+            );
             if let Err(err) = futures_util::SinkExt::send(
                 &mut sender,
                 tokio_tungstenite::tungstenite::Message::Text(json_query.into()),
@@ -81,7 +85,11 @@ async fn write_loop(mut sender: WsTx) {
 
 fn process_message(text: String) {
     if let Ok(payload) = serde_json::from_str::<RconPayload>(&text) {
-        log::debug!("[RCON Inbound] {}", payload.Message);
+        log::debug!(
+            "[RCON Inbound #{id}] {message}",
+            id = payload.Identifier,
+            message = payload.Message,
+        );
     }
 }
 
