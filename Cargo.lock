@@ -1186,6 +1186,9 @@ dependencies = [
  "futures-util",
  "gloo-net",
  "gloo-timers",
+ "js-sys",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]

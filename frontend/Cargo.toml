@@ -24,3 +24,17 @@ gloo-net = { workspace = true, features = [
 
 gloo-timers = { workspace = true, features = [
 ] }
+
+js-sys = { workspace = true, features = [
+] }
+
+wasm-bindgen-futures = { workspace = true, features = [
+] }
+
+web-sys = { workspace = true, features = [
+  "CredentialRequestOptions",
+  "CredentialsContainer",
+  "Navigator",
+  "PublicKeyCredentialRequestOptions",
+  "Window",
+] }
