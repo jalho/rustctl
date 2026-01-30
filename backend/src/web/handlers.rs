@@ -29,7 +29,7 @@ pub async fn reboot(
     axum::response::Response::new(body)
 }
 
-pub async fn auth_init(
+pub async fn auth_sign_up(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
 ) -> axum::response::Json<crate::web::passkey::RegistrationOptions> {
     let mut challenge_bytes: [u8; 32] = [0u8; 32];
