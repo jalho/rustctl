@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct GlobalState {
     pub connection_attempts: dioxus::prelude::Signal<u64>,
     pub ws_tx: dioxus::signals::Signal<Option<WsTx>>,
@@ -12,45 +12,46 @@ impl GlobalState {
         }
     }
 
-    pub async fn keep_connected() {
-        let mut state: GlobalState = dioxus::hooks::use_context::<GlobalState>();
-
+    pub async fn keep_connected(mut state: GlobalState) {
         loop {
             dioxus::signals::WritableExt::with_mut(&mut state.connection_attempts, |n| *n += 1);
 
             if let Ok(socket) = gloo_net::websocket::futures::WebSocket::open("/websocket") {
-                Self::handle_socket(socket).await;
-            } else {
-                gloo_timers::future::sleep(std::time::Duration::from_secs(1)).await;
-            };
+                Self::handle_socket(state, socket).await;
+            }
+
+            let delay = dioxus::signals::ReadableExt::read(&state.connection_attempts);
+            let sleep_secs: u64 = std::cmp::min(*delay, 10);
+            gloo_timers::future::sleep(std::time::Duration::from_secs(sleep_secs)).await;
         }
     }
 
-    async fn handle_socket(socket: gloo_net::websocket::futures::WebSocket) {
+    async fn handle_socket(
+        mut state: GlobalState,
+        socket: gloo_net::websocket::futures::WebSocket,
+    ) {
+        dioxus::signals::WritableExt::set(&mut state.connection_attempts, 0);
+
         let (tx, mut rx): (WsTx, WsRx) = futures_util::StreamExt::split(socket);
 
         /*
-         * Store a connected socket's writeable end's ref to the global state.
+         * Store the writeable end in global state.
          */
-        {
-            let mut state = dioxus::hooks::use_context::<GlobalState>();
-            dioxus::signals::WritableExt::set(&mut state.ws_tx, Some(tx));
-        }
+        dioxus::signals::WritableExt::set(&mut state.ws_tx, Some(tx));
 
         while let Some(Ok(message)) = futures_util::StreamExt::next(&mut rx).await {
             Self::handle_message(message).await;
         }
 
         /*
-         * Socket is now gone: Clear its ref from the global state.
+         * Socket is now gone: Clear its ref.
          */
-        {
-            let mut state = dioxus::hooks::use_context::<GlobalState>();
-            dioxus::signals::WritableExt::set(&mut state.ws_tx, None);
-        }
+        dioxus::signals::WritableExt::set(&mut state.ws_tx, None);
     }
 
-    async fn handle_message(_message: gloo_net::websocket::Message) {}
+    async fn handle_message(_message: gloo_net::websocket::Message) {
+        // TODO
+    }
 }
 
 /// Writeable half of a WebSocket.

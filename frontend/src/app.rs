@@ -1,17 +1,22 @@
 use dioxus::dioxus_core;
 use dioxus::document;
 use dioxus::prelude::asset;
+use dioxus::prelude::dioxus_elements;
 use dioxus::prelude::dioxus_signals;
 use dioxus::prelude::manganis;
 
 #[dioxus::prelude::component]
 pub fn App() -> dioxus::core::Element {
     /*
-     * Initialize a global state, and hook it to a WebSocket.
+     * Initialize a global state.
      */
-    dioxus::hooks::use_context_provider(crate::state::GlobalState::init);
+    let state = dioxus::hooks::use_context_provider(crate::state::GlobalState::init);
+
+    /*
+     * Hook state to a WebSocket.
+     */
     dioxus::prelude::use_future(move || async move {
-        crate::state::GlobalState::keep_connected().await;
+        crate::state::GlobalState::keep_connected(state).await;
     });
 
     /*
@@ -23,8 +28,6 @@ pub fn App() -> dioxus::core::Element {
         PasskeyComponent {}
     }
 }
-
-use dioxus::prelude::dioxus_elements;
 
 #[dioxus::prelude::component]
 pub fn PasskeyComponent() -> dioxus::core::Element {
