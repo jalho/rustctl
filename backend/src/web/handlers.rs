@@ -60,7 +60,7 @@ pub async fn auth_init(
             challenge: challenge_hex,
             rp: crate::web::passkey::Rp {
                 name: "PLACEHOLDER1".into(),
-                id: "rustctl.internal".into(), // TODO: Use a public domain name
+                id: crate::web::DOMAIN_NAME.into(),
             },
             user: crate::web::passkey::User {
                 id: "PLACEHOLDER2".into(),

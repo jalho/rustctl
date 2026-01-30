@@ -1,6 +1,8 @@
 mod handlers;
 mod passkey;
 
+const DOMAIN_NAME: &str = "rustctl.internal";
+
 pub async fn serve<A>(addr: A, tx: tokio::sync::mpsc::Sender<crate::ctl::Command>)
 where
     A: axum_server::Address + Send + 'static,
@@ -15,7 +17,10 @@ where
     params.distinguished_name = rcgen::DistinguishedName::new();
     params
         .distinguished_name
-        .push(rcgen::DnType::CommonName, "rustctl.internal");
+        .push(rcgen::DnType::CommonName, DOMAIN_NAME);
+    params.subject_alt_names = vec![rcgen::SanType::DnsName(
+        DOMAIN_NAME.to_string().try_into().unwrap(),
+    )];
 
     let key_pair: rcgen::KeyPair = rcgen::KeyPair::generate().unwrap();
     let cert: rcgen::Certificate = params.self_signed(&key_pair).unwrap();
