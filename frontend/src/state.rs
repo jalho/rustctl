@@ -21,7 +21,7 @@ impl GlobalState {
             }
 
             let delay = *dioxus::signals::ReadableExt::read(&state.connection_attempts);
-            let sleep_secs: u64 = std::cmp::max(1, std::cmp::min(delay, 10));
+            let sleep_secs: u64 = delay.clamp(1, 10);
             gloo_timers::future::sleep(std::time::Duration::from_secs(sleep_secs)).await;
         }
     }
