@@ -7,21 +7,12 @@ use dioxus::prelude::manganis;
 
 #[dioxus::prelude::component]
 pub fn App() -> dioxus::core::Element {
-    /*
-     * Initialize a global state.
-     */
     let state = dioxus::hooks::use_context_provider(crate::state::GlobalState::init);
 
-    /*
-     * Hook state to a WebSocket.
-     */
     dioxus::prelude::use_future(move || async move {
-        crate::state::GlobalState::keep_connected(state).await;
+        crate::state::GlobalState::connect(state).await;
     });
 
-    /*
-     * Render stuff from the global state.
-     */
     dioxus::prelude::rsx! {
         document::Link { rel: "stylesheet", href: asset!("/assets/main.css") }
         crate::layout::debug_viewer::DebugViewer {}

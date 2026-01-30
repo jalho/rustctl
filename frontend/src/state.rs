@@ -1,64 +1,40 @@
-#[derive(Clone, Copy)]
+use dioxus::prelude::*;
+use futures_util::StreamExt;
+
+#[derive(Clone, Copy, PartialEq)]
 pub struct GlobalState {
-    pub connection_attempts: dioxus::prelude::Signal<u64>,
-    pub ws_tx: dioxus::signals::Signal<Option<WsTx>>,
+    pub last_message: Signal<Option<gloo_net::websocket::Message>>,
+    pub ws_tx: Signal<Option<WsTx>>,
 }
 
 impl GlobalState {
     pub fn init() -> Self {
         Self {
-            connection_attempts: dioxus::prelude::Signal::new(0),
-            ws_tx: dioxus::signals::Signal::new(None),
+            last_message: Signal::new(None),
+            ws_tx: Signal::new(None),
         }
     }
 
-    pub async fn keep_connected(mut state: GlobalState) {
-        loop {
-            dioxus::signals::WritableExt::with_mut(&mut state.connection_attempts, |n| *n += 1);
+    pub async fn connect(mut state: GlobalState) {
+        if let Ok(socket) = gloo_net::websocket::futures::WebSocket::open("/websocket") {
+            let (tx, mut rx) = socket.split();
 
-            if let Ok(socket) = gloo_net::websocket::futures::WebSocket::open("/websocket") {
-                Self::handle_socket(state, socket).await;
+            state.ws_tx.set(Some(tx));
+
+            while let Some(Ok(message)) = rx.next().await {
+                state.handle_message(message);
             }
 
-            let delay = *dioxus::signals::ReadableExt::read(&state.connection_attempts);
-            let sleep_secs: u64 = delay.clamp(1, 10);
-            gloo_timers::future::sleep(std::time::Duration::from_secs(sleep_secs)).await;
+            state.ws_tx.set(None);
         }
     }
 
-    async fn handle_socket(
-        mut state: GlobalState,
-        socket: gloo_net::websocket::futures::WebSocket,
-    ) {
-        dioxus::signals::WritableExt::set(&mut state.connection_attempts, 0);
-
-        let (tx, mut rx): (WsTx, WsRx) = futures_util::StreamExt::split(socket);
-
-        /*
-         * Store the writeable end in global state.
-         */
-        dioxus::signals::WritableExt::set(&mut state.ws_tx, Some(tx));
-
-        while let Some(Ok(message)) = futures_util::StreamExt::next(&mut rx).await {
-            Self::handle_message(message).await;
-        }
-
-        /*
-         * Socket is now gone: Clear its ref.
-         */
-        dioxus::signals::WritableExt::set(&mut state.ws_tx, None);
-    }
-
-    async fn handle_message(_message: gloo_net::websocket::Message) {
-        // TODO
+    fn handle_message(&mut self, message: gloo_net::websocket::Message) {
+        self.last_message.set(Some(message));
     }
 }
 
-/// Writeable half of a WebSocket.
 type WsTx = futures_util::stream::SplitSink<
     gloo_net::websocket::futures::WebSocket,
     gloo_net::websocket::Message,
 >;
-
-/// Readable half of a WebSocket.
-type WsRx = futures_util::stream::SplitStream<gloo_net::websocket::futures::WebSocket>;
