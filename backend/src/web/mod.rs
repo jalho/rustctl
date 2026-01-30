@@ -1,14 +1,32 @@
 mod handlers;
 mod passkey;
 
-type MakeService =
-    axum::extract::connect_info::IntoMakeServiceWithConnectInfo<axum::Router, std::net::SocketAddr>;
+pub async fn serve<A>(addr: A, tx: tokio::sync::mpsc::Sender<crate::ctl::Command>)
+where
+    A: axum_server::Address + Send + 'static,
+    <A as axum_server::Address>::Stream:
+        tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send,
+{
+    let mut params: rcgen::CertificateParams = rcgen::CertificateParams::default();
 
-pub async fn serve<A: tokio::net::ToSocketAddrs>(
-    addr: A,
-    tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
-) {
-    let tcp_listener: tokio::net::TcpListener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    /*
+     * TODO: Parameterize the server domain name.
+     */
+    params.distinguished_name = rcgen::DistinguishedName::new();
+    params
+        .distinguished_name
+        .push(rcgen::DnType::CommonName, "rustctl.internal");
+
+    let key_pair: rcgen::KeyPair = rcgen::KeyPair::generate().unwrap();
+    let cert: rcgen::Certificate = params.self_signed(&key_pair).unwrap();
+
+    let config: axum_server::tls_rustls::RustlsConfig =
+        axum_server::tls_rustls::RustlsConfig::from_pem(
+            cert.pem().into_bytes(),
+            key_pair.serialize_pem().into_bytes(),
+        )
+        .await
+        .unwrap();
 
     let mut router: axum::Router<State> = axum::Router::new();
 
@@ -19,10 +37,9 @@ pub async fn serve<A: tokio::net::ToSocketAddrs>(
     router = router.route("/favicon.ico", axum::routing::get(handlers::favicon));
     router = router.nest_service(
         "/assets",
-        tower_http::services::ServeDir::new(format!(
-            "{}/assets",
-            "/home/rustctl/rustctl/target/dx/frontend/release/web/public"
-        )),
+        tower_http::services::ServeDir::new(
+            "/home/rustctl/rustctl/target/dx/frontend/release/web/public/assets",
+        ),
     );
 
     /*
@@ -35,9 +52,10 @@ pub async fn serve<A: tokio::net::ToSocketAddrs>(
 
     let router: axum::Router = router.with_state(State::new(tx));
 
-    let service: MakeService = router.into_make_service_with_connect_info::<std::net::SocketAddr>();
-
-    axum::serve(tcp_listener, service).await.unwrap();
+    axum_server::bind_rustls(addr, config)
+        .serve(router.into_make_service())
+        .await
+        .unwrap();
 }
 
 #[derive(Clone)]
