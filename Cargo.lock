@@ -203,11 +203,13 @@ name = "backend"
 version = "0.0.0"
 dependencies = [
  "axum",
+ "base64",
  "clap",
  "futures-util",
  "log",
  "log4rs",
  "nix",
+ "rand",
  "reqwest 0.13.1",
  "serde",
  "serde_json",

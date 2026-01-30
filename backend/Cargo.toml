@@ -6,7 +6,11 @@ rust-version = { workspace = true }
 [dependencies]
 axum = { workspace = true, features = [
   "http1", # for compatibility with curl for testing purposes
+  "json",
   "tokio",
+] }
+
+base64 = { workspace = true, features = [
 ] }
 
 clap = { workspace = true, default-features = false, features = [
@@ -32,6 +36,9 @@ log = { workspace = true, features = [
 nix = { workspace = true, features = [
   "fs",
   "signal",
+] }
+
+rand = { workspace = true, features = [
 ] }
 
 reqwest = { workspace = true, features = [
