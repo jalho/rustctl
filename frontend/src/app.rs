@@ -33,31 +33,33 @@ pub fn PasskeyComponent() -> dioxus::core::Element {
                 .await
                 .map_err(|e| {
                     web_sys::console::error_1(
-                        &format!("Failed to fetch auth options: {:?}", e).into(),
+                        &format!("failed to fetch auth options: {:?}", e).into(),
                     );
                     e
                 })
-                .expect("Failed to fetch auth options")
+                .unwrap()
                 .json::<serde_json::Value>()
                 .await
                 .map_err(|e| {
-                    web_sys::console::error_1(&format!("Failed to parse JSON: {:?}", e).into());
+                    web_sys::console::error_1(
+                        &format!("failed to parse auth options JSON: {:?}", e).into(),
+                    );
                     e
                 })
-                .expect("Failed to parse JSON");
+                .unwrap();
 
             // decode hex
             let challenge_hex: &str = resp["challenge"].as_str().unwrap_or_else(|| {
-                web_sys::console::error_1(&"Challenge missing in response".into());
-                panic!("Challenge missing in response");
+                web_sys::console::error_1(&"challenge missing in response".into());
+                panic!();
             });
             let challenge_js: js_sys::Uint8Array =
                 js_sys::Uint8Array::new_with_length((challenge_hex.len() / 2) as u32);
             for i in 0..(challenge_hex.len() / 2) {
                 let byte =
                     u8::from_str_radix(&challenge_hex[i * 2..i * 2 + 2], 16).unwrap_or_else(|e| {
-                        web_sys::console::error_1(&format!("Invalid hex byte: {:?}", e).into());
-                        panic!("Invalid hex byte");
+                        web_sys::console::error_1(&format!("invalid hex byte: {:?}", e).into());
+                        panic!();
                     });
                 challenge_js.set_index(i as u32, byte);
             }
@@ -65,31 +67,31 @@ pub fn PasskeyComponent() -> dioxus::core::Element {
             // RP entity
             let rp_id = resp["rp"]["id"].as_str().unwrap_or_else(|| {
                 web_sys::console::error_1(&"RP ID missing".into());
-                panic!("RP ID missing");
+                panic!();
             });
             let rp_entity: web_sys::PublicKeyCredentialRpEntity =
                 web_sys::PublicKeyCredentialRpEntity::new(rp_id);
 
             let rp_name = resp["rp"]["name"].as_str().unwrap_or_else(|| {
-                web_sys::console::error_1(&"RP Name missing".into());
-                panic!("RP Name missing");
+                web_sys::console::error_1(&"RP name missing".into());
+                panic!();
             });
             rp_entity.set_name(rp_name);
 
             // user entity
             let user_id_str: &str = resp["user"]["id"].as_str().unwrap_or_else(|| {
-                web_sys::console::error_1(&"User ID missing".into());
-                panic!("User ID missing");
+                web_sys::console::error_1(&"user ID missing".into());
+                panic!();
             });
             let user_id_js: js_sys::Uint8Array = js_sys::Uint8Array::from(user_id_str.as_bytes());
 
-            let user_name = resp["user"]["name"].as_str().unwrap_or_else(|| {
-                web_sys::console::error_1(&"User Name missing".into());
-                panic!("User Name missing");
+            let user_name: &str = resp["user"]["name"].as_str().unwrap_or_else(|| {
+                web_sys::console::error_1(&"user name missing".into());
+                panic!();
             });
-            let user_display = resp["user"]["displayName"].as_str().unwrap_or_else(|| {
-                web_sys::console::error_1(&"User DisplayName missing".into());
-                panic!("User DisplayName missing");
+            let user_display: &str = resp["user"]["displayName"].as_str().unwrap_or_else(|| {
+                web_sys::console::error_1(&"user displayName missing".into());
+                panic!();
             });
 
             let user_entity: web_sys::PublicKeyCredentialUserEntity =
@@ -99,13 +101,13 @@ pub fn PasskeyComponent() -> dioxus::core::Element {
             let param: js_sys::Object = js_sys::Object::new();
             js_sys::Reflect::set(&param, &"type".into(), &"public-key".into()).unwrap_or_else(
                 |e| {
-                    web_sys::console::error_1(&format!("Reflect set type failed: {:?}", e).into());
-                    panic!("Reflect set type failed");
+                    web_sys::console::error_1(&format!("reflect set type failed: {:?}", e).into());
+                    panic!();
                 },
             );
             js_sys::Reflect::set(&param, &"alg".into(), &(-7).into()).unwrap_or_else(|e| {
-                web_sys::console::error_1(&format!("Reflect set alg failed: {:?}", e).into());
-                panic!("Reflect set alg failed");
+                web_sys::console::error_1(&format!("reflect set alg failed: {:?}", e).into());
+                panic!();
             });
             let params_array: js_sys::Array = js_sys::Array::of1(&param);
 
@@ -121,8 +123,8 @@ pub fn PasskeyComponent() -> dioxus::core::Element {
 
             // trigger browser API
             let window: web_sys::Window = web_sys::window().unwrap_or_else(|| {
-                web_sys::console::error_1(&"No window found".into());
-                panic!("No window found");
+                web_sys::console::error_1(&"no window found".into());
+                panic!();
             });
             let credentials: web_sys::CredentialsContainer = window.navigator().credentials();
 
@@ -133,18 +135,20 @@ pub fn PasskeyComponent() -> dioxus::core::Element {
             let promise: js_sys::Promise = credentials
                 .create_with_options(&create_options)
                 .map_err(|e| {
-                    web_sys::console::error_1(&format!("Failed to create promise: {:?}", e).into());
+                    web_sys::console::error_1(
+                        &format!("failed to create credentials: {:?}", e).into(),
+                    );
                     e
                 })
-                .expect("Failed to create promise");
+                .unwrap();
 
             let credential: wasm_bindgen::JsValue = wasm_bindgen_futures::JsFuture::from(promise)
                 .await
                 .map_err(|e| {
-                    web_sys::console::error_1(&format!("Hardware/User Error: {:?}", e).into());
+                    web_sys::console::error_1(&format!("platform error: {:?}", e).into());
                     e
                 })
-                .expect("Hardware/User Error");
+                .unwrap();
 
             web_sys::console::log_1(&credential);
         });
