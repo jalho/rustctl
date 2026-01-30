@@ -10,6 +10,10 @@ fn check_errors() -> Result<(), std::process::ExitCode> {
     let mut command = std::process::Command::new("cargo");
     command.args(vec!["check", "--workspace"]);
 
+    command.stdout(std::process::Stdio::null());
+    command.stderr(std::process::Stdio::null());
+
+    log::info!("Checking for errors...");
     let status: std::process::ExitStatus = match command.status() {
         Ok(n) => n,
         Err(err) => {
@@ -40,6 +44,10 @@ fn check_format() -> Result<(), std::process::ExitCode> {
     let mut command = std::process::Command::new("cargo");
     command.args(vec!["fmt", "--check"]);
 
+    command.stdout(std::process::Stdio::null());
+    command.stderr(std::process::Stdio::null());
+
+    log::info!("Checking formatting...");
     let status: std::process::ExitStatus = match command.status() {
         Ok(n) => n,
         Err(err) => {
@@ -70,6 +78,10 @@ fn check_lint() -> Result<(), std::process::ExitCode> {
     let mut command = std::process::Command::new("cargo");
     command.args(vec!["clippy", "--workspace", "--", "--deny", "warnings"]);
 
+    command.stdout(std::process::Stdio::null());
+    command.stderr(std::process::Stdio::null());
+
+    log::info!("Checking lint...");
     let status: std::process::ExitStatus = match command.status() {
         Ok(n) => n,
         Err(err) => {
@@ -106,6 +118,10 @@ fn check_web_bundle() -> Result<(), std::process::ExitCode> {
         "frontend",
     ]);
 
+    command.stdout(std::process::Stdio::null());
+    command.stderr(std::process::Stdio::null());
+
+    log::info!("Checking release bundle for web...");
     let status: std::process::ExitStatus = match command.status() {
         Ok(n) => n,
         Err(err) => {
