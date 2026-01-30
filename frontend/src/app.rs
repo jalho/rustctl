@@ -40,8 +40,20 @@ pub fn PasskeyComponent() -> dioxus::core::Element {
     }
 }
 
+fn credential_to_json(credential: wasm_bindgen::JsValue) -> serde_json::Value {
+    use wasm_bindgen::JsCast;
+    let js_val = credential
+        .dyn_into::<web_sys::PublicKeyCredential>()
+        .unwrap();
+    if let Ok(json_str) = js_sys::JSON::stringify(&js_val) {
+        let s: String = json_str.into();
+        return serde_json::from_str(&s).unwrap_or(serde_json::Value::Null);
+    }
+    serde_json::Value::Null
+}
+
 pub async fn handle_sign_up() {
-    let resp: serde_json::Value = gloo_net::http::Request::post(shared::SIGN_UP)
+    let resp: serde_json::Value = gloo_net::http::Request::post(shared::SIGN_UP_CHALLENGE)
         .send()
         .await
         .map_err(|e| {
@@ -59,7 +71,6 @@ pub async fn handle_sign_up() {
         })
         .unwrap();
 
-    // decode hex
     let challenge_hex: &str = resp["challenge"].as_str().unwrap_or_else(|| {
         web_sys::console::error_1(&"challenge missing in response".into());
         panic!();
@@ -74,7 +85,6 @@ pub async fn handle_sign_up() {
         challenge_js.set_index(i as u32, byte);
     }
 
-    // RP entity
     let rp_id = resp["rp"]["id"].as_str().unwrap_or_else(|| {
         web_sys::console::error_1(&"RP ID missing".into());
         panic!();
@@ -88,7 +98,6 @@ pub async fn handle_sign_up() {
     });
     rp_entity.set_name(rp_name);
 
-    // user entity
     let user_id_str: &str = resp["user"]["id"].as_str().unwrap_or_else(|| {
         web_sys::console::error_1(&"user ID missing".into());
         panic!();
@@ -107,7 +116,6 @@ pub async fn handle_sign_up() {
     let user_entity: web_sys::PublicKeyCredentialUserEntity =
         web_sys::PublicKeyCredentialUserEntity::new(user_name, user_display, &user_id_js);
 
-    // parameters
     let param: js_sys::Object = js_sys::Object::new();
     js_sys::Reflect::set(&param, &"type".into(), &"public-key".into()).unwrap_or_else(|e| {
         web_sys::console::error_1(&format!("reflect set type failed: {:?}", e).into());
@@ -119,7 +127,6 @@ pub async fn handle_sign_up() {
     });
     let params_array: js_sys::Array = js_sys::Array::of1(&param);
 
-    // creation options
     let options: web_sys::PublicKeyCredentialCreationOptions =
         web_sys::PublicKeyCredentialCreationOptions::new(
             &challenge_js,
@@ -129,7 +136,6 @@ pub async fn handle_sign_up() {
         );
     options.set_timeout(60000);
 
-    // trigger browser API
     let window: web_sys::Window = web_sys::window().unwrap_or_else(|| {
         web_sys::console::error_1(&"no window found".into());
         panic!();
@@ -156,11 +162,16 @@ pub async fn handle_sign_up() {
         })
         .unwrap();
 
-    web_sys::console::log_1(&credential);
+    let credential_json = credential_to_json(credential);
+    let _ = gloo_net::http::Request::post(shared::SIGN_UP_SUBMIT)
+        .json(&credential_json)
+        .unwrap()
+        .send()
+        .await;
 }
 
 pub async fn handle_sign_in() {
-    let resp: serde_json::Value = gloo_net::http::Request::post(shared::SIGN_IN)
+    let resp: serde_json::Value = gloo_net::http::Request::post(shared::SIGN_IN_CHALLENGE)
         .send()
         .await
         .map_err(|e| {
@@ -178,7 +189,6 @@ pub async fn handle_sign_in() {
         })
         .unwrap();
 
-    // decode hex
     let challenge_hex: &str = resp["challenge"].as_str().unwrap_or_else(|| {
         web_sys::console::error_1(&"challenge missing in response".into());
         panic!();
@@ -193,7 +203,6 @@ pub async fn handle_sign_in() {
         challenge_js.set_index(i as u32, byte);
     }
 
-    // request options
     let options: web_sys::PublicKeyCredentialRequestOptions =
         web_sys::PublicKeyCredentialRequestOptions::new(&challenge_js);
     options.set_timeout(60000);
@@ -202,7 +211,6 @@ pub async fn handle_sign_in() {
         options.set_rp_id(rp_id);
     }
 
-    // trigger browser API
     let window: web_sys::Window = web_sys::window().unwrap_or_else(|| {
         web_sys::console::error_1(&"no window found".into());
         panic!();
@@ -229,5 +237,10 @@ pub async fn handle_sign_in() {
         })
         .unwrap();
 
-    web_sys::console::log_1(&credential);
+    let credential_json = credential_to_json(credential);
+    let _ = gloo_net::http::Request::post(shared::SIGN_IN_SUBMIT)
+        .json(&credential_json)
+        .unwrap()
+        .send()
+        .await;
 }

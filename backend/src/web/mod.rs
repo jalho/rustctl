@@ -51,8 +51,22 @@ where
      *
      * TODO: Add access control to some of the logic routes (post-auth).
      */
-    router = router.route(shared::SIGN_UP, axum::routing::post(handlers::auth_sign_up));
-    router = router.route(shared::SIGN_IN, axum::routing::post(handlers::auth_sign_in));
+    router = router.route(
+        shared::SIGN_UP_CHALLENGE,
+        axum::routing::post(handlers::auth_sign_up_challenge),
+    );
+    router = router.route(
+        shared::SIGN_UP_SUBMIT,
+        axum::routing::post(handlers::auth_sign_up_submit),
+    );
+    router = router.route(
+        shared::SIGN_IN_CHALLENGE,
+        axum::routing::post(handlers::auth_sign_in_challenge),
+    );
+    router = router.route(
+        shared::SIGN_IN_SUBMIT,
+        axum::routing::post(handlers::auth_sign_in_submit),
+    );
     router = router.route("/reboot", axum::routing::post(handlers::reboot));
 
     let router: axum::Router = router.with_state(State::new(tx));

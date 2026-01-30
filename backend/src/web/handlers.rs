@@ -29,7 +29,7 @@ pub async fn reboot(
     axum::response::Response::new(body)
 }
 
-pub async fn auth_sign_up(
+pub async fn auth_sign_up_challenge(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
 ) -> axum::response::Json<serde_json::Value> {
     let mut challenge_bytes: [u8; 32] = [0u8; 32];
@@ -74,7 +74,15 @@ pub async fn auth_sign_up(
     }))
 }
 
-pub async fn auth_sign_in(
+pub async fn auth_sign_up_submit(
+    axum::extract::State(_state): axum::extract::State<crate::web::State>,
+    axum::extract::Json(payload): axum::extract::Json<serde_json::Value>,
+) -> axum::http::StatusCode {
+    log::debug!("Inbound Sign-Up Credential: {:#?}", payload);
+    axum::http::StatusCode::NO_CONTENT
+}
+
+pub async fn auth_sign_in_challenge(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
 ) -> axum::response::Json<serde_json::Value> {
     let mut challenge_bytes: [u8; 32] = [0u8; 32];
@@ -106,4 +114,12 @@ pub async fn auth_sign_in(
         "timeout": 60000,
         "userVerification": "required"
     }))
+}
+
+pub async fn auth_sign_in_submit(
+    axum::extract::State(_state): axum::extract::State<crate::web::State>,
+    axum::extract::Json(payload): axum::extract::Json<serde_json::Value>,
+) -> axum::http::StatusCode {
+    log::debug!("Inbound Sign-In Credential: {:#?}", payload);
+    axum::http::StatusCode::NO_CONTENT
 }

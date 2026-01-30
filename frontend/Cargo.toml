@@ -42,13 +42,14 @@ wasm-bindgen = { workspace = true, features = [
 ] }
 
 web-sys = { workspace = true, features = [
+  "CredentialCreationOptions",
   "CredentialRequestOptions",
   "CredentialsContainer",
   "Navigator",
+  "PublicKeyCredential",
   "PublicKeyCredentialCreationOptions",
   "PublicKeyCredentialRequestOptions",
   "PublicKeyCredentialRpEntity",
   "PublicKeyCredentialUserEntity",
   "Window",
-  "CredentialCreationOptions",
 ] }
