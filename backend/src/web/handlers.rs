@@ -76,3 +76,37 @@ pub async fn auth_sign_up(
 
     axum::response::Json(options)
 }
+
+pub async fn auth_sign_in(
+    axum::extract::State(state): axum::extract::State<crate::web::State>,
+) -> axum::response::Json<serde_json::Value> {
+    let mut challenge_bytes: [u8; 32] = [0u8; 32];
+    {
+        let mut generator: rand::prelude::ThreadRng = rand::rng();
+        use rand::RngCore;
+        generator.fill_bytes(&mut challenge_bytes);
+    }
+
+    let challenge_hex: String = challenge_bytes
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect();
+
+    /*
+     * TODO: Revoke pending transaction after some timeout.
+     */
+    let pending_count: usize;
+    {
+        let mut lock = state.pending_challenges.lock().await;
+        lock.insert(challenge_hex.clone());
+        pending_count = lock.len();
+    }
+    log::debug!("Auth transactions pending: {pending_count}");
+
+    axum::response::Json(serde_json::json!({
+        "challenge": challenge_hex,
+        "rpId": crate::web::DOMAIN_NAME,
+        "timeout": 60000,
+        "userVerification": "required"
+    }))
+}

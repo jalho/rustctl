@@ -53,6 +53,7 @@ where
      * TODO: Add access control to some of the logic routes (post-auth).
      */
     router = router.route("/auth/sign-up", axum::routing::post(handlers::auth_sign_up));
+    router = router.route("/auth/sign-in", axum::routing::post(handlers::auth_sign_in));
     router = router.route("/reboot", axum::routing::post(handlers::reboot));
 
     let router: axum::Router = router.with_state(State::new(tx));
