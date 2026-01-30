@@ -28,7 +28,7 @@ use dioxus::prelude::dioxus_elements;
 pub fn PasskeyComponent() -> dioxus::core::Element {
     let handle_register = move |_| {
         dioxus::prelude::spawn(async move {
-            let resp: serde_json::Value = gloo_net::http::Request::get("/auth/init")
+            let resp: serde_json::Value = gloo_net::http::Request::post("/auth/init")
                 .send()
                 .await
                 .expect("Failed to fetch auth options")
@@ -45,12 +45,12 @@ pub fn PasskeyComponent() -> dioxus::core::Element {
                 challenge_js.set_index(i as u32, byte);
             }
 
-            // RP Entity
+            // RP entity
             let rp_entity: web_sys::PublicKeyCredentialRpEntity =
                 web_sys::PublicKeyCredentialRpEntity::new(resp["rp"]["id"].as_str().unwrap());
             rp_entity.set_name(resp["rp"]["name"].as_str().unwrap());
 
-            // User Entity
+            // user entity
             let user_id_str: &str = resp["user"]["id"].as_str().unwrap();
             let user_id_js: js_sys::Uint8Array = js_sys::Uint8Array::from(user_id_str.as_bytes());
             let user_entity: web_sys::PublicKeyCredentialUserEntity =
