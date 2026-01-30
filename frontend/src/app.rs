@@ -41,7 +41,7 @@ pub fn PasskeyComponent() -> dioxus::core::Element {
 }
 
 pub async fn handle_sign_up() {
-    let resp: serde_json::Value = gloo_net::http::Request::post("/auth/sign-up")
+    let resp: serde_json::Value = gloo_net::http::Request::post(shared::SIGN_UP)
         .send()
         .await
         .map_err(|e| {
@@ -160,7 +160,7 @@ pub async fn handle_sign_up() {
 }
 
 pub async fn handle_sign_in() {
-    let resp: serde_json::Value = gloo_net::http::Request::post("/auth/sign-in")
+    let resp: serde_json::Value = gloo_net::http::Request::post(shared::SIGN_IN)
         .send()
         .await
         .map_err(|e| {
