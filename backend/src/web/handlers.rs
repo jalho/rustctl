@@ -20,7 +20,7 @@ pub async fn web() -> impl axum::response::IntoResponse {
 }
 
 pub async fn reboot(
-    axum::extract::State(state): axum::extract::State<super::State>,
+    axum::extract::State(state): axum::extract::State<crate::web::State>,
 ) -> axum::response::Response {
     state.tx.send(crate::ctl::Command::Reboot).await.unwrap();
 
@@ -30,7 +30,7 @@ pub async fn reboot(
 }
 
 pub async fn auth_init(
-    axum::extract::State(state): axum::extract::State<super::State>,
+    axum::extract::State(state): axum::extract::State<crate::web::State>,
 ) -> axum::response::Json<crate::web::passkey::RegistrationOptions> {
     let mut challenge_bytes: [u8; 32] = [0u8; 32];
     {
@@ -44,10 +44,16 @@ pub async fn auth_init(
         challenge_bytes,
     );
 
+    /*
+     * TODO: Revoke pending transaction after some timeout.
+     */
+    let pending_count: usize;
     {
         let mut lock = state.pending_challenges.lock().await;
         lock.insert(challenge_b64.clone());
+        pending_count = lock.len();
     }
+    log::debug!("Auth transactions pending: {pending_count}");
 
     let options: crate::web::passkey::RegistrationOptions =
         crate::web::passkey::RegistrationOptions {
