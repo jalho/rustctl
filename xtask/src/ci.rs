@@ -163,7 +163,7 @@ fn check_web_bundle() -> Result<(), std::process::ExitCode> {
     match status.success() {
         true => {
             log::info!(
-                "Making release bundle for web succeeded: {command}",
+                "Checking release bundle for web succeeded: {command}",
                 command = command.format()
             );
             Ok(())
@@ -171,14 +171,14 @@ fn check_web_bundle() -> Result<(), std::process::ExitCode> {
         false => match status.code() {
             Some(_code) => {
                 log::error!(
-                    "Making release bundle for web failed: {command}",
+                    "Checking release bundle for web failed: {command}",
                     command = command.format()
                 );
                 Err(std::process::ExitCode::FAILURE)
             }
             None => {
                 log::error!(
-                    "Failed to make release bundle for web: {command}: No exit code",
+                    "Failed to check release bundle for web: {command}: No exit code",
                     command = command.format()
                 );
                 Err(std::process::ExitCode::FAILURE)
