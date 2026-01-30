@@ -10,7 +10,7 @@ pub async fn serve<A: tokio::net::ToSocketAddrs>(
     let mut router: axum::Router<State> = axum::Router::new();
 
     /*
-     * Web routes.
+     * Public static web content routes.
      */
     router = router.route("/", axum::routing::get(handle_web));
     router = router.route("/favicon.ico", axum::routing::get(handle_favicon));
@@ -24,6 +24,8 @@ pub async fn serve<A: tokio::net::ToSocketAddrs>(
 
     /*
      * Logic routes.
+     *
+     * TODO: Add access control to the logic routes.
      */
     router = router.route("/reboot", axum::routing::post(handle_reboot));
 
