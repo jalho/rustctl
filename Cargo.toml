@@ -30,6 +30,7 @@ tokio-tungstenite    = { version = "=0.28.0",  default-features = false, feature
 tokio                = { version = "=1.48.0",  default-features = false, features = [] }
 tower-http           = { version = "=0.6.8",   default-features = false, features = [] }
 wasm-bindgen-futures = { version = "=0.4.58",  default-features = false, features = [] }
+wasm-bindgen         = { version = "=0.2.108", default-features = false, features = [] }
 web-sys              = { version = "=0.3.85",  default-features = false, features = [] }
 
 [profile]
