@@ -4,11 +4,14 @@ use dioxus::prelude::dioxus_signals;
 
 #[dioxus::prelude::component]
 pub fn DebugViewer() -> dioxus::core::Element {
-    let state = dioxus::hooks::use_context::<crate::state::GlobalState>();
+    let state: crate::state::GlobalState =
+        dioxus::hooks::use_context::<crate::state::GlobalState>();
+
+    let attempts = dioxus_signals::ReadableExt::read(&state.connection_attempts);
 
     dioxus::prelude::rsx! {
         div {
-            p { "Connection Attempts: {state.connection_attempts}" }
+            p { "Connection Attempts: {attempts}" }
         }
     }
 }
