@@ -39,10 +39,10 @@ pub async fn auth_init(
         generator.fill_bytes(&mut challenge_bytes);
     }
 
-    let challenge_b64: String = <base64::engine::GeneralPurpose as base64::Engine>::encode(
-        &base64::engine::general_purpose::URL_SAFE_NO_PAD,
-        challenge_bytes,
-    );
+    let challenge_hex: String = challenge_bytes
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect();
 
     /*
      * TODO: Revoke pending transaction after some timeout.
@@ -50,14 +50,14 @@ pub async fn auth_init(
     let pending_count: usize;
     {
         let mut lock = state.pending_challenges.lock().await;
-        lock.insert(challenge_b64.clone());
+        lock.insert(challenge_hex.clone());
         pending_count = lock.len();
     }
     log::debug!("Auth transactions pending: {pending_count}");
 
     let options: crate::web::passkey::RegistrationOptions =
         crate::web::passkey::RegistrationOptions {
-            challenge: challenge_b64,
+            challenge: challenge_hex,
             rp: crate::web::passkey::Rp {
                 name: "PLACEHOLDER1".into(),
                 id: "rustctl.internal".into(), // TODO: Use a public domain name

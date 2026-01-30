@@ -28,7 +28,6 @@ use dioxus::prelude::dioxus_elements;
 pub fn PasskeyComponent() -> dioxus::core::Element {
     let handle_register = move |_| {
         dioxus::prelude::spawn(async move {
-            // 1. Fetch options from server
             let resp: serde_json::Value = gloo_net::http::Request::get("/auth/init")
                 .send()
                 .await
@@ -37,22 +36,21 @@ pub fn PasskeyComponent() -> dioxus::core::Element {
                 .await
                 .expect("Failed to parse JSON");
 
-            // 2. Decode Challenge (Base64 -> Uint8Array)
-            let challenge_str: &str = resp["challenge"].as_str().unwrap();
-            let challenge_bytes: Vec<u8> =
-                <base64::engine::GeneralPurpose as base64::Engine>::decode(
-                    &base64::engine::general_purpose::URL_SAFE_NO_PAD,
-                    challenge_str,
-                )
-                .expect("Invalid base64 challenge");
-            let challenge_js: js_sys::Uint8Array = js_sys::Uint8Array::from(&challenge_bytes[..]);
+            // decode hex
+            let challenge_hex: &str = resp["challenge"].as_str().unwrap();
+            let challenge_js: js_sys::Uint8Array =
+                js_sys::Uint8Array::new_with_length((challenge_hex.len() / 2) as u32);
+            for i in 0..(challenge_hex.len() / 2) {
+                let byte = u8::from_str_radix(&challenge_hex[i * 2..i * 2 + 2], 16).unwrap();
+                challenge_js.set_index(i as u32, byte);
+            }
 
-            // 3. Prepare RP Entity
+            // RP Entity
             let rp_entity: web_sys::PublicKeyCredentialRpEntity =
                 web_sys::PublicKeyCredentialRpEntity::new(resp["rp"]["id"].as_str().unwrap());
             rp_entity.set_name(resp["rp"]["name"].as_str().unwrap());
 
-            // 4. Prepare User Entity
+            // User Entity
             let user_id_str: &str = resp["user"]["id"].as_str().unwrap();
             let user_id_js: js_sys::Uint8Array = js_sys::Uint8Array::from(user_id_str.as_bytes());
             let user_entity: web_sys::PublicKeyCredentialUserEntity =
@@ -62,23 +60,23 @@ pub fn PasskeyComponent() -> dioxus::core::Element {
                     &user_id_js,
                 );
 
-            // 5. Prepare Parameters (Algorithm: ES256)
+            // parameters
             let param: js_sys::Object = js_sys::Object::new();
             js_sys::Reflect::set(&param, &"type".into(), &"public-key".into()).unwrap();
             js_sys::Reflect::set(&param, &"alg".into(), &(-7).into()).unwrap();
             let params_array: js_sys::Array = js_sys::Array::of1(&param);
 
-            // 6. Create Creation Options
+            // creation options
             let options: web_sys::PublicKeyCredentialCreationOptions =
                 web_sys::PublicKeyCredentialCreationOptions::new(
-                    challenge_js.as_ref(),
-                    params_array.as_ref(),
+                    &challenge_js,
+                    &params_array,
                     &rp_entity,
                     &user_entity,
                 );
-            options.set_timeout(60000); // TODO: Use the value received from the server?
+            options.set_timeout(60000); // TODO: Use timeout value specified in the response payload?
 
-            // 7. Trigger Browser Hardware API
+            // trigger browser API
             let window: web_sys::Window = web_sys::window().expect("No window");
             let credentials: web_sys::CredentialsContainer = window.navigator().credentials();
 
@@ -89,19 +87,16 @@ pub fn PasskeyComponent() -> dioxus::core::Element {
             let promise: js_sys::Promise = credentials
                 .create_with_options(&create_options)
                 .expect("Failed to create promise");
+
             let credential: wasm_bindgen::JsValue = wasm_bindgen_futures::JsFuture::from(promise)
                 .await
                 .expect("Hardware/User Error");
 
-            // 8. Log success
             web_sys::console::log_1(&credential);
         });
     };
 
     dioxus::prelude::rsx! {
-        button {
-            onclick: handle_register,
-            "Create Passkey"
-        }
+        button { onclick: handle_register, "Create Passkey" }
     }
 }

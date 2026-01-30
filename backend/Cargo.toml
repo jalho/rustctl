@@ -10,9 +10,6 @@ axum = { workspace = true, features = [
   "tokio",
 ] }
 
-base64 = { workspace = true, features = [
-] }
-
 clap = { workspace = true, default-features = false, features = [
   "color",
   "derive",
