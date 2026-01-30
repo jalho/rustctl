@@ -26,21 +26,21 @@ pub fn PasskeyComponent() -> dioxus::core::Element {
         div { class: "flex gap-2",
             button {
                 onclick: |_| {
-                    dioxus::prelude::spawn(handle_register());
+                    dioxus::prelude::spawn(handle_sign_up());
                 },
-                "Create Passkey"
+                "Sign Up: Create Passkey"
             }
             button {
                 onclick: |_| {
-                    dioxus::prelude::spawn(handle_login());
+                    dioxus::prelude::spawn(handle_sign_in());
                 },
-                "Use Existing Passkey"
+                "Sign In: Use Existing Passkey"
             }
         }
     }
 }
 
-pub async fn handle_register() {
+pub async fn handle_sign_up() {
     let resp: serde_json::Value = gloo_net::http::Request::post("/auth/sign-up")
         .send()
         .await
@@ -159,7 +159,7 @@ pub async fn handle_register() {
     web_sys::console::log_1(&credential);
 }
 
-pub async fn handle_login() {
+pub async fn handle_sign_in() {
     let resp: serde_json::Value = gloo_net::http::Request::post("/auth/sign-in")
         .send()
         .await

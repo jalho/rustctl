@@ -31,7 +31,7 @@ pub async fn reboot(
 
 pub async fn auth_sign_up(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
-) -> axum::response::Json<crate::web::passkey::RegistrationOptions> {
+) -> axum::response::Json<serde_json::Value> {
     let mut challenge_bytes: [u8; 32] = [0u8; 32];
     {
         let mut generator: rand::prelude::ThreadRng = rand::rng();
@@ -55,26 +55,23 @@ pub async fn auth_sign_up(
     }
     log::debug!("Auth transactions pending: {pending_count}");
 
-    let options: crate::web::passkey::RegistrationOptions =
-        crate::web::passkey::RegistrationOptions {
-            challenge: challenge_hex,
-            rp: crate::web::passkey::Rp {
-                name: "PLACEHOLDER1".into(),
-                id: crate::web::DOMAIN_NAME.into(),
-            },
-            user: crate::web::passkey::User {
-                id: "PLACEHOLDER2".into(),
-                name: "PLACEHOLDER3".into(),
-                display_name: "PLACEHOLDER4".into(),
-            },
-            pub_key_cred_params: vec![crate::web::passkey::PubKeyCredParam {
-                alg: -7, // "ECDSA using P-256 and SHA-256"
-                kind: String::from("public-key"),
-            }],
-            timeout: 60000, // milliseconds
-        };
-
-    axum::response::Json(options)
+    axum::response::Json(serde_json::json!({
+        "challenge": challenge_hex,
+        "rp": {
+            "name": "PLACEHOLDER1",
+            "id": crate::web::DOMAIN_NAME,
+        },
+        "user": {
+            "id": "PLACEHOLDER2",
+            "name": "PLACEHOLDER3",
+            "displayName": "PLACEHOLDER4",
+        },
+        "pubKeyCredParams": [{
+            "alg": -7,
+            "type": "public-key",
+        }],
+        "timeout": 60000,
+    }))
 }
 
 pub async fn auth_sign_in(

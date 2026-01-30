@@ -1,5 +1,4 @@
 mod handlers;
-mod passkey;
 
 const DOMAIN_NAME: &str = "rustctl.internal";
 
