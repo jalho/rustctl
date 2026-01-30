@@ -20,8 +20,8 @@ impl GlobalState {
                 Self::handle_socket(state, socket).await;
             }
 
-            let delay = dioxus::signals::ReadableExt::read(&state.connection_attempts);
-            let sleep_secs: u64 = std::cmp::min(*delay, 10);
+            let delay = *dioxus::signals::ReadableExt::read(&state.connection_attempts);
+            let sleep_secs: u64 = std::cmp::max(1, std::cmp::min(delay, 10));
             gloo_timers::future::sleep(std::time::Duration::from_secs(sleep_secs)).await;
         }
     }
