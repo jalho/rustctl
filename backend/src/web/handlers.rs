@@ -87,7 +87,7 @@ pub async fn auth_sign_up_challenge(
         lock.insert(id, timestamped);
         pending_count = lock.len();
     }
-    log::debug!("Pending sign-up transactions in total: {pending_count}");
+    log::debug!("New sign-up initiated: Pending sign-up transactions in total: {pending_count}");
 
     let ccr_serializable: serde_json::Value = serde_json::to_value(&ccr).unwrap();
 
@@ -113,7 +113,9 @@ pub async fn auth_sign_up_submit(
 
     if pending.is_some() {
         // count changed
-        log::debug!("Pending sing-up transactions in total: {pending_count}");
+        log::debug!(
+            "Sign-up submitted: Pending sign-up transactions remaining in total: {pending_count}"
+        );
     }
 
     let pkr: crate::web::Timestamped<webauthn_rs::prelude::PasskeyRegistration> = match pending {
@@ -142,7 +144,7 @@ pub async fn auth_sign_up_submit(
         passkeys_registered_globally = lock.select_all_passkeys().await.len();
     }
     log::debug!(
-        "Passkeys registered globally: {passkeys_registered_globally} (added 1 with credential ID {cred_id:?})",
+        "Registered 1 new passkey with credential ID {cred_id:?}: Passkeys registered globally in total: {passkeys_registered_globally}",
         cred_id = passkey.cred_id(),
     );
 
@@ -225,7 +227,7 @@ pub async fn auth_sign_in_challenge(
         lock.insert(id, timestamped);
         pending_count = lock.len();
     }
-    log::debug!("Pending sign-in transactions in total: {pending_count}");
+    log::debug!("New sign-in initiated: Pending sign-in transactions in total: {pending_count}");
 
     let rcr_serializable: serde_json::Value = serde_json::to_value(&rcr).unwrap();
     shared::SignInResponse {
@@ -251,10 +253,15 @@ pub async fn auth_sign_in_submit(
     let pka: crate::web::Timestamped<webauthn_rs::prelude::PasskeyAuthentication> = match pending {
         Some(n) => {
             // count changed
-            log::debug!("Pending sign-in transactions in total: {pending_count}");
+            log::debug!(
+                "Sign-in submitted: Pending sign-in transactions remaining in total: {pending_count}"
+            );
             n
         }
-        None => return axum::http::StatusCode::BAD_REQUEST,
+        None => {
+            log::debug!("Not found in in-mem pending sign-ins: {id}");
+            return axum::http::StatusCode::BAD_REQUEST;
+        }
     };
 
     let auth_result: webauthn_rs::prelude::AuthenticationResult = match state
@@ -262,7 +269,10 @@ pub async fn auth_sign_in_submit(
         .finish_passkey_authentication(&payload, &pka.inner)
     {
         Ok(n) => n,
-        Err(_err) => return axum::http::StatusCode::BAD_REQUEST,
+        Err(err) => {
+            log::debug!("Not authentic sign-in submission: {id}: {err}");
+            return axum::http::StatusCode::BAD_REQUEST;
+        }
     };
 
     /*
