@@ -263,11 +263,20 @@ pub async fn auth_sign_in_submit(
     };
 
     /*
-     * TODO: Assert that the authenticated passkey (of a user who is potentially
-     *       still anonymous) exists in the database, to be sure that it was
-     *       registered for this system. Otherwise it's only bound to the
-     *       domain, I guess, which could change.
+     * Assert that the authenticated passkey (of a user who is potentially still
+     * anonymous) exists in the database, to be sure that it was registered
+     * for this system. Otherwise it's only bound to the domain, I guess, whose
+     * control could change over time.
      */
+    let existing: Option<webauthn_rs::prelude::Passkey>;
+    let claimed: &webauthn_rs::prelude::CredentialID = auth_result.cred_id();
+    {
+        let mut lock = state.db.lock().await;
+        existing = lock.select_one_passkey_by_credential_id(claimed).await;
+    }
+    if existing.is_none() {
+        return axum::http::StatusCode::UNAUTHORIZED;
+    }
 
     /*
      * TODO: Make sense of this:

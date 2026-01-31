@@ -20,4 +20,18 @@ impl Client {
         }
         vec
     }
+
+    pub async fn select_one_passkey_by_credential_id(
+        &mut self,
+        credential_id: &webauthn_rs::prelude::CredentialID,
+    ) -> Option<webauthn_rs::prelude::Passkey> {
+        for v in self.in_mem.iter() {
+            let deserialized: webauthn_rs::prelude::Passkey = serde_json::from_str(v).unwrap();
+            let id: &webauthn_rs::prelude::CredentialID = deserialized.cred_id();
+            if id == credential_id {
+                return Some(deserialized);
+            }
+        }
+        None
+    }
 }
