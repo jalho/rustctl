@@ -73,7 +73,7 @@ pub async fn auth_sign_up_challenge(
     let id: uuid::Uuid = uuid::Uuid::new_v4();
     let (ccr, pkr) = state
         .webauthn
-        .start_passkey_registration(id, "PLACEHOLDER1", "PLACEHOLDER2", None)
+        .start_passkey_registration(id, "anonymous", "Anonymous", None)
         .expect("Failed to start registration.");
     let ccr: webauthn_rs::prelude::CreationChallengeResponse = ccr;
     let pkr: webauthn_rs::prelude::PasskeyRegistration = pkr;
