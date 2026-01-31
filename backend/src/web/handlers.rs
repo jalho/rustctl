@@ -129,9 +129,15 @@ pub async fn auth_sign_up_submit(
 
     let pkr: crate::web::Timestamped<webauthn_rs::prelude::PasskeyRegistration> = match pending {
         Some(n) => n,
-        None => todo!(),
+        None => return axum::http::StatusCode::BAD_REQUEST,
     };
     log::debug!("Identified pkr: {pkr:?}", pkr = pkr.inner);
+
+    let rpkc: webauthn_rs::prelude::RegisterPublicKeyCredential =
+        match serde_json::from_value(payload) {
+            Ok(cred) => cred,
+            Err(_err) => return axum::http::StatusCode::BAD_REQUEST,
+        };
 
     /*
      * TODO: Verify and respond with a Set-Cookie.
