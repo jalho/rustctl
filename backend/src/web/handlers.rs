@@ -113,14 +113,13 @@ pub async fn auth_sign_up_submit(
 
     if pending.is_some() {
         // count changed
-        log::debug!("Pending transactions in total: {pending_count}");
+        log::debug!("Pending sing-up transactions in total: {pending_count}");
     }
 
     let pkr: crate::web::Timestamped<webauthn_rs::prelude::PasskeyRegistration> = match pending {
         Some(n) => n,
         None => return axum::http::StatusCode::BAD_REQUEST,
     };
-    log::debug!("Identified pkr: {pkr:?}", pkr = pkr.inner);
 
     let rpkc: webauthn_rs::prelude::RegisterPublicKeyCredential =
         match serde_json::from_value(payload) {
@@ -136,10 +135,13 @@ pub async fn auth_sign_up_submit(
         Err(_err) => return axum::http::StatusCode::BAD_REQUEST,
     };
 
+    let passkeys_registered_globally: usize;
     {
         let mut lock = state.db.lock().await;
         lock.insert_one_passkey(&passkey).await;
+        passkeys_registered_globally = lock.select_all_passkeys().await.len();
     }
+    log::debug!("Passkeys registered globally: {passkeys_registered_globally}");
 
     /*
      * TODO: Set-Cookie.
@@ -235,13 +237,20 @@ pub async fn auth_sign_in_submit(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
     axum::extract::Json(payload): axum::extract::Json<webauthn_rs::prelude::PublicKeyCredential>,
 ) -> axum::http::StatusCode {
-    let pending: Option<crate::web::Timestamped<webauthn_rs::prelude::PasskeyAuthentication>> = {
+    let pending_count: usize;
+    let pending: Option<crate::web::Timestamped<webauthn_rs::prelude::PasskeyAuthentication>>;
+    {
         let mut lock = state.pending_signins.lock().await;
-        lock.remove(&id)
-    };
+        pending = lock.remove(&id);
+        pending_count = lock.len();
+    }
 
     let pka: crate::web::Timestamped<webauthn_rs::prelude::PasskeyAuthentication> = match pending {
-        Some(n) => n,
+        Some(n) => {
+            // count changed
+            log::debug!("Pending sign-in transactions in total: {pending_count}");
+            n
+        }
         None => return axum::http::StatusCode::BAD_REQUEST,
     };
 
@@ -252,7 +261,13 @@ pub async fn auth_sign_in_submit(
         Ok(n) => n,
         Err(_err) => return axum::http::StatusCode::BAD_REQUEST,
     };
-    log::debug!("{auth_result:?}");
+
+    /*
+     * TODO: Assert that the authenticated passkey (of a user who is potentially
+     *       still anonymous) exists in the database, to be sure that it was
+     *       registered for this system. Otherwise it's only bound to the
+     *       domain, I guess, which could change.
+     */
 
     /*
      * TODO: Make sense of this:
