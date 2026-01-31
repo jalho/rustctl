@@ -112,8 +112,6 @@ pub async fn auth_sign_up_submit(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
     axum::extract::Json(payload): axum::extract::Json<serde_json::Value>,
 ) -> axum::http::StatusCode {
-    log::debug!("Inbound Sign-Up Credential: {:#?}", payload);
-
     let pending_count: usize;
     let pending: Option<crate::web::Timestamped<webauthn_rs::prelude::PasskeyRegistration>>;
     {
@@ -233,15 +231,46 @@ pub async fn auth_sign_in_challenge(
 }
 
 pub async fn auth_sign_in_submit(
-    axum::extract::State(_state): axum::extract::State<crate::web::State>,
-    axum::extract::Json(payload): axum::extract::Json<serde_json::Value>,
+    axum::extract::Path(id): axum::extract::Path<uuid::Uuid>,
+    axum::extract::State(state): axum::extract::State<crate::web::State>,
+    axum::extract::Json(payload): axum::extract::Json<webauthn_rs::prelude::PublicKeyCredential>,
 ) -> axum::http::StatusCode {
+    let pending: Option<crate::web::Timestamped<webauthn_rs::prelude::PasskeyAuthentication>> = {
+        let mut lock = state.pending_signins.lock().await;
+        lock.remove(&id)
+    };
+
+    let pka: crate::web::Timestamped<webauthn_rs::prelude::PasskeyAuthentication> = match pending {
+        Some(n) => n,
+        None => return axum::http::StatusCode::BAD_REQUEST,
+    };
+
+    let auth_result: webauthn_rs::prelude::AuthenticationResult = match state
+        .webauthn
+        .finish_passkey_authentication(&payload, &pka.inner)
+    {
+        Ok(n) => n,
+        Err(_err) => return axum::http::StatusCode::BAD_REQUEST,
+    };
+    log::debug!("{auth_result:?}");
+
     /*
-     * TODO: Verify and respond with a Set-Cookie.
+     * TODO: Make sense of this:
      *
-     *       Use `finish_passkey_authentication`.
+     * > As per https://www.w3.org/TR/webauthn-3/#sctn-verifying-assertion 21:
+     * >
+     * > If the Credential Counter is greater than 0 you MUST assert that the counter is greater than the stored counter. If the counter is equal or less than this MAY indicate a cloned credential and you SHOULD invalidate and reject that credential as a result.
+     * >
+     * > From this AuthenticationResult you should update the Credential’s Counter value if it is valid per the above check. If you wish you may use the content of the AuthenticationResult for extended validations (such as the presence of the user verification flag).
+     *
+     * From:
+     * https://docs.rs/webauthn-rs/0.5.4/webauthn_rs/struct.Webauthn.html#method.finish_passkey_authentication
+     * (accessed 2026-01-31)
      */
-    log::debug!("Inbound Sign-In Credential: {:#?}", payload);
+
+    /*
+     * TODO: Set-Cookie.
+     */
     axum::http::StatusCode::NO_CONTENT
 }
 
