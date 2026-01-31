@@ -135,6 +135,8 @@ pub async fn auth_sign_up_submit(
 
     /*
      * TODO: Verify and respond with a Set-Cookie.
+     *
+     *       Use `finish_passkey_registration`.
      */
 
     axum::http::StatusCode::NO_CONTENT
@@ -144,7 +146,7 @@ pub async fn auth_sign_in_challenge(
     axum::extract::State(_state): axum::extract::State<crate::web::State>,
 ) -> axum::http::StatusCode {
     /*
-     * TODO: start_passkey_authentication
+     * TODO: Use `start_passkey_authentication`.
      */
     axum::http::StatusCode::NO_CONTENT
 }
@@ -155,6 +157,8 @@ pub async fn auth_sign_in_submit(
 ) -> axum::http::StatusCode {
     /*
      * TODO: Verify and respond with a Set-Cookie.
+     *
+     *       Use `finish_passkey_authentication`.
      */
     log::debug!("Inbound Sign-In Credential: {:#?}", payload);
     axum::http::StatusCode::NO_CONTENT
