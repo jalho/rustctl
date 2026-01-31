@@ -141,7 +141,10 @@ pub async fn auth_sign_up_submit(
         lock.insert_one_passkey(&passkey).await;
         passkeys_registered_globally = lock.select_all_passkeys().await.len();
     }
-    log::debug!("Passkeys registered globally: {passkeys_registered_globally}");
+    log::debug!(
+        "Passkeys registered globally: {passkeys_registered_globally} (added 1 with credential ID {cred_id:?})",
+        cred_id = passkey.cred_id(),
+    );
 
     /*
      * TODO: Set-Cookie.

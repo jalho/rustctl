@@ -30,6 +30,10 @@ impl Client {
             let id: &webauthn_rs::prelude::CredentialID = deserialized.cred_id();
             if id == credential_id {
                 return Some(deserialized);
+            } else {
+                log::debug!(
+                    "Credential ID {credential_id:?} does NOT match passkey known with credential ID {id:?}: {deserialized:?}"
+                );
             }
         }
         None
