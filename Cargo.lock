@@ -1379,6 +1379,7 @@ dependencies = [
 name = "frontend"
 version = "0.0.0"
 dependencies = [
+ "base64 0.22.1",
  "dioxus",
  "futures-util",
  "gloo-net",

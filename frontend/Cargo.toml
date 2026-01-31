@@ -8,6 +8,10 @@ default = [ "web" ]
 web     = [ "dioxus/web" ]
 
 [dependencies]
+base64 = { workspace = true, features = [
+  "alloc",
+] }
+
 dioxus = { workspace = true, features = [
   "devtools",
   "launch",
