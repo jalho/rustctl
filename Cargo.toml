@@ -22,6 +22,7 @@ js-sys               = { version = "=0.3.85",  default-features = false, feature
 log4rs               = { version = "=1.4.0",   default-features = false, features = [] }
 log                  = { version = "=0.4.28",  default-features = false, features = [] }
 nix                  = { version = "=0.30.1",  default-features = false, features = [] }
+openssl              = { version = "=0.10.75", default-features = false, features = [] }
 rand                 = { version = "=0.9.2",   default-features = false, features = [] }
 rcgen                = { version = "=0.14.7",  default-features = false, features = [] }
 reqwest              = { version = "=0.13.1",  default-features = false, features = [] }

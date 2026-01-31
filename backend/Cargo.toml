@@ -40,6 +40,10 @@ nix = { workspace = true, features = [
   "signal",
 ] }
 
+openssl = { workspace = true, features = [
+  "vendored",
+] }
+
 rand = { workspace = true, features = [
 ] }
 
