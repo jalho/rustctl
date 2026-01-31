@@ -81,6 +81,8 @@ where
 struct State {
     tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
 
+    db: std::sync::Arc<tokio::sync::Mutex<Vec<String>>>,
+
     webauthn: std::sync::Arc<webauthn_rs::Webauthn>,
     pending: std::sync::Arc<
         tokio::sync::Mutex<
@@ -107,6 +109,8 @@ impl State {
 
             webauthn: std::sync::Arc::new(webauthn),
             pending: std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
+
+            db: std::sync::Arc::new(tokio::sync::Mutex::new(Vec::new())),
         }
     }
 }

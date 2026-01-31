@@ -147,49 +147,14 @@ pub async fn auth_sign_up_submit(
         Err(_err) => return axum::http::StatusCode::BAD_REQUEST,
     };
 
-    /*
-     * Example:
-     *
-     * ```json
-     * {
-     *   "cred": {
-     *     "cred_id": "ZWT0ex9z8TXzTsrWhysaY66PmtGRuw8d4JgC3yjDYIw",
-     *     "cred": {
-     *       "type_": "ES256",
-     *       "key": {
-     *         "EC_EC2": {
-     *           "curve": "SECP256R1",
-     *           "x": "ydaH4zEBG0pRmgPCl8K02rn4n65qtqAVLAj7R3XlI2k",
-     *           "y": "CBFunJyhkL0f_TMiG59t8WgWOvaYDJbw_moJNKiaxaQ"
-     *         }
-     *       }
-     *     },
-     *     "counter": 0,
-     *     "transports": null,
-     *     "user_verified": true,
-     *     "backup_eligible": false,
-     *     "backup_state": false,
-     *     "registration_policy": "required",
-     *     "extensions": {
-     *       "cred_protect": "Ignored",
-     *       "hmac_create_secret": "NotRequested",
-     *       "appid": "NotRequested",
-     *       "cred_props": "Ignored"
-     *     },
-     *     "attestation": {
-     *       "data": "None",
-     *       "metadata": "None"
-     *     },
-     *     "attestation_format": "none"
-     *   }
-     * }
-     * ```
-     */
     let serialized: String = serde_json::to_string(&passkey).unwrap();
-    log::debug!("{serialized}");
+    {
+        let mut lock = state.db.lock().await;
+        lock.push(serialized);
+    }
 
     /*
-     * TODO: Store in DB and Set-Cookie.
+     * TODO: Set-Cookie.
      */
     axum::http::StatusCode::NO_CONTENT
 }
