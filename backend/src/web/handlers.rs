@@ -136,7 +136,10 @@ pub async fn auth_sign_up_submit(
     let rpkc: webauthn_rs::prelude::RegisterPublicKeyCredential =
         match serde_json::from_value(payload) {
             Ok(cred) => cred,
-            Err(_err) => return axum::http::StatusCode::BAD_REQUEST,
+            Err(err) => {
+                log::error!("{err:#?}");
+                return axum::http::StatusCode::BAD_REQUEST;
+            }
         };
 
     let passkey: webauthn_rs::prelude::Passkey = match state
@@ -144,7 +147,10 @@ pub async fn auth_sign_up_submit(
         .finish_passkey_registration(&rpkc, &pkr.inner)
     {
         Ok(n) => n,
-        Err(_err) => return axum::http::StatusCode::BAD_REQUEST,
+        Err(err) => {
+            log::error!("{err:#?}");
+            return axum::http::StatusCode::BAD_REQUEST;
+        }
     };
     log::debug!("{passkey:#?}");
 
