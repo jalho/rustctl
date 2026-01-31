@@ -270,6 +270,16 @@ pub async fn auth_sign_in_submit(
     {
         Ok(n) => n,
         Err(err) => {
+            /*
+             * TODO: Make sense of this:
+             *
+             *       ```log
+             *       18:07:02 UTC [DEBUG] Registered 1 new passkey with credential ID HumanBinaryData([74, 90, 146, 47, 179, 213, 113, 210, 49, 196, 53, 107, 93, 107, 175, 97, 91, 217, 69, 203, 238, 41, 241, 83, 255, 58, 254, 80, 41, 209, 169, 56]): Passkeys registered globally in total: 1 [backend/src/web/handlers.rs:146]
+             *       18:07:10 UTC [DEBUG] New sign-in initiated: Pending sign-in transactions in total: 2 [backend/src/web/handlers.rs:230]
+             *       18:07:14 UTC [DEBUG] Sign-in submitted: Pending sign-in transactions remaining in total: 1 [backend/src/web/handlers.rs:256]
+             *       18:07:14 UTC [DEBUG] Not authentic sign-in submission: 85b7ef77-a89f-4eb4-92e4-64a45e681af7: The credential requested could not be found [backend/src/web/handlers.rs:273]
+             *       ```
+             */
             log::debug!("Not authentic sign-in submission: {id}: {err}");
             return axum::http::StatusCode::BAD_REQUEST;
         }
