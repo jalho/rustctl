@@ -37,7 +37,7 @@ pub async fn auth_sign_up_challenge(
      */
     let mut removable: Vec<uuid::Uuid> = Vec::new();
     {
-        let lock = state.pending.lock().await;
+        let lock = state.pending_signups.lock().await;
         if lock.len() >= MAX_PENDING {
             let mut ordered: Vec<(
                 &uuid::Uuid,
@@ -59,12 +59,12 @@ pub async fn auth_sign_up_challenge(
     let removable_count: usize = removable.len();
     if removable_count > 0 {
         {
-            let mut lock = state.pending.lock().await;
+            let mut lock = state.pending_signups.lock().await;
             while let Some(k) = removable.pop() {
                 lock.remove(&k);
             }
         }
-        log::warn!("Removed {removable_count} pending transactions from memory");
+        log::warn!("Removed {removable_count} pending sign-up transactions from memory");
     }
 
     /*
@@ -92,11 +92,11 @@ pub async fn auth_sign_up_challenge(
 
     let pending_count: usize;
     {
-        let mut lock = state.pending.lock().await;
+        let mut lock = state.pending_signups.lock().await;
         lock.insert(id, timestamped);
         pending_count = lock.len();
     }
-    log::debug!("Pending transactions in total: {pending_count}");
+    log::debug!("Pending sign-up transactions in total: {pending_count}");
 
     let ccr_serializable: serde_json::Value = serde_json::to_value(&ccr).unwrap();
 
@@ -117,7 +117,7 @@ pub async fn auth_sign_up_submit(
     let pending_count: usize;
     let pending: Option<crate::web::Timestamped<webauthn_rs::prelude::PasskeyRegistration>>;
     {
-        let mut lock = state.pending.lock().await;
+        let mut lock = state.pending_signups.lock().await;
         pending = lock.remove(&id);
         pending_count = lock.len();
     }
@@ -161,24 +161,68 @@ pub async fn auth_sign_up_submit(
 pub async fn auth_sign_in_challenge(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
 ) -> axum::response::Json<shared::SignInResponse> {
+    /*
+     * Make some space if there are too many pending in memory.
+     */
+    let mut removable: Vec<uuid::Uuid> = Vec::new();
+    {
+        let lock = state.pending_signins.lock().await;
+        if lock.len() >= MAX_PENDING {
+            let mut ordered: Vec<(
+                &uuid::Uuid,
+                &crate::web::Timestamped<webauthn_rs::prelude::PasskeyAuthentication>,
+            )> = lock.iter().collect();
+
+            /*
+             * Select some of the oldest for removal.
+             */
+            ordered.sort_by_key(|n| n.1.timestamp);
+            'select_for_removal: for (k, _v) in ordered {
+                removable.push(*k);
+                if removable.len() >= MAX_PENDING / 2 {
+                    break 'select_for_removal;
+                }
+            }
+        }
+    }
+
+    let removable_count: usize = removable.len();
+    if removable_count > 0 {
+        {
+            let mut lock = state.pending_signins.lock().await;
+            while let Some(k) = removable.pop() {
+                lock.remove(&k);
+            }
+        }
+        log::warn!("Removed {removable_count} pending sign-in transactions from memory");
+    }
+
+    /*
+     * Store new pending in memory.
+     */
     let passkeys: Vec<webauthn_rs::prelude::Passkey>;
     {
         let mut lock = state.db.lock().await;
         passkeys = lock.select_all_passkeys().await;
     }
-
     let (rcr, pka) = state
         .webauthn
         .start_passkey_authentication(&passkeys)
         .unwrap();
     let rcr: webauthn_rs::prelude::RequestChallengeResponse = rcr;
-    let _pka: webauthn_rs::prelude::PasskeyAuthentication = pka;
+    let pka: webauthn_rs::prelude::PasskeyAuthentication = pka;
 
     let id: uuid::Uuid = uuid::Uuid::new_v4();
-    /*
-     * TODO: Store pka in-mem (up to some max amount), similarly to the sign-up
-     *       route.
-     */
+    let timestamped: crate::web::Timestamped<webauthn_rs::prelude::PasskeyAuthentication> =
+        crate::web::Timestamped::new(pka);
+
+    let pending_count: usize;
+    {
+        let mut lock = state.pending_signins.lock().await;
+        lock.insert(id, timestamped);
+        pending_count = lock.len();
+    }
+    log::debug!("Pending sign-in transactions in total: {pending_count}");
 
     let rcr_serializable: serde_json::Value = serde_json::to_value(&rcr).unwrap();
     shared::SignInResponse {

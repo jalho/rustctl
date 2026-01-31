@@ -84,11 +84,21 @@ struct State {
     db: std::sync::Arc<tokio::sync::Mutex<crate::database::Client>>,
 
     webauthn: std::sync::Arc<webauthn_rs::Webauthn>,
-    pending: std::sync::Arc<
+
+    pending_signups: std::sync::Arc<
         tokio::sync::Mutex<
             std::collections::HashMap<
                 uuid::Uuid,
                 Timestamped<webauthn_rs::prelude::PasskeyRegistration>,
+            >,
+        >,
+    >,
+
+    pending_signins: std::sync::Arc<
+        tokio::sync::Mutex<
+            std::collections::HashMap<
+                uuid::Uuid,
+                Timestamped<webauthn_rs::prelude::PasskeyAuthentication>,
             >,
         >,
     >,
@@ -108,7 +118,12 @@ impl State {
             tx,
 
             webauthn: std::sync::Arc::new(webauthn),
-            pending: std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
+            pending_signups: std::sync::Arc::new(tokio::sync::Mutex::new(
+                std::collections::HashMap::new(),
+            )),
+            pending_signins: std::sync::Arc::new(tokio::sync::Mutex::new(
+                std::collections::HashMap::new(),
+            )),
 
             db: std::sync::Arc::new(tokio::sync::Mutex::new(crate::database::Client::new())),
         }
