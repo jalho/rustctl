@@ -9,3 +9,9 @@ pub struct SignUpResponse {
     pub id: uuid::Uuid,
     pub ccr: serde_json::Value,
 }
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct SignInResponse {
+    pub id: uuid::Uuid,
+    pub rcr: serde_json::Value,
+}

@@ -159,12 +159,33 @@ pub async fn auth_sign_up_submit(
 }
 
 pub async fn auth_sign_in_challenge(
-    axum::extract::State(_state): axum::extract::State<crate::web::State>,
-) -> axum::http::StatusCode {
+    axum::extract::State(state): axum::extract::State<crate::web::State>,
+) -> axum::response::Json<shared::SignInResponse> {
+    let passkeys: Vec<webauthn_rs::prelude::Passkey>;
+    {
+        let mut lock = state.db.lock().await;
+        passkeys = lock.select_all_passkeys().await;
+    }
+
+    let (rcr, pka) = state
+        .webauthn
+        .start_passkey_authentication(&passkeys)
+        .unwrap();
+    let rcr: webauthn_rs::prelude::RequestChallengeResponse = rcr;
+    let _pka: webauthn_rs::prelude::PasskeyAuthentication = pka;
+
+    let id: uuid::Uuid = uuid::Uuid::new_v4();
     /*
-     * TODO: Use `start_passkey_authentication`.
+     * TODO: Store pka in-mem (up to some max amount), similarly to the sign-up
+     *       route.
      */
-    axum::http::StatusCode::NO_CONTENT
+
+    let rcr_serializable: serde_json::Value = serde_json::to_value(&rcr).unwrap();
+    shared::SignInResponse {
+        id,
+        rcr: rcr_serializable,
+    }
+    .into()
 }
 
 pub async fn auth_sign_in_submit(
