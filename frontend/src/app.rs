@@ -52,6 +52,68 @@ fn credential_to_json(credential: wasm_bindgen::JsValue) -> serde_json::Value {
     serde_json::Value::Null
 }
 
+/// 1. Get params for creating a passkey.
+///
+///    ```sh
+///    curl -k -X POST https://rustctl.internal:8080/auth/sign-up/challenge | jq
+///    ```
+///
+///    Response looks like this (`shared::SignUpResponse`):
+///
+///    ```json
+///    {
+///      "id": "574db7a8-5030-417d-b10a-93f1264a3e2b",
+///      "ccr": {
+///        "publicKey": {
+///          "attestation": "none",
+///          "authenticatorSelection": {
+///            "requireResidentKey": false,
+///            "residentKey": "discouraged",
+///            "userVerification": "required"
+///          },
+///          "challenge": "-sj-3MpCIpYOdzwQRf8nIk4E17sHnjkW3ijYJThiKgQ",
+///          "extensions": {
+///            "credProps": true,
+///            "credentialProtectionPolicy": "userVerificationRequired",
+///            "enforceCredentialProtectionPolicy": false,
+///            "uvm": true
+///          },
+///          "pubKeyCredParams": [
+///            {
+///              "alg": -7,
+///              "type": "public-key"
+///            },
+///            {
+///              "alg": -257,
+///              "type": "public-key"
+///            }
+///          ],
+///          "rp": {
+///            "id": "rustctl.internal",
+///            "name": "rustctl.internal"
+///          },
+///          "timeout": 300000,
+///          "user": {
+///            "displayName": "PLACEHOLDER2",
+///            "id": "V023qFAwQX2xCpPxJko-Kw",
+///            "name": "PLACEHOLDER1"
+///          }
+///        }
+///      }
+///    }
+///    ```
+///
+/// 2. Make a passkey.
+///
+///    Call whatever web browser & platform APIs necessary with the parameters.
+///
+/// 3. Submit the (public part of the) passkey.
+///
+///    ```
+///    POST /auth/sign-up/submit/{challenge_id}
+///    ```
+///
+///    The `challenge_id` is the `id` in the response of step #1.
 pub async fn handle_sign_up() {
     let _resp: shared::SignUpResponse = gloo_net::http::Request::post(shared::SIGN_UP_CHALLENGE)
         .send()
