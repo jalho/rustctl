@@ -147,10 +147,9 @@ pub async fn auth_sign_up_submit(
         Err(_err) => return axum::http::StatusCode::BAD_REQUEST,
     };
 
-    let serialized: String = serde_json::to_string(&passkey).unwrap();
     {
         let mut lock = state.db.lock().await;
-        lock.push(serialized);
+        lock.insert_one_passkey(&passkey).await;
     }
 
     /*

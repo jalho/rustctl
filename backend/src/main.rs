@@ -1,4 +1,5 @@
 mod ctl;
+mod database;
 mod game;
 mod init;
 mod rcon;
