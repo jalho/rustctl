@@ -2,7 +2,7 @@ pub const SIGN_UP_CHALLENGE: &str = "/auth/sign-up/challenge";
 pub const SIGN_UP_SUBMIT: &str = "/auth/sign-up/submit/{challenge_id}";
 
 pub const SIGN_IN_CHALLENGE: &str = "/auth/sign-in/challenge";
-pub const SIGN_IN_SUBMIT: &str = "/auth/sign-in/submit";
+pub const SIGN_IN_SUBMIT: &str = "/auth/sign-in/submit/{challenge_id}";
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct SignUpResponse {

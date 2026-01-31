@@ -157,7 +157,7 @@ pub async fn handle_sign_up() {
 }
 
 pub async fn handle_sign_in() {
-    let resp: serde_json::Value = gloo_net::http::Request::post(shared::SIGN_IN_CHALLENGE)
+    let resp: shared::SignInResponse = gloo_net::http::Request::post(shared::SIGN_IN_CHALLENGE)
         .send()
         .await
         .unwrap_or_else(|e| log_error_and_panic(&format!("POST challenge failed: {:?}", e)))
@@ -165,7 +165,9 @@ pub async fn handle_sign_in() {
         .await
         .unwrap_or_else(|e| log_error_and_panic(&format!("Parse SignInResponse failed: {:?}", e)));
 
-    let challenge_raw = resp["publicKey"]["challenge"]
+    let pk = &resp.rcr["publicKey"];
+
+    let challenge_raw = pk["challenge"]
         .as_str()
         .unwrap_or_else(|| log_error_and_panic("SignIn challenge missing"));
 
@@ -179,15 +181,17 @@ pub async fn handle_sign_in() {
 
     let options = web_sys::PublicKeyCredentialRequestOptions::new(&challenge_js);
 
-    if let Some(timeout) = resp["publicKey"]["timeout"].as_f64() {
+    if let Some(timeout) = pk["timeout"].as_f64() {
         options.set_timeout(timeout as u32);
     }
 
-    if let Some(rp_id) = resp["publicKey"]["rpId"].as_str() {
+    if let Some(rp_id) = pk["rpId"].as_str() {
         options.set_rp_id(rp_id);
     }
 
-    if let Some(allow_credentials) = resp["publicKey"]["allowCredentials"].as_array() {
+    options.set_user_verification(web_sys::UserVerificationRequirement::Required);
+
+    if let Some(allow_credentials) = pk["allowCredentials"].as_array() {
         let allow_creds_array = js_sys::Array::new();
         for cred in allow_credentials {
             let obj = js_sys::Object::new();
@@ -219,7 +223,8 @@ pub async fn handle_sign_in() {
         .await
         .unwrap_or_else(|e| log_error_and_panic(&format!("SignIn platform error: {:?}", e)));
 
-    gloo_net::http::Request::post(shared::SIGN_IN_SUBMIT)
+    let submit_url = shared::SIGN_IN_SUBMIT.replace("{challenge_id}", &resp.id.to_string());
+    gloo_net::http::Request::post(&submit_url)
         .json(&credential_to_json(result))
         .unwrap()
         .send()
