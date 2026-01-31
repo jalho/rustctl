@@ -187,16 +187,25 @@ pub async fn auth_sign_in_challenge(
     }
 
     /*
-     * Store new pending in memory.
+     * "Username-less" login, i.e. let the client discover passkeys (associated
+     * with the domain) and we just accept any. We'll then associate passkeys
+     * with stuff when the passkey holding user does things.
+     *
+     * For example, a passkey holder may later link a Steam account. More
+     * passkeys can be associated with the same Steam account later by anyone
+     * who has the ability to do so, and so the Steam account becomes the
+     * thing that identifies a user that may have multiple passkeys across e.g.
+     * multiple devices.
+     *
+     * This implies that the system may have "anonymous users", i.e. those with
+     * a passkey installed for the domain but no further associations.
      */
-    let passkeys: Vec<webauthn_rs::prelude::Passkey>;
-    {
-        let mut lock = state.db.lock().await;
-        passkeys = lock.select_all_passkeys().await;
-    }
+    let no_keys = [
+        // None!
+    ];
     let (rcr, pka) = state
         .webauthn
-        .start_passkey_authentication(&passkeys)
+        .start_passkey_authentication(&no_keys)
         .unwrap();
     let rcr: webauthn_rs::prelude::RequestChallengeResponse = rcr;
     let pka: webauthn_rs::prelude::PasskeyAuthentication = pka;
