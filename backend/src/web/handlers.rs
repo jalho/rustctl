@@ -139,12 +139,18 @@ pub async fn auth_sign_up_submit(
             Err(_err) => return axum::http::StatusCode::BAD_REQUEST,
         };
 
-    /*
-     * TODO: Verify and respond with a Set-Cookie.
-     *
-     *       Use `finish_passkey_registration`.
-     */
+    let passkey: webauthn_rs::prelude::Passkey = match state
+        .webauthn
+        .finish_passkey_registration(&rpkc, &pkr.inner)
+    {
+        Ok(n) => n,
+        Err(_err) => return axum::http::StatusCode::BAD_REQUEST,
+    };
+    log::debug!("{passkey:#?}");
 
+    /*
+     * TODO: Store in DB and Set-Cookie.
+     */
     axum::http::StatusCode::NO_CONTENT
 }
 

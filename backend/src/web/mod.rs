@@ -80,6 +80,8 @@ where
 #[derive(Clone)]
 struct State {
     tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
+
+    webauthn: std::sync::Arc<webauthn_rs::Webauthn>,
     pending: std::sync::Arc<
         tokio::sync::Mutex<
             std::collections::HashMap<
@@ -92,8 +94,18 @@ struct State {
 
 impl State {
     fn new(tx: tokio::sync::mpsc::Sender<crate::ctl::Command>) -> Self {
+        let rp_id: &str = DOMAIN_NAME;
+        let rp_origin: url::Url = url::Url::parse("https://rustctl.internal:8080").unwrap();
+
+        let builder: webauthn_rs::WebauthnBuilder<'_> =
+            webauthn_rs::WebauthnBuilder::new(rp_id, &rp_origin).expect("Invalid Webauthn Config");
+
+        let webauthn: webauthn_rs::Webauthn = builder.build().expect("Failed to build Webauthn");
+
         Self {
             tx,
+
+            webauthn: std::sync::Arc::new(webauthn),
             pending: std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
         }
     }
