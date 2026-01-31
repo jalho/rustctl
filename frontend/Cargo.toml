@@ -42,6 +42,7 @@ wasm-bindgen = { workspace = true, features = [
 ] }
 
 web-sys = { workspace = true, features = [
+  "AuthenticatorSelectionCriteria",
   "CredentialCreationOptions",
   "CredentialRequestOptions",
   "CredentialsContainer",
@@ -51,5 +52,6 @@ web-sys = { workspace = true, features = [
   "PublicKeyCredentialRequestOptions",
   "PublicKeyCredentialRpEntity",
   "PublicKeyCredentialUserEntity",
+  "UserVerificationRequirement",
   "Window",
 ] }

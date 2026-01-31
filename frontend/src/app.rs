@@ -115,125 +115,90 @@ fn credential_to_json(credential: wasm_bindgen::JsValue) -> serde_json::Value {
 ///
 ///    The `challenge_id` is the `id` in the response of step #1.
 pub async fn handle_sign_up() {
-    let _resp: shared::SignUpResponse = gloo_net::http::Request::post(shared::SIGN_UP_CHALLENGE)
+    // 1. Get params for creating a passkey
+    let resp: shared::SignUpResponse = gloo_net::http::Request::post(shared::SIGN_UP_CHALLENGE)
         .send()
         .await
-        .map_err(|e| {
-            web_sys::console::error_1(&format!("failed to fetch auth options: {:?}", e).into());
-            e
-        })
         .unwrap()
-        .json::<shared::SignUpResponse>()
+        .json()
         .await
-        .map_err(|e| {
-            web_sys::console::error_1(
-                &format!("failed to parse auth options JSON: {:?}", e).into(),
-            );
-            e
-        })
         .unwrap();
 
-    /*
-     * TODO: Extract the parameters from the resp.ccr somehow.
-     */
+    let pk = &resp.ccr["publicKey"];
 
-    // let challenge_hex: &str = resp["challenge"].as_str().unwrap_or_else(|| {
-    //     web_sys::console::error_1(&"challenge missing in response".into());
-    //     panic!();
-    // });
-    // let challenge_js: js_sys::Uint8Array =
-    //     js_sys::Uint8Array::new_with_length((challenge_hex.len() / 2) as u32);
-    // for i in 0..(challenge_hex.len() / 2) {
-    //     let byte = u8::from_str_radix(&challenge_hex[i * 2..i * 2 + 2], 16).unwrap_or_else(|e| {
-    //         web_sys::console::error_1(&format!("invalid hex byte: {:?}", e).into());
-    //         panic!();
-    //     });
-    //     challenge_js.set_index(i as u32, byte);
-    // }
+    // 2. Decode Base64URL challenge using browser's atob
+    // Base64URL uses '-' and '_' which atob doesn't like, so we swap them
+    let challenge_raw = pk["challenge"].as_str().unwrap();
+    let challenge_base64 = challenge_raw.replace('-', "+").replace('_', "/");
+    let window = web_sys::window().unwrap();
+    let decoded_str = window.atob(&challenge_base64).unwrap();
+    let challenge_js = js_sys::Uint8Array::new_with_length(decoded_str.len() as u32);
+    for (i, byte) in decoded_str.bytes().enumerate() {
+        challenge_js.set_index(i as u32, byte);
+    }
 
-    // let rp_id = resp["rp"]["id"].as_str().unwrap_or_else(|| {
-    //     web_sys::console::error_1(&"RP ID missing".into());
-    //     panic!();
-    // });
-    // let rp_entity: web_sys::PublicKeyCredentialRpEntity =
-    //     web_sys::PublicKeyCredentialRpEntity::new(rp_id);
+    // 3. Prepare RP and User Entities
+    let rp_id = pk["rp"]["id"].as_str().unwrap();
+    let rp_name = pk["rp"]["name"].as_str().unwrap();
+    let rp_entity = web_sys::PublicKeyCredentialRpEntity::new(rp_id);
+    rp_entity.set_name(rp_name);
 
-    // let rp_name = resp["rp"]["name"].as_str().unwrap_or_else(|| {
-    //     web_sys::console::error_1(&"RP name missing".into());
-    //     panic!();
-    // });
-    // rp_entity.set_name(rp_name);
+    let user_id_str = pk["user"]["id"].as_str().unwrap();
+    let user_id_js = js_sys::Uint8Array::from(user_id_str.as_bytes());
+    let user_name = pk["user"]["name"].as_str().unwrap();
+    let user_display = pk["user"]["displayName"].as_str().unwrap();
+    let user_entity =
+        web_sys::PublicKeyCredentialUserEntity::new(user_name, user_display, &user_id_js);
 
-    // let user_id_str: &str = resp["user"]["id"].as_str().unwrap_or_else(|| {
-    //     web_sys::console::error_1(&"user ID missing".into());
-    //     panic!();
-    // });
-    // let user_id_js: js_sys::Uint8Array = js_sys::Uint8Array::from(user_id_str.as_bytes());
+    // 4. Map pubKeyCredParams from JSON
+    let params_array = js_sys::Array::new();
+    if let Some(params) = pk["pubKeyCredParams"].as_array() {
+        for p in params {
+            let obj = js_sys::Object::new();
+            js_sys::Reflect::set(&obj, &"type".into(), &p["type"].as_str().unwrap().into())
+                .unwrap();
+            js_sys::Reflect::set(&obj, &"alg".into(), &p["alg"].as_i64().unwrap().into()).unwrap();
+            params_array.push(&obj);
+        }
+    }
 
-    // let user_name: &str = resp["user"]["name"].as_str().unwrap_or_else(|| {
-    //     web_sys::console::error_1(&"user name missing".into());
-    //     panic!();
-    // });
-    // let user_display: &str = resp["user"]["displayName"].as_str().unwrap_or_else(|| {
-    //     web_sys::console::error_1(&"user displayName missing".into());
-    //     panic!();
-    // });
+    // 5. Assemble Options using document-specified constraints
+    let options = web_sys::PublicKeyCredentialCreationOptions::new(
+        &challenge_js,
+        &params_array,
+        &rp_entity,
+        &user_entity,
+    );
 
-    // let user_entity: web_sys::PublicKeyCredentialUserEntity =
-    //     web_sys::PublicKeyCredentialUserEntity::new(user_name, user_display, &user_id_js);
+    let auth_selection = web_sys::AuthenticatorSelectionCriteria::new();
+    auth_selection.set_require_resident_key(
+        pk["authenticatorSelection"]["requireResidentKey"]
+            .as_bool()
+            .unwrap(),
+    );
+    auth_selection.set_user_verification(web_sys::UserVerificationRequirement::Required);
+    options.set_authenticator_selection(&auth_selection);
+    options.set_timeout(pk["timeout"].as_f64().unwrap() as u32);
 
-    // let param: js_sys::Object = js_sys::Object::new();
-    // js_sys::Reflect::set(&param, &"type".into(), &"public-key".into()).unwrap_or_else(|e| {
-    //     web_sys::console::error_1(&format!("reflect set type failed: {:?}", e).into());
-    //     panic!();
-    // });
-    // js_sys::Reflect::set(&param, &"alg".into(), &(-7).into()).unwrap_or_else(|e| {
-    //     web_sys::console::error_1(&format!("reflect set alg failed: {:?}", e).into());
-    //     panic!();
-    // });
-    // let params_array: js_sys::Array = js_sys::Array::of1(&param);
+    // 6. Request Credential
+    let credentials = window.navigator().credentials();
+    let create_options = web_sys::CredentialCreationOptions::new();
+    create_options.set_public_key(&options);
 
-    // let options: web_sys::PublicKeyCredentialCreationOptions =
-    //     web_sys::PublicKeyCredentialCreationOptions::new(
-    //         &challenge_js,
-    //         &params_array,
-    //         &rp_entity,
-    //         &user_entity,
-    //     );
-    // options.set_timeout(60000);
+    if let Ok(promise) = credentials.create_with_options(&create_options)
+        && let Ok(credential) = wasm_bindgen_futures::JsFuture::from(promise).await
+    {
+        let credential_json = credential_to_json(credential);
 
-    // let window: web_sys::Window = web_sys::window().unwrap_or_else(|| {
-    //     web_sys::console::error_1(&"no window found".into());
-    //     panic!();
-    // });
-    // let credentials: web_sys::CredentialsContainer = window.navigator().credentials();
+        // 7. Submit to the challenge-specific URL
+        let submit_url = shared::SIGN_UP_SUBMIT.replace("{challenge_id}", &resp.id.to_string());
 
-    // let create_options: web_sys::CredentialCreationOptions =
-    //     web_sys::CredentialCreationOptions::new();
-    // create_options.set_public_key(&options);
-
-    // let promise: js_sys::Promise = credentials
-    //     .create_with_options(&create_options)
-    //     .map_err(|e| {
-    //         web_sys::console::error_1(&format!("failed to create credentials: {:?}", e).into());
-    //         e
-    //     })
-    //     .unwrap();
-
-    // let credential: wasm_bindgen::JsValue = wasm_bindgen_futures::JsFuture::from(promise)
-    //     .await
-    //     .map_err(|e| {
-    //         web_sys::console::error_1(&format!("platform error: {:?}", e).into());
-    //         e
-    //     })
-    //     .unwrap();
-
-    // let credential_json = credential_to_json(credential);
-    // let _ = gloo_net::http::Request::post(shared::SIGN_UP_SUBMIT)
-    //     .json(&credential_json)
-    //     .unwrap()
-    //     .send()
-    //     .await;
+        let _ = gloo_net::http::Request::post(&submit_url)
+            .json(&credential_json)
+            .unwrap()
+            .send()
+            .await;
+    }
 }
 
 pub async fn handle_sign_in() {
