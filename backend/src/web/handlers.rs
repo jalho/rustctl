@@ -70,18 +70,9 @@ pub async fn auth_sign_up_challenge(
     /*
      * Store new pending in memory.
      */
-    let rp_id: &str = crate::web::DOMAIN_NAME;
-    let rp_origin: url::Url = url::Url::parse(&format!(
-        "https://{domain_name}",
-        domain_name = crate::web::DOMAIN_NAME,
-    ))
-    .unwrap();
-    let builder: webauthn_rs::WebauthnBuilder<'_> =
-        webauthn_rs::WebauthnBuilder::new(rp_id, &rp_origin).unwrap();
-    let webauthn: webauthn_rs::Webauthn = builder.build().unwrap();
-
     let id: uuid::Uuid = uuid::Uuid::new_v4();
-    let (ccr, pkr) = webauthn
+    let (ccr, pkr) = state
+        .webauthn
         .start_passkey_registration(id, "PLACEHOLDER1", "PLACEHOLDER2", None)
         .expect("Failed to start registration.");
     let ccr: webauthn_rs::prelude::CreationChallengeResponse = ccr;
