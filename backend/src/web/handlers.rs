@@ -147,6 +147,9 @@ pub async fn auth_sign_up_submit(
         Err(_err) => return axum::http::StatusCode::BAD_REQUEST,
     };
 
+    let serialized: String = serde_json::to_string(&passkey).unwrap();
+    log::debug!("{serialized}");
+
     /*
      * TODO: Store in DB and Set-Cookie.
      */
