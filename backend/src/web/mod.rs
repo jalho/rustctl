@@ -56,7 +56,7 @@ where
         axum::routing::post(handlers::auth_sign_up_challenge),
     );
     router = router.route(
-        &format!("{}/:id", shared::SIGN_UP_SUBMIT),
+        shared::SIGN_UP_SUBMIT,
         axum::routing::post(handlers::auth_sign_up_submit),
     );
     router = router.route(
