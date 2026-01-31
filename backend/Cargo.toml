@@ -82,3 +82,12 @@ tokio-tungstenite = { workspace = true, features = [
 tower-http = { workspace = true, features = [
   "fs",
 ] }
+
+url = { workspace = true, features = [
+] }
+
+uuid = { workspace = true, features = [
+] }
+
+webauthn-rs = { workspace = true, features = [
+] }

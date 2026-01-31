@@ -56,7 +56,7 @@ where
         axum::routing::post(handlers::auth_sign_up_challenge),
     );
     router = router.route(
-        shared::SIGN_UP_SUBMIT,
+        &format!("{}/:id", shared::SIGN_UP_SUBMIT),
         axum::routing::post(handlers::auth_sign_up_submit),
     );
     router = router.route(
@@ -80,16 +80,38 @@ where
 #[derive(Clone)]
 struct State {
     tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
-    pending_challenges: std::sync::Arc<tokio::sync::Mutex<std::collections::HashSet<String>>>,
+    pending: std::sync::Arc<
+        tokio::sync::Mutex<
+            std::collections::HashMap<
+                uuid::Uuid,
+                Timestamped<webauthn_rs::prelude::PasskeyRegistration>,
+            >,
+        >,
+    >,
 }
 
 impl State {
     fn new(tx: tokio::sync::mpsc::Sender<crate::ctl::Command>) -> Self {
         Self {
             tx,
-            pending_challenges: std::sync::Arc::new(tokio::sync::Mutex::new(
-                std::collections::HashSet::new(),
-            )),
+            pending: std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct Timestamped<T: Clone> {
+    timestamp: u128,
+    inner: T,
+}
+
+impl<T: Clone> Timestamped<T> {
+    pub fn new(inner: T) -> Self {
+        let timestamp: u128 = std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+
+        Self { timestamp, inner }
     }
 }

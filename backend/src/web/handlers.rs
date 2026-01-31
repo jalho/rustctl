@@ -31,132 +31,118 @@ pub async fn reboot(
 
 pub async fn auth_sign_up_challenge(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
-) -> axum::response::Json<serde_json::Value> {
-    let mut challenge_bytes: [u8; 32] = [0u8; 32];
+) -> axum::response::Json<SignUpResponse> {
+    /*
+     * Make some space if there are too many pending in memory.
+     */
+    let mut removable: Vec<uuid::Uuid> = Vec::new();
     {
-        let mut generator: rand::prelude::ThreadRng = rand::rng();
-        use rand::RngCore;
-        generator.fill_bytes(&mut challenge_bytes);
-    }
+        let lock = state.pending.lock().await;
+        if lock.len() >= MAX_PENDING {
+            let mut ordered: Vec<(
+                &uuid::Uuid,
+                &crate::web::Timestamped<webauthn_rs::prelude::PasskeyRegistration>,
+            )> = lock.iter().collect();
 
-    let challenge_hex: String = challenge_bytes
-        .iter()
-        .map(|b| format!("{:02x}", b))
-        .collect();
+            /*
+             * Select some of the oldest for removal.
+             */
+            ordered.sort_by_key(|n| n.1.timestamp);
+            'select_for_removal: for (k, _v) in ordered {
+                removable.push(*k);
+                if removable.len() >= MAX_PENDING / 2 {
+                    break 'select_for_removal;
+                }
+            }
+        }
+    }
+    let removable_count: usize = removable.len();
+    if removable_count > 0 {
+        {
+            let mut lock = state.pending.lock().await;
+            while let Some(k) = removable.pop() {
+                lock.remove(&k);
+            }
+        }
+        log::warn!("Removed {removable_count} pending transactions from memory");
+    }
 
     /*
-     * TODO: Revoke pending transaction after some timeout.
+     * Store new pending in memory.
      */
+    let rp_id: &str = crate::web::DOMAIN_NAME;
+    let rp_origin: url::Url = url::Url::parse(&format!(
+        "https://{domain_name}",
+        domain_name = crate::web::DOMAIN_NAME,
+    ))
+    .unwrap();
+    let builder: webauthn_rs::WebauthnBuilder<'_> =
+        webauthn_rs::WebauthnBuilder::new(rp_id, &rp_origin).unwrap();
+    let webauthn: webauthn_rs::Webauthn = builder.build().unwrap();
+
+    let id: uuid::Uuid = uuid::Uuid::new_v4();
+    let (ccr, pkr) = webauthn
+        .start_passkey_registration(id, "PLACEHOLDER1", "PLACEHOLDER2", None)
+        .expect("Failed to start registration.");
+    let ccr: webauthn_rs::prelude::CreationChallengeResponse = ccr;
+    let pkr: webauthn_rs::prelude::PasskeyRegistration = pkr;
+
+    let timestamped: crate::web::Timestamped<webauthn_rs::prelude::PasskeyRegistration> =
+        crate::web::Timestamped::new(pkr);
+
     let pending_count: usize;
     {
-        let mut lock = state.pending_challenges.lock().await;
-        lock.insert(challenge_hex.clone());
+        let mut lock = state.pending.lock().await;
+        lock.insert(id, timestamped);
         pending_count = lock.len();
     }
-    log::debug!("Auth transactions pending: {pending_count}");
+    log::debug!("Pending transactions in total: {pending_count}");
 
-    axum::response::Json(serde_json::json!({
-        "challenge": challenge_hex,
-        "rp": {
-            "name": "PLACEHOLDER1",
-            "id": crate::web::DOMAIN_NAME,
-        },
-        "user": {
-            "id": "PLACEHOLDER2",
-            "name": "PLACEHOLDER3",
-            "displayName": "PLACEHOLDER4",
-        },
-        "pubKeyCredParams": [{
-            "alg": -7,
-            "type": "public-key",
-        }],
-        "timeout": 60000,
-    }))
+    SignUpResponse { id, ccr }.into()
 }
 
-/// Sample as of commit `0396d82b9c6dbe03ab4fd5a61b99738b0438254b`:
-///
-/// ```
-/// Object {
-///     "authenticatorAttachment": String("platform"),
-///     "clientExtensionResults": Object {},
-///     "id": String("mbTdK6Kai4XyMER2M8Hw9FYBeaD2en_9R3FP3THvja4"),
-///     "rawId": String("mbTdK6Kai4XyMER2M8Hw9FYBeaD2en_9R3FP3THvja4"),
-///     "response": Object {
-///         "attestationObject": String("o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YVikaaXLHvXupl3n6pt9CYu3T3VGjjezzsTRn8ZN6K_saDxFAAAAAAiYcFjK3EuBtuEw3lDcvpYAIJm03SuimouF8jBEdjPB8PRWAXmg9np__UdxT90x742upQECAyYgASFYIGOko1Z5h85mJxafTuVYTYoPuFxbSQ_Z_kJV70_kBzwUIlggIL2y5GSB7pOT4FeMl_YoD7J3wOHyT0RsUpTW48IhAo4"),
-///         "authenticatorData": String("aaXLHvXupl3n6pt9CYu3T3VGjjezzsTRn8ZN6K_saDxFAAAAAAiYcFjK3EuBtuEw3lDcvpYAIJm03SuimouF8jBEdjPB8PRWAXmg9np__UdxT90x742upQECAyYgASFYIGOko1Z5h85mJxafTuVYTYoPuFxbSQ_Z_kJV70_kBzwUIlggIL2y5GSB7pOT4FeMl_YoD7J3wOHyT0RsUpTW48IhAo4"),
-///         "clientDataJSON": String("eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoicWRUbmVZdmJJRjNsWTdtU3dkanYzcl9GbU5tRmwxakpvaDJzUmFrcFNpbyIsIm9yaWdpbiI6Imh0dHBzOi8vcnVzdGN0bC5pbnRlcm5hbDo4MDgwIiwiY3Jvc3NPcmlnaW4iOmZhbHNlfQ"),
-///         "publicKey": String("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEY6SjVnmHzmYnFp9O5VhNig-4XFtJD9n-QlXvT-QHPBQgvbLkZIHuk5PgV4yX9igPsnfA4fJPRGxSlNbjwiECjg"),
-///         "publicKeyAlgorithm": Number(-7),
-///         "transports": Array [
-///             String("internal"),
-///         ],
-///     },
-///     "type": String("public-key"),
-/// }
-/// ```
 pub async fn auth_sign_up_submit(
-    axum::extract::State(_state): axum::extract::State<crate::web::State>,
+    axum::extract::Path(id): axum::extract::Path<uuid::Uuid>,
+    axum::extract::State(state): axum::extract::State<crate::web::State>,
     axum::extract::Json(payload): axum::extract::Json<serde_json::Value>,
 ) -> axum::http::StatusCode {
+    log::debug!("Inbound Sign-Up Credential: {:#?}", payload);
+
+    let pending_count: usize;
+    let pending: Option<crate::web::Timestamped<webauthn_rs::prelude::PasskeyRegistration>>;
+    {
+        let mut lock = state.pending.lock().await;
+        pending = lock.remove(&id);
+        pending_count = lock.len();
+    }
+
+    if pending.is_some() {
+        // count changed
+        log::debug!("Pending transactions in total: {pending_count}");
+    }
+
+    let pkr: crate::web::Timestamped<webauthn_rs::prelude::PasskeyRegistration> = match pending {
+        Some(n) => n,
+        None => todo!(),
+    };
+    log::debug!("Identified pkr: {pkr:?}", pkr = pkr.inner);
+
     /*
      * TODO: Verify and respond with a Set-Cookie.
      */
-    log::debug!("Inbound Sign-Up Credential: {:#?}", payload);
+
     axum::http::StatusCode::NO_CONTENT
 }
 
 pub async fn auth_sign_in_challenge(
-    axum::extract::State(state): axum::extract::State<crate::web::State>,
-) -> axum::response::Json<serde_json::Value> {
-    let mut challenge_bytes: [u8; 32] = [0u8; 32];
-    {
-        let mut generator: rand::prelude::ThreadRng = rand::rng();
-        use rand::RngCore;
-        generator.fill_bytes(&mut challenge_bytes);
-    }
-
-    let challenge_hex: String = challenge_bytes
-        .iter()
-        .map(|b| format!("{:02x}", b))
-        .collect();
-
+    axum::extract::State(_state): axum::extract::State<crate::web::State>,
+) -> axum::http::StatusCode {
     /*
-     * TODO: Revoke pending transaction after some timeout.
+     * TODO: start_passkey_authentication
      */
-    let pending_count: usize;
-    {
-        let mut lock = state.pending_challenges.lock().await;
-        lock.insert(challenge_hex.clone());
-        pending_count = lock.len();
-    }
-    log::debug!("Auth transactions pending: {pending_count}");
-
-    axum::response::Json(serde_json::json!({
-        "challenge": challenge_hex,
-        "rpId": crate::web::DOMAIN_NAME,
-        "timeout": 60000,
-        "userVerification": "required"
-    }))
+    axum::http::StatusCode::NO_CONTENT
 }
 
-/// Sample as of commit `0396d82b9c6dbe03ab4fd5a61b99738b0438254b`:
-///
-/// ```
-/// Object {
-///     "authenticatorAttachment": String("platform"),
-///     "clientExtensionResults": Object {},
-///     "id": String("mbTdK6Kai4XyMER2M8Hw9FYBeaD2en_9R3FP3THvja4"),
-///     "rawId": String("mbTdK6Kai4XyMER2M8Hw9FYBeaD2en_9R3FP3THvja4"),
-///     "response": Object {
-///         "authenticatorData": String("aaXLHvXupl3n6pt9CYu3T3VGjjezzsTRn8ZN6K_saDwFAAAAAQ"),
-///         "clientDataJSON": String("eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiRXRkeTc4U2F2eU1fYWNUcjMxMElfZzN6dmhEMHYxQ3BBM0RNLWs4V0k5YyIsIm9yaWdpbiI6Imh0dHBzOi8vcnVzdGN0bC5pbnRlcm5hbDo4MDgwIiwiY3Jvc3NPcmlnaW4iOmZhbHNlLCJvdGhlcl9rZXlzX2Nhbl9iZV9hZGRlZF9oZXJlIjoiZG8gbm90IGNvbXBhcmUgY2xpZW50RGF0YUpTT04gYWdhaW5zdCBhIHRlbXBsYXRlLiBTZWUgaHR0cHM6Ly9nb28uZ2wveWFiUGV4In0"),
-///         "signature": String("MEUCIQCFBnBIg0UjZ9B2r8W9d6xZG85VOMaiVI8Iq3atG8ByfwIgKflayU5ybwtVu-8y0AOkK0VoyeaYnxtpc_p0BrvPYAk"),
-///         "userHandle": String("UExBQ0VIT0xERVIy"),
-///     },
-///     "type": String("public-key"),
-/// }
-/// ```
 pub async fn auth_sign_in_submit(
     axum::extract::State(_state): axum::extract::State<crate::web::State>,
     axum::extract::Json(payload): axum::extract::Json<serde_json::Value>,
@@ -167,3 +153,11 @@ pub async fn auth_sign_in_submit(
     log::debug!("Inbound Sign-In Credential: {:#?}", payload);
     axum::http::StatusCode::NO_CONTENT
 }
+
+#[derive(serde::Serialize)]
+pub struct SignUpResponse {
+    id: uuid::Uuid,
+    ccr: webauthn_rs::prelude::CreationChallengeResponse,
+}
+
+const MAX_PENDING: usize = 64;

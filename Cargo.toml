@@ -31,8 +31,11 @@ serde_yaml           = { version = "=0.9.34",  default-features = false, feature
 tokio-tungstenite    = { version = "=0.28.0",  default-features = false, features = [] }
 tokio                = { version = "=1.48.0",  default-features = false, features = [] }
 tower-http           = { version = "=0.6.8",   default-features = false, features = [] }
+url                  = { version = "=2.5.8",   default-features = false, features = [] }
+uuid                 = { version = "=1.20.0",  default-features = false, features = [] }
 wasm-bindgen-futures = { version = "=0.4.58",  default-features = false, features = [] }
 wasm-bindgen         = { version = "=0.2.108", default-features = false, features = [] }
+webauthn-rs          = { version = "=0.5.4",   default-features = false, features = [] }
 web-sys              = { version = "=0.3.85",  default-features = false, features = [] }
 
 [profile]
