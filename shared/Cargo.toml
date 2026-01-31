@@ -4,3 +4,12 @@ name         = "shared"
 rust-version = { workspace = true }
 
 [dependencies]
+serde = { workspace = true, features = [
+] }
+
+serde_json = { workspace = true, features = [
+] }
+
+uuid = { workspace = true, features = [
+  "serde",
+] }

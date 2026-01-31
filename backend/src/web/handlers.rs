@@ -31,7 +31,7 @@ pub async fn reboot(
 
 pub async fn auth_sign_up_challenge(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
-) -> axum::response::Json<SignUpResponse> {
+) -> axum::response::Json<shared::SignUpResponse> {
     /*
      * Make some space if there are too many pending in memory.
      */
@@ -98,7 +98,13 @@ pub async fn auth_sign_up_challenge(
     }
     log::debug!("Pending transactions in total: {pending_count}");
 
-    SignUpResponse { id, ccr }.into()
+    let ccr_serializable: serde_json::Value = serde_json::to_value(&ccr).unwrap();
+
+    shared::SignUpResponse {
+        id,
+        ccr: ccr_serializable,
+    }
+    .into()
 }
 
 pub async fn auth_sign_up_submit(
@@ -152,12 +158,6 @@ pub async fn auth_sign_in_submit(
      */
     log::debug!("Inbound Sign-In Credential: {:#?}", payload);
     axum::http::StatusCode::NO_CONTENT
-}
-
-#[derive(serde::Serialize)]
-pub struct SignUpResponse {
-    id: uuid::Uuid,
-    ccr: webauthn_rs::prelude::CreationChallengeResponse,
 }
 
 const MAX_PENDING: usize = 64;
