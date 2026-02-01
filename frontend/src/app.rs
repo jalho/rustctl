@@ -26,7 +26,9 @@ pub fn PasskeyComponent() -> dioxus::core::Element {
         div { class: "flex gap-2",
             button {
                 onclick: |_| {
-                    dioxus::prelude::spawn(handle_sign_up());
+                    dioxus::prelude::spawn(handle_sign_up(
+                        String::from("TODO_PASSKEY_NAME") // TODO: Get a name for the passkey for event data.
+                    ));
                 },
                 "Sign Up: Create Passkey"
             }
@@ -60,8 +62,12 @@ fn credential_to_json(credential: wasm_bindgen::JsValue) -> serde_json::Value {
     })
 }
 
-pub async fn handle_sign_up() {
+pub async fn handle_sign_up(passkey_name: String) {
+    let payload: shared::SignUpRequest = shared::SignUpRequest { passkey_name };
+    let payload_json: serde_json::Value = serde_json::to_value(&payload).unwrap();
     let resp: shared::SignUpResponse = gloo_net::http::Request::post(shared::SIGN_UP_CHALLENGE)
+        .json(&payload_json)
+        .unwrap()
         .send()
         .await
         .unwrap_or_else(|e| log_error_and_panic(&format!("POST challenge failed: {:?}", e)))

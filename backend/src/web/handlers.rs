@@ -31,6 +31,7 @@ pub async fn reboot(
 
 pub async fn auth_sign_up_challenge(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
+    axum::extract::Json(payload): axum::extract::Json<shared::SignUpRequest>,
 ) -> axum::response::Json<shared::SignUpResponse> {
     /*
      * Make some space if there are too many pending in memory.
@@ -73,7 +74,7 @@ pub async fn auth_sign_up_challenge(
     let id: uuid::Uuid = uuid::Uuid::new_v4();
     let (ccr, pkr) = state
         .webauthn
-        .start_passkey_registration(id, &id.to_string(), &id.to_string(), None)
+        .start_passkey_registration(id, &payload.passkey_name, &payload.passkey_name, None)
         .expect("Failed to start registration.");
     let ccr: webauthn_rs::prelude::CreationChallengeResponse = ccr;
     let pkr: webauthn_rs::prelude::PasskeyRegistration = pkr;
