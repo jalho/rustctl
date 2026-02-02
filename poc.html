@@ -29,7 +29,8 @@
     </style>
   </head>
   <body>
-    <button id="create-passkey">Create Passkey</button>
+    <button id="passkey-read">Read Existing Passkey</button>
+    <button id="passkey-create">Create New Passkey</button>
   </body>
 </html>
 
@@ -45,7 +46,21 @@
     return bytes.buffer;
   }
 
-  async function fetch_options_for_passkey() {
+  async function fetch_opts_passkey_read() {
+    const response = await fetch("/auth/sign-in/challenge", {
+      method: "POST",
+    });
+
+    const data = await response.json();
+    const options = data.rcr.publicKey;
+    const challenge_id = data.id;
+
+    options.challenge = decode_buffer_from_base64(options.challenge);
+
+    return { options, challenge_id };
+  }
+
+  async function fetch_opts_passkey_create() {
     const response = await fetch("/auth/sign-up/challenge", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -62,8 +77,26 @@
     return { options, challenge_id };
   }
 
-  async function handle_button_create_passkey() {
-    const { options, challenge_id } = await fetch_options_for_passkey();
+  async function handle_btn_passkey_read() {
+    const { options, challenge_id } = await fetch_opts_passkey_read();
+
+    let credential;
+    try {
+      credential = await navigator.credentials.get({ publicKey: options });
+    } catch (err) {
+      observe_error(err);
+      return;
+    }
+
+    const response = await fetch(`/auth/sign-in/submit/${challenge_id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(credential),
+    });
+  }
+
+  async function handle_btn_passkey_create() {
+    const { options, challenge_id } = await fetch_opts_passkey_create();
 
     let credential;
     try {
@@ -87,8 +120,11 @@
   }
 
   function main() {
-    const btn = document.getElementById("create-passkey");
-    btn.addEventListener("click", handle_button_create_passkey);
+    const btn_read = document.getElementById("passkey-read");
+    btn_read.addEventListener("click", handle_btn_passkey_read);
+
+    const btn_create = document.getElementById("passkey-create");
+    btn_create.addEventListener("click", handle_btn_passkey_create);
   }
 
   main();
