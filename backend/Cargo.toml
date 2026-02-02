@@ -94,4 +94,5 @@ uuid = { workspace = true, features = [
 ] }
 
 webauthn-rs = { workspace = true, features = [
+  "conditional-ui",
 ] }

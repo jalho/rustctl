@@ -98,7 +98,7 @@ struct State {
         tokio::sync::Mutex<
             std::collections::HashMap<
                 uuid::Uuid,
-                Timestamped<webauthn_rs::prelude::PasskeyAuthentication>,
+                Timestamped<webauthn_rs::prelude::DiscoverableAuthentication>,
             >,
         >,
     >,

@@ -167,7 +167,7 @@ pub async fn auth_sign_in_challenge(
         if lock.len() >= MAX_PENDING {
             let mut ordered: Vec<(
                 &uuid::Uuid,
-                &crate::web::Timestamped<webauthn_rs::prelude::PasskeyAuthentication>,
+                &crate::web::Timestamped<webauthn_rs::prelude::DiscoverableAuthentication>,
             )> = lock.iter().collect();
 
             /*
@@ -194,33 +194,13 @@ pub async fn auth_sign_in_challenge(
         log::warn!("Removed {removable_count} pending sign-in transactions from memory");
     }
 
-    /*
-     * "Username-less" login, i.e. let the client discover passkeys (associated
-     * with the domain) and we just accept any. We'll then associate passkeys
-     * with stuff when the passkey holding user does things.
-     *
-     * For example, a passkey holder may later link a Steam account. More
-     * passkeys can be associated with the same Steam account later by anyone
-     * who has the ability to do so, and so the Steam account becomes the
-     * thing that identifies a user that may have multiple passkeys across e.g.
-     * multiple devices.
-     *
-     * This implies that the system may have "anonymous users", i.e. those with
-     * a passkey installed for the domain but no further associations.
-     */
-    let no_keys = [
-        // None!
-    ];
-    let (rcr, pka) = state
-        .webauthn
-        .start_passkey_authentication(&no_keys)
-        .unwrap();
+    let (rcr, da) = state.webauthn.start_discoverable_authentication().unwrap();
     let rcr: webauthn_rs::prelude::RequestChallengeResponse = rcr;
-    let pka: webauthn_rs::prelude::PasskeyAuthentication = pka;
+    let da: webauthn_rs::prelude::DiscoverableAuthentication = da;
 
     let id: uuid::Uuid = uuid::Uuid::new_v4();
-    let timestamped: crate::web::Timestamped<webauthn_rs::prelude::PasskeyAuthentication> =
-        crate::web::Timestamped::new(pka);
+    let timestamped: crate::web::Timestamped<webauthn_rs::prelude::DiscoverableAuthentication> =
+        crate::web::Timestamped::new(da);
 
     let pending_count: usize;
     {
@@ -243,73 +223,77 @@ pub async fn auth_sign_in_submit(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
     axum::extract::Json(payload): axum::extract::Json<webauthn_rs::prelude::PublicKeyCredential>,
 ) -> axum::http::StatusCode {
+    /*
+     * TODO: Use:
+     * - `state.webauthn.identify_discoverable_authentication(reg);`
+     * - `state.webauthn.finish_discoverable_authentication(reg, state, creds);`
+     */
+
     let pending_count: usize;
-    let pending: Option<crate::web::Timestamped<webauthn_rs::prelude::PasskeyAuthentication>>;
+    let pending: Option<crate::web::Timestamped<webauthn_rs::prelude::DiscoverableAuthentication>>;
     {
         let mut lock = state.pending_signins.lock().await;
         pending = lock.remove(&id);
         pending_count = lock.len();
     }
 
-    let pka: crate::web::Timestamped<webauthn_rs::prelude::PasskeyAuthentication> = match pending {
-        Some(n) => {
-            // count changed
-            log::debug!(
-                "Sign-in submitted: Pending sign-in transactions remaining in total: {pending_count}"
-            );
-            n
-        }
-        None => {
-            log::debug!("Not found in in-mem pending sign-ins: {id}");
-            return axum::http::StatusCode::BAD_REQUEST;
-        }
-    };
+    let da: crate::web::Timestamped<webauthn_rs::prelude::DiscoverableAuthentication> =
+        match pending {
+            Some(n) => {
+                // count changed
+                log::debug!(
+                    "Sign-in submitted: Pending sign-in transactions remaining in total: {pending_count}"
+                );
+                n
+            }
+            None => return axum::http::StatusCode::BAD_REQUEST,
+        };
 
-    let auth_result: webauthn_rs::prelude::AuthenticationResult = match state
+    let (c_pk_id, c_pk_cred_id) = match state
         .webauthn
-        .finish_passkey_authentication(&payload, &pka.inner)
+        .identify_discoverable_authentication(&payload)
     {
         Ok(n) => n,
-        Err(err) => {
-            /*
-             * TODO: Make sense of this:
-             *
-             *       ```log
-             *       18:07:02 UTC [DEBUG] Registered 1 new passkey with credential ID HumanBinaryData([74, 90, 146, 47, 179, 213, 113, 210, 49, 196, 53, 107, 93, 107, 175, 97, 91, 217, 69, 203, 238, 41, 241, 83, 255, 58, 254, 80, 41, 209, 169, 56]): Passkeys registered globally in total: 1 [backend/src/web/handlers.rs:146]
-             *       18:07:10 UTC [DEBUG] New sign-in initiated: Pending sign-in transactions in total: 2 [backend/src/web/handlers.rs:230]
-             *       18:07:14 UTC [DEBUG] Sign-in submitted: Pending sign-in transactions remaining in total: 1 [backend/src/web/handlers.rs:256]
-             *       18:07:14 UTC [DEBUG] Not authentic sign-in submission: 85b7ef77-a89f-4eb4-92e4-64a45e681af7: The credential requested could not be found [backend/src/web/handlers.rs:273]
-             *       ```
-             */
-            log::debug!("Not authentic sign-in submission: {id}: {err}");
-            return axum::http::StatusCode::BAD_REQUEST;
-        }
+        Err(_err) => return axum::http::StatusCode::BAD_REQUEST,
     };
+    let _claimed_passkey_id: uuid::Uuid = c_pk_id;
+    let claimed_passkey_cred_id: &[u8] = c_pk_cred_id;
 
-    /*
-     * Assert that the authenticated passkey (of a user who is potentially still
-     * anonymous) exists in the database, to be sure that it was registered
-     * for this system. Otherwise it's only bound to the domain, I guess, whose
-     * control could change over time.
-     */
-    let existing: Option<webauthn_rs::prelude::Passkey>;
-    let claimed: &webauthn_rs::prelude::CredentialID = auth_result.cred_id();
+    let passkey_seeked: Option<webauthn_rs::prelude::Passkey>;
     {
         let mut lock = state.db.lock().await;
-        existing = lock.select_one_passkey_by_credential_id(claimed).await;
+        passkey_seeked = lock
+            .select_one_passkey_by_credential_id(claimed_passkey_cred_id)
+            .await;
     }
-    if existing.is_none() {
-        return axum::http::StatusCode::UNAUTHORIZED;
-    }
+    let passkey_known: webauthn_rs::prelude::Passkey = match passkey_seeked {
+        Some(n) => n,
+        None => return axum::http::StatusCode::UNAUTHORIZED,
+    };
+    let passkey_known: webauthn_rs::prelude::DiscoverableKey = passkey_known.into();
+
+    let _auth_result: webauthn_rs::prelude::AuthenticationResult = match state
+        .webauthn
+        .finish_discoverable_authentication(&payload, da.inner, &[passkey_known])
+    {
+        Ok(n) => n,
+        Err(_err) => return axum::http::StatusCode::UNAUTHORIZED,
+    };
 
     /*
      * TODO: Make sense of this:
      *
      * > As per https://www.w3.org/TR/webauthn-3/#sctn-verifying-assertion 21:
      * >
-     * > If the Credential Counter is greater than 0 you MUST assert that the counter is greater than the stored counter. If the counter is equal or less than this MAY indicate a cloned credential and you SHOULD invalidate and reject that credential as a result.
+     * > If the Credential Counter is greater than 0 you MUST assert that the
+     * > counter is greater than the stored counter. If the counter is equal
+     * > or less than this MAY indicate a cloned credential and you SHOULD
+     * > invalidate and reject that credential as a result.
      * >
-     * > From this AuthenticationResult you should update the Credential’s Counter value if it is valid per the above check. If you wish you may use the content of the AuthenticationResult for extended validations (such as the presence of the user verification flag).
+     * > From this AuthenticationResult you should update the Credential’s
+     * > Counter value if it is valid per the above check. If you wish you may
+     * > use the content of the AuthenticationResult for extended validations
+     * > (such as the presence of the user verification flag).
      *
      * From:
      * https://docs.rs/webauthn-rs/0.5.4/webauthn_rs/struct.Webauthn.html#method.finish_passkey_authentication
