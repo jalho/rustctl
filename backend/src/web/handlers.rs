@@ -223,12 +223,6 @@ pub async fn auth_sign_in_submit(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
     axum::extract::Json(payload): axum::extract::Json<webauthn_rs::prelude::PublicKeyCredential>,
 ) -> axum::http::StatusCode {
-    /*
-     * TODO: Use:
-     * - `state.webauthn.identify_discoverable_authentication(reg);`
-     * - `state.webauthn.finish_discoverable_authentication(reg, state, creds);`
-     */
-
     let pending_count: usize;
     let pending: Option<crate::web::Timestamped<webauthn_rs::prelude::DiscoverableAuthentication>>;
     {
@@ -281,23 +275,19 @@ pub async fn auth_sign_in_submit(
     };
 
     /*
-     * TODO: Make sense of this:
+     * TODO: From `finish_discoverable_authentication`:
      *
-     * > As per https://www.w3.org/TR/webauthn-3/#sctn-verifying-assertion 21:
+     * > As per <https://www.w3.org/TR/webauthn-3/#sctn-verifying-assertion> 21:
      * >
      * > If the Credential Counter is greater than 0 you MUST assert that the
      * > counter is greater than the stored counter. If the counter is equal
      * > or less than this MAY indicate a cloned credential and you SHOULD
      * > invalidate and reject that credential as a result.
      * >
-     * > From this AuthenticationResult you should update the Credential’s
-     * > Counter value if it is valid per the above check. If you wish you may
-     * > use the content of the AuthenticationResult for extended validations
-     * > (such as the presence of the user verification flag).
-     *
-     * From:
-     * https://docs.rs/webauthn-rs/0.5.4/webauthn_rs/struct.Webauthn.html#method.finish_passkey_authentication
-     * (accessed 2026-01-31)
+     * > From this [AuthenticationResult] you *should* update the Credential's
+     * > Counter value if it is valid per the above check. If you wish you *may*
+     * > use the content of the [AuthenticationResult] for extended validations
+     * > (such as the user verification flag).
      */
 
     /*
