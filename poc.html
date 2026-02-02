@@ -48,29 +48,42 @@
   async function fetch_options_for_passkey() {
     const response = await fetch("/auth/sign-up/challenge", {
       method: "POST",
-      body: JSON.stringify({ passkey_name: "Example Passkey" }),
       headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ passkey_name: "Example Passkey" }),
     });
 
     const data = await response.json();
     const options = data.ccr.publicKey;
+    const challenge_id = data.id;
 
     options.challenge = decode_buffer_from_base64(options.challenge);
     options.user.id = decode_buffer_from_base64(options.user.id);
 
-    return options;
+    return { options, challenge_id };
   }
 
   async function handle_button_create_passkey() {
-    const options = await fetch_options_for_passkey();
+    const { options, challenge_id } = await fetch_options_for_passkey();
 
+    let credential;
     try {
-      const credential = await navigator.credentials.create({
+      credential = await navigator.credentials.create({
         publicKey: options,
       });
     } catch (err) {
-      console.error(err);
+      observe_error(err);
+      return;
     }
+
+    const response = await fetch(`/auth/sign-up/submit/${challenge_id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(credential),
+    });
+  }
+
+  async function observe_error(error) {
+    console.error(error);
   }
 
   function main() {
