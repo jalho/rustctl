@@ -1,0 +1,59 @@
+<!doctype html>
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>POC</title>
+  </head>
+  <body>
+    <button id="create-passkey">Create Passkey</button>
+  </body>
+</html>
+
+<script>
+  function decode_buffer_from_base64(value) {
+    const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+    const binaryString = window.atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+  }
+
+  async function fetch_options_for_passkey() {
+    const response = await fetch("/auth/sign-up/challenge", {
+      method: "POST",
+      body: JSON.stringify({ passkey_name: "Example Passkey" }),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const data = await response.json();
+    const options = data.ccr.publicKey;
+
+    options.challenge = decode_buffer_from_base64(options.challenge);
+    options.user.id = decode_buffer_from_base64(options.user.id);
+
+    return options;
+  }
+
+  async function handle_button_create_passkey() {
+    const options = await fetch_options_for_passkey();
+
+    try {
+      const credential = await navigator.credentials.create({
+        publicKey: options,
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function main() {
+    const btn = document.getElementById("create-passkey");
+    btn.addEventListener("click", handle_button_create_passkey);
+  }
+
+  main();
+</script>

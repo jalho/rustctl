@@ -26,7 +26,7 @@ pub fn PasskeyComponent() -> dioxus::core::Element {
         div { class: "flex gap-2",
             button {
                 onclick: |_| {
-                    dioxus::prelude::spawn(handle_sign_up(
+                    dioxus::prelude::spawn(create_and_send_passkey(
                         String::from("TODO_PASSKEY_NAME") // TODO: Get a name for the passkey for event data.
                     ));
                 },
@@ -62,7 +62,11 @@ fn credential_to_json(credential: wasm_bindgen::JsValue) -> serde_json::Value {
     })
 }
 
-pub async fn handle_sign_up(passkey_name: String) {
+/// Create a passkey and send it to backend.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/API/CredentialsContainer/create#creating_a_public_key_credential>
+/// (accessed 2026-02-02)
+pub async fn create_and_send_passkey(passkey_name: String) {
     let payload: shared::SignUpRequest = shared::SignUpRequest { passkey_name };
     let payload_json: serde_json::Value = serde_json::to_value(&payload).unwrap();
     let resp: shared::SignUpResponse = gloo_net::http::Request::post(shared::SIGN_UP_CHALLENGE)
