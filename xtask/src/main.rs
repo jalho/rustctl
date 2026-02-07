@@ -1,4 +1,5 @@
 mod ci;
+mod deploy;
 mod dist;
 mod init;
 
@@ -14,6 +15,10 @@ fn main() -> Result<(), std::process::ExitCode> {
         Some(init::Command::Dist) => {
             ci::check_format_lint()?;
             dist::build_release_deb()?;
+        }
+
+        Some(init::Command::Deploy) => {
+            deploy::via_ssh()?;
         }
     }
 

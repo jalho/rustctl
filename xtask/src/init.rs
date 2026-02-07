@@ -16,8 +16,11 @@ pub enum Command {
     /// Check errors, formatting and lints.
     Ci,
 
-    /// Make a release bundle.
+    /// Make a package for Debian.
     Dist,
+
+    /// Deploy an existing Debian package via SSH.
+    Deploy,
 }
 
 pub fn init_logger() -> Result<log4rs::Handle, std::process::ExitCode> {
