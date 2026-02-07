@@ -9,66 +9,15 @@ users:
 
 package_update: true
 packages:
-  - git
   - curl
-  - build-essential
-  - pkg-config
-  - libssl-dev
-  - rustup
   - fish
-  - musl-tools
 
 write_files:
-  - path: /etc/systemd/system/rustctl-game.service
-    content: |
-      [Unit]
-      Description=Rustctl Game Server
-      After=network.target
-      [Service]
-      Type=simple
-      User=rustctl
-      WorkingDirectory=/home/rustctl/rustctl
-      ExecStart=/bin/sh -c '/usr/bin/cargo xtask dist && ./target/x86_64-unknown-linux-musl/release/backend game'
-      Restart=always
-      [Install]
-      WantedBy=multi-user.target
-
-  - path: /etc/systemd/system/rustctl-service.service
-    content: |
-      [Unit]
-      Description=Rustctl Observability Service
-      After=network.target
-      [Service]
-      Type=simple
-      User=rustctl
-      WorkingDirectory=/home/rustctl/rustctl
-      ExecStart=/bin/sh -c '/usr/bin/cargo xtask dist && ./target/x86_64-unknown-linux-musl/release/backend service'
-      Restart=always
-      [Install]
-      WantedBy=multi-user.target
-
   - path: /etc/sudoers.d/rustctl
     content: |
-      rustctl ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart rustctl-service.service
+      rustctl ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart rustctl.service
       rustctl ALL=(ALL) NOPASSWD: /usr/bin/systemctl reboot
 
 runcmd:
-  - sudo -u rustctl -i rustup default stable
-  - sudo -u rustctl -i rustup target add x86_64-unknown-linux-musl
-  - sudo -u rustctl -i rustup target add wasm32-unknown-unknown
-
-  - wget https://github.com/DioxusLabs/dioxus/releases/download/v0.7.3/dx-x86_64-unknown-linux-gnu.tar.gz -O /tmp/dx.tar.gz
-  - tar -xzf /tmp/dx.tar.gz -C /usr/local/bin
-  - chmod +x /usr/local/bin/dx
-  - rm /tmp/dx.tar.gz
-
   - mkdir -p /tmp/rustctl
   - chown rustctl:rustctl /tmp/rustctl
-
-  - git clone -b rewrite https://github.com/jalho/rustctl.git /home/rustctl/rustctl
-  - chown -R rustctl:rustctl /home/rustctl/rustctl
-
-  - sudo -u rustctl -i sh -c "cd /home/rustctl/rustctl && cargo xtask dist"
-  - systemctl daemon-reload
-  - systemctl enable --now rustctl-game.service
-  - systemctl enable --now rustctl-service.service
