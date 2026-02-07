@@ -64,7 +64,12 @@
     const response = await fetch("{{SIGN_UP_CHALLENGE}}", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ passkey_name: "Example Passkey" }),
+      body: JSON.stringify({
+        passkey_name: new Date()
+          .toISOString()
+          .replace("T", " ")
+          .replace("Z", " UTC"),
+      }),
     });
 
     const data = await response.json();
