@@ -76,6 +76,7 @@ fn prepare_staging_dir(path: &str) -> Result<(), std::process::ExitCode> {
     let dirs = [
         format!("{path}/usr/bin"),
         format!("{path}/lib/systemd/system"),
+        format!("{path}/var/lib/rustctl/www"),
         format!("{path}/DEBIAN"),
     ];
 
@@ -88,6 +89,9 @@ fn prepare_staging_dir(path: &str) -> Result<(), std::process::ExitCode> {
         format!("{path}/usr/bin/rustctl"),
     )
     .map_err(|_| std::process::ExitCode::FAILURE)?;
+
+    std::fs::copy("poc.html", format!("{path}/var/lib/rustctl/www/index.html"))
+        .map_err(|_| std::process::ExitCode::FAILURE)?;
 
     Ok(())
 }
@@ -141,7 +145,10 @@ fn verify_deb_package() -> Result<(), std::process::ExitCode> {
         .map_err(|_| std::process::ExitCode::FAILURE)?;
     let list = String::from_utf8_lossy(&output.stdout);
 
-    if list.contains("./usr/bin/rustctl") && list.contains("rustctl.service") {
+    if list.contains("./usr/bin/rustctl")
+        && list.contains("rustctl.service")
+        && list.contains("./var/lib/rustctl/www/index.html")
+    {
         Ok(())
     } else {
         log::error!("Package verification failed: missing files");

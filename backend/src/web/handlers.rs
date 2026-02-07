@@ -6,7 +6,7 @@ pub async fn favicon() -> axum::response::Response {
 }
 
 pub async fn web() -> impl axum::response::IntoResponse {
-    let path = "/home/rustctl/rustctl/target/dx/frontend/release/web/public/index.html";
+    let path = "/var/lib/rustctl/www/index.html";
     match tokio::fs::read_to_string(path).await {
         Ok(html) => axum::response::Response::builder()
             .header("content-type", "text/html")
