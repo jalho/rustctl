@@ -3,7 +3,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>POC</title>
+    <title>rustctl v{{VERSION}}</title>
     <style>
       body {
         background-color: #121212;
@@ -47,7 +47,7 @@
   }
 
   async function fetch_opts_passkey_read() {
-    const response = await fetch("/auth/sign-in/challenge", {
+    const response = await fetch("{{SIGN_IN_CHALLENGE}}", {
       method: "POST",
     });
 
@@ -61,7 +61,7 @@
   }
 
   async function fetch_opts_passkey_create() {
-    const response = await fetch("/auth/sign-up/challenge", {
+    const response = await fetch("{{SIGN_UP_CHALLENGE}}", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ passkey_name: "Example Passkey" }),
@@ -88,11 +88,14 @@
       return;
     }
 
-    const response = await fetch(`/auth/sign-in/submit/${challenge_id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(credential),
-    });
+    const response = await fetch(
+      `{{SIGN_IN_SUBMIT}}`.replace("{challenge_id}", challenge_id),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credential),
+      },
+    );
   }
 
   async function handle_btn_passkey_create() {
@@ -108,11 +111,14 @@
       return;
     }
 
-    const response = await fetch(`/auth/sign-up/submit/${challenge_id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(credential),
-    });
+    const response = await fetch(
+      `{{SIGN_UP_SUBMIT}}`.replace("{challenge_id}", challenge_id),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credential),
+      },
+    );
   }
 
   async function observe_error(error) {

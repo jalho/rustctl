@@ -8,10 +8,19 @@ pub async fn favicon() -> axum::response::Response {
 pub async fn web() -> impl axum::response::IntoResponse {
     let path = "/var/lib/rustctl/www/index.html";
     match tokio::fs::read_to_string(path).await {
-        Ok(html) => axum::response::Response::builder()
-            .header("content-type", "text/html")
-            .body(axum::body::Body::from(html))
-            .unwrap(),
+        Ok(mut html) => {
+            html = html
+                .replace("{{VERSION}}", env!("CARGO_PKG_VERSION"))
+                .replace("{{SIGN_UP_CHALLENGE}}", shared::SIGN_UP_CHALLENGE)
+                .replace("{{SIGN_UP_SUBMIT}}", shared::SIGN_UP_SUBMIT)
+                .replace("{{SIGN_IN_CHALLENGE}}", shared::SIGN_IN_CHALLENGE)
+                .replace("{{SIGN_IN_SUBMIT}}", shared::SIGN_IN_SUBMIT);
+
+            axum::response::Response::builder()
+                .header("content-type", "text/html")
+                .body(axum::body::Body::from(html))
+                .unwrap()
+        }
         Err(_) => axum::response::Response::builder()
             .status(axum::http::StatusCode::NOT_FOUND)
             .body(axum::body::Body::from("Frontend not found"))
