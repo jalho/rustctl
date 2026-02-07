@@ -13,7 +13,7 @@ fn main() -> Result<(), std::process::ExitCode> {
 
         Some(init::Command::Dist) => {
             ci::check_format_lint()?;
-            dist::make_release()?;
+            dist::build_release_deb()?;
         }
     }
 

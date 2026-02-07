@@ -4253,6 +4253,7 @@ dependencies = [
  "clap",
  "log",
  "log4rs",
+ "serde_json",
 ]
 
 [[package]]
