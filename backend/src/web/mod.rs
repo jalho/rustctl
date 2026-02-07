@@ -2,35 +2,48 @@ mod handlers;
 
 const DOMAIN_NAME: &str = "rustctl.internal";
 
-pub async fn serve<A>(addr: A, tx: tokio::sync::mpsc::Sender<crate::ctl::Command>)
-where
-    A: axum_server::Address + Send + 'static,
-    <A as axum_server::Address>::Stream:
-        tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send,
-{
-    let mut params: rcgen::CertificateParams = rcgen::CertificateParams::default();
+pub enum Expose {
+    LocalLoopback,
+    Any,
+}
 
-    /*
-     * TODO: Parameterize the server domain name.
-     */
-    params.distinguished_name = rcgen::DistinguishedName::new();
-    params
-        .distinguished_name
-        .push(rcgen::DnType::CommonName, DOMAIN_NAME);
-    params.subject_alt_names = vec![rcgen::SanType::DnsName(
-        DOMAIN_NAME.to_string().try_into().unwrap(),
-    )];
+impl From<&Expose> for std::net::SocketAddr {
+    fn from(value: &Expose) -> Self {
+        match value {
+            Expose::LocalLoopback => "127.0.0.1:8080".parse().unwrap(),
+            Expose::Any => "0.0.0.0:8080".parse().unwrap(),
+        }
+    }
+}
 
-    let key_pair: rcgen::KeyPair = rcgen::KeyPair::generate().unwrap();
-    let cert: rcgen::Certificate = params.self_signed(&key_pair).unwrap();
+pub async fn serve(expose: &Expose, tx: tokio::sync::mpsc::Sender<crate::ctl::Command>) {
+    let scheme: Scheme = match expose {
+        Expose::LocalLoopback => Scheme::Http,
+        Expose::Any => {
+            let mut params: rcgen::CertificateParams = rcgen::CertificateParams::default();
 
-    let config: axum_server::tls_rustls::RustlsConfig =
-        axum_server::tls_rustls::RustlsConfig::from_pem(
-            cert.pem().into_bytes(),
-            key_pair.serialize_pem().into_bytes(),
-        )
-        .await
-        .unwrap();
+            params.distinguished_name = rcgen::DistinguishedName::new();
+            params
+                .distinguished_name
+                .push(rcgen::DnType::CommonName, DOMAIN_NAME);
+            params.subject_alt_names = vec![rcgen::SanType::DnsName(
+                DOMAIN_NAME.to_string().try_into().unwrap(),
+            )];
+
+            let key_pair: rcgen::KeyPair = rcgen::KeyPair::generate().unwrap();
+            let cert: rcgen::Certificate = params.self_signed(&key_pair).unwrap();
+
+            let tls_config: axum_server::tls_rustls::RustlsConfig =
+                axum_server::tls_rustls::RustlsConfig::from_pem(
+                    cert.pem().into_bytes(),
+                    key_pair.serialize_pem().into_bytes(),
+                )
+                .await
+                .unwrap();
+
+            Scheme::Https { tls_config }
+        }
+    };
 
     let mut router: axum::Router<State> = axum::Router::new();
 
@@ -63,12 +76,16 @@ where
     );
     router = router.route("/reboot", axum::routing::post(handlers::reboot));
 
-    let router: axum::Router = router.with_state(State::new(tx));
+    let addr: std::net::SocketAddr = expose.into();
+    let router: axum::Router = router.with_state(State::new(tx, &addr, &scheme));
 
-    axum_server::bind_rustls(addr, config)
-        .serve(router.into_make_service())
-        .await
-        .unwrap();
+    match scheme {
+        Scheme::Https { tls_config } => axum_server::bind_rustls(addr, tls_config)
+            .serve(router.into_make_service())
+            .await
+            .unwrap(),
+        Scheme::Http => todo!(),
+    }
 }
 
 #[derive(Clone)]
@@ -99,9 +116,23 @@ struct State {
 }
 
 impl State {
-    fn new(tx: tokio::sync::mpsc::Sender<crate::ctl::Command>) -> Self {
+    fn new(
+        tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
+        addr: &std::net::SocketAddr,
+        scheme: &Scheme,
+    ) -> Self {
         let rp_id: &str = DOMAIN_NAME;
-        let rp_origin: url::Url = url::Url::parse(&format!("https://{DOMAIN_NAME}:8080")).unwrap();
+        let port: u16 = addr.port();
+        let rp_origin: url::Url = url::Url::parse(&format!(
+            "{scheme}://{host}:{port}",
+            scheme = match scheme {
+                Scheme::Https { .. } => "https",
+                Scheme::Http => "http",
+            },
+            host = DOMAIN_NAME,
+            port = port,
+        ))
+        .unwrap();
 
         let builder: webauthn_rs::WebauthnBuilder<'_> =
             webauthn_rs::WebauthnBuilder::new(rp_id, &rp_origin).expect("Invalid Webauthn Config");
@@ -122,6 +153,13 @@ impl State {
             db: std::sync::Arc::new(tokio::sync::Mutex::new(crate::database::Client::new())),
         }
     }
+}
+
+enum Scheme {
+    Https {
+        tls_config: axum_server::tls_rustls::RustlsConfig,
+    },
+    Http,
 }
 
 #[derive(Clone, Debug)]

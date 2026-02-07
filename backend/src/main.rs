@@ -56,7 +56,12 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
              * (see module `ctl`).
              */
             let (tx, rx) = tokio::sync::mpsc::channel::<ctl::Command>(1);
-            let addr: std::net::SocketAddr = "0.0.0.0:8080".parse().unwrap();
+
+            let expose: web::Expose = if cfg!(debug_assertions) {
+                web::Expose::LocalLoopback
+            } else {
+                web::Expose::Any
+            };
 
             /*
              * Each task here is supposed to run indefinitely. Therefore, any
@@ -67,7 +72,7 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
                 _ = game::log_game_server_output() => {
                     log::error!("Task terminated: game::log_game_server_output");
                 }
-                _ = web::serve(addr, tx) => {
+                _ = web::serve(&expose, tx) => {
                     log::error!("Task terminated: web::serve");
                 }
                 _ = ctl::handle_commands_from_web_clients(rx) => {
