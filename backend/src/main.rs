@@ -8,7 +8,7 @@ mod web;
 fn main() -> std::process::ExitCode {
     let cli_args: init::Cli = init::Cli::get();
 
-    if let Err(code) = init::init_logger(log::LevelFilter::Debug) {
+    if let Err(code) = init::init_logger(log::LevelFilter::Trace) {
         return code;
     }
 

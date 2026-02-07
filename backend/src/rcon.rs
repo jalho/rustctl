@@ -4,17 +4,17 @@ pub async fn relay(game_server_params: &crate::game::GameServerParameters) {
         game_server_params.rcon_port, game_server_params.rcon_password
     );
 
+    let delay = tokio::time::Duration::from_secs(5);
+    log::info!(
+        "Starting RCON WebSocket reconnect & handle loop with {delay_secs} second retry delay",
+        delay_secs = delay.as_secs(),
+    );
     loop {
-        match tokio_tungstenite::connect_async(&rcon_url).await {
-            Ok((ws_stream, _)) => {
-                handle_connection(ws_stream).await;
-            }
-            Err(err) => {
-                log::warn!("Failed to connect to RCON (retrying in 5s): {err}");
-            }
+        if let Ok((ws_stream, _)) = tokio_tungstenite::connect_async(&rcon_url).await {
+            handle_connection(ws_stream).await;
         }
 
-        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+        tokio::time::sleep(delay).await;
     }
 }
 
