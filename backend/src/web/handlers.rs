@@ -38,21 +38,21 @@ pub async fn reboot(
     axum::response::Response::new(body)
 }
 
-pub async fn auth_sign_up_challenge(
-    axum::extract::State(state): axum::extract::State<crate::web::State>,
-    axum::extract::Json(payload): axum::extract::Json<shared::SignUpRequest>,
-) -> axum::response::Json<shared::SignUpResponse> {
-    /*
-     * Make some space if there are too many pending in memory.
-     */
+async fn prune_pending<T>(
+    pending_map: &tokio::sync::Mutex<
+        std::collections::HashMap<uuid::Uuid, crate::web::Timestamped<T>>,
+    >,
+    transaction_type_for_log: &str,
+) where
+    T: std::fmt::Debug + Clone,
+{
     let mut removable: Vec<uuid::Uuid> = Vec::new();
+
     {
-        let lock = state.pending_signups.lock().await;
+        let lock = pending_map.lock().await;
         if lock.len() >= MAX_PENDING {
-            let mut ordered: Vec<(
-                &uuid::Uuid,
-                &crate::web::Timestamped<webauthn_rs::prelude::PasskeyRegistration>,
-            )> = lock.iter().collect();
+            let mut ordered: Vec<(&uuid::Uuid, &crate::web::Timestamped<T>)> =
+                lock.iter().collect();
 
             /*
              * Select some of the oldest for removal.
@@ -66,20 +66,27 @@ pub async fn auth_sign_up_challenge(
             }
         }
     }
+
     let removable_count: usize = removable.len();
     if removable_count > 0 {
         {
-            let mut lock = state.pending_signups.lock().await;
-            while let Some(k) = removable.pop() {
+            let mut lock = pending_map.lock().await;
+            for k in removable {
                 lock.remove(&k);
             }
         }
-        log::warn!("Removed {removable_count} pending sign-up transactions from memory");
+        log::warn!(
+            "Removed {removable_count} pending {transaction_type_for_log} transactions from memory"
+        );
     }
+}
 
-    /*
-     * Store new pending in memory.
-     */
+pub async fn auth_sign_up_challenge(
+    axum::extract::State(state): axum::extract::State<crate::web::State>,
+    axum::extract::Json(payload): axum::extract::Json<shared::SignUpRequest>,
+) -> axum::response::Json<shared::SignUpResponse> {
+    prune_pending(&state.pending_signups, "sign-up").await;
+
     let id: uuid::Uuid = uuid::Uuid::new_v4();
     let (ccr, pkr) = state
         .webauthn
@@ -167,41 +174,7 @@ pub async fn auth_sign_up_submit(
 pub async fn auth_sign_in_challenge(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
 ) -> axum::response::Json<shared::SignInResponse> {
-    /*
-     * Make some space if there are too many pending in memory.
-     */
-    let mut removable: Vec<uuid::Uuid> = Vec::new();
-    {
-        let lock = state.pending_signins.lock().await;
-        if lock.len() >= MAX_PENDING {
-            let mut ordered: Vec<(
-                &uuid::Uuid,
-                &crate::web::Timestamped<webauthn_rs::prelude::DiscoverableAuthentication>,
-            )> = lock.iter().collect();
-
-            /*
-             * Select some of the oldest for removal.
-             */
-            ordered.sort_by_key(|n| n.1.timestamp);
-            'select_for_removal: for (k, _v) in ordered {
-                removable.push(*k);
-                if removable.len() >= MAX_PENDING / 2 {
-                    break 'select_for_removal;
-                }
-            }
-        }
-    }
-
-    let removable_count: usize = removable.len();
-    if removable_count > 0 {
-        {
-            let mut lock = state.pending_signins.lock().await;
-            while let Some(k) = removable.pop() {
-                lock.remove(&k);
-            }
-        }
-        log::warn!("Removed {removable_count} pending sign-in transactions from memory");
-    }
+    prune_pending(&state.pending_signins, "sign-in").await;
 
     let (rcr, da) = state.webauthn.start_discoverable_authentication().unwrap();
     let rcr: webauthn_rs::prelude::RequestChallengeResponse = rcr;
