@@ -1,10 +1,24 @@
 mod handlers;
 
-const DOMAIN_NAME: &str = "rustctl.internal";
-
 pub enum Expose {
     LocalLoopback,
     Any,
+}
+
+impl Expose {
+    pub fn domain_name(&self) -> &str {
+        match self {
+            Expose::LocalLoopback => "localhost",
+            Expose::Any => "rustctl.internal",
+        }
+    }
+
+    pub fn scheme(&self) -> &str {
+        match self {
+            Expose::LocalLoopback => "http",
+            Expose::Any => "https",
+        }
+    }
 }
 
 impl From<&Expose> for std::net::SocketAddr {
@@ -22,12 +36,14 @@ pub async fn serve(expose: &Expose, tx: tokio::sync::mpsc::Sender<crate::ctl::Co
         Expose::Any => {
             let mut params: rcgen::CertificateParams = rcgen::CertificateParams::default();
 
+            let domain_name: &str = expose.domain_name();
+
             params.distinguished_name = rcgen::DistinguishedName::new();
             params
                 .distinguished_name
-                .push(rcgen::DnType::CommonName, DOMAIN_NAME);
+                .push(rcgen::DnType::CommonName, domain_name);
             params.subject_alt_names = vec![rcgen::SanType::DnsName(
-                DOMAIN_NAME.to_string().try_into().unwrap(),
+                domain_name.to_string().try_into().unwrap(),
             )];
 
             let key_pair: rcgen::KeyPair = rcgen::KeyPair::generate().unwrap();
@@ -123,30 +139,19 @@ impl State {
         let (rp_id, rp_origin): (&str, url::Url) = {
             let addr: std::net::SocketAddr = expose.into();
 
-            match expose {
-                Expose::LocalLoopback => {
-                    let rp_id: &str = "localhost";
-                    let rp_origin: url::Url =
-                        format!("http://localhost:{port}", port = addr.port())
-                            .parse()
-                            .unwrap();
+            let domain_name: &str = expose.domain_name();
+            let rp_id: &str = domain_name;
 
-                    (rp_id, rp_origin)
-                }
+            let rp_origin: url::Url = format!(
+                "{scheme}://{host}:{port}",
+                scheme = expose.scheme(),
+                host = domain_name,
+                port = addr.port()
+            )
+            .parse()
+            .unwrap();
 
-                Expose::Any => {
-                    let rp_id: &str = DOMAIN_NAME;
-                    let rp_origin: url::Url = format!(
-                        "https://{host}:{port}",
-                        host = DOMAIN_NAME,
-                        port = addr.port()
-                    )
-                    .parse()
-                    .unwrap();
-
-                    (rp_id, rp_origin)
-                }
-            }
+            (rp_id, rp_origin)
         };
 
         let builder: webauthn_rs::WebauthnBuilder<'_> =
