@@ -101,7 +101,7 @@ struct State {
 impl State {
     fn new(tx: tokio::sync::mpsc::Sender<crate::ctl::Command>) -> Self {
         let rp_id: &str = DOMAIN_NAME;
-        let rp_origin: url::Url = url::Url::parse("https://rustctl.internal:8080").unwrap();
+        let rp_origin: url::Url = url::Url::parse(&format!("https://{DOMAIN_NAME}:8080")).unwrap();
 
         let builder: webauthn_rs::WebauthnBuilder<'_> =
             webauthn_rs::WebauthnBuilder::new(rp_id, &rp_origin).expect("Invalid Webauthn Config");
