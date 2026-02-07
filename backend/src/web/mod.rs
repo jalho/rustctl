@@ -39,12 +39,6 @@ where
      */
     router = router.route("/", axum::routing::get(handlers::web));
     router = router.route("/favicon.ico", axum::routing::get(handlers::favicon));
-    router = router.nest_service(
-        "/assets",
-        tower_http::services::ServeDir::new(
-            "/home/rustctl/rustctl/target/dx/frontend/release/web/public/assets",
-        ),
-    );
 
     /*
      * Logic routes.
