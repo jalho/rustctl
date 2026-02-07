@@ -67,7 +67,8 @@ fn install_on_server(host: &str, remote: &str) -> Result<(), std::process::ExitC
         "-t",
         host,
         &format!(
-            "sudo dpkg -i {remote} && \
+            "sudo systemctl stop rustctl || true && \
+             sudo dpkg -i {remote} && \
              sudo systemctl daemon-reload && \
              sudo systemctl enable --now rustctl && \
              rm {remote}"
