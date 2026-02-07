@@ -158,6 +158,7 @@ Description=rustctl
 After=network.target
 
 [Service]
+User=rustctl
 ExecStart=/usr/bin/rustctl service
 Restart=always
 
