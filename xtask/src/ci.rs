@@ -2,7 +2,6 @@ pub fn check_format_lint() -> Result<(), std::process::ExitCode> {
     check_errors()?;
     check_format()?;
     check_lint()?;
-    check_web_bundle()?;
     Ok(())
 }
 
@@ -127,58 +126,6 @@ fn check_lint() -> Result<(), std::process::ExitCode> {
             None => {
                 log::error!(
                     "Failed to check lints: {command}: No exit code",
-                    command = command.format()
-                );
-                Err(std::process::ExitCode::FAILURE)
-            }
-        },
-    }
-}
-
-fn check_web_bundle() -> Result<(), std::process::ExitCode> {
-    let mut command = std::process::Command::new("dx");
-    command.args(vec![
-        "bundle",
-        "--web",
-        "--release",
-        "--package",
-        "frontend",
-    ]);
-
-    command.stdout(std::process::Stdio::null());
-    command.stderr(std::process::Stdio::null());
-
-    log::info!("Checking release bundle for web...");
-    let status: std::process::ExitStatus = match command.status() {
-        Ok(n) => n,
-        Err(err) => {
-            log::error!(
-                "Failed to bundle web release: {command}: {err}",
-                command = command.format()
-            );
-            return Err(std::process::ExitCode::FAILURE);
-        }
-    };
-
-    match status.success() {
-        true => {
-            log::info!(
-                "Checking release bundle for web succeeded: {command}",
-                command = command.format()
-            );
-            Ok(())
-        }
-        false => match status.code() {
-            Some(_code) => {
-                log::error!(
-                    "Checking release bundle for web failed: {command}",
-                    command = command.format()
-                );
-                Err(std::process::ExitCode::FAILURE)
-            }
-            None => {
-                log::error!(
-                    "Failed to check release bundle for web: {command}: No exit code",
                     command = command.format()
                 );
                 Err(std::process::ExitCode::FAILURE)

@@ -90,8 +90,11 @@ fn prepare_staging_dir(path: &str) -> Result<(), std::process::ExitCode> {
     )
     .map_err(|_| std::process::ExitCode::FAILURE)?;
 
-    std::fs::copy("poc.html", format!("{path}/var/lib/rustctl/www/index.html"))
-        .map_err(|_| std::process::ExitCode::FAILURE)?;
+    std::fs::copy(
+        "frontend/index.html",
+        format!("{path}/var/lib/rustctl/www/index.html"),
+    )
+    .map_err(|_| std::process::ExitCode::FAILURE)?;
 
     Ok(())
 }

@@ -2,7 +2,6 @@
 resolver = "3"
 members  = [
   "./backend/",
-  "./frontend/",
   "./shared/",
   "./xtask/",
 ]
@@ -14,13 +13,8 @@ rust-version = "1.92" # Minimum Supported Rust Version (MSRV): Latest as of 2025
 [workspace.dependencies]
 axum-server          = { version = "=0.8.0",   default-features = false, features = [] }
 axum                 = { version = "=0.8.4",   default-features = false, features = [] }
-base64               = { version = "=0.22.1",  default-features = false, features = [] }
 clap                 = { version = "=4.5.51",  default-features = false, features = [] }
-dioxus               = { version = "=0.7.3",   default-features = false, features = [] }
 futures-util         = { version = "=0.3.31",  default-features = false, features = [] }
-gloo-net             = { version = "=0.6.0",   default-features = false, features = [] }
-gloo-timers          = { version = "=0.3.0",   default-features = false, features = [] }
-js-sys               = { version = "=0.3.85",  default-features = false, features = [] }
 log4rs               = { version = "=1.4.0",   default-features = false, features = [] }
 log                  = { version = "=0.4.28",  default-features = false, features = [] }
 nix                  = { version = "=0.30.1",  default-features = false, features = [] }
@@ -36,19 +30,4 @@ tokio                = { version = "=1.48.0",  default-features = false, feature
 tower-http           = { version = "=0.6.8",   default-features = false, features = [] }
 url                  = { version = "=2.5.8",   default-features = false, features = [] }
 uuid                 = { version = "=1.20.0",  default-features = false, features = [] }
-wasm-bindgen-futures = { version = "=0.4.58",  default-features = false, features = [] }
-wasm-bindgen         = { version = "=0.2.108", default-features = false, features = [] }
 webauthn-rs          = { version = "=0.5.4",   default-features = false, features = [] }
-web-sys              = { version = "=0.3.85",  default-features = false, features = [] }
-
-[profile]
-
-[profile.wasm-dev]
-inherits = "dev"
-opt-level = 1
-
-[profile.server-dev]
-inherits = "dev"
-
-[profile.android-dev]
-inherits = "dev"
