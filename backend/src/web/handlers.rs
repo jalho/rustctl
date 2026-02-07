@@ -6,7 +6,12 @@ pub async fn favicon() -> axum::response::Response {
 }
 
 pub async fn web() -> impl axum::response::IntoResponse {
-    let path = "/var/lib/rustctl/www/index.html";
+    let path = if cfg!(debug_assertions) {
+        "frontend/index.html"
+    } else {
+        "/var/lib/rustctl/www/index.html"
+    };
+
     match tokio::fs::read_to_string(path).await {
         Ok(mut html) => {
             html = html
@@ -21,10 +26,16 @@ pub async fn web() -> impl axum::response::IntoResponse {
                 .body(axum::body::Body::from(html))
                 .unwrap()
         }
-        Err(_) => axum::response::Response::builder()
-            .status(axum::http::StatusCode::NOT_FOUND)
-            .body(axum::body::Body::from("Frontend not found"))
-            .unwrap(),
+        Err(err) => {
+            if cfg!(debug_assertions) {
+                log::error!("Failed to read frontend at {}: {}", path, err);
+            }
+
+            axum::response::Response::builder()
+                .status(axum::http::StatusCode::NO_CONTENT)
+                .body(axum::body::Body::empty())
+                .unwrap()
+        }
     }
 }
 
