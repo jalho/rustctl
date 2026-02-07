@@ -77,14 +77,17 @@ pub async fn serve(expose: &Expose, tx: tokio::sync::mpsc::Sender<crate::ctl::Co
     router = router.route("/reboot", axum::routing::post(handlers::reboot));
 
     let addr: std::net::SocketAddr = expose.into();
-    let router: axum::Router = router.with_state(State::new(tx, &addr, &scheme));
+    let router: axum::Router = router.with_state(State::new(tx, expose));
 
     match scheme {
         Scheme::Https { tls_config } => axum_server::bind_rustls(addr, tls_config)
             .serve(router.into_make_service())
             .await
             .unwrap(),
-        Scheme::Http => todo!(),
+        Scheme::Http => axum_server::bind(addr)
+            .serve(router.into_make_service())
+            .await
+            .unwrap(),
     }
 }
 
@@ -116,23 +119,35 @@ struct State {
 }
 
 impl State {
-    fn new(
-        tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
-        addr: &std::net::SocketAddr,
-        scheme: &Scheme,
-    ) -> Self {
-        let rp_id: &str = DOMAIN_NAME;
-        let port: u16 = addr.port();
-        let rp_origin: url::Url = url::Url::parse(&format!(
-            "{scheme}://{host}:{port}",
-            scheme = match scheme {
-                Scheme::Https { .. } => "https",
-                Scheme::Http => "http",
-            },
-            host = DOMAIN_NAME,
-            port = port,
-        ))
-        .unwrap();
+    fn new(tx: tokio::sync::mpsc::Sender<crate::ctl::Command>, expose: &Expose) -> Self {
+        let (rp_id, rp_origin): (&str, url::Url) = {
+            let addr: std::net::SocketAddr = expose.into();
+
+            match expose {
+                Expose::LocalLoopback => {
+                    let rp_id: &str = "localhost";
+                    let rp_origin: url::Url =
+                        format!("http://localhost:{port}", port = addr.port())
+                            .parse()
+                            .unwrap();
+
+                    (rp_id, rp_origin)
+                }
+
+                Expose::Any => {
+                    let rp_id: &str = DOMAIN_NAME;
+                    let rp_origin: url::Url = format!(
+                        "https://{host}:{port}",
+                        host = DOMAIN_NAME,
+                        port = addr.port()
+                    )
+                    .parse()
+                    .unwrap();
+
+                    (rp_id, rp_origin)
+                }
+            }
+        };
 
         let builder: webauthn_rs::WebauthnBuilder<'_> =
             webauthn_rs::WebauthnBuilder::new(rp_id, &rp_origin).expect("Invalid Webauthn Config");
