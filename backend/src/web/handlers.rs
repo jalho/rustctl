@@ -123,10 +123,13 @@ pub async fn auth_sign_up_challenge(
         lock.insert(id, timestamped);
         pending_count = lock.len();
     }
-    log::debug!("New sign-up initiated: Pending sign-up transactions in total: {pending_count}");
 
     let ccr_serializable: serde_json::Value = serde_json::to_value(&ccr).unwrap();
 
+    log::info!(
+        "[{transaction_id}] New sign-up initiated: Pending sign-ups in total: {pending_count}",
+        transaction_id = &id.to_string()[..8],
+    );
     shared::SignUpResponse {
         id,
         ccr: ccr_serializable,
@@ -139,19 +142,10 @@ pub async fn auth_sign_up_submit(
     axum::extract::State(mut state): axum::extract::State<crate::web::State>,
     axum::extract::Json(payload): axum::extract::Json<serde_json::Value>,
 ) -> axum::http::StatusCode {
-    let pending_count: usize;
     let pending: Option<crate::web::Timestamped<webauthn_rs::prelude::PasskeyRegistration>>;
     {
         let mut lock = state.pending_signups.lock().await;
         pending = lock.remove(&id);
-        pending_count = lock.len();
-    }
-
-    if pending.is_some() {
-        // count changed
-        log::debug!(
-            "Sign-up submitted: Pending sign-up transactions remaining in total: {pending_count}"
-        );
     }
 
     let pkr: crate::web::Timestamped<webauthn_rs::prelude::PasskeyRegistration> = match pending {
@@ -178,11 +172,14 @@ pub async fn auth_sign_up_submit(
         .db_client
         .insert_one_passkey(&created_at, &passkey)
         .await;
-    log::debug!("Registered 1 new passkey");
 
     /*
      * TODO: Set-Cookie.
      */
+    log::info!(
+        "[{transaction_id}] Sign-up submitted: Registered 1 new passkey",
+        transaction_id = &id.to_string()[..8],
+    );
     axum::http::StatusCode::NO_CONTENT
 }
 
@@ -207,9 +204,13 @@ pub async fn auth_sign_in_challenge(
         lock.insert(id, timestamped);
         pending_count = lock.len();
     }
-    log::debug!("New sign-in initiated: Pending sign-in transactions in total: {pending_count}");
 
     let rcr_serializable: serde_json::Value = serde_json::to_value(&rcr).unwrap();
+
+    log::info!(
+        "[{transaction_id}] New sign-in initiated: Pending sign-ins in total: {pending_count}",
+        transaction_id = &id.to_string()[..8],
+    );
     shared::SignInResponse {
         id,
         rcr: rcr_serializable,
@@ -222,23 +223,15 @@ pub async fn auth_sign_in_submit(
     axum::extract::State(mut state): axum::extract::State<crate::web::State>,
     axum::extract::Json(payload): axum::extract::Json<webauthn_rs::prelude::PublicKeyCredential>,
 ) -> axum::http::StatusCode {
-    let pending_count: usize;
     let pending: Option<crate::web::Timestamped<webauthn_rs::prelude::DiscoverableAuthentication>>;
     {
         let mut lock = state.pending_signins.lock().await;
         pending = lock.remove(&id);
-        pending_count = lock.len();
     }
 
     let da: crate::web::Timestamped<webauthn_rs::prelude::DiscoverableAuthentication> =
         match pending {
-            Some(n) => {
-                // count changed
-                log::debug!(
-                    "Sign-in submitted: Pending sign-in transactions remaining in total: {pending_count}"
-                );
-                n
-            }
+            Some(n) => n,
             None => return axum::http::StatusCode::BAD_REQUEST,
         };
 
@@ -293,6 +286,10 @@ pub async fn auth_sign_in_submit(
     /*
      * TODO: Set-Cookie.
      */
+    log::info!(
+        "[{transaction_id}] Sign-in submitted using known passkey",
+        transaction_id = &id.to_string()[..8],
+    );
     axum::http::StatusCode::NO_CONTENT
 }
 

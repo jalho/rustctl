@@ -8,7 +8,7 @@ mod web;
 fn main() -> std::process::ExitCode {
     let cli_args: init::Cli = init::Cli::get();
 
-    if let Err(code) = init::init_logger(log::LevelFilter::Trace) {
+    if let Err(code) = init::init_logger(log::LevelFilter::max()) {
         return code;
     }
 
@@ -25,12 +25,9 @@ fn main() -> std::process::ExitCode {
             return std::process::ExitCode::from(42);
         }
     };
-    log::debug!("Runtime built");
 
     let _rt_done: RtDone = rt.block_on(async_tasks(&cli_args));
-    log::debug!("Runtime done with async tasks");
 
-    log::debug!("Terminating");
     std::process::ExitCode::SUCCESS
 }
 
