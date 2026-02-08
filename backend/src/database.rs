@@ -1,4 +1,3 @@
-#[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum DbOp {
     InsertOnePasskey {
@@ -7,9 +6,16 @@ pub enum DbOp {
         value: webauthn_rs::prelude::Passkey,
     },
     SelectOnePasskeyByCredentialId {
-        tx: tokio::sync::oneshot::Sender<Option<webauthn_rs::prelude::Passkey>>,
+        tx: tokio::sync::oneshot::Sender<Option<queries::SelectedPasskey>>,
         value: Vec<u8>,
     },
+}
+
+pub mod queries {
+    pub struct SelectedPasskey {
+        pub invalidated_at: Option<chrono::DateTime<chrono::Utc>>,
+        pub passkey: webauthn_rs::prelude::Passkey,
+    }
 }
 
 #[derive(Clone)]
@@ -51,7 +57,7 @@ impl Client {
     pub async fn select_one_passkey_by_credential_id(
         &mut self,
         value: &[u8],
-    ) -> Option<webauthn_rs::prelude::Passkey> {
+    ) -> Option<queries::SelectedPasskey> {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         match self
@@ -137,17 +143,41 @@ impl Engine {
                         .await
                         .unwrap();
 
-                    let found: Option<webauthn_rs::prelude::Passkey> = match done.len() {
+                    let found: Option<queries::SelectedPasskey> = match done.len() {
                         0 => None,
                         1 => {
                             let row: &tokio_postgres::Row = done.first().unwrap();
 
-                            let deserializable: serde_json::Value = row.get("passkey_json");
+                            let invalidated_at: Option<chrono::NaiveDateTime> = {
+                                let deserialized = row.try_get("invalidated_at_utc");
+                                let value: Option<chrono::NaiveDateTime> = match deserialized {
+                                    Ok(n) => n,
+                                    Err(_) => todo!(),
+                                };
+                                value
+                            };
+                            let invalidated_at: Option<chrono::DateTime<chrono::Utc>> =
+                                invalidated_at.map(|n| {
+                                    let n: chrono::NaiveDateTime = n;
+                                    let utc: chrono::DateTime<chrono::Utc> = n.and_utc();
+                                    utc
+                                });
 
-                            let deserialized: webauthn_rs::prelude::Passkey =
-                                serde_json::from_value(deserializable).unwrap();
+                            let passkey: webauthn_rs::prelude::Passkey = {
+                                let deserialized = row.try_get("passkey_json");
+                                let value: serde_json::Value = match deserialized {
+                                    Ok(n) => n,
+                                    Err(_) => todo!(),
+                                };
+                                let value: webauthn_rs::prelude::Passkey =
+                                    serde_json::from_value(value).unwrap();
+                                value
+                            };
 
-                            Some(deserialized)
+                            Some(queries::SelectedPasskey {
+                                invalidated_at,
+                                passkey,
+                            })
                         }
                         2.. => todo!(),
                     };
@@ -170,9 +200,10 @@ impl Engine {
 mod tables {
     /// ```sql
     /// CREATE TABLE public.passkeys (
-    ///   created_at_utc TIMESTAMP NOT NULL,
-    ///   credential_id  BYTEA     PRIMARY KEY,
-    ///   passkey_json   JSONB     NOT NULL
+    ///   created_at_utc     TIMESTAMP NOT NULL,
+    ///   invalidated_at_utc TIMESTAMP DEFAULT NULL,
+    ///   credential_id      BYTEA     PRIMARY KEY,
+    ///   passkey_json       JSONB     NOT NULL
     /// );
     /// ```
     pub mod passkeys {
@@ -190,6 +221,7 @@ VALUES(
 
         pub const SELECT_ONE_BY_CREDENTIAL_ID: &str = r#"SELECT
     created_at_utc,
+    invalidated_at_utc,
     credential_id,
     passkey_json
 FROM

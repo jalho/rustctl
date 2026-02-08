@@ -252,15 +252,19 @@ pub async fn auth_sign_in_submit(
     let _claimed_passkey_id: uuid::Uuid = c_pk_id;
     let claimed_passkey_cred_id: &[u8] = c_pk_cred_id;
 
-    let passkey_seeked: Option<webauthn_rs::prelude::Passkey> = state
+    let passkey_seeked: Option<crate::database::queries::SelectedPasskey> = state
         .db_client
         .select_one_passkey_by_credential_id(claimed_passkey_cred_id)
         .await;
-    let passkey_known: webauthn_rs::prelude::Passkey = match passkey_seeked {
+    let passkey_known: crate::database::queries::SelectedPasskey = match passkey_seeked {
         Some(n) => n,
         None => return axum::http::StatusCode::UNAUTHORIZED,
     };
-    let passkey_known: webauthn_rs::prelude::DiscoverableKey = passkey_known.into();
+    let passkey_active: webauthn_rs::prelude::Passkey = match passkey_known.invalidated_at {
+        Some(_) => return axum::http::StatusCode::UNAUTHORIZED,
+        None => passkey_known.passkey,
+    };
+    let passkey_known: webauthn_rs::prelude::DiscoverableKey = passkey_active.into();
 
     let _auth_result: webauthn_rs::prelude::AuthenticationResult = match state
         .webauthn
