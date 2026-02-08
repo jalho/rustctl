@@ -233,6 +233,6 @@ WHERE
     }
 }
 
-fn to_hex_string(buf: &[u8]) -> String {
+pub fn to_hex_string(buf: &[u8]) -> String {
     buf.iter().map(|b| format!("{:02x}", b)).collect()
 }

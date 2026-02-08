@@ -177,8 +177,9 @@ pub async fn auth_sign_up_submit(
      * TODO: Set-Cookie.
      */
     log::info!(
-        "[{transaction_id}] Sign-up submitted: Registered 1 new passkey",
+        "[{transaction_id}] Sign-up submitted: Registered 1 new passkey: {credential_id_hex}",
         transaction_id = &id.to_string()[..8],
+        credential_id_hex = &crate::database::to_hex_string(passkey.cred_id())[..12],
     );
     axum::http::StatusCode::NO_CONTENT
 }
@@ -257,11 +258,11 @@ pub async fn auth_sign_in_submit(
         Some(_) => return axum::http::StatusCode::UNAUTHORIZED,
         None => passkey_known.passkey,
     };
-    let passkey_known: webauthn_rs::prelude::DiscoverableKey = passkey_active.into();
+    let credential_id_hex: String = crate::database::to_hex_string(passkey_active.cred_id());
 
     let _auth_result: webauthn_rs::prelude::AuthenticationResult = match state
         .webauthn
-        .finish_discoverable_authentication(&payload, da.inner, &[passkey_known])
+        .finish_discoverable_authentication(&payload, da.inner, &[passkey_active.into()])
     {
         Ok(n) => n,
         Err(_err) => return axum::http::StatusCode::UNAUTHORIZED,
@@ -287,8 +288,9 @@ pub async fn auth_sign_in_submit(
      * TODO: Set-Cookie.
      */
     log::info!(
-        "[{transaction_id}] Sign-in submitted using known passkey",
+        "[{transaction_id}] Sign-in submitted using known passkey: {credential_id_hex}",
         transaction_id = &id.to_string()[..8],
+        credential_id_hex = &credential_id_hex[..12],
     );
     axum::http::StatusCode::NO_CONTENT
 }
