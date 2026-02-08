@@ -128,7 +128,7 @@ pub async fn auth_sign_up_challenge(
 
 pub async fn auth_sign_up_submit(
     axum::extract::Path(id): axum::extract::Path<uuid::Uuid>,
-    axum::extract::State(state): axum::extract::State<crate::web::State>,
+    axum::extract::State(mut state): axum::extract::State<crate::web::State>,
     axum::extract::Json(payload): axum::extract::Json<serde_json::Value>,
 ) -> axum::http::StatusCode {
     let pending_count: usize;
@@ -165,16 +165,8 @@ pub async fn auth_sign_up_submit(
         Err(_err) => return axum::http::StatusCode::BAD_REQUEST,
     };
 
-    let passkeys_registered_globally: usize;
-    {
-        let mut lock = state.db.lock().await;
-        lock.insert_one_passkey(&passkey).await;
-        passkeys_registered_globally = lock.select_all_passkeys().await.len();
-    }
-    log::debug!(
-        "Registered 1 new passkey with credential ID {cred_id:?}: Passkeys registered globally in total: {passkeys_registered_globally}",
-        cred_id = passkey.cred_id(),
-    );
+    state.db_client.insert_one_passkey(&passkey).await;
+    log::debug!("Registered 1 new passkey");
 
     /*
      * TODO: Set-Cookie.
@@ -213,7 +205,7 @@ pub async fn auth_sign_in_challenge(
 
 pub async fn auth_sign_in_submit(
     axum::extract::Path(id): axum::extract::Path<uuid::Uuid>,
-    axum::extract::State(state): axum::extract::State<crate::web::State>,
+    axum::extract::State(mut state): axum::extract::State<crate::web::State>,
     axum::extract::Json(payload): axum::extract::Json<webauthn_rs::prelude::PublicKeyCredential>,
 ) -> axum::http::StatusCode {
     let pending_count: usize;
@@ -246,13 +238,10 @@ pub async fn auth_sign_in_submit(
     let _claimed_passkey_id: uuid::Uuid = c_pk_id;
     let claimed_passkey_cred_id: &[u8] = c_pk_cred_id;
 
-    let passkey_seeked: Option<webauthn_rs::prelude::Passkey>;
-    {
-        let mut lock = state.db.lock().await;
-        passkey_seeked = lock
-            .select_one_passkey_by_credential_id(claimed_passkey_cred_id)
-            .await;
-    }
+    let passkey_seeked: Option<webauthn_rs::prelude::Passkey> = state
+        .db_client
+        .select_one_passkey_by_credential_id(claimed_passkey_cred_id)
+        .await;
     let passkey_known: webauthn_rs::prelude::Passkey = match passkey_seeked {
         Some(n) => n,
         None => return axum::http::StatusCode::UNAUTHORIZED,

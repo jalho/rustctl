@@ -56,7 +56,11 @@ impl From<&Expose> for std::net::SocketAddr {
     }
 }
 
-pub async fn serve(expose: &Expose, tx: tokio::sync::mpsc::Sender<crate::ctl::Command>) {
+pub async fn serve(
+    expose: &Expose,
+    tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
+    db_client: crate::database::Client,
+) {
     let mut router: axum::Router<State> = axum::Router::new();
 
     /*
@@ -95,6 +99,7 @@ pub async fn serve(expose: &Expose, tx: tokio::sync::mpsc::Sender<crate::ctl::Co
         scheme.to_url_scheme(),
         expose.domain_name(),
         addr.port(),
+        db_client,
     ));
 
     match scheme {
@@ -113,7 +118,7 @@ pub async fn serve(expose: &Expose, tx: tokio::sync::mpsc::Sender<crate::ctl::Co
 struct State {
     tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
 
-    db: std::sync::Arc<tokio::sync::Mutex<crate::database::Client>>,
+    db_client: crate::database::Client,
 
     webauthn: std::sync::Arc<webauthn_rs::Webauthn>,
 
@@ -142,6 +147,7 @@ impl State {
         scheme: &str,
         domain_name: &str,
         port: u16,
+        db_client: crate::database::Client,
     ) -> Self {
         let (rp_id, rp_origin): (&str, url::Url) = {
             let rp_id: &str = domain_name;
@@ -167,7 +173,7 @@ impl State {
                 std::collections::HashMap::new(),
             )),
 
-            db: std::sync::Arc::new(tokio::sync::Mutex::new(crate::database::Client::new())),
+            db_client,
         }
     }
 }

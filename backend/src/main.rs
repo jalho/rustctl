@@ -51,6 +51,8 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
          * reading from FIFO pipes.
          */
         init::Command::Service => {
+            let (mut db_engine, db_client) = database::Engine::new();
+
             /*
              * Channel for passing commands from web clients to a Controller
              * (see module `ctl`).
@@ -69,10 +71,13 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
              * case the whole program should terminate.
              */
             tokio::select! {
+                _ = db_engine.handle() => {
+                    log::error!("Task terminated: db_engine.handle");
+                }
                 _ = game::log_game_server_output() => {
                     log::error!("Task terminated: game::log_game_server_output");
                 }
-                _ = web::serve(&expose, tx) => {
+                _ = web::serve(&expose, tx, db_client) => {
                     log::error!("Task terminated: web::serve");
                 }
                 _ = ctl::handle_commands_from_web_clients(rx) => {
