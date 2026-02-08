@@ -96,18 +96,26 @@ pub async fn auth_sign_up_challenge(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
     axum::extract::Json(payload): axum::extract::Json<shared::SignUpRequest>,
 ) -> axum::response::Json<shared::SignUpResponse> {
+    let created_at: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+
     prune_pending(&state.pending_signups, "sign-up").await;
+
+    let passkey_name: String = format!(
+        "{client_set_name} ({server_timestamp})",
+        client_set_name = payload.passkey_name,
+        server_timestamp = created_at.to_rfc3339(),
+    );
 
     let id: uuid::Uuid = uuid::Uuid::new_v4();
     let (ccr, pkr) = state
         .webauthn
-        .start_passkey_registration(id, &payload.passkey_name, &payload.passkey_name, None)
+        .start_passkey_registration(id, &passkey_name, &passkey_name, None)
         .expect("Failed to start registration.");
     let ccr: webauthn_rs::prelude::CreationChallengeResponse = ccr;
     let pkr: webauthn_rs::prelude::PasskeyRegistration = pkr;
 
     let timestamped: crate::web::Timestamped<webauthn_rs::prelude::PasskeyRegistration> =
-        crate::web::Timestamped::new(pkr);
+        crate::web::Timestamped::new(&created_at, pkr);
 
     let pending_count: usize;
     {
@@ -165,7 +173,11 @@ pub async fn auth_sign_up_submit(
         Err(_err) => return axum::http::StatusCode::BAD_REQUEST,
     };
 
-    state.db_client.insert_one_passkey(&passkey).await;
+    let created_at: chrono::DateTime<chrono::Utc> = pkr.timestamp;
+    state
+        .db_client
+        .insert_one_passkey(&created_at, &passkey)
+        .await;
     log::debug!("Registered 1 new passkey");
 
     /*
@@ -177,6 +189,8 @@ pub async fn auth_sign_up_submit(
 pub async fn auth_sign_in_challenge(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
 ) -> axum::response::Json<shared::SignInResponse> {
+    let init_at: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+
     prune_pending(&state.pending_signins, "sign-in").await;
 
     let (rcr, da) = state.webauthn.start_discoverable_authentication().unwrap();
@@ -185,7 +199,7 @@ pub async fn auth_sign_in_challenge(
 
     let id: uuid::Uuid = uuid::Uuid::new_v4();
     let timestamped: crate::web::Timestamped<webauthn_rs::prelude::DiscoverableAuthentication> =
-        crate::web::Timestamped::new(da);
+        crate::web::Timestamped::new(&init_at, da);
 
     let pending_count: usize;
     {

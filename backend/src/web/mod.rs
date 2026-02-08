@@ -197,17 +197,15 @@ impl Scheme {
 
 #[derive(Clone, Debug)]
 struct Timestamped<T: Clone> {
-    timestamp: u128,
+    timestamp: chrono::DateTime<chrono::Utc>,
     inner: T,
 }
 
 impl<T: Clone> Timestamped<T> {
-    pub fn new(inner: T) -> Self {
-        let timestamp: u128 = std::time::SystemTime::now()
-            .duration_since(std::time::SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
-
-        Self { timestamp, inner }
+    pub fn new(timestamp: &chrono::DateTime<chrono::Utc>, inner: T) -> Self {
+        Self {
+            timestamp: *timestamp,
+            inner,
+        }
     }
 }

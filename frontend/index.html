@@ -65,10 +65,7 @@
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        passkey_name: new Date()
-          .toISOString()
-          .replace("T", " ")
-          .replace("Z", " UTC"),
+        passkey_name: "anonymous",
       }),
     });
 
