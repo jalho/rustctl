@@ -115,12 +115,13 @@ impl Engine {
 
                     let timestamp_utc: chrono::NaiveDateTime = timestamp.naive_utc();
                     let credential_id: Vec<u8> = passkey.cred_id().as_slice().to_vec();
+                    let credential_id_hex: String = to_hex_string(&credential_id);
                     let serializable: serde_json::Value = serde_json::to_value(&passkey).unwrap();
 
                     let inserted_count: u64 = client
                         .execute(
                             tables::passkeys::INSERT_ONE,
-                            &[&timestamp_utc, &credential_id, &serializable],
+                            &[&timestamp_utc, &credential_id_hex, &serializable],
                         )
                         .await
                         .unwrap();
@@ -134,11 +135,12 @@ impl Engine {
 
                 DbOp::SelectOnePasskeyByCredentialId { tx, value } => {
                     let credential_id: Vec<u8> = value;
+                    let credential_id_hex: String = to_hex_string(&credential_id);
 
                     let done: Vec<tokio_postgres::Row> = client
                         .query(
                             tables::passkeys::SELECT_ONE_BY_CREDENTIAL_ID,
-                            &[&credential_id],
+                            &[&credential_id_hex],
                         )
                         .await
                         .unwrap();
@@ -200,17 +202,17 @@ impl Engine {
 mod tables {
     /// ```sql
     /// CREATE TABLE public.passkeys (
-    ///   created_at_utc     TIMESTAMP NOT NULL,
-    ///   invalidated_at_utc TIMESTAMP DEFAULT NULL,
-    ///   credential_id      BYTEA     PRIMARY KEY,
-    ///   passkey_json       JSONB     NOT NULL
+    ///   created_at_utc     TIMESTAMP    NOT NULL,
+    ///   invalidated_at_utc TIMESTAMP    DEFAULT NULL,
+    ///   credential_id_hex  VARCHAR(128) PRIMARY KEY,
+    ///   passkey_json       JSONB        NOT NULL
     /// );
     /// ```
     pub mod passkeys {
         pub const INSERT_ONE: &str = r#"INSERT INTO
     public.passkeys(
         created_at_utc,
-        credential_id,
+        credential_id_hex,
         passkey_json
     )
 VALUES(
@@ -222,11 +224,15 @@ VALUES(
         pub const SELECT_ONE_BY_CREDENTIAL_ID: &str = r#"SELECT
     created_at_utc,
     invalidated_at_utc,
-    credential_id,
+    credential_id_hex,
     passkey_json
 FROM
     public.passkeys
 WHERE
-    credential_id = $1;"#;
+    credential_id_hex = $1;"#;
     }
+}
+
+fn to_hex_string(buf: &[u8]) -> String {
+    buf.iter().map(|b| format!("{:02x}", b)).collect()
 }
