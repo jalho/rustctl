@@ -168,10 +168,14 @@ pub async fn auth_sign_up_submit(
     };
 
     let created_at: chrono::DateTime<chrono::Utc> = pkr.timestamp;
-    state
+    if state
         .db_client
         .insert_one_passkey(&created_at, &passkey)
-        .await;
+        .await
+        .is_err()
+    {
+        return axum::http::StatusCode::INTERNAL_SERVER_ERROR;
+    }
 
     /*
      * TODO: Set-Cookie.
@@ -246,10 +250,14 @@ pub async fn auth_sign_in_submit(
     let _claimed_passkey_id: uuid::Uuid = c_pk_id;
     let claimed_passkey_cred_id: &[u8] = c_pk_cred_id;
 
-    let passkey_seeked: Option<crate::database::queries::SelectedPasskey> = state
+    let passkey_seeked: Option<crate::database::queries::SelectedPasskey> = match state
         .db_client
         .select_one_passkey_by_credential_id(claimed_passkey_cred_id)
-        .await;
+        .await
+    {
+        Ok(n) => n,
+        Err(_) => return axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+    };
     let passkey_known: crate::database::queries::SelectedPasskey = match passkey_seeked {
         Some(n) => n,
         None => return axum::http::StatusCode::UNAUTHORIZED,

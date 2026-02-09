@@ -32,7 +32,7 @@ impl Client {
         &mut self,
         timestamp: &chrono::DateTime<chrono::Utc>,
         passkey: &webauthn_rs::prelude::Passkey,
-    ) {
+    ) -> Result<(), ()> {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         match self
@@ -49,15 +49,15 @@ impl Client {
         }
 
         match rx.await {
-            Ok(_) => {}
-            Err(_) => todo!(),
+            Ok(_) => Ok(()),
+            Err(_) => Err(()),
         }
     }
 
     pub async fn select_one_passkey_by_credential_id(
         &mut self,
         value: &[u8],
-    ) -> Option<queries::SelectedPasskey> {
+    ) -> Result<Option<queries::SelectedPasskey>, ()> {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         match self
@@ -73,8 +73,8 @@ impl Client {
         }
 
         match rx.await {
-            Ok(n) => n,
-            Err(_) => todo!(),
+            Ok(n) => Ok(n),
+            Err(_) => Err(()),
         }
     }
 }
@@ -89,21 +89,43 @@ impl Engine {
         (Self { rx }, Client::new(tx))
     }
 
-    pub async fn handle(&mut self) -> () {
-        let (client, connection): (
-            tokio_postgres::Client,
-            tokio_postgres::Connection<tokio_postgres::Socket, tokio_postgres::tls::NoTlsStream>,
-        ) = tokio_postgres::connect(
-            "postgresql://rustctl:rustctl@127.0.0.1:5432/postgres?connect_timeout=1",
-            tokio_postgres::NoTls,
-        )
-        .await
-        .unwrap();
+    pub async fn keep_connected(&mut self) -> () {
+        'reconnect: loop {
+            let (client, connection): (
+                tokio_postgres::Client,
+                tokio_postgres::Connection<
+                    tokio_postgres::Socket,
+                    tokio_postgres::tls::NoTlsStream,
+                >,
+            ) = match tokio_postgres::connect(
+                "postgresql://rustctl:rustctl@127.0.0.1:5432/postgres?connect_timeout=1",
+                tokio_postgres::NoTls,
+            )
+            .await
+            {
+                Ok(n) => n,
+                Err(err) => {
+                    log::error!("{err}", err = crate::get_full_error_message(&err));
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    continue 'reconnect;
+                }
+            };
+            log::info!("Connected to database");
 
-        let connection_handle: tokio::task::JoinHandle<()> = tokio::spawn(async move {
-            connection.await.unwrap();
-        });
+            let connection_handle: tokio::task::JoinHandle<()> = tokio::spawn(async move {
+                if let Err(err) = connection.await {
+                    log::error!("{err}", err = crate::get_full_error_message(&err));
+                }
+            });
 
+            tokio::select!(
+                _ = self.handle_queries(client) => {}
+                _ = connection_handle => {}
+            )
+        }
+    }
+
+    async fn handle_queries(&mut self, client: tokio_postgres::Client) {
         while let Some(n) = self.rx.recv().await {
             match n {
                 DbOp::InsertOnePasskey {
@@ -118,13 +140,19 @@ impl Engine {
                     let credential_id_hex: String = to_hex_string(&credential_id);
                     let serializable: serde_json::Value = serde_json::to_value(&passkey).unwrap();
 
-                    let inserted_count: u64 = client
+                    let inserted_count: u64 = match client
                         .execute(
                             tables::passkeys::INSERT_ONE,
                             &[&timestamp_utc, &credential_id_hex, &serializable],
                         )
                         .await
-                        .unwrap();
+                    {
+                        Ok(n) => n,
+                        Err(err) => {
+                            log::error!("{err}", err = crate::get_full_error_message(&err));
+                            return;
+                        }
+                    };
                     assert_eq!(inserted_count, 1);
 
                     match tx.send(()) {
@@ -137,18 +165,24 @@ impl Engine {
                     let credential_id: Vec<u8> = value;
                     let credential_id_hex: String = to_hex_string(&credential_id);
 
-                    let done: Vec<tokio_postgres::Row> = client
+                    let rows: Vec<tokio_postgres::Row> = match client
                         .query(
                             tables::passkeys::SELECT_ONE_BY_CREDENTIAL_ID,
                             &[&credential_id_hex],
                         )
                         .await
-                        .unwrap();
+                    {
+                        Ok(n) => n,
+                        Err(err) => {
+                            log::error!("{err}", err = crate::get_full_error_message(&err));
+                            return;
+                        }
+                    };
 
-                    let found: Option<queries::SelectedPasskey> = match done.len() {
+                    let found: Option<queries::SelectedPasskey> = match rows.len() {
                         0 => None,
                         1 => {
-                            let row: &tokio_postgres::Row = done.first().unwrap();
+                            let row: &tokio_postgres::Row = rows.first().unwrap();
 
                             let invalidated_at: Option<chrono::NaiveDateTime> = {
                                 let deserialized = row.try_get("invalidated_at_utc");
@@ -191,11 +225,6 @@ impl Engine {
                 }
             }
         }
-
-        match connection_handle.await {
-            Ok(_) => {}
-            Err(_) => todo!(),
-        };
     }
 }
 

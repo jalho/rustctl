@@ -6,6 +6,15 @@ mod rcon;
 mod web;
 
 fn main() -> std::process::ExitCode {
+    /*
+     * Terminate on panic. This is to prevent the async runtime from continuing
+     * with other tasks when a panic occurs in one of them.
+     */
+    std::panic::set_hook(Box::new(|panic_info| {
+        log::error!("{panic_info}");
+        std::process::exit(1);
+    }));
+
     let cli_args: init::Cli = init::Cli::get();
 
     if let Err(code) = init::init_logger(log::LevelFilter::max()) {
@@ -48,7 +57,8 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
          * reading from FIFO pipes.
          */
         init::Command::Service => {
-            let (mut db_engine, db_client) = database::Engine::new();
+            let (mut db_engine, db_client): (database::Engine, database::Client) =
+                database::Engine::new();
 
             /*
              * Channel for passing commands from web clients to a Controller
@@ -68,13 +78,13 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
              * case the whole program should terminate.
              */
             tokio::select! {
-                _ = db_engine.handle() => {
-                    log::error!("Task terminated: db_engine.handle");
+                _ = db_engine.keep_connected() => {
+                    log::error!("Task terminated: db_engine.keep_connected");
                 }
                 _ = game::log_game_server_output() => {
                     log::error!("Task terminated: game::log_game_server_output");
                 }
-                _ = web::serve(&expose, tx, db_client) => {
+                _ = web::serve(&expose, tx, db_client.clone()) => {
                     log::error!("Task terminated: web::serve");
                 }
                 _ = ctl::handle_commands_from_web_clients(rx) => {
@@ -91,3 +101,19 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
 }
 
 struct RtDone;
+
+/*
+ * TODO: Use `fn get_full_error_message` everywhere!
+ */
+fn get_full_error_message(err: &dyn std::error::Error) -> String {
+    let mut message = err.to_string();
+    let mut current = err.source();
+
+    while let Some(cause) = current {
+        message.push_str(": ");
+        message.push_str(&cause.to_string());
+        current = cause.source();
+    }
+
+    message
+}
