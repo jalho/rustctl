@@ -110,7 +110,6 @@ impl Engine {
                     continue 'reconnect;
                 }
             };
-            log::info!("Connected to database");
 
             let connection_handle: tokio::task::JoinHandle<()> = tokio::spawn(async move {
                 if let Err(err) = connection.await {
@@ -118,7 +117,12 @@ impl Engine {
                 }
             });
 
-            Self::assure_tables_exist(&mut client).await;
+            let tables_created: bool = Self::assure_tables_exist(&mut client).await;
+            if tables_created {
+                log::info!("Connected to new database: Tables created");
+            } else {
+                log::info!("Connected to existing database: Tables not created");
+            }
 
             tokio::select!(
                 _ = self.handle_queries(client) => {}
@@ -127,13 +131,18 @@ impl Engine {
         }
     }
 
-    async fn assure_tables_exist(client: &mut tokio_postgres::Client) {
-        if let Err(err) = client.execute(tables::passkeys::CREATE_TABLE, &[]).await {
-            let msg: String = crate::get_full_error_message(&err);
-            if !msg.contains("already exists") {
-                panic!("{msg}");
+    async fn assure_tables_exist(client: &mut tokio_postgres::Client) -> bool {
+        match client.execute(tables::passkeys::CREATE_TABLE, &[]).await {
+            Ok(_) => true,
+            Err(err) => {
+                let msg: String = crate::get_full_error_message(&err);
+                if msg.contains("already exists") {
+                    false
+                } else {
+                    panic!("{msg}");
+                }
             }
-        };
+        }
     }
 
     async fn handle_queries(&mut self, client: tokio_postgres::Client) {
