@@ -3,7 +3,8 @@ pub enum DbOp {
     InsertOnePasskey {
         tx: tokio::sync::oneshot::Sender<()>,
         timestamp: chrono::DateTime<chrono::Utc>,
-        value: webauthn_rs::prelude::Passkey,
+        passkey_name: String,
+        passkey: webauthn_rs::prelude::Passkey,
     },
     SelectOnePasskeyByCredentialId {
         tx: tokio::sync::oneshot::Sender<Option<queries::SelectedPasskey>>,
@@ -15,6 +16,7 @@ pub mod queries {
     pub struct SelectedPasskey {
         pub invalidated_at: Option<chrono::DateTime<chrono::Utc>>,
         pub passkey: webauthn_rs::prelude::Passkey,
+        pub passkey_name: String,
     }
 }
 
@@ -31,6 +33,7 @@ impl Client {
     pub async fn insert_one_passkey(
         &mut self,
         timestamp: &chrono::DateTime<chrono::Utc>,
+        passkey_name: &str,
         passkey: &webauthn_rs::prelude::Passkey,
     ) -> Result<(), ()> {
         let (tx, rx) = tokio::sync::oneshot::channel();
@@ -39,8 +42,9 @@ impl Client {
             .tx
             .send(DbOp::InsertOnePasskey {
                 tx,
-                value: passkey.clone(),
                 timestamp: *timestamp,
+                passkey_name: passkey_name.to_owned(),
+                passkey: passkey.clone(),
             })
             .await
         {
@@ -151,9 +155,11 @@ impl Engine {
                 DbOp::InsertOnePasskey {
                     tx,
                     timestamp,
-                    value,
+                    passkey_name,
+                    passkey,
                 } => {
-                    let passkey: webauthn_rs::prelude::Passkey = value;
+                    let passkey_name: String = passkey_name;
+                    let passkey: webauthn_rs::prelude::Passkey = passkey;
 
                     let timestamp_utc: chrono::NaiveDateTime = timestamp.naive_utc();
                     let credential_id: Vec<u8> = passkey.cred_id().as_slice().to_vec();
@@ -163,7 +169,12 @@ impl Engine {
                     let inserted_count: u64 = match client
                         .execute(
                             tables::passkeys::INSERT_ONE,
-                            &[&timestamp_utc, &credential_id_hex, &serializable],
+                            &[
+                                &timestamp_utc,
+                                &passkey_name,
+                                &credential_id_hex,
+                                &serializable,
+                            ],
                         )
                         .await
                     {
@@ -230,9 +241,19 @@ impl Engine {
                                 value
                             };
 
+                            let passkey_name: String = {
+                                let deserialized = row.try_get("passkey_name");
+                                let value: String = match deserialized {
+                                    Ok(n) => n,
+                                    Err(_) => todo!(),
+                                };
+                                value
+                            };
+
                             Some(queries::SelectedPasskey {
                                 invalidated_at,
                                 passkey,
+                                passkey_name,
                             })
                         }
                         2.. => todo!(),
@@ -252,27 +273,31 @@ mod tables {
     pub mod passkeys {
         pub const CREATE_TABLE: &str = r#"CREATE TABLE public.passkeys (
   created_at_utc     TIMESTAMP    NOT NULL,
-  invalidated_at_utc TIMESTAMP    DEFAULT NULL,
+  passkey_name       TEXT         NOT NULL,
   credential_id_hex  VARCHAR(128) PRIMARY KEY,
-  passkey_json       JSONB        NOT NULL
+  passkey_json       JSONB        NOT NULL,
+  invalidated_at_utc TIMESTAMP    DEFAULT NULL
 );"#;
 
         pub const INSERT_ONE: &str = r#"INSERT INTO
     public.passkeys(
         created_at_utc,
+        passkey_name,
         credential_id_hex,
         passkey_json
     )
 VALUES(
     $1,
     $2,
-    $3
+    $3,
+    $4
 );"#;
 
         pub const SELECT_ONE_BY_CREDENTIAL_ID: &str = r#"SELECT
     created_at_utc,
     invalidated_at_utc,
     credential_id_hex,
+    passkey_name,
     passkey_json
 FROM
     public.passkeys

@@ -124,10 +124,7 @@ struct State {
 
     pending_signups: std::sync::Arc<
         tokio::sync::Mutex<
-            std::collections::HashMap<
-                uuid::Uuid,
-                Timestamped<webauthn_rs::prelude::PasskeyRegistration>,
-            >,
+            std::collections::HashMap<uuid::Uuid, Timestamped<NamedPasskeyRegistration>>,
         >,
     >,
 
@@ -206,6 +203,21 @@ impl<T: Clone> Timestamped<T> {
         Self {
             timestamp: *timestamp,
             inner,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct NamedPasskeyRegistration {
+    passkey_name: String,
+    pkr: webauthn_rs::prelude::PasskeyRegistration,
+}
+
+impl NamedPasskeyRegistration {
+    pub fn new(passkey_name: &str, pkr: webauthn_rs::prelude::PasskeyRegistration) -> Self {
+        Self {
+            passkey_name: passkey_name.to_owned(),
+            pkr,
         }
     }
 }

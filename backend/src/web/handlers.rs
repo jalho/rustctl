@@ -110,8 +110,11 @@ pub async fn auth_sign_up_challenge(
     let ccr: webauthn_rs::prelude::CreationChallengeResponse = ccr;
     let pkr: webauthn_rs::prelude::PasskeyRegistration = pkr;
 
-    let timestamped: crate::web::Timestamped<webauthn_rs::prelude::PasskeyRegistration> =
-        crate::web::Timestamped::new(&created_at, pkr);
+    let timestamped: crate::web::Timestamped<crate::web::NamedPasskeyRegistration> =
+        crate::web::Timestamped::new(
+            &created_at,
+            crate::web::NamedPasskeyRegistration::new(&passkey_name, pkr),
+        );
 
     let pending_count: usize;
     {
@@ -138,13 +141,13 @@ pub async fn auth_sign_up_submit(
     axum::extract::State(mut state): axum::extract::State<crate::web::State>,
     axum::extract::Json(payload): axum::extract::Json<serde_json::Value>,
 ) -> axum::http::StatusCode {
-    let pending: Option<crate::web::Timestamped<webauthn_rs::prelude::PasskeyRegistration>>;
+    let pending: Option<crate::web::Timestamped<crate::web::NamedPasskeyRegistration>>;
     {
         let mut lock = state.pending_signups.lock().await;
         pending = lock.remove(&id);
     }
 
-    let pkr: crate::web::Timestamped<webauthn_rs::prelude::PasskeyRegistration> = match pending {
+    let named_pkr: crate::web::Timestamped<crate::web::NamedPasskeyRegistration> = match pending {
         Some(n) => n,
         None => return axum::http::StatusCode::BAD_REQUEST,
     };
@@ -157,16 +160,16 @@ pub async fn auth_sign_up_submit(
 
     let passkey: webauthn_rs::prelude::Passkey = match state
         .webauthn
-        .finish_passkey_registration(&rpkc, &pkr.inner)
+        .finish_passkey_registration(&rpkc, &named_pkr.inner.pkr)
     {
         Ok(n) => n,
         Err(_err) => return axum::http::StatusCode::BAD_REQUEST,
     };
 
-    let created_at: chrono::DateTime<chrono::Utc> = pkr.timestamp;
+    let created_at: chrono::DateTime<chrono::Utc> = named_pkr.timestamp;
     if state
         .db_client
-        .insert_one_passkey(&created_at, &passkey)
+        .insert_one_passkey(&created_at, &named_pkr.inner.passkey_name, &passkey)
         .await
         .is_err()
     {
@@ -177,9 +180,10 @@ pub async fn auth_sign_up_submit(
      * TODO: Set-Cookie.
      */
     log::info!(
-        "[{transaction_id}] Sign-up submitted: Registered 1 new passkey: {credential_id_hex}",
+        r#"[{transaction_id}] Sign-up: New passkey "{passkey_name}": {credential_id_hex}"#,
         transaction_id = &id.to_string()[..8],
         credential_id_hex = &crate::database::to_hex_string(passkey.cred_id())[..12],
+        passkey_name = named_pkr.inner.passkey_name,
     );
     axum::http::StatusCode::NO_CONTENT
 }
@@ -292,9 +296,10 @@ pub async fn auth_sign_in_submit(
      * TODO: Set-Cookie.
      */
     log::info!(
-        "[{transaction_id}] Sign-in submitted using known passkey: {credential_id_hex}",
+        r#"[{transaction_id}] Sign-in: Existing passkey "{passkey_name}": {credential_id_hex}"#,
         transaction_id = &id.to_string()[..8],
         credential_id_hex = &credential_id_hex[..12],
+        passkey_name = passkey_known.passkey_name,
     );
     axum::http::StatusCode::NO_CONTENT
 }
