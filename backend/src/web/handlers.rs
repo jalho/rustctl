@@ -100,11 +100,7 @@ pub async fn auth_sign_up_challenge(
 
     prune_pending(&state.pending_signups, "sign-up").await;
 
-    let passkey_name: String = format!(
-        "{client_set_name} ({server_timestamp})",
-        client_set_name = payload.passkey_name,
-        server_timestamp = created_at.to_rfc3339(),
-    );
+    let passkey_name: String = payload.passkey_name.to_string();
 
     let id: uuid::Uuid = uuid::Uuid::new_v4();
     let (ccr, pkr) = state

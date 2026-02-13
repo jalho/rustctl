@@ -10,27 +10,50 @@
         color: #ffffff;
         font-family: sans-serif;
         display: flex;
+        flex-direction: column;
         justify-content: center;
         align-items: center;
         height: 100vh;
         margin: 0;
+        gap: 20px;
       }
-      button {
+      form {
+        display: flex;
+        gap: 10px;
+      }
+      button,
+      input {
         padding: 10px 20px;
-        cursor: pointer;
         background-color: #333;
         color: white;
         border: 1px solid #555;
         border-radius: 4px;
+        font-size: 14px;
+      }
+      button {
+        cursor: pointer;
       }
       button:hover {
         background-color: #444;
+      }
+      input:focus {
+        outline: none;
+        border-color: #777;
       }
     </style>
   </head>
   <body>
     <button id="passkey-read">Read Existing Passkey</button>
-    <button id="passkey-create">Create New Passkey</button>
+
+    <form id="passkey-create-form" action="{{SIGN_UP_CHALLENGE}}" method="POST">
+      <input
+        type="text"
+        name="passkey_name"
+        placeholder="Passkey Name"
+        required
+      />
+      <button type="submit">Create New Passkey</button>
+    </form>
   </body>
 </html>
 
@@ -60,25 +83,6 @@
     return { options, challenge_id };
   }
 
-  async function fetch_opts_passkey_create() {
-    const response = await fetch("{{SIGN_UP_CHALLENGE}}", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        passkey_name: "anonymous",
-      }),
-    });
-
-    const data = await response.json();
-    const options = data.ccr.publicKey;
-    const challenge_id = data.id;
-
-    options.challenge = decode_buffer_from_base64(options.challenge);
-    options.user.id = decode_buffer_from_base64(options.user.id);
-
-    return { options, challenge_id };
-  }
-
   async function handle_btn_passkey_read() {
     const { options, challenge_id } = await fetch_opts_passkey_read();
 
@@ -100,27 +104,38 @@
     );
   }
 
-  async function handle_btn_passkey_create() {
-    const { options, challenge_id } = await fetch_opts_passkey_create();
+  async function handle_form_passkey_create(event) {
+    event.preventDefault();
+
+    const form = event.target;
+    const passkey_name = new FormData(form).get("passkey_name");
+
+    const response = await fetch(form.action, {
+      method: form.method,
+      body: JSON.stringify({ passkey_name }),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const data = await response.json();
+    const options = data.ccr.publicKey;
+    const challenge_id = data.id;
+
+    options.challenge = decode_buffer_from_base64(options.challenge);
+    options.user.id = decode_buffer_from_base64(options.user.id);
 
     let credential;
     try {
-      credential = await navigator.credentials.create({
-        publicKey: options,
-      });
+      credential = await navigator.credentials.create({ publicKey: options });
     } catch (err) {
       observe_error(err);
       return;
     }
 
-    const response = await fetch(
-      `{{SIGN_UP_SUBMIT}}`.replace("{challenge_id}", challenge_id),
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credential),
-      },
-    );
+    await fetch(`{{SIGN_UP_SUBMIT}}`.replace("{challenge_id}", challenge_id), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(credential),
+    });
   }
 
   async function observe_error(error) {
@@ -131,8 +146,8 @@
     const btn_read = document.getElementById("passkey-read");
     btn_read.addEventListener("click", handle_btn_passkey_read);
 
-    const btn_create = document.getElementById("passkey-create");
-    btn_create.addEventListener("click", handle_btn_passkey_create);
+    const form_create = document.getElementById("passkey-create-form");
+    form_create.addEventListener("submit", handle_form_passkey_create);
   }
 
   main();
