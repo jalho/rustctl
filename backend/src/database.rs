@@ -2,21 +2,25 @@
 pub enum DbOp {
     InsertOnePasskey {
         tx: tokio::sync::oneshot::Sender<()>,
-        timestamp: chrono::DateTime<chrono::Utc>,
-        passkey_name: String,
-        passkey: webauthn_rs::prelude::Passkey,
+        value: queries::PasskeyInsertable,
     },
     SelectOnePasskeyByCredentialId {
-        tx: tokio::sync::oneshot::Sender<Option<queries::SelectedPasskey>>,
+        tx: tokio::sync::oneshot::Sender<Option<queries::PasskeySelectable>>,
         value: Vec<u8>,
     },
 }
 
 pub mod queries {
-    pub struct SelectedPasskey {
-        pub invalidated_at: Option<chrono::DateTime<chrono::Utc>>,
-        pub passkey: webauthn_rs::prelude::Passkey,
+    pub struct PasskeyInsertable {
+        pub timestamp: chrono::DateTime<chrono::Utc>,
         pub passkey_name: String,
+        pub passkey: webauthn_rs::prelude::Passkey,
+    }
+
+    pub struct PasskeySelectable {
+        pub invalidated_at: Option<chrono::DateTime<chrono::Utc>>,
+        pub passkey_name: String,
+        pub passkey: webauthn_rs::prelude::Passkey,
     }
 }
 
@@ -32,22 +36,11 @@ impl Client {
 
     pub async fn insert_one_passkey(
         &mut self,
-        timestamp: &chrono::DateTime<chrono::Utc>,
-        passkey_name: &str,
-        passkey: &webauthn_rs::prelude::Passkey,
+        value: queries::PasskeyInsertable,
     ) -> Result<(), ()> {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
-        match self
-            .tx
-            .send(DbOp::InsertOnePasskey {
-                tx,
-                timestamp: *timestamp,
-                passkey_name: passkey_name.to_owned(),
-                passkey: passkey.clone(),
-            })
-            .await
-        {
+        match self.tx.send(DbOp::InsertOnePasskey { tx, value }).await {
             Ok(_) => {}
             Err(_) => todo!(),
         }
@@ -61,7 +54,7 @@ impl Client {
     pub async fn select_one_passkey_by_credential_id(
         &mut self,
         value: &[u8],
-    ) -> Result<Option<queries::SelectedPasskey>, ()> {
+    ) -> Result<Option<queries::PasskeySelectable>, ()> {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         match self
@@ -152,26 +145,19 @@ impl Engine {
     async fn handle_queries(&mut self, client: tokio_postgres::Client) {
         while let Some(n) = self.rx.recv().await {
             match n {
-                DbOp::InsertOnePasskey {
-                    tx,
-                    timestamp,
-                    passkey_name,
-                    passkey,
-                } => {
-                    let passkey_name: String = passkey_name;
-                    let passkey: webauthn_rs::prelude::Passkey = passkey;
-
-                    let timestamp_utc: chrono::NaiveDateTime = timestamp.naive_utc();
-                    let credential_id: Vec<u8> = passkey.cred_id().as_slice().to_vec();
+                DbOp::InsertOnePasskey { tx, value } => {
+                    let timestamp_utc: chrono::NaiveDateTime = value.timestamp.naive_utc();
+                    let credential_id: Vec<u8> = value.passkey.cred_id().as_slice().to_vec();
                     let credential_id_hex: String = to_hex_string(&credential_id);
-                    let serializable: serde_json::Value = serde_json::to_value(&passkey).unwrap();
+                    let serializable: serde_json::Value =
+                        serde_json::to_value(&value.passkey).unwrap();
 
                     let inserted_count: u64 = match client
                         .execute(
                             tables::passkeys::INSERT_ONE,
                             &[
                                 &timestamp_utc,
-                                &passkey_name,
+                                &value.passkey_name,
                                 &credential_id_hex,
                                 &serializable,
                             ],
@@ -210,7 +196,7 @@ impl Engine {
                         }
                     };
 
-                    let found: Option<queries::SelectedPasskey> = match rows.len() {
+                    let found: Option<queries::PasskeySelectable> = match rows.len() {
                         0 => None,
                         1 => {
                             let row: &tokio_postgres::Row = rows.first().unwrap();
@@ -250,7 +236,7 @@ impl Engine {
                                 value
                             };
 
-                            Some(queries::SelectedPasskey {
+                            Some(queries::PasskeySelectable {
                                 invalidated_at,
                                 passkey,
                                 passkey_name,
