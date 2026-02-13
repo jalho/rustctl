@@ -39,11 +39,17 @@ pub fn init_logger(level: log::LevelFilter) -> Result<log4rs::Handle, std::proce
     let appender_cfg: log4rs::config::Appender =
         log4rs::config::Appender::builder().build(APPENDER_NAME, Box::new(appender));
 
-    let cfg: log4rs::Config = match log4rs::Config::builder().appender(appender_cfg).build(
-        log4rs::config::Root::builder()
-            .appender(APPENDER_NAME)
-            .build(level),
-    ) {
+    let cfg: log4rs::Config = match log4rs::Config::builder()
+        .appender(appender_cfg)
+        .logger(
+            log4rs::config::Logger::builder()
+                .build("tokio_postgres::connection", log::LevelFilter::Off),
+        )
+        .build(
+            log4rs::config::Root::builder()
+                .appender(APPENDER_NAME)
+                .build(level),
+        ) {
         Ok(n) => n,
         Err(err) => {
             eprintln!("{err}");
