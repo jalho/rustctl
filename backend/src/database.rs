@@ -118,7 +118,7 @@ impl Engine {
             if tables_created {
                 log::info!("Connected to new database: Tables created");
             } else {
-                log::info!("Connected to existing database: Tables not created");
+                log::info!("Connected to existing database");
             }
 
             tokio::select!(
