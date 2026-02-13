@@ -91,7 +91,7 @@ impl Engine {
 
     pub async fn keep_connected(&mut self) -> () {
         'reconnect: loop {
-            let (client, connection): (
+            let (mut client, connection): (
                 tokio_postgres::Client,
                 tokio_postgres::Connection<
                     tokio_postgres::Socket,
@@ -118,11 +118,22 @@ impl Engine {
                 }
             });
 
+            Self::assure_tables_exist(&mut client).await;
+
             tokio::select!(
                 _ = self.handle_queries(client) => {}
                 _ = connection_handle => {}
             )
         }
+    }
+
+    async fn assure_tables_exist(client: &mut tokio_postgres::Client) {
+        if let Err(err) = client.execute(tables::passkeys::CREATE_TABLE, &[]).await {
+            let msg: String = crate::get_full_error_message(&err);
+            if !msg.contains("already exists") {
+                panic!("{msg}");
+            }
+        };
     }
 
     async fn handle_queries(&mut self, client: tokio_postgres::Client) {
@@ -229,15 +240,14 @@ impl Engine {
 }
 
 mod tables {
-    /// ```sql
-    /// CREATE TABLE public.passkeys (
-    ///   created_at_utc     TIMESTAMP    NOT NULL,
-    ///   invalidated_at_utc TIMESTAMP    DEFAULT NULL,
-    ///   credential_id_hex  VARCHAR(128) PRIMARY KEY,
-    ///   passkey_json       JSONB        NOT NULL
-    /// );
-    /// ```
     pub mod passkeys {
+        pub const CREATE_TABLE: &str = r#"CREATE TABLE public.passkeys (
+  created_at_utc     TIMESTAMP    NOT NULL,
+  invalidated_at_utc TIMESTAMP    DEFAULT NULL,
+  credential_id_hex  VARCHAR(128) PRIMARY KEY,
+  passkey_json       JSONB        NOT NULL
+);"#;
+
         pub const INSERT_ONE: &str = r#"INSERT INTO
     public.passkeys(
         created_at_utc,
