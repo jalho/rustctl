@@ -12,7 +12,7 @@ pub enum DbOp {
 
 pub mod queries {
     pub struct PasskeyInsertable {
-        pub timestamp: chrono::DateTime<chrono::Utc>,
+        pub created_at: chrono::DateTime<chrono::Utc>,
         pub passkey_name: String,
         pub passkey: webauthn_rs::prelude::Passkey,
     }
@@ -146,20 +146,22 @@ impl Engine {
         while let Some(n) = self.rx.recv().await {
             match n {
                 DbOp::InsertOnePasskey { tx, value } => {
-                    let timestamp_utc: chrono::NaiveDateTime = value.timestamp.naive_utc();
+                    let created_at_utc: chrono::NaiveDateTime = value.created_at.naive_utc();
+
                     let credential_id: Vec<u8> = value.passkey.cred_id().as_slice().to_vec();
                     let credential_id_hex: String = to_hex_string(&credential_id);
-                    let serializable: serde_json::Value =
+
+                    let passkey_json: serde_json::Value =
                         serde_json::to_value(&value.passkey).unwrap();
 
                     let inserted_count: u64 = match client
                         .execute(
                             tables::passkeys::INSERT_ONE,
                             &[
-                                &timestamp_utc,
+                                &created_at_utc,
                                 &value.passkey_name,
                                 &credential_id_hex,
-                                &serializable,
+                                &passkey_json,
                             ],
                         )
                         .await

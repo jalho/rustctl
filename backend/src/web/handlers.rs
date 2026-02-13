@@ -170,7 +170,7 @@ pub async fn auth_sign_up_submit(
     if state
         .db_client
         .insert_one_passkey(crate::database::queries::PasskeyInsertable {
-            timestamp: created_at,
+            created_at,
             passkey_name: named_pkr.inner.passkey_name.to_owned(),
             passkey: passkey.clone(),
         })
