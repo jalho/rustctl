@@ -254,7 +254,7 @@ pub async fn auth_sign_in_submit(
     let _claimed_passkey_id: uuid::Uuid = c_pk_id;
     let claimed_passkey_cred_id: &[u8] = c_pk_cred_id;
 
-    let passkey_seeked: Option<crate::database::queries::PasskeySelectable> = match state
+    let passkey_seeked: Option<crate::database::queries::PasskeySelected> = match state
         .db_client
         .select_one_passkey_by_credential_id(claimed_passkey_cred_id)
         .await
@@ -262,7 +262,7 @@ pub async fn auth_sign_in_submit(
         Ok(n) => n,
         Err(_) => return axum::http::StatusCode::INTERNAL_SERVER_ERROR,
     };
-    let passkey_known: crate::database::queries::PasskeySelectable = match passkey_seeked {
+    let passkey_known: crate::database::queries::PasskeySelected = match passkey_seeked {
         Some(n) => n,
         None => return axum::http::StatusCode::UNAUTHORIZED,
     };

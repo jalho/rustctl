@@ -5,7 +5,7 @@ pub enum DbOp {
         value: queries::PasskeyInsertable,
     },
     SelectOnePasskeyByCredentialId {
-        tx: tokio::sync::oneshot::Sender<Option<queries::PasskeySelectable>>,
+        tx: tokio::sync::oneshot::Sender<Option<queries::PasskeySelected>>,
         value: Vec<u8>,
     },
 }
@@ -17,7 +17,7 @@ pub mod queries {
         pub passkey: webauthn_rs::prelude::Passkey,
     }
 
-    pub struct PasskeySelectable {
+    pub struct PasskeySelected {
         pub invalidated_at: Option<chrono::DateTime<chrono::Utc>>,
         pub passkey_name: String,
         pub passkey: webauthn_rs::prelude::Passkey,
@@ -54,7 +54,7 @@ impl Client {
     pub async fn select_one_passkey_by_credential_id(
         &mut self,
         value: &[u8],
-    ) -> Result<Option<queries::PasskeySelectable>, ()> {
+    ) -> Result<Option<queries::PasskeySelected>, ()> {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         match self
@@ -198,7 +198,7 @@ impl Engine {
                         }
                     };
 
-                    let found: Option<queries::PasskeySelectable> = match rows.len() {
+                    let found: Option<queries::PasskeySelected> = match rows.len() {
                         0 => None,
                         1 => {
                             let row: &tokio_postgres::Row = rows.first().unwrap();
@@ -238,7 +238,7 @@ impl Engine {
                                 value
                             };
 
-                            Some(queries::PasskeySelectable {
+                            Some(queries::PasskeySelected {
                                 invalidated_at,
                                 passkey,
                                 passkey_name,
