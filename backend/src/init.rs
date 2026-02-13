@@ -29,19 +29,21 @@ pub enum Command {
 pub fn init_logger(level: log::LevelFilter) -> Result<log4rs::Handle, std::process::ExitCode> {
     const APPENDER_NAME: &str = "stdout";
 
-    let stdout = log4rs::append::console::ConsoleAppender::builder()
-        .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
-            "{h({d(%H:%M:%S)(utc)} UTC [{l}] {m})} [{f}:{L}]\n",
-        )))
-        .build();
+    let appender: log4rs::append::console::ConsoleAppender =
+        log4rs::append::console::ConsoleAppender::builder()
+            .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
+                "{h({d(%H:%M:%S)(utc)} UTC [{l}] {m})} [{f}:{L}]\n",
+            )))
+            .build();
 
-    let config: log4rs::Config = match log4rs::Config::builder()
-        .appender(log4rs::config::Appender::builder().build(APPENDER_NAME, Box::new(stdout)))
-        .build(
-            log4rs::config::Root::builder()
-                .appender(APPENDER_NAME)
-                .build(level),
-        ) {
+    let appender_cfg: log4rs::config::Appender =
+        log4rs::config::Appender::builder().build(APPENDER_NAME, Box::new(appender));
+
+    let cfg: log4rs::Config = match log4rs::Config::builder().appender(appender_cfg).build(
+        log4rs::config::Root::builder()
+            .appender(APPENDER_NAME)
+            .build(level),
+    ) {
         Ok(n) => n,
         Err(err) => {
             eprintln!("{err}");
@@ -49,7 +51,7 @@ pub fn init_logger(level: log::LevelFilter) -> Result<log4rs::Handle, std::proce
         }
     };
 
-    let handle: log4rs::Handle = match log4rs::init_config(config) {
+    let handle: log4rs::Handle = match log4rs::init_config(cfg) {
         Ok(n) => n,
         Err(err) => {
             eprintln!("{err}");
