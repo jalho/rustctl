@@ -266,7 +266,7 @@ impl Engine {
 
 mod tables {
     pub mod passkeys {
-        pub const CREATE_TABLE: &str = r#"CREATE TABLE public.passkeys (
+        pub const CREATE_TABLE: &str = r#"CREATE TABLE rustctl.passkeys (
   created_at_utc     TIMESTAMP    NOT NULL,
   passkey_name       TEXT         NOT NULL,
   credential_id_hex  VARCHAR(128) PRIMARY KEY,
@@ -275,7 +275,7 @@ mod tables {
 );"#;
 
         pub const INSERT_ONE: &str = r#"INSERT INTO
-    public.passkeys(
+    rustctl.passkeys(
         created_at_utc,
         passkey_name,
         credential_id_hex,
@@ -295,7 +295,7 @@ VALUES(
     passkey_name,
     passkey_json
 FROM
-    public.passkeys
+    rustctl.passkeys
 WHERE
     credential_id_hex = $1;"#;
     }

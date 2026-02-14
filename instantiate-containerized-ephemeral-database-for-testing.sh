@@ -10,13 +10,18 @@ podman rm -f $NAME 2>/dev/null
 podman run -d \
     --name $NAME \
     -p 5432:5432 \
-    -e POSTGRES_USER=rustctl \
-    -e POSTGRES_PASSWORD=rustctl \
-    -e POSTGRES_DB=rustctl \
+    -e POSTGRES_USER=postgres \
+    -e POSTGRES_PASSWORD=postgres \
+    -e POSTGRES_DB=postgres \
     $IMAGE
 
-until podman exec $NAME pg_isready -U rustctl; do
+until podman exec $NAME pg_isready -U postgres; do
     sleep 1
 done
 
-echo "PostgreSQL is ready."
+podman exec -i $NAME psql -U postgres <<EOF
+CREATE DATABASE rustctl;
+CREATE USER rustctl WITH PASSWORD 'rustctl';
+\c rustctl
+CREATE SCHEMA rustctl AUTHORIZATION rustctl;
+EOF
