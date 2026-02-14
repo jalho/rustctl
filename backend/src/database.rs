@@ -8,6 +8,14 @@ pub enum DbOp {
         tx: tokio::sync::oneshot::Sender<Option<queries::PasskeySelected>>,
         value: Vec<u8>,
     },
+
+    InsertOneTlsPem {
+        tx: tokio::sync::oneshot::Sender<()>,
+        value: queries::TlsPemInsertable,
+    },
+    SelectOneTlsPemLatest {
+        tx: tokio::sync::oneshot::Sender<Option<queries::TlsPemSelected>>,
+    },
 }
 
 pub mod queries {
@@ -22,6 +30,16 @@ pub mod queries {
         pub passkey_name: String,
         pub passkey: webauthn_rs::prelude::Passkey,
     }
+
+    pub struct TlsPemInsertable {
+        pub private_key_pem: String,
+        pub certificate_pem: String,
+    }
+
+    pub struct TlsPemSelected {
+        pub private_key_pem: String,
+        pub certificate_pem: String,
+    }
 }
 
 #[derive(Clone)]
@@ -32,6 +50,34 @@ pub struct Client {
 impl Client {
     pub fn new(tx: tokio::sync::mpsc::Sender<DbOp>) -> Self {
         Self { tx }
+    }
+
+    pub async fn insert_one_tls_pem(&mut self, value: queries::TlsPemInsertable) -> Result<(), ()> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        match self.tx.send(DbOp::InsertOneTlsPem { tx, value }).await {
+            Ok(_) => {}
+            Err(_) => todo!(),
+        }
+
+        match rx.await {
+            Ok(_) => Ok(()),
+            Err(_) => Err(()),
+        }
+    }
+
+    pub async fn select_tls_pem_latest(&mut self) -> Result<Option<queries::TlsPemSelected>, ()> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        match self.tx.send(DbOp::SelectOneTlsPemLatest { tx }).await {
+            Ok(_) => {}
+            Err(_) => todo!(),
+        }
+
+        match rx.await {
+            Ok(n) => Ok(n),
+            Err(_) => Err(()),
+        }
     }
 
     pub async fn insert_one_passkey(
@@ -136,17 +182,29 @@ impl Engine {
     }
 
     async fn assure_tables_exist(client: &mut tokio_postgres::Client) -> bool {
+        let mut some_tables_created = false;
+
         match client.execute(tables::passkeys::CREATE_TABLE, &[]).await {
-            Ok(_) => true,
+            Ok(_) => some_tables_created = true,
             Err(err) => {
                 let msg: String = crate::get_full_error_message(&err);
-                if msg.contains("already exists") {
-                    false
-                } else {
+                if !msg.contains("already exists") {
                     panic!("{msg}");
                 }
             }
         }
+
+        match client.execute(tables::tls_pem::CREATE_TABLE, &[]).await {
+            Ok(_) => some_tables_created = true,
+            Err(err) => {
+                let msg: String = crate::get_full_error_message(&err);
+                if !msg.contains("already exists") {
+                    panic!("{msg}");
+                }
+            }
+        }
+
+        some_tables_created
     }
 
     async fn handle_queries(&mut self, client: tokio_postgres::Client) {
@@ -259,6 +317,103 @@ impl Engine {
                         Err(_) => todo!(),
                     }
                 }
+
+                DbOp::InsertOneTlsPem { tx, value } => {
+                    let cert_decoded: openssl::x509::X509 =
+                        openssl::x509::X509::from_pem(value.certificate_pem.as_bytes()).unwrap();
+
+                    let serial_number: &openssl::asn1::Asn1IntegerRef =
+                        cert_decoded.serial_number();
+
+                    /*
+                     * Example:
+                     *
+                     * ```
+                     * 2a:28:e9:b6:46:c7:a6:8a:db:76:ee:5f:6c:04:00:7b:dc:e3:ca:0f
+                     * ```
+                     */
+                    let serial_number_hex_x509: String = serial_number
+                        .to_bn()
+                        .unwrap()
+                        .to_vec()
+                        .iter()
+                        .map(|b| format!("{:02x}", b))
+                        .collect::<Vec<String>>()
+                        .join(":");
+
+                    let not_before_utc: chrono::NaiveDateTime =
+                        crate::web::asn1_to_chrono(cert_decoded.not_before()).naive_utc();
+
+                    let not_after_utc: chrono::NaiveDateTime =
+                        crate::web::asn1_to_chrono(cert_decoded.not_after()).naive_utc();
+
+                    let inserted_count: u64 = match client
+                        .execute(
+                            tables::tls_pem::INSERT_ONE,
+                            &[
+                                &serial_number_hex_x509,
+                                &not_before_utc,
+                                &not_after_utc,
+                                &value.private_key_pem,
+                                &value.certificate_pem,
+                            ],
+                        )
+                        .await
+                    {
+                        Ok(n) => n,
+                        Err(_) => todo!(),
+                    };
+                    assert_eq!(inserted_count, 1);
+
+                    match tx.send(()) {
+                        Ok(_) => {}
+                        Err(_) => todo!(),
+                    }
+                }
+
+                DbOp::SelectOneTlsPemLatest { tx } => {
+                    let rows: Vec<tokio_postgres::Row> =
+                        match client.query(tables::tls_pem::SELECT_ONE_LATEST, &[]).await {
+                            Ok(n) => n,
+                            Err(_) => todo!(),
+                        };
+
+                    let found: Option<queries::TlsPemSelected> = match rows.len() {
+                        0 => None,
+                        1 => {
+                            let row: &tokio_postgres::Row = rows.first().unwrap();
+
+                            let private_key_pem: String = {
+                                let deserialized = row.try_get("private_key_pem");
+                                let value: String = match deserialized {
+                                    Ok(n) => n,
+                                    Err(_) => todo!(),
+                                };
+                                value
+                            };
+
+                            let certificate_pem: String = {
+                                let deserialized = row.try_get("certificate_pem");
+                                let value: String = match deserialized {
+                                    Ok(n) => n,
+                                    Err(_) => todo!(),
+                                };
+                                value
+                            };
+
+                            Some(queries::TlsPemSelected {
+                                private_key_pem,
+                                certificate_pem,
+                            })
+                        }
+                        2.. => todo!(),
+                    };
+
+                    match tx.send(found) {
+                        Ok(_) => {}
+                        Err(_) => todo!(),
+                    }
+                }
             }
         }
     }
@@ -298,6 +453,44 @@ FROM
     rustctl.passkeys
 WHERE
     credential_id_hex = $1;"#;
+    }
+
+    pub mod tls_pem {
+        pub const CREATE_TABLE: &str = r#"CREATE TABLE rustctl.tls_pem (
+  serial_number_hex_x509  TEXT      PRIMARY KEY,
+  not_before_utc          TIMESTAMP NOT NULL,
+  not_after_utc           TIMESTAMP NOT NULL,
+  private_key_pem         TEXT      NOT NULL,
+  certificate_pem         TEXT      NOT NULL
+);"#;
+
+        pub const INSERT_ONE: &str = r#"INSERT INTO
+    rustctl.tls_pem(
+        serial_number_hex_x509,
+        not_before_utc,
+        not_after_utc,
+        private_key_pem,
+        certificate_pem
+    )
+VALUES(
+    $1,
+    $2,
+    $3,
+    $4,
+    $5
+);"#;
+
+        pub const SELECT_ONE_LATEST: &str = r#"SELECT
+    serial_number_hex_x509,
+    not_before_utc,
+    not_after_utc,
+    private_key_pem,
+    certificate_pem
+FROM
+    rustctl.tls_pem
+ORDER BY
+    not_before_utc DESC
+LIMIT 1;"#;
     }
 }
 

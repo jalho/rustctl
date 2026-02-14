@@ -13,11 +13,34 @@ impl Expose {
         }
     }
 
-    async fn to_scheme(&self) -> Scheme {
+    async fn to_scheme(&self, db_client: &mut crate::database::Client) -> Scheme {
         match self {
-            Expose::LocalLoopback => Scheme::Http,
+            Expose::LocalLoopback => return Scheme::Http,
+            Expose::Any => {}
+        }
 
-            Expose::Any => {
+        let stored: Option<crate::database::queries::TlsPemSelected> =
+            db_client.select_tls_pem_latest().await.unwrap();
+
+        let tls_config: axum_server::tls_rustls::RustlsConfig = match stored {
+            Some(existing) => {
+                let cert_decoded: openssl::x509::X509 =
+                    openssl::x509::X509::from_pem(existing.certificate_pem.as_bytes()).unwrap();
+                log::info!(
+                    "Using existing TLS server certificate: [{not_before}, {not_after}]",
+                    not_before = asn1_to_chrono(cert_decoded.not_before()),
+                    not_after = asn1_to_chrono(cert_decoded.not_after()),
+                );
+
+                axum_server::tls_rustls::RustlsConfig::from_pem(
+                    existing.certificate_pem.as_bytes().to_vec(),
+                    existing.private_key_pem.as_bytes().to_vec(),
+                )
+                .await
+                .unwrap()
+            }
+
+            None => {
                 let mut params: rcgen::CertificateParams = rcgen::CertificateParams::default();
 
                 let domain_name: &str = self.domain_name();
@@ -33,22 +56,35 @@ impl Expose {
                 let key_pair: rcgen::KeyPair = rcgen::KeyPair::generate().unwrap();
                 let cert: rcgen::Certificate = params.self_signed(&key_pair).unwrap();
 
-                /*
-                 * TODO: Try read from database before generating new!
-                 */
-                let cert_pem: String = cert.pem();
-                let key_pem: String = key_pair.serialize_pem();
-                let tls_config: axum_server::tls_rustls::RustlsConfig =
-                    axum_server::tls_rustls::RustlsConfig::from_pem(
-                        cert_pem.as_bytes().to_vec(),
-                        key_pem.as_bytes().to_vec(),
-                    )
+                let private_key_pem: String = key_pair.serialize_pem();
+                let certificate_pem: String = cert.pem();
+
+                db_client
+                    .insert_one_tls_pem(crate::database::queries::TlsPemInsertable {
+                        private_key_pem: private_key_pem.to_owned(),
+                        certificate_pem: certificate_pem.to_owned(),
+                    })
                     .await
                     .unwrap();
 
-                Scheme::Https { tls_config }
+                let cert_decoded: openssl::x509::X509 =
+                    openssl::x509::X509::from_pem(certificate_pem.as_bytes()).unwrap();
+                log::info!(
+                    "Using new TLS server certificate: [{not_before}, {not_after}]",
+                    not_before = asn1_to_chrono(cert_decoded.not_before()),
+                    not_after = asn1_to_chrono(cert_decoded.not_after()),
+                );
+
+                axum_server::tls_rustls::RustlsConfig::from_pem(
+                    certificate_pem.as_bytes().to_vec(),
+                    private_key_pem.as_bytes().to_vec(),
+                )
+                .await
+                .unwrap()
             }
-        }
+        };
+
+        Scheme::Https { tls_config }
     }
 }
 
@@ -64,7 +100,7 @@ impl From<&Expose> for std::net::SocketAddr {
 pub async fn serve(
     expose: &Expose,
     tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
-    db_client: crate::database::Client,
+    mut db_client: crate::database::Client,
 ) {
     let mut router: axum::Router<State> = axum::Router::new();
 
@@ -97,7 +133,7 @@ pub async fn serve(
     );
     router = router.route("/reboot", axum::routing::post(handlers::reboot));
 
-    let scheme: Scheme = expose.to_scheme().await;
+    let scheme: Scheme = expose.to_scheme(&mut db_client).await;
     let addr: std::net::SocketAddr = expose.into();
     let router: axum::Router = router.with_state(State::new(
         tx,
@@ -225,4 +261,21 @@ impl NamedPasskeyRegistration {
             pkr,
         }
     }
+}
+
+pub fn asn1_to_chrono(not_before: &openssl::asn1::Asn1TimeRef) -> chrono::DateTime<chrono::Utc> {
+    let unix_time_asn1: openssl::asn1::TimeDiff = openssl::asn1::Asn1Time::from_unix(0)
+        .unwrap()
+        .diff(not_before)
+        .unwrap();
+
+    const SECONDS_IN_DAY: i64 = 24 * 60 * 60;
+
+    let unix_time_secs: i64 =
+        unix_time_asn1.days as i64 * SECONDS_IN_DAY + unix_time_asn1.secs as i64;
+
+    let value: chrono::DateTime<chrono::Utc> =
+        chrono::DateTime::from_timestamp_secs(unix_time_secs).unwrap();
+
+    value
 }
