@@ -101,7 +101,30 @@ pub async fn serve(
     expose: &Expose,
     tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
     mut db_client: crate::database::Client,
+    rx_cmd_rws: &mut tokio::sync::mpsc::Receiver<crate::ctl::CommandRWS>,
 ) {
+    /*
+     * TODO: Add support for restarting the web server on demand following an
+     *       HTTP request or after automatic renewal of a TLS cert. Restarting
+     *       web server is useful when renewing its TLS certificate.
+     *
+     *       Planned scaffolding:
+     *
+     *       1. POST /cmd/web/restart
+     *
+     *          See handler `handlers::restart_web_server`.
+     *
+     *       2. Handler sends a `ctl::Command` to _Controller_.
+     *
+     *          See `ctl::handle_commands_from_web_clients`.
+     *
+     *       3. Controller sends a `ctl::CommandRWS` to some receiving loop
+     *          in `web` module. Web server restarts every time such command
+     *          is received.
+     *
+     *          See the parameter `rx_cmd_rws`.
+     */
+
     let mut router: axum::Router<State> = axum::Router::new();
 
     /*
@@ -131,7 +154,14 @@ pub async fn serve(
         shared::SIGN_IN_SUBMIT,
         axum::routing::post(handlers::auth_sign_in_submit),
     );
-    router = router.route("/reboot", axum::routing::post(handlers::reboot));
+    router = router.route(
+        "/cmd/system/reboot",
+        axum::routing::post(handlers::reboot_system),
+    );
+    router = router.route(
+        "/cmd/web/restart",
+        axum::routing::post(handlers::restart_web_server),
+    );
 
     let scheme: Scheme = expose.to_scheme(&mut db_client).await;
     let addr: std::net::SocketAddr = expose.into();
