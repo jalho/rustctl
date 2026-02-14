@@ -33,10 +33,15 @@ impl Expose {
                 let key_pair: rcgen::KeyPair = rcgen::KeyPair::generate().unwrap();
                 let cert: rcgen::Certificate = params.self_signed(&key_pair).unwrap();
 
+                /*
+                 * TODO: Try read from database before generating new!
+                 */
+                let cert_pem: String = cert.pem();
+                let key_pem: String = key_pair.serialize_pem();
                 let tls_config: axum_server::tls_rustls::RustlsConfig =
                     axum_server::tls_rustls::RustlsConfig::from_pem(
-                        cert.pem().into_bytes(),
-                        key_pair.serialize_pem().into_bytes(),
+                        cert_pem.as_bytes().to_vec(),
+                        key_pem.as_bytes().to_vec(),
                     )
                     .await
                     .unwrap();
