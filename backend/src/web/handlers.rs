@@ -6,6 +6,13 @@ pub async fn favicon() -> axum::response::Response {
 }
 
 pub async fn web() -> impl axum::response::IntoResponse {
+    /*
+     * Cheatsheet:
+     *
+     * ```sh
+     * ln -s $(pwd)/frontend/index.html /var/lib/rustctl/www/index.html
+     * ```
+     */
     let path = if cfg!(debug_assertions) {
         "frontend/index.html"
     } else {
@@ -27,12 +34,14 @@ pub async fn web() -> impl axum::response::IntoResponse {
                 .unwrap()
         }
         Err(err) => {
-            if cfg!(debug_assertions) {
-                log::error!("Failed to read frontend at {}: {}", path, err);
-            }
+            log::error!(
+                "Failed to read frontend at {}: {}",
+                path,
+                crate::get_full_error_message(&err),
+            );
 
             axum::response::Response::builder()
-                .status(axum::http::StatusCode::NO_CONTENT)
+                .status(axum::http::StatusCode::NOT_IMPLEMENTED)
                 .body(axum::body::Body::empty())
                 .unwrap()
         }
