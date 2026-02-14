@@ -88,6 +88,8 @@ impl Engine {
 
     pub async fn keep_connected(&mut self) -> () {
         'reconnect: loop {
+            let params: Parameters = Parameters::from_env();
+
             let (mut client, connection): (
                 tokio_postgres::Client,
                 tokio_postgres::Connection<
@@ -95,7 +97,12 @@ impl Engine {
                     tokio_postgres::tls::NoTlsStream,
                 >,
             ) = match tokio_postgres::connect(
-                "postgresql://rustctl:rustctl@127.0.0.1:5432/postgres?connect_timeout=1",
+                &format!(
+                    "postgresql://{user}:{password}@127.0.0.1:5432/{database}?connect_timeout=1",
+                    user = params.user,
+                    password = params.password,
+                    database = params.database,
+                ),
                 tokio_postgres::NoTls,
             )
             .await
@@ -296,4 +303,30 @@ WHERE
 
 pub fn to_hex_string(buf: &[u8]) -> String {
     buf.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
+struct Parameters {
+    user: String,
+    password: String,
+    database: String,
+}
+
+impl Parameters {
+    pub fn from_env() -> Self {
+        const VAR_NAME: &str = "POSTGRES_PASSWORD";
+        let password: String = match std::env::var(VAR_NAME) {
+            Ok(n) => n,
+            Err(err) => {
+                panic!(
+                    "Missing required env var {VAR_NAME}: {err}",
+                    err = crate::get_full_error_message(&err),
+                );
+            }
+        };
+        Self {
+            user: "rustctl".into(),
+            password,
+            database: "rustctl".into(),
+        }
+    }
 }

@@ -12,7 +12,7 @@ podman run -d \
     -p 5432:5432 \
     -e POSTGRES_USER=rustctl \
     -e POSTGRES_PASSWORD=rustctl \
-    -e POSTGRES_DB=postgres \
+    -e POSTGRES_DB=rustctl \
     $IMAGE
 
 until podman exec $NAME pg_isready -U rustctl; do
