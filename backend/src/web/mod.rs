@@ -97,150 +97,111 @@ impl From<&Expose> for std::net::SocketAddr {
     }
 }
 
-/*
- * TODO: Why does the web server's in-mem state (see `pending_signups` and
- *       `pending_signins`) not reset when the web server (and its state) are
- *       recreated (following `rx_cmd_rws.recv()`)?
- *
- *       Architecture overview:
- *
- *       - Web server has an in-mem state (in addition to a database state). We
- *         are now concerned with why the in-mem state is not reset, even though
- *         it should, when the web server restarts.
- *
- *       - Web server has handler `restart_web_server` (`POST
- *         /cmd/web/restart`). It sends a `ctl::Command` to Controller via
- *         `tx_a`.
- *
- *       - When the Controller receives the `ctl::Command`, it relays a
- *         `ctl::CommandRWS` back to the web server via the sending half
- *         corresponding to `rx_cmd_rws`.
- *
- *       - Web server restarts when it receives a `ctl::CommandRWS` via the
- *         `rx_cmd_rws`.
- *
- *       Until this point, everything works as intended. Question is, again, why
- *       does the in-mem `State` of the web server persist between restarts?
- *
- *       Consider the following log evidence as of commit
- *       `f01171f5c19c227a9dd6ba2e9755a4b85166ba90`:
- *
- *       ```log
- *       14:53:02 UTC [INFO] rustctl v0.0.1 [backend/src/main.rs:24]
- *       14:53:02 UTC [INFO] Starting RCON WebSocket reconnect & handle loop with 5 second retry delay [backend/src/rcon.rs:8]
- *       14:53:02 UTC [INFO] Web server starting [backend/src/web/mod.rs:150]
- *       14:53:02 UTC [INFO] Connected to existing database [backend/src/database.rs:174]
- *       14:53:02 UTC [INFO] Using existing TLS server certificate: [1975-01-01 00:00:00 UTC, 4096-01-01 00:00:00 UTC] [backend/src/web/mod.rs:29]
- *       14:53:06 UTC [INFO] [63638e69] New sign-up initiated: Pending sign-ups in total: 1 [backend/src/web/handlers.rs:149]
- *       14:53:08 UTC [INFO] [499a7fe8] New sign-up initiated: Pending sign-ups in total: 2 [backend/src/web/handlers.rs:149]
- *       14:53:08 UTC [INFO] [1ccffb34] New sign-up initiated: Pending sign-ups in total: 3 [backend/src/web/handlers.rs:149]
- *       14:53:11 UTC [INFO] [1d7158e3] New sign-in initiated: Pending sign-ins in total: 1 [backend/src/web/handlers.rs:240]
- *       14:53:11 UTC [INFO] [881c5c16] New sign-in initiated: Pending sign-ins in total: 2 [backend/src/web/handlers.rs:240]
- *       14:53:12 UTC [INFO] [ae5653ab] New sign-in initiated: Pending sign-ins in total: 3 [backend/src/web/handlers.rs:240]
- *       14:53:15 UTC [INFO] Web server stopped [backend/src/web/mod.rs:181]
- *       14:53:15 UTC [INFO] Web server starting [backend/src/web/mod.rs:150]
- *       14:53:15 UTC [INFO] Using existing TLS server certificate: [1975-01-01 00:00:00 UTC, 4096-01-01 00:00:00 UTC] [backend/src/web/mod.rs:29]
- *       14:53:19 UTC [INFO] [939890cb] New sign-up initiated: Pending sign-ups in total: 4 [backend/src/web/handlers.rs:149]
- *       14:53:20 UTC [INFO] [e19563a2] New sign-up initiated: Pending sign-ups in total: 5 [backend/src/web/handlers.rs:149]
- *       14:53:21 UTC [INFO] [bd880c43] New sign-up initiated: Pending sign-ups in total: 6 [backend/src/web/handlers.rs:149]
- *       14:53:22 UTC [INFO] [980ffa05] New sign-in initiated: Pending sign-ins in total: 4 [backend/src/web/handlers.rs:240]
- *       14:53:23 UTC [INFO] [0fe3baa4] New sign-in initiated: Pending sign-ins in total: 5 [backend/src/web/handlers.rs:240]
- *       14:53:23 UTC [INFO] [be96f7c3] New sign-in initiated: Pending sign-ins in total: 6 [backend/src/web/handlers.rs:240]
- *       ```
- */
-
 pub async fn serve(
     expose: &Expose,
     tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
     db_client: crate::database::Client,
-    rx_cmd_rws: &mut tokio::sync::mpsc::Receiver<crate::ctl::CommandRWS>,
+    rx_cmd_rws: std::sync::Arc<
+        tokio::sync::Mutex<tokio::sync::mpsc::Receiver<crate::ctl::CommandRWS>>,
+    >,
 ) {
     loop {
         let mut db_client_a = db_client.clone();
         let db_client_b = db_client.clone();
         let tx_a = tx.clone();
 
-        let job = async move || {
-            let mut router: axum::Router<State> = axum::Router::new();
+        let mut router: axum::Router<State> = axum::Router::new();
 
-            /*
-             * Public static web content routes.
-             */
-            router = router.route("/", axum::routing::get(handlers::web));
-            router = router.route("/favicon.ico", axum::routing::get(handlers::favicon));
+        /*
+         * Public static web content routes.
+         */
+        router = router.route("/", axum::routing::get(handlers::web));
+        router = router.route("/favicon.ico", axum::routing::get(handlers::favicon));
 
-            /*
-             * Logic routes.
-             *
-             * TODO: Add access control to some of the logic routes (post-auth).
-             */
-            router = router.route(
-                shared::SIGN_UP_CHALLENGE,
-                axum::routing::post(handlers::auth_sign_up_challenge),
-            );
-            router = router.route(
-                shared::SIGN_UP_SUBMIT,
-                axum::routing::post(handlers::auth_sign_up_submit),
-            );
-            router = router.route(
-                shared::SIGN_IN_CHALLENGE,
-                axum::routing::post(handlers::auth_sign_in_challenge),
-            );
-            router = router.route(
-                shared::SIGN_IN_SUBMIT,
-                axum::routing::post(handlers::auth_sign_in_submit),
-            );
-            router = router.route(
-                "/cmd/system/reboot",
-                axum::routing::post(handlers::reboot_system),
-            );
-            router = router.route(
-                "/cmd/web/restart",
-                axum::routing::post(handlers::restart_web_server),
-            );
+        /*
+         * Logic routes.
+         *
+         * TODO: Add access control to some of the logic routes (post-auth).
+         */
+        router = router.route(
+            shared::SIGN_UP_CHALLENGE,
+            axum::routing::post(handlers::auth_sign_up_challenge),
+        );
+        router = router.route(
+            shared::SIGN_UP_SUBMIT,
+            axum::routing::post(handlers::auth_sign_up_submit),
+        );
+        router = router.route(
+            shared::SIGN_IN_CHALLENGE,
+            axum::routing::post(handlers::auth_sign_in_challenge),
+        );
+        router = router.route(
+            shared::SIGN_IN_SUBMIT,
+            axum::routing::post(handlers::auth_sign_in_submit),
+        );
+        router = router.route(
+            "/cmd/system/reboot",
+            axum::routing::post(handlers::reboot_system),
+        );
+        router = router.route(
+            "/cmd/web/restart",
+            axum::routing::post(handlers::restart_web_server),
+        );
 
-            log::info!("Web server starting");
-            let scheme: Scheme = expose.to_scheme(&mut db_client_a).await;
-            let addr: std::net::SocketAddr = expose.into();
-            let router: axum::Router = router.with_state(State::new(
-                tx_a,
-                scheme.to_url_scheme(),
-                expose.domain_name(),
-                addr.port(),
-                db_client_b,
-            ));
-            match scheme {
-                Scheme::Https { tls_config } => {
-                    let server: axum_server::Server<
-                        std::net::SocketAddr,
-                        axum_server::tls_rustls::RustlsAcceptor,
-                    > = axum_server::bind_rustls(addr, tls_config);
+        log::info!("Web server starting");
+        let scheme: Scheme = expose.to_scheme(&mut db_client_a).await;
+        let addr: std::net::SocketAddr = expose.into();
+        let router: axum::Router = router.with_state(State::new(
+            tx_a,
+            scheme.to_url_scheme(),
+            expose.domain_name(),
+            addr.port(),
+            db_client_b,
+        ));
 
-                    let serving_done: () = server.serve(router.into_make_service()).await.unwrap();
+        match scheme {
+            Scheme::Https { tls_config } => {
+                let handle: axum_server::Handle<std::net::SocketAddr> = axum_server::Handle::new();
 
-                    serving_done
-                }
+                let server: axum_server::Server<
+                    std::net::SocketAddr,
+                    axum_server::tls_rustls::RustlsAcceptor,
+                > = axum_server::bind_rustls(addr, tls_config).handle(handle.clone());
 
-                Scheme::Http => {
-                    let server: axum_server::Server<std::net::SocketAddr> = axum_server::bind(addr);
+                let job_serving = server.serve(router.into_make_service());
 
-                    let serving_done: () = server.serve(router.into_make_service()).await.unwrap();
+                let rx_cmd_rws = rx_cmd_rws.clone();
+                let job_termination: tokio::task::JoinHandle<()> = tokio::spawn(async move {
+                    let _received: crate::ctl::CommandRWS =
+                        rx_cmd_rws.lock().await.recv().await.unwrap();
+                    handle.graceful_shutdown(None);
+                });
 
-                    serving_done
-                }
+                job_serving.await.unwrap();
+                job_termination.await.unwrap();
+                log::info!("TLS web server stopped");
             }
-        };
 
-        tokio::select! {
-            _ = job() => todo!(),
-            n = rx_cmd_rws.recv() => {
-                match n {
-                    Some(_) => {},
-                    None => todo!(),
-                }
+            Scheme::Http => {
+                let handle: axum_server::Handle<std::net::SocketAddr> = axum_server::Handle::new();
+
+                let server: axum_server::Server<std::net::SocketAddr> =
+                    axum_server::bind(addr).handle(handle.clone());
+
+                let job_serving = server.serve(router.into_make_service());
+
+                let rx_cmd_rws = rx_cmd_rws.clone();
+                let job_termination: tokio::task::JoinHandle<()> = tokio::spawn(async move {
+                    let _received: crate::ctl::CommandRWS =
+                        rx_cmd_rws.lock().await.recv().await.unwrap();
+                    handle.graceful_shutdown(None);
+                });
+
+                job_serving.await.unwrap();
+                job_termination.await.unwrap();
+                log::info!("Web server stopped");
             }
         }
-        log::info!("Web server stopped");
     }
 }
 
