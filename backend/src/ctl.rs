@@ -7,11 +7,11 @@ pub enum CommandFromWebClient {
 }
 
 pub async fn handle_commands_from_web_clients(
-    mut rx: tokio::sync::mpsc::Receiver<CommandFromWebClient>,
+    mut rx_cmd_from_web_client: tokio::sync::mpsc::Receiver<CommandFromWebClient>,
     tx_cmd_from_controller: tokio::sync::mpsc::Sender<CommandFromController>,
 ) {
     loop {
-        if let Some(n) = rx.recv().await {
+        if let Some(n) = rx_cmd_from_web_client.recv().await {
             match n {
                 CommandFromWebClient::Reboot => reboot_using_systemctl().await,
                 CommandFromWebClient::RestartWebServer => tx_cmd_from_controller
