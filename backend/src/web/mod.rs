@@ -97,6 +97,58 @@ impl From<&Expose> for std::net::SocketAddr {
     }
 }
 
+/*
+ * TODO: Why does the web server's in-mem state (see `pending_signups` and
+ *       `pending_signins`) not reset when the web server (and its state) are
+ *       recreated (following `rx_cmd_rws.recv()`)?
+ *
+ *       Architecture overview:
+ *
+ *       - Web server has an in-mem state (in addition to a database state). We
+ *         are now concerned with why the in-mem state is not reset, even though
+ *         it should, when the web server restarts.
+ *
+ *       - Web server has handler `restart_web_server` (`POST
+ *         /cmd/web/restart`). It sends a `ctl::Command` to Controller via
+ *         `tx_a`.
+ *
+ *       - When the Controller receives the `ctl::Command`, it relays a
+ *         `ctl::CommandRWS` back to the web server via the sending half
+ *         corresponding to `rx_cmd_rws`.
+ *
+ *       - Web server restarts when it receives a `ctl::CommandRWS` via the
+ *         `rx_cmd_rws`.
+ *
+ *       Until this point, everything works as intended. Question is, again, why
+ *       does the in-mem `State` of the web server persist between restarts?
+ *
+ *       Consider the following log evidence as of commit
+ *       `f01171f5c19c227a9dd6ba2e9755a4b85166ba90`:
+ *
+ *       ```log
+ *       14:53:02 UTC [INFO] rustctl v0.0.1 [backend/src/main.rs:24]
+ *       14:53:02 UTC [INFO] Starting RCON WebSocket reconnect & handle loop with 5 second retry delay [backend/src/rcon.rs:8]
+ *       14:53:02 UTC [INFO] Web server starting [backend/src/web/mod.rs:150]
+ *       14:53:02 UTC [INFO] Connected to existing database [backend/src/database.rs:174]
+ *       14:53:02 UTC [INFO] Using existing TLS server certificate: [1975-01-01 00:00:00 UTC, 4096-01-01 00:00:00 UTC] [backend/src/web/mod.rs:29]
+ *       14:53:06 UTC [INFO] [63638e69] New sign-up initiated: Pending sign-ups in total: 1 [backend/src/web/handlers.rs:149]
+ *       14:53:08 UTC [INFO] [499a7fe8] New sign-up initiated: Pending sign-ups in total: 2 [backend/src/web/handlers.rs:149]
+ *       14:53:08 UTC [INFO] [1ccffb34] New sign-up initiated: Pending sign-ups in total: 3 [backend/src/web/handlers.rs:149]
+ *       14:53:11 UTC [INFO] [1d7158e3] New sign-in initiated: Pending sign-ins in total: 1 [backend/src/web/handlers.rs:240]
+ *       14:53:11 UTC [INFO] [881c5c16] New sign-in initiated: Pending sign-ins in total: 2 [backend/src/web/handlers.rs:240]
+ *       14:53:12 UTC [INFO] [ae5653ab] New sign-in initiated: Pending sign-ins in total: 3 [backend/src/web/handlers.rs:240]
+ *       14:53:15 UTC [INFO] Web server stopped [backend/src/web/mod.rs:181]
+ *       14:53:15 UTC [INFO] Web server starting [backend/src/web/mod.rs:150]
+ *       14:53:15 UTC [INFO] Using existing TLS server certificate: [1975-01-01 00:00:00 UTC, 4096-01-01 00:00:00 UTC] [backend/src/web/mod.rs:29]
+ *       14:53:19 UTC [INFO] [939890cb] New sign-up initiated: Pending sign-ups in total: 4 [backend/src/web/handlers.rs:149]
+ *       14:53:20 UTC [INFO] [e19563a2] New sign-up initiated: Pending sign-ups in total: 5 [backend/src/web/handlers.rs:149]
+ *       14:53:21 UTC [INFO] [bd880c43] New sign-up initiated: Pending sign-ups in total: 6 [backend/src/web/handlers.rs:149]
+ *       14:53:22 UTC [INFO] [980ffa05] New sign-in initiated: Pending sign-ins in total: 4 [backend/src/web/handlers.rs:240]
+ *       14:53:23 UTC [INFO] [0fe3baa4] New sign-in initiated: Pending sign-ins in total: 5 [backend/src/web/handlers.rs:240]
+ *       14:53:23 UTC [INFO] [be96f7c3] New sign-in initiated: Pending sign-ins in total: 6 [backend/src/web/handlers.rs:240]
+ *       ```
+ */
+
 pub async fn serve(
     expose: &Expose,
     tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
