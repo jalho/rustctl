@@ -100,16 +100,12 @@ impl From<&Expose> for std::net::SocketAddr {
 pub async fn serve(
     expose: &Expose,
     tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
-    db_client: crate::database::Client,
+    mut db_client: crate::database::Client,
     rx_cmd_rws: std::sync::Arc<
         tokio::sync::Mutex<tokio::sync::mpsc::Receiver<crate::ctl::CommandRWS>>,
     >,
 ) {
     loop {
-        let mut db_client_a = db_client.clone();
-        let db_client_b = db_client.clone();
-        let tx_a = tx.clone();
-
         let mut router: axum::Router<State> = axum::Router::new();
 
         /*
@@ -149,14 +145,14 @@ pub async fn serve(
         );
 
         log::info!("Web server starting");
-        let scheme: Scheme = expose.to_scheme(&mut db_client_a).await;
+        let scheme: Scheme = expose.to_scheme(&mut db_client).await;
         let addr: std::net::SocketAddr = expose.into();
         let router: axum::Router = router.with_state(State::new(
-            tx_a,
+            tx.clone(),
             scheme.to_url_scheme(),
             expose.domain_name(),
             addr.port(),
-            db_client_b,
+            db_client.clone(),
         ));
 
         match scheme {
