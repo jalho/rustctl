@@ -1,20 +1,23 @@
 /// Command for _restarting web server_.
-pub struct CommandRWS;
+pub struct CommandFromController;
 
-pub enum Command {
+pub enum CommandFromWebClient {
     Reboot,
     RestartWebServer,
 }
 
 pub async fn handle_commands_from_web_clients(
-    mut rx: tokio::sync::mpsc::Receiver<Command>,
-    tx_cmd_rws: tokio::sync::mpsc::Sender<CommandRWS>,
+    mut rx: tokio::sync::mpsc::Receiver<CommandFromWebClient>,
+    tx_cmd_from_controller: tokio::sync::mpsc::Sender<CommandFromController>,
 ) {
     loop {
         if let Some(n) = rx.recv().await {
             match n {
-                Command::Reboot => reboot_using_systemctl().await,
-                Command::RestartWebServer => tx_cmd_rws.send(CommandRWS).await.unwrap(),
+                CommandFromWebClient::Reboot => reboot_using_systemctl().await,
+                CommandFromWebClient::RestartWebServer => tx_cmd_from_controller
+                    .send(CommandFromController)
+                    .await
+                    .unwrap(),
             }
         }
     }

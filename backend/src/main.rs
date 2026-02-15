@@ -61,11 +61,12 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
                 database::Engine::new();
 
             /*
-             * Channel for passing commands from web clients to a Controller
-             * (see module `ctl`).
+             * Channels for relaying commands between actors.
              */
-            let (tx_cmd, rx_cmd) = tokio::sync::mpsc::channel::<ctl::Command>(1);
-            let (tx_cmd_rws, rx_cmd_rws) = tokio::sync::mpsc::channel::<ctl::CommandRWS>(1);
+            let (tx_cmd_from_web_client, rx_cmd_from_web_client) =
+                tokio::sync::mpsc::channel::<ctl::CommandFromWebClient>(1);
+            let (tx_cmd_from_controller, rx_cmd_from_controller) =
+                tokio::sync::mpsc::channel::<ctl::CommandFromController>(1);
 
             let expose: web::Expose = if cfg!(debug_assertions) {
                 web::Expose::LocalLoopback
@@ -85,10 +86,10 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
                 _ = game::log_game_server_output() => {
                     log::error!("Task terminated: game::log_game_server_output");
                 }
-                _ = web::serve(&expose, tx_cmd, db_client.clone(), std::sync::Arc::new(tokio::sync::Mutex::new(rx_cmd_rws))) => {
+                _ = web::serve(&expose, tx_cmd_from_web_client, db_client.clone(), std::sync::Arc::new(tokio::sync::Mutex::new(rx_cmd_from_controller))) => {
                     log::error!("Task terminated: web::serve");
                 }
-                _ = ctl::handle_commands_from_web_clients(rx_cmd, tx_cmd_rws) => {
+                _ = ctl::handle_commands_from_web_clients(rx_cmd_from_web_client, tx_cmd_from_controller) => {
                     log::error!("Task terminated: ctl::handle_commands_from_web_clients");
                 }
                 _ = rcon::relay(&params) => {

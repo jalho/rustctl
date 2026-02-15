@@ -99,10 +99,10 @@ impl From<&Expose> for std::net::SocketAddr {
 
 pub async fn serve(
     expose: &Expose,
-    tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
+    tx_cmd_from_web_client: tokio::sync::mpsc::Sender<crate::ctl::CommandFromWebClient>,
     mut db_client: crate::database::Client,
-    rx_cmd_rws: std::sync::Arc<
-        tokio::sync::Mutex<tokio::sync::mpsc::Receiver<crate::ctl::CommandRWS>>,
+    rx_cmd_from_controller: std::sync::Arc<
+        tokio::sync::Mutex<tokio::sync::mpsc::Receiver<crate::ctl::CommandFromController>>,
     >,
 ) {
     loop {
@@ -148,7 +148,7 @@ pub async fn serve(
         let scheme: Scheme = expose.to_scheme(&mut db_client).await;
         let addr: std::net::SocketAddr = expose.into();
         let router: axum::Router = router.with_state(State::new(
-            tx.clone(),
+            tx_cmd_from_web_client.clone(),
             scheme.to_url_scheme(),
             expose.domain_name(),
             addr.port(),
@@ -166,10 +166,10 @@ pub async fn serve(
 
                 let job_serving = server.serve(router.into_make_service());
 
-                let rx_cmd_rws = rx_cmd_rws.clone();
+                let rx_cmd_from_controller = rx_cmd_from_controller.clone();
                 let job_termination: tokio::task::JoinHandle<()> = tokio::spawn(async move {
-                    let _received: crate::ctl::CommandRWS =
-                        rx_cmd_rws.lock().await.recv().await.unwrap();
+                    let _received: crate::ctl::CommandFromController =
+                        rx_cmd_from_controller.lock().await.recv().await.unwrap();
                     handle.graceful_shutdown(None);
                 });
 
@@ -186,10 +186,10 @@ pub async fn serve(
 
                 let job_serving = server.serve(router.into_make_service());
 
-                let rx_cmd_rws = rx_cmd_rws.clone();
+                let rx_cmd_from_controller = rx_cmd_from_controller.clone();
                 let job_termination: tokio::task::JoinHandle<()> = tokio::spawn(async move {
-                    let _received: crate::ctl::CommandRWS =
-                        rx_cmd_rws.lock().await.recv().await.unwrap();
+                    let _received: crate::ctl::CommandFromController =
+                        rx_cmd_from_controller.lock().await.recv().await.unwrap();
                     handle.graceful_shutdown(None);
                 });
 
@@ -203,7 +203,7 @@ pub async fn serve(
 
 #[derive(Clone)]
 struct State {
-    tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
+    tx: tokio::sync::mpsc::Sender<crate::ctl::CommandFromWebClient>,
 
     db_client: crate::database::Client,
 
@@ -227,7 +227,7 @@ struct State {
 
 impl State {
     fn new(
-        tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
+        tx: tokio::sync::mpsc::Sender<crate::ctl::CommandFromWebClient>,
         scheme: &str,
         domain_name: &str,
         port: u16,
