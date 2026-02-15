@@ -8,15 +8,13 @@ pub enum Command {
 
 pub async fn handle_commands_from_web_clients(
     mut rx: tokio::sync::mpsc::Receiver<Command>,
-    mut tx_cmd_rws: tokio::sync::mpsc::Sender<CommandRWS>,
+    tx_cmd_rws: tokio::sync::mpsc::Sender<CommandRWS>,
 ) {
     loop {
         if let Some(n) = rx.recv().await {
             match n {
                 Command::Reboot => reboot_using_systemctl().await,
-                Command::RestartWebServer => {
-                    todo!("relay a command to some receiving loop restarting the web server")
-                }
+                Command::RestartWebServer => tx_cmd_rws.send(CommandRWS).await.unwrap(),
             }
         }
     }
