@@ -100,88 +100,85 @@ impl From<&Expose> for std::net::SocketAddr {
 pub async fn serve(
     expose: &Expose,
     tx: tokio::sync::mpsc::Sender<crate::ctl::Command>,
-    mut db_client: crate::database::Client,
+    db_client: crate::database::Client,
     rx_cmd_rws: &mut tokio::sync::mpsc::Receiver<crate::ctl::CommandRWS>,
 ) {
-    /*
-     * TODO: Add support for restarting the web server on demand following an
-     *       HTTP request or after automatic renewal of a TLS cert. Restarting
-     *       web server is useful when renewing its TLS certificate.
-     *
-     *       Planned scaffolding:
-     *
-     *       1. POST /cmd/web/restart
-     *
-     *          See handler `handlers::restart_web_server`.
-     *
-     *       2. Handler sends a `ctl::Command` to _Controller_.
-     *
-     *          See `ctl::handle_commands_from_web_clients`.
-     *
-     *       3. Controller sends a `ctl::CommandRWS` to some receiving loop
-     *          in `web` module. Web server restarts every time such command
-     *          is received.
-     *
-     *          See the parameter `rx_cmd_rws`.
-     */
+    loop {
+        let mut db_client_a = db_client.clone();
+        let db_client_b = db_client.clone();
+        let tx_a = tx.clone();
 
-    let mut router: axum::Router<State> = axum::Router::new();
+        let job = async move || {
+            let mut router: axum::Router<State> = axum::Router::new();
 
-    /*
-     * Public static web content routes.
-     */
-    router = router.route("/", axum::routing::get(handlers::web));
-    router = router.route("/favicon.ico", axum::routing::get(handlers::favicon));
+            /*
+             * Public static web content routes.
+             */
+            router = router.route("/", axum::routing::get(handlers::web));
+            router = router.route("/favicon.ico", axum::routing::get(handlers::favicon));
 
-    /*
-     * Logic routes.
-     *
-     * TODO: Add access control to some of the logic routes (post-auth).
-     */
-    router = router.route(
-        shared::SIGN_UP_CHALLENGE,
-        axum::routing::post(handlers::auth_sign_up_challenge),
-    );
-    router = router.route(
-        shared::SIGN_UP_SUBMIT,
-        axum::routing::post(handlers::auth_sign_up_submit),
-    );
-    router = router.route(
-        shared::SIGN_IN_CHALLENGE,
-        axum::routing::post(handlers::auth_sign_in_challenge),
-    );
-    router = router.route(
-        shared::SIGN_IN_SUBMIT,
-        axum::routing::post(handlers::auth_sign_in_submit),
-    );
-    router = router.route(
-        "/cmd/system/reboot",
-        axum::routing::post(handlers::reboot_system),
-    );
-    router = router.route(
-        "/cmd/web/restart",
-        axum::routing::post(handlers::restart_web_server),
-    );
+            /*
+             * Logic routes.
+             *
+             * TODO: Add access control to some of the logic routes (post-auth).
+             */
+            router = router.route(
+                shared::SIGN_UP_CHALLENGE,
+                axum::routing::post(handlers::auth_sign_up_challenge),
+            );
+            router = router.route(
+                shared::SIGN_UP_SUBMIT,
+                axum::routing::post(handlers::auth_sign_up_submit),
+            );
+            router = router.route(
+                shared::SIGN_IN_CHALLENGE,
+                axum::routing::post(handlers::auth_sign_in_challenge),
+            );
+            router = router.route(
+                shared::SIGN_IN_SUBMIT,
+                axum::routing::post(handlers::auth_sign_in_submit),
+            );
+            router = router.route(
+                "/cmd/system/reboot",
+                axum::routing::post(handlers::reboot_system),
+            );
+            router = router.route(
+                "/cmd/web/restart",
+                axum::routing::post(handlers::restart_web_server),
+            );
 
-    let scheme: Scheme = expose.to_scheme(&mut db_client).await;
-    let addr: std::net::SocketAddr = expose.into();
-    let router: axum::Router = router.with_state(State::new(
-        tx,
-        scheme.to_url_scheme(),
-        expose.domain_name(),
-        addr.port(),
-        db_client,
-    ));
+            log::info!("Web server starting");
+            let scheme: Scheme = expose.to_scheme(&mut db_client_a).await;
+            let addr: std::net::SocketAddr = expose.into();
+            let router: axum::Router = router.with_state(State::new(
+                tx_a,
+                scheme.to_url_scheme(),
+                expose.domain_name(),
+                addr.port(),
+                db_client_b,
+            ));
+            match scheme {
+                Scheme::Https { tls_config } => axum_server::bind_rustls(addr, tls_config)
+                    .serve(router.into_make_service())
+                    .await
+                    .unwrap(),
+                Scheme::Http => axum_server::bind(addr)
+                    .serve(router.into_make_service())
+                    .await
+                    .unwrap(),
+            }
+        };
 
-    match scheme {
-        Scheme::Https { tls_config } => axum_server::bind_rustls(addr, tls_config)
-            .serve(router.into_make_service())
-            .await
-            .unwrap(),
-        Scheme::Http => axum_server::bind(addr)
-            .serve(router.into_make_service())
-            .await
-            .unwrap(),
+        tokio::select! {
+            _ = job() => todo!(),
+            n = rx_cmd_rws.recv() => {
+                match n {
+                    Some(_) => {},
+                    None => todo!(),
+                }
+            }
+        }
+        log::info!("Web server stopped");
     }
 }
 
