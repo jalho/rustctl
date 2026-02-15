@@ -210,14 +210,24 @@ pub async fn serve(
                 db_client_b,
             ));
             match scheme {
-                Scheme::Https { tls_config } => axum_server::bind_rustls(addr, tls_config)
-                    .serve(router.into_make_service())
-                    .await
-                    .unwrap(),
-                Scheme::Http => axum_server::bind(addr)
-                    .serve(router.into_make_service())
-                    .await
-                    .unwrap(),
+                Scheme::Https { tls_config } => {
+                    let server: axum_server::Server<
+                        std::net::SocketAddr,
+                        axum_server::tls_rustls::RustlsAcceptor,
+                    > = axum_server::bind_rustls(addr, tls_config);
+
+                    let serving_done: () = server.serve(router.into_make_service()).await.unwrap();
+
+                    serving_done
+                }
+
+                Scheme::Http => {
+                    let server: axum_server::Server<std::net::SocketAddr> = axum_server::bind(addr);
+
+                    let serving_done: () = server.serve(router.into_make_service()).await.unwrap();
+
+                    serving_done
+                }
             }
         };
 
