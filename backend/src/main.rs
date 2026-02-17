@@ -104,9 +104,6 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
 
 struct RtDone;
 
-/*
- * TODO: Use `fn get_full_error_message` everywhere!
- */
 fn get_full_error_message(err: &dyn std::error::Error) -> String {
     let mut message = err.to_string();
     let mut current = err.source();
