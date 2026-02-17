@@ -297,13 +297,14 @@ pub async fn auth_sign_in_submit(
     };
     let credential_id_hex: String = crate::database::to_hex_string(passkey_active.cred_id());
 
-    let _auth_result: webauthn_rs::prelude::AuthenticationResult = match state
+    let auth_result: webauthn_rs::prelude::AuthenticationResult = match state
         .webauthn
         .finish_discoverable_authentication(&payload, da.inner, &[passkey_active.into()])
     {
         Ok(n) => n,
         Err(_err) => return axum::http::StatusCode::UNAUTHORIZED,
     };
+    let authenticator_counter: u32 = auth_result.counter();
 
     /*
      * TODO: From `finish_discoverable_authentication`:
@@ -325,7 +326,7 @@ pub async fn auth_sign_in_submit(
      * TODO: Set-Cookie.
      */
     log::info!(
-        r#"[{transaction_id}] Sign-in: Existing passkey "{passkey_name}": {credential_id_hex}"#,
+        r#"[{transaction_id}] Sign-in: Existing passkey "{passkey_name}" (#{authenticator_counter}): {credential_id_hex}"#,
         transaction_id = &id.to_string()[..8],
         credential_id_hex = &credential_id_hex[..12],
         passkey_name = passkey_known.passkey_name,
