@@ -304,7 +304,7 @@ pub async fn auth_sign_in_submit(
         Ok(n) => n,
         Err(_err) => return axum::http::StatusCode::UNAUTHORIZED,
     };
-    let credential_counter: u32 = auth_result.counter();
+    let credential_counter_new: u32 = auth_result.counter();
 
     /*
      * TODO: From `finish_discoverable_authentication`:
@@ -322,11 +322,23 @@ pub async fn auth_sign_in_submit(
      * > (such as the user verification flag).
      */
 
+    if (state
+        .db_client
+        .update_one_passkey_by_credential_id_set_credential_counter(
+            claimed_passkey_cred_id,
+            credential_counter_new,
+        )
+        .await)
+        .is_err()
+    {
+        return axum::http::StatusCode::INTERNAL_SERVER_ERROR;
+    }
+
     /*
      * TODO: Set-Cookie.
      */
     log::info!(
-        r#"[{transaction_id}] Sign-in: Existing passkey "{passkey_name}": {credential_id_hex} (#{credential_counter})"#,
+        r#"[{transaction_id}] Sign-in: Existing passkey "{passkey_name}": {credential_id_hex} (#{credential_counter_new})"#,
         transaction_id = &id.to_string()[..8],
         credential_id_hex = &credential_id_hex[..12],
         passkey_name = passkey_known.passkey_name,

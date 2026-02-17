@@ -6,7 +6,12 @@ pub enum DbOp {
     },
     SelectOnePasskeyByCredentialId {
         tx: tokio::sync::oneshot::Sender<Option<queries::PasskeySelected>>,
-        value: Vec<u8>,
+        selector: Vec<u8>,
+    },
+    UpdateOnePasskeyByCredentialIdSetCredentialCounter {
+        tx: tokio::sync::oneshot::Sender<()>,
+        selector: Vec<u8>,
+        value: u32,
     },
 
     InsertOneTlsPem {
@@ -99,7 +104,7 @@ impl Client {
 
     pub async fn select_one_passkey_by_credential_id(
         &mut self,
-        value: &[u8],
+        selector: &[u8],
     ) -> Result<Option<queries::PasskeySelected>, ()> {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -107,7 +112,7 @@ impl Client {
             .tx
             .send(DbOp::SelectOnePasskeyByCredentialId {
                 tx,
-                value: value.to_vec(),
+                selector: selector.to_vec(),
             })
             .await
         {
@@ -117,6 +122,32 @@ impl Client {
 
         match rx.await {
             Ok(n) => Ok(n),
+            Err(_) => Err(()),
+        }
+    }
+
+    pub async fn update_one_passkey_by_credential_id_set_credential_counter(
+        &mut self,
+        selector: &[u8],
+        value: u32,
+    ) -> Result<(), ()> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        match self
+            .tx
+            .send(DbOp::UpdateOnePasskeyByCredentialIdSetCredentialCounter {
+                tx,
+                selector: selector.to_vec(),
+                value,
+            })
+            .await
+        {
+            Ok(_) => {}
+            Err(_) => todo!(),
+        }
+
+        match rx.await {
+            Ok(_) => Ok(()),
             Err(_) => Err(()),
         }
     }
@@ -219,11 +250,14 @@ impl Engine {
                     let passkey_json: serde_json::Value =
                         serde_json::to_value(&value.passkey).unwrap();
 
+                    let credential_counter: i64 = 0;
+
                     let inserted_count: u64 = match client
                         .execute(
                             tables::passkeys::INSERT_ONE,
                             &[
                                 &created_at_utc,
+                                &credential_counter,
                                 &value.passkey_name,
                                 &credential_id_hex,
                                 &passkey_json,
@@ -245,8 +279,8 @@ impl Engine {
                     }
                 }
 
-                DbOp::SelectOnePasskeyByCredentialId { tx, value } => {
-                    let credential_id: Vec<u8> = value;
+                DbOp::SelectOnePasskeyByCredentialId { tx, selector } => {
+                    let credential_id: Vec<u8> = selector;
                     let credential_id_hex: String = to_hex_string(&credential_id);
 
                     let rows: Vec<tokio_postgres::Row> = match client
@@ -316,6 +350,34 @@ impl Engine {
                         Ok(_) => {}
                         Err(_) => todo!(),
                     }
+                }
+
+                DbOp::UpdateOnePasskeyByCredentialIdSetCredentialCounter {
+                    tx,
+                    selector,
+                    value,
+                } => {
+                    let credential_id: Vec<u8> = selector;
+                    let credential_id_hex: String = to_hex_string(&credential_id);
+
+                    let value: i64 = value as i64;
+
+                    let modified_count: u64 = match client
+                        .execute(
+                            tables::passkeys::UPDATE_ONE_BY_CREDENTIAL_ID_SET_CREDENTIAL_COUNTER,
+                            &[&credential_id_hex, &value],
+                        )
+                        .await
+                    {
+                        Ok(n) => n,
+                        Err(err) => {
+                            log::error!("{err}", err = crate::get_full_error_message(&err));
+                            return;
+                        }
+                    };
+                    assert_eq!(modified_count, 1);
+
+                    tx.send(()).unwrap();
                 }
 
                 DbOp::InsertOneTlsPem { tx, value } => {
@@ -423,6 +485,7 @@ mod tables {
     pub mod passkeys {
         pub const CREATE_TABLE: &str = r#"CREATE TABLE rustctl.passkeys (
   created_at_utc     TIMESTAMP    NOT NULL,
+  credential_counter INT8         NOT NULL,
   passkey_name       TEXT         NOT NULL,
   credential_id_hex  VARCHAR(128) PRIMARY KEY,
   passkey_json       JSONB        NOT NULL,
@@ -432,6 +495,7 @@ mod tables {
         pub const INSERT_ONE: &str = r#"INSERT INTO
     rustctl.passkeys(
         created_at_utc,
+        credential_counter,
         passkey_name,
         credential_id_hex,
         passkey_json
@@ -440,7 +504,8 @@ VALUES(
     $1,
     $2,
     $3,
-    $4
+    $4,
+    $5
 );"#;
 
         pub const SELECT_ONE_BY_CREDENTIAL_ID: &str = r#"SELECT
@@ -451,6 +516,13 @@ VALUES(
     passkey_json
 FROM
     rustctl.passkeys
+WHERE
+    credential_id_hex = $1;"#;
+
+        pub const UPDATE_ONE_BY_CREDENTIAL_ID_SET_CREDENTIAL_COUNTER: &str = r#"UPDATE
+    rustctl.passkeys
+SET
+    credential_counter = $2
 WHERE
     credential_id_hex = $1;"#;
     }
