@@ -347,3 +347,158 @@ pub async fn auth_sign_in_submit(
 }
 
 const MAX_PENDING: usize = 64;
+
+pub async fn poc_require_cookie_signed(
+    _token_verified: Token,
+) -> impl axum::response::IntoResponse {
+    axum::http::StatusCode::NO_CONTENT
+}
+
+pub async fn poc_set_cookie_signed(
+    axum::extract::State(state): axum::extract::State<crate::web::State>,
+) -> impl axum::response::IntoResponse {
+    let token: Token = Token {
+        foo: "bar".to_string(),
+    };
+
+    let token_json: String = serde_json::to_string(&token).unwrap();
+    let token_hex: String = crate::database::to_hex_string(token_json.as_bytes());
+
+    let mut signing_randomness: [u8; libcrux_ml_dsa::SIGNING_RANDOMNESS_SIZE] =
+        [0u8; libcrux_ml_dsa::SIGNING_RANDOMNESS_SIZE];
+    rand::TryRng::try_fill_bytes(&mut rand::rngs::SysRng, &mut signing_randomness).unwrap();
+
+    /*
+     * ML-DSA-87: NIST security level 5, why not, let's go :D
+     */
+    let signature_obj: libcrux_ml_dsa::MLDSASignature<_> = libcrux_ml_dsa::ml_dsa_87::sign(
+        &state.signing_keypair.signing_key,
+        token_hex.as_bytes(),
+        b"",
+        signing_randomness,
+    )
+    .unwrap();
+
+    /*
+     * TODO: Split the cookie to multiple chunks. The value is 9254 ASCII chars,
+     *       i.e. `super::SIGNATURE_SIZE_BYTES * 2`, i.e. 4627-byte signature
+     *       in hex.
+     *
+     *       Docs: https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies (accessed 2026-02-22)
+     *       > maximum size per cookie (usually 4KB)
+     *
+     *       Let's use e.g. 5 cookies of 2048 ASCII chars:
+     *         = 5 * 2048 ASCII chars
+     *         = 10240 ASCII chars
+     *         = 9254 + padding 986
+     */
+    let signature_hex: String = crate::database::to_hex_string(signature_obj.as_slice());
+
+    /*
+     * TODO: Make sense of the attributes.
+     */
+    let cookie_token: String =
+        format!("rustctl-token-hex={token_hex}; Path=/; HttpOnly; SameSite=Lax");
+    let cookie_sig: String =
+        format!("rustctl-token-signature-hex={signature_hex}; Path=/; HttpOnly; SameSite=Lax");
+
+    let response: axum::http::Response<axum::body::Body> = axum::response::Response::builder()
+        .status(axum::http::StatusCode::NO_CONTENT)
+        .header(axum::http::header::SET_COOKIE, cookie_token)
+        .header(axum::http::header::SET_COOKIE, cookie_sig)
+        .body(axum::body::Body::empty())
+        .unwrap();
+
+    response
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct Token {
+    foo: String,
+}
+
+impl axum::extract::FromRequestParts<crate::web::State> for Token {
+    type Rejection = axum::http::StatusCode;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &crate::web::State,
+    ) -> Result<Self, Self::Rejection> {
+        /*
+         * Extract cookies header.
+         */
+        let cookie_header: &str = parts
+            .headers
+            .get(axum::http::header::COOKIE)
+            .and_then(|h| h.to_str().ok())
+            .ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
+
+        /*
+         * Extract token and signature from the cookies.
+         */
+        let mut token_hex_maybe: Option<&str> = None;
+        let mut signature_hex_maybe: Option<&str> = None;
+        for cookie in cookie_header.split(';') {
+            let mut kv = cookie.splitn(2, '=');
+            let k: Option<&str> = kv.next().map(|s| s.trim());
+            let v: Option<&str> = kv.next().map(|s| s.trim());
+
+            match k {
+                Some("rustctl-token-hex") => token_hex_maybe = v,
+                Some("rustctl-token-signature-hex") => signature_hex_maybe = v,
+                _ => {}
+            }
+        }
+        let (token_hex, signature_hex): (&str, &str) = match (token_hex_maybe, signature_hex_maybe)
+        {
+            (Some(n), Some(m)) => (n, m),
+            _ => return Err(axum::http::StatusCode::UNAUTHORIZED),
+        };
+
+        /*
+         * Decode signature from hex.
+         */
+        let mut sig_bytes: [u8; super::SIGNATURE_SIZE_BYTES] = [0u8; super::SIGNATURE_SIZE_BYTES];
+        if signature_hex.len() != super::SIGNATURE_SIZE_BYTES * 2 {
+            return Err(axum::http::StatusCode::UNAUTHORIZED);
+        }
+        for i in (0..signature_hex.len()).step_by(2) {
+            let byte_hex: &str = &signature_hex[i..i + 2];
+            let byte: u8 = match u8::from_str_radix(byte_hex, 16) {
+                Ok(n) => n,
+                Err(_) => return Err(axum::http::StatusCode::UNAUTHORIZED),
+            };
+            sig_bytes[i / 2] = byte;
+        }
+        let signature: libcrux_ml_dsa::ml_dsa_87::MLDSA87Signature =
+            libcrux_ml_dsa::ml_dsa_87::MLDSA87Signature::new(sig_bytes);
+
+        /*
+         * Verify signature.
+         */
+        libcrux_ml_dsa::ml_dsa_87::verify(
+            &state.signing_keypair.verification_key,
+            token_hex.as_bytes(),
+            b"",
+            &signature,
+        )
+        .map_err(|_| axum::http::StatusCode::UNAUTHORIZED)?;
+
+        /*
+         * Deserialize the hex encoded JSON token.
+         */
+        let mut token_bytes: Vec<u8> = Vec::with_capacity(token_hex.len() / 2);
+        for i in (0..token_hex.len()).step_by(2) {
+            let byte_hex: &str = &token_hex[i..i + 2];
+            let byte: u8 = match u8::from_str_radix(byte_hex, 16) {
+                Ok(n) => n,
+                Err(_) => return Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR),
+            };
+            token_bytes.push(byte);
+        }
+        let token: Token = serde_json::from_slice(&token_bytes)
+            .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        Ok(token)
+    }
+}

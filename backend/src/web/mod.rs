@@ -120,6 +120,14 @@ pub async fn serve(
          * TODO: Add access control to some of the logic routes (post-auth).
          */
         router = router.route(
+            "/poc/cookie/set",
+            axum::routing::post(handlers::poc_set_cookie_signed),
+        );
+        router = router.route(
+            "/poc/cookie/require",
+            axum::routing::post(handlers::poc_require_cookie_signed),
+        );
+        router = router.route(
             shared::SIGN_UP_CHALLENGE,
             axum::routing::post(handlers::auth_sign_up_challenge),
         );
@@ -223,6 +231,8 @@ struct State {
             >,
         >,
     >,
+
+    signing_keypair: std::sync::Arc<libcrux_ml_dsa::ml_dsa_87::MLDSA87KeyPair>,
 }
 
 impl State {
@@ -246,6 +256,15 @@ impl State {
 
         let webauthn: webauthn_rs::Webauthn = builder.build().expect("Failed to build Webauthn");
 
+        /*
+         * TODO: Store signing keypair in database?
+         */
+        let mut signing_keypair_seed: [u8; libcrux_ml_dsa::KEY_GENERATION_RANDOMNESS_SIZE] =
+            [0u8; libcrux_ml_dsa::KEY_GENERATION_RANDOMNESS_SIZE];
+        rand::TryRng::try_fill_bytes(&mut rand::rngs::SysRng, &mut signing_keypair_seed).unwrap();
+        let signing_keypair: libcrux_ml_dsa::ml_dsa_87::MLDSA87KeyPair =
+            libcrux_ml_dsa::ml_dsa_87::generate_key_pair(signing_keypair_seed);
+
         Self {
             tx,
 
@@ -258,6 +277,8 @@ impl State {
             )),
 
             db_client,
+
+            signing_keypair: std::sync::Arc::new(signing_keypair),
         }
     }
 }
@@ -325,3 +346,8 @@ pub fn asn1_to_chrono(not_before: &openssl::asn1::Asn1TimeRef) -> chrono::DateTi
 
     value
 }
+
+/*
+ * Constants mandated by ML-DSA-87.
+ */
+const SIGNATURE_SIZE_BYTES: usize = 4627;

@@ -32,6 +32,10 @@ clap = { workspace = true, default-features = false, features = [
 futures-util = { workspace = true, default-features = false, features = [
 ] }
 
+libcrux-ml-dsa = { workspace = true, default-features = false, features = [
+  "mldsa87",
+] }
+
 log4rs = { workspace = true, default-features = false, features = [
  "console_appender",
 ] }
@@ -49,6 +53,7 @@ openssl = { workspace = true, features = [
 ] }
 
 rand = { workspace = true, features = [
+  "sys_rng",
 ] }
 
 rcgen = { workspace = true, features = [
