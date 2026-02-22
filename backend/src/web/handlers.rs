@@ -349,7 +349,7 @@ pub async fn auth_sign_in_submit(
 const MAX_PENDING: usize = 64;
 
 pub async fn poc_require_cookie_signed(
-    _token_verified: Session,
+    _session_verified: Session,
 ) -> impl axum::response::IntoResponse {
     axum::http::StatusCode::NO_CONTENT
 }
@@ -441,9 +441,9 @@ impl axum::extract::FromRequestParts<crate::web::State> for Session {
             .ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
 
         /*
-         * Extract token and signature from the cookies.
+         * Extract session and its signature from the cookies.
          */
-        let mut token_hex_maybe: Option<&str> = None;
+        let mut session_hex_maybe: Option<&str> = None;
         let mut signature_hex_maybe: Option<&str> = None;
         for cookie in cookie_header.split(';') {
             let mut kv = cookie.splitn(2, '=');
@@ -451,16 +451,16 @@ impl axum::extract::FromRequestParts<crate::web::State> for Session {
             let v: Option<&str> = kv.next().map(|s| s.trim());
 
             match k {
-                Some(COOKIE_NAME_SESSION) => token_hex_maybe = v,
+                Some(COOKIE_NAME_SESSION) => session_hex_maybe = v,
                 Some(COOKIE_NAME_SIGNATURE) => signature_hex_maybe = v,
                 _ => {}
             }
         }
-        let (token_hex, signature_hex): (&str, &str) = match (token_hex_maybe, signature_hex_maybe)
-        {
-            (Some(n), Some(m)) => (n, m),
-            _ => return Err(axum::http::StatusCode::UNAUTHORIZED),
-        };
+        let (session_hex, signature_hex): (&str, &str) =
+            match (session_hex_maybe, signature_hex_maybe) {
+                (Some(n), Some(m)) => (n, m),
+                _ => return Err(axum::http::StatusCode::UNAUTHORIZED),
+            };
 
         /*
          * Decode signature from hex.
@@ -485,27 +485,27 @@ impl axum::extract::FromRequestParts<crate::web::State> for Session {
          */
         libcrux_ml_dsa::ml_dsa_87::verify(
             &state.signing_keypair.verification_key,
-            token_hex.as_bytes(),
+            session_hex.as_bytes(),
             b"",
             &signature,
         )
         .map_err(|_| axum::http::StatusCode::UNAUTHORIZED)?;
 
         /*
-         * Deserialize the hex encoded JSON token.
+         * Deserialize the hex encoded JSON session.
          */
-        let mut token_bytes: Vec<u8> = Vec::with_capacity(token_hex.len() / 2);
-        for i in (0..token_hex.len()).step_by(2) {
-            let byte_hex: &str = &token_hex[i..i + 2];
+        let mut session_bytes: Vec<u8> = Vec::with_capacity(session_hex.len() / 2);
+        for i in (0..session_hex.len()).step_by(2) {
+            let byte_hex: &str = &session_hex[i..i + 2];
             let byte: u8 = match u8::from_str_radix(byte_hex, 16) {
                 Ok(n) => n,
                 Err(_) => return Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR),
             };
-            token_bytes.push(byte);
+            session_bytes.push(byte);
         }
-        let token: Session = serde_json::from_slice(&token_bytes)
+        let session: Session = serde_json::from_slice(&session_bytes)
             .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        Ok(token)
+        Ok(session)
     }
 }
