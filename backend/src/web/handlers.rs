@@ -349,7 +349,7 @@ pub async fn auth_sign_in_submit(
 const MAX_PENDING: usize = 64;
 
 pub async fn poc_require_cookie_signed(
-    _token_verified: Token,
+    _token_verified: Session,
 ) -> impl axum::response::IntoResponse {
     axum::http::StatusCode::NO_CONTENT
 }
@@ -357,8 +357,11 @@ pub async fn poc_require_cookie_signed(
 pub async fn poc_set_cookie_signed(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
 ) -> impl axum::response::IntoResponse {
-    let token: Token = Token {
-        foo: "bar".to_string(),
+    let timestamp: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+
+    let token: Session = Session {
+        issued_at: timestamp.to_rfc3339(),
+        steam_id: None,
     };
 
     let token_json: String = serde_json::to_string(&token).unwrap();
@@ -413,11 +416,12 @@ pub async fn poc_set_cookie_signed(
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
-pub struct Token {
-    foo: String,
+pub struct Session {
+    issued_at: String,
+    steam_id: Option<String>,
 }
 
-impl axum::extract::FromRequestParts<crate::web::State> for Token {
+impl axum::extract::FromRequestParts<crate::web::State> for Session {
     type Rejection = axum::http::StatusCode;
 
     async fn from_request_parts(
@@ -496,7 +500,7 @@ impl axum::extract::FromRequestParts<crate::web::State> for Token {
             };
             token_bytes.push(byte);
         }
-        let token: Token = serde_json::from_slice(&token_bytes)
+        let token: Session = serde_json::from_slice(&token_bytes)
             .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
         Ok(token)
