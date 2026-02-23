@@ -164,6 +164,7 @@ impl Engine {
     }
 
     pub async fn keep_connected(&mut self) -> () {
+        let mut retry_delay_secs: u64 = 1;
         'reconnect: loop {
             let params: Parameters = Parameters::from_env();
 
@@ -184,10 +185,16 @@ impl Engine {
             )
             .await
             {
-                Ok(n) => n,
+                Ok(n) => {
+                    retry_delay_secs = 1;
+                    n
+                }
                 Err(err) => {
                     log::error!("{err}", err = crate::get_full_error_message(&err));
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    tokio::time::sleep(std::time::Duration::from_secs(retry_delay_secs)).await;
+                    if retry_delay_secs < 32 {
+                        retry_delay_secs *= 2;
+                    }
                     continue 'reconnect;
                 }
             };
