@@ -397,13 +397,8 @@ pub async fn poc_set_cookie_signed(
      */
     let signature_hex: String = crate::database::to_hex_string(signature_obj.as_slice());
 
-    /*
-     * TODO: Make sense of the attributes.
-     */
-    let ck_session: String =
-        format!("{COOKIE_NAME_SESSION}={session_hex}; Path=/; HttpOnly; SameSite=Lax");
-    let ck_signature: String =
-        format!("{COOKIE_NAME_SIGNATURE}={signature_hex}; Path=/; HttpOnly; SameSite=Lax");
+    let ck_session: String = format!("{CK_NAME_SESSION}={session_hex}; {CK_ATTRS}");
+    let ck_signature: String = format!("{CK_NAME_SIG}={signature_hex}; {CK_ATTRS}");
 
     let response: axum::http::Response<axum::body::Body> = axum::response::Response::builder()
         .status(axum::http::StatusCode::NO_CONTENT)
@@ -415,8 +410,9 @@ pub async fn poc_set_cookie_signed(
     response
 }
 
-const COOKIE_NAME_SESSION: &str = "rustctl-session-hex";
-const COOKIE_NAME_SIGNATURE: &str = "rustctl-signature-hex";
+const CK_ATTRS: &str = "Path=/; HttpOnly; SameSite=Strict; Secure";
+const CK_NAME_SESSION: &str = "rustctl-session-hex";
+const CK_NAME_SIG: &str = "rustctl-signature-hex";
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Session {
@@ -451,8 +447,8 @@ impl axum::extract::FromRequestParts<crate::web::State> for Session {
             let v: Option<&str> = kv.next().map(|s| s.trim());
 
             match k {
-                Some(COOKIE_NAME_SESSION) => session_hex_maybe = v,
-                Some(COOKIE_NAME_SIGNATURE) => signature_hex_maybe = v,
+                Some(CK_NAME_SESSION) => session_hex_maybe = v,
+                Some(CK_NAME_SIG) => signature_hex_maybe = v,
                 _ => {}
             }
         }
