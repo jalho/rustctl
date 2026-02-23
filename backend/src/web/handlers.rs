@@ -382,32 +382,22 @@ pub async fn poc_set_cookie_signed(
     )
     .unwrap();
 
-    /*
-     * TODO: Split the cookie to multiple chunks. The value is 9254 ASCII chars,
-     *       i.e. `super::SIGNATURE_SIZE_BYTES * 2`, i.e. 4627-byte signature
-     *       in hex.
-     *
-     *       Docs: https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies (accessed 2026-02-22)
-     *       > maximum size per cookie (usually 4KB)
-     *
-     *       Let's use e.g. 5 cookies of 2048 ASCII chars:
-     *         = 5 * 2048 ASCII chars
-     *         = 10240 ASCII chars
-     *         = 9254 + padding 986
-     */
     let signature_hex: String = crate::database::to_hex_string(signature_obj.as_slice());
 
+    let mut response_builder =
+        axum::response::Response::builder().status(axum::http::StatusCode::NO_CONTENT);
+
     let ck_session: String = format!("{CK_NAME_SESSION}={session_hex}; {CK_ATTRS}");
-    let ck_signature: String = format!("{CK_NAME_SIG}={signature_hex}; {CK_ATTRS}");
+    response_builder = response_builder.header(axum::http::header::SET_COOKIE, ck_session);
 
-    let response: axum::http::Response<axum::body::Body> = axum::response::Response::builder()
-        .status(axum::http::StatusCode::NO_CONTENT)
-        .header(axum::http::header::SET_COOKIE, ck_session)
-        .header(axum::http::header::SET_COOKIE, ck_signature)
-        .body(axum::body::Body::empty())
-        .unwrap();
+    let signature_chars: Vec<char> = signature_hex.chars().collect();
+    for (i, chunk) in signature_chars.chunks(2048).enumerate() {
+        let chunk_str: String = chunk.iter().collect();
+        let ck_signature: String = format!("{CK_NAME_SIG}-{i}={chunk_str}; {CK_ATTRS}");
+        response_builder = response_builder.header(axum::http::header::SET_COOKIE, ck_signature);
+    }
 
-    response
+    response_builder.body(axum::body::Body::empty()).unwrap()
 }
 
 const CK_ATTRS: &str = "Path=/; HttpOnly; SameSite=Strict; Secure";
@@ -440,23 +430,34 @@ impl axum::extract::FromRequestParts<crate::web::State> for Session {
          * Extract session and its signature from the cookies.
          */
         let mut session_hex_maybe: Option<&str> = None;
-        let mut signature_hex_maybe: Option<&str> = None;
+        let mut signature_chunks: std::collections::BTreeMap<usize, &str> =
+            std::collections::BTreeMap::new();
+
         for cookie in cookie_header.split(';') {
             let mut kv = cookie.splitn(2, '=');
             let k: Option<&str> = kv.next().map(|s| s.trim());
             let v: Option<&str> = kv.next().map(|s| s.trim());
 
-            match k {
-                Some(CK_NAME_SESSION) => session_hex_maybe = v,
-                Some(CK_NAME_SIG) => signature_hex_maybe = v,
-                _ => {}
+            if let (Some(key), Some(val)) = (k, v) {
+                if key == CK_NAME_SESSION {
+                    session_hex_maybe = Some(val);
+                } else if key.starts_with(CK_NAME_SIG)
+                    && let Some(index_str) = key
+                        .strip_prefix(CK_NAME_SIG)
+                        .and_then(|s| s.strip_prefix('-'))
+                    && let Ok(index) = index_str.parse::<usize>()
+                {
+                    signature_chunks.insert(index, val);
+                }
             }
         }
-        let (session_hex, signature_hex): (&str, &str) =
-            match (session_hex_maybe, signature_hex_maybe) {
-                (Some(n), Some(m)) => (n, m),
-                _ => return Err(axum::http::StatusCode::UNAUTHORIZED),
-            };
+
+        let session_hex = session_hex_maybe.ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
+
+        if signature_chunks.is_empty() {
+            return Err(axum::http::StatusCode::UNAUTHORIZED);
+        }
+        let signature_hex: String = signature_chunks.values().cloned().collect();
 
         /*
          * Decode signature from hex.
