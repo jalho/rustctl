@@ -277,7 +277,10 @@ pub async fn auth_sign_in_submit(
     };
     let _claimed_passkey_id: uuid::Uuid = c_pk_id;
     let claimed_passkey_cred_id: crate::database::CredentialID =
-        crate::database::CredentialID::new(c_pk_cred_id);
+        match crate::database::CredentialID::new(c_pk_cred_id) {
+            Ok(n) => n,
+            Err(_) => return axum::http::StatusCode::BAD_REQUEST,
+        };
 
     let passkey_seeked: Option<crate::database::queries::PasskeySelected> = match state
         .db_client
@@ -375,7 +378,7 @@ pub async fn poc_set_cookie_signed(
     let issued_at: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
 
     let session: Session = Session {
-        credential_id: crate::database::CredentialID::new(&[0u8; 32]),
+        credential_id: crate::database::CredentialID::new(&[0u8; 32]).unwrap(),
         issued_at,
         steam_id: None,
     };

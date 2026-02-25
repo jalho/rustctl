@@ -251,7 +251,11 @@ impl Engine {
                 DbOp::InsertOnePasskey { tx, value } => {
                     let created_at_utc: chrono::NaiveDateTime = value.created_at.naive_utc();
 
-                    let credential_id: CredentialID = CredentialID::new(value.passkey.cred_id());
+                    let credential_id: CredentialID =
+                        match CredentialID::new(value.passkey.cred_id()) {
+                            Ok(n) => n,
+                            Err(_) => todo!(),
+                        };
                     let credential_id_hex: String = credential_id.to_string();
 
                     let passkey_json: serde_json::Value =
@@ -581,12 +585,24 @@ impl Parameters {
     }
 }
 
+/// Credential ID of a Passkey.
 #[derive(Clone)]
 pub struct CredentialID(Vec<u8>);
 
 impl CredentialID {
-    pub fn new(bytes: &[u8]) -> Self {
-        Self(bytes.to_vec())
+    pub fn new(bytes: &[u8]) -> Result<Self, ()> {
+        /// There's no official minimum length (for the Credential ID of a
+        /// Passkey), I guess, but I like to represent the value as a colon
+        /// delimited lower case hex string, in which case defining a minimum
+        /// length of 2 bytes gets rid of some edge cases. In practise the value
+        /// is surely always a bunch more bytes than just 2.
+        const MINIMUM_LENGTH_BYTES: usize = 2;
+
+        if bytes.len() < MINIMUM_LENGTH_BYTES {
+            Err(())
+        } else {
+            Ok(Self(bytes.to_vec()))
+        }
     }
 }
 
