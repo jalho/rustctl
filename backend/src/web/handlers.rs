@@ -517,17 +517,19 @@ impl axum::extract::FromRequestParts<crate::web::State> for Session {
         /*
          * Decode signature from hex.
          */
+        /// Number of ASCII chars per byte in the encoding.
+        const ASCII_CHARS_COUNT_PER_BYTE: usize = 2; // hex
         let mut sig_bytes: [u8; super::SIGNATURE_SIZE_BYTES] = [0u8; super::SIGNATURE_SIZE_BYTES];
-        if signature_joined_hex.len() != super::SIGNATURE_SIZE_BYTES * 2 {
+        if signature_joined_hex.len() != super::SIGNATURE_SIZE_BYTES * ASCII_CHARS_COUNT_PER_BYTE {
             return Err(axum::http::StatusCode::UNAUTHORIZED);
         }
-        for i in (0..signature_joined_hex.len()).step_by(2) {
-            let byte_hex: &str = &signature_joined_hex[i..i + 2];
+        for i in (0..signature_joined_hex.len()).step_by(ASCII_CHARS_COUNT_PER_BYTE) {
+            let byte_hex: &str = &signature_joined_hex[i..i + ASCII_CHARS_COUNT_PER_BYTE];
             let byte: u8 = match u8::from_str_radix(byte_hex, 16) {
                 Ok(n) => n,
                 Err(_) => return Err(axum::http::StatusCode::UNAUTHORIZED),
             };
-            sig_bytes[i / 2] = byte;
+            sig_bytes[i / ASCII_CHARS_COUNT_PER_BYTE] = byte;
         }
         let signature: libcrux_ml_dsa::ml_dsa_87::MLDSA87Signature =
             libcrux_ml_dsa::ml_dsa_87::MLDSA87Signature::new(sig_bytes);
@@ -546,9 +548,10 @@ impl axum::extract::FromRequestParts<crate::web::State> for Session {
         /*
          * Deserialize the hex encoded JSON session.
          */
-        let mut session_bytes: Vec<u8> = Vec::with_capacity(session_hex.len() / 2);
-        for i in (0..session_hex.len()).step_by(2) {
-            let byte_hex: &str = &session_hex[i..i + 2];
+        let mut session_bytes: Vec<u8> =
+            Vec::with_capacity(session_hex.len() / ASCII_CHARS_COUNT_PER_BYTE);
+        for i in (0..session_hex.len()).step_by(ASCII_CHARS_COUNT_PER_BYTE) {
+            let byte_hex: &str = &session_hex[i..i + ASCII_CHARS_COUNT_PER_BYTE];
             let byte: u8 = match u8::from_str_radix(byte_hex, 16) {
                 Ok(n) => n,
                 Err(_) => return Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR),
