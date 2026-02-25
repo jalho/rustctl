@@ -17,6 +17,7 @@ axum = { workspace = true, features = [
 ] }
 
 chrono = { workspace = true, features = [
+  "serde",
 ] }
 
 clap = { workspace = true, default-features = false, features = [

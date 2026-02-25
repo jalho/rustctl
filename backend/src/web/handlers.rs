@@ -357,10 +357,10 @@ pub async fn poc_require_cookie_signed(
 pub async fn poc_set_cookie_signed(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
 ) -> impl axum::response::IntoResponse {
-    let timestamp: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+    let issued_at: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
 
     let session: Session = Session {
-        issued_at: timestamp.to_rfc3339(),
+        issued_at,
         steam_id: None,
     };
 
@@ -434,7 +434,7 @@ impl<'de> serde::Deserialize<'de> for SteamID {
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Session {
-    issued_at: String,
+    issued_at: chrono::DateTime<chrono::Utc>,
     steam_id: Option<SteamID>,
 }
 
