@@ -597,6 +597,31 @@ impl std::fmt::Display for CredentialID {
     }
 }
 
+impl serde::Serialize for CredentialID {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for CredentialID {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+
+        let bytes = s
+            .split(':')
+            .map(|chunk| u8::from_str_radix(chunk, 16).map_err(serde::de::Error::custom))
+            .collect::<Result<Vec<u8>, D::Error>>()?;
+
+        Ok(CredentialID(bytes))
+    }
+}
+
 /// Example:
 ///
 /// ```

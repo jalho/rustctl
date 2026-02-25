@@ -375,6 +375,7 @@ pub async fn poc_set_cookie_signed(
     let issued_at: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
 
     let session: Session = Session {
+        credential_id: crate::database::CredentialID::new(&[0u8; 32]),
         issued_at,
         steam_id: None,
     };
@@ -449,6 +450,7 @@ impl<'de> serde::Deserialize<'de> for SteamID {
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Session {
+    credential_id: crate::database::CredentialID,
     issued_at: chrono::DateTime<chrono::Utc>,
     steam_id: Option<SteamID>,
 }
