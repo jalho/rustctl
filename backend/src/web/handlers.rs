@@ -404,10 +404,38 @@ const CK_ATTRS: &str = "Path=/; HttpOnly; SameSite=Strict; Secure";
 const CK_NAME_SESSION: &str = "rustctl-session-hex";
 const CK_NAME_SIG: &str = "rustctl-signature-hex";
 
+/// 17-digit Steam ID, as a UTF-8 string.
+///
+/// Example:
+///
+/// ```
+/// "76561198135242017"
+/// ```
+#[derive(serde::Serialize)]
+struct SteamID(String);
+
+impl<'de> serde::Deserialize<'de> for SteamID {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let string: String = String::deserialize(deserializer)?;
+
+        if string.len() == 17 && string.chars().all(|c| c.is_ascii_digit()) {
+            Ok(SteamID(string))
+        } else {
+            Err(serde::de::Error::invalid_value(
+                serde::de::Unexpected::Str(&string),
+                &"a 17-digit numeric string",
+            ))
+        }
+    }
+}
+
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Session {
     issued_at: String,
-    steam_id: Option<String>,
+    steam_id: Option<SteamID>,
 }
 
 impl axum::extract::FromRequestParts<crate::web::State> for Session {
