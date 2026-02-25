@@ -478,7 +478,7 @@ impl axum::extract::FromRequestParts<crate::web::State> for Session {
          * Extract session and its signature from the cookies.
          */
         let mut session_hex_maybe: Option<&str> = None;
-        let mut signature_chunks: std::collections::BTreeMap<usize, &str> =
+        let mut signature_chunks_hex: std::collections::BTreeMap<usize, &str> =
             std::collections::BTreeMap::new();
 
         for cookie in cookie_header.split(';') {
@@ -487,35 +487,42 @@ impl axum::extract::FromRequestParts<crate::web::State> for Session {
             let v: Option<&str> = kv.next().map(|s| s.trim());
 
             if let (Some(key), Some(val)) = (k, v) {
+                /*
+                 * Case single-part cookie for "session".
+                 */
                 if key == CK_NAME_SESSION {
                     session_hex_maybe = Some(val);
-                } else if key.starts_with(CK_NAME_SIG)
+                }
+                /*
+                 * Case multi-part cookie for the "signature" of the "session".
+                 */
+                else if key.starts_with(CK_NAME_SIG)
                     && let Some(index_str) = key
                         .strip_prefix(CK_NAME_SIG)
                         .and_then(|s| s.strip_prefix('-'))
                     && let Ok(index) = index_str.parse::<usize>()
                 {
-                    signature_chunks.insert(index, val);
+                    signature_chunks_hex.insert(index, val);
                 }
             }
         }
 
-        let session_hex = session_hex_maybe.ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
+        let session_hex: &str = session_hex_maybe.ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
 
-        if signature_chunks.is_empty() {
+        if signature_chunks_hex.is_empty() {
             return Err(axum::http::StatusCode::UNAUTHORIZED);
         }
-        let signature_hex: String = signature_chunks.values().cloned().collect();
+        let signature_joined_hex: String = signature_chunks_hex.values().cloned().collect();
 
         /*
          * Decode signature from hex.
          */
         let mut sig_bytes: [u8; super::SIGNATURE_SIZE_BYTES] = [0u8; super::SIGNATURE_SIZE_BYTES];
-        if signature_hex.len() != super::SIGNATURE_SIZE_BYTES * 2 {
+        if signature_joined_hex.len() != super::SIGNATURE_SIZE_BYTES * 2 {
             return Err(axum::http::StatusCode::UNAUTHORIZED);
         }
-        for i in (0..signature_hex.len()).step_by(2) {
-            let byte_hex: &str = &signature_hex[i..i + 2];
+        for i in (0..signature_joined_hex.len()).step_by(2) {
+            let byte_hex: &str = &signature_joined_hex[i..i + 2];
             let byte: u8 = match u8::from_str_radix(byte_hex, 16) {
                 Ok(n) => n,
                 Err(_) => return Err(axum::http::StatusCode::UNAUTHORIZED),
