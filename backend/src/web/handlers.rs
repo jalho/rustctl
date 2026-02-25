@@ -319,6 +319,19 @@ pub async fn auth_sign_in_submit(
      * > Counter value if it is valid per the above check. If you wish you *may*
      * > use the content of the [AuthenticationResult] for extended validations
      * > (such as the user verification flag).
+     *
+     * NOTE: Sometimes the `webauthn_rs::prelude::AuthenticationResult::counter()`
+     *       seems to continuously return 0, as if the passkey store on the client
+     *       device wouldn't increment its internal counter ever.
+     *
+     *       Behavior seen as of commit `f460f7437e5c97b1c40d23663e8b1c1c0ecea5d6`
+     *       on 2026-02-25 on:
+     *
+     *       - Browser: Brave 1.87.190 (Chromium: 145.0.7632.109)
+     *         - OS: Debian 12
+     *
+     *       - Passkey Store: Over Bluetooth to phone: "Samsung Pass"
+     *         - Device: Galaxy S22+ (SM-S906B/DS), OS: Android 16
      */
 
     if (state
