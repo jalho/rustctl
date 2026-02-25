@@ -1,16 +1,16 @@
 #[allow(clippy::large_enum_variant)]
 pub enum DbOp {
     InsertOnePasskey {
-        tx: tokio::sync::oneshot::Sender<()>,
+        tx: tokio::sync::oneshot::Sender<CredentialID>,
         value: queries::PasskeyInsertable,
     },
     SelectOnePasskeyByCredentialId {
         tx: tokio::sync::oneshot::Sender<Option<queries::PasskeySelected>>,
-        selector: Vec<u8>,
+        selector: CredentialID,
     },
     UpdateOnePasskeyByCredentialIdSetCredentialCounter {
         tx: tokio::sync::oneshot::Sender<()>,
-        selector: Vec<u8>,
+        selector: CredentialID,
         value: u32,
     },
 
@@ -88,7 +88,7 @@ impl Client {
     pub async fn insert_one_passkey(
         &mut self,
         value: queries::PasskeyInsertable,
-    ) -> Result<(), ()> {
+    ) -> Result<CredentialID, ()> {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         match self.tx.send(DbOp::InsertOnePasskey { tx, value }).await {
@@ -97,14 +97,14 @@ impl Client {
         }
 
         match rx.await {
-            Ok(_) => Ok(()),
+            Ok(n) => Ok(n),
             Err(_) => Err(()),
         }
     }
 
     pub async fn select_one_passkey_by_credential_id(
         &mut self,
-        selector: &[u8],
+        selector: &CredentialID,
     ) -> Result<Option<queries::PasskeySelected>, ()> {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -112,7 +112,7 @@ impl Client {
             .tx
             .send(DbOp::SelectOnePasskeyByCredentialId {
                 tx,
-                selector: selector.to_vec(),
+                selector: selector.clone(),
             })
             .await
         {
@@ -128,7 +128,7 @@ impl Client {
 
     pub async fn update_one_passkey_by_credential_id_set_credential_counter(
         &mut self,
-        selector: &[u8],
+        selector: &CredentialID,
         value: u32,
     ) -> Result<(), ()> {
         let (tx, rx) = tokio::sync::oneshot::channel();
@@ -137,7 +137,7 @@ impl Client {
             .tx
             .send(DbOp::UpdateOnePasskeyByCredentialIdSetCredentialCounter {
                 tx,
-                selector: selector.to_vec(),
+                selector: selector.clone(),
                 value,
             })
             .await
@@ -251,8 +251,8 @@ impl Engine {
                 DbOp::InsertOnePasskey { tx, value } => {
                     let created_at_utc: chrono::NaiveDateTime = value.created_at.naive_utc();
 
-                    let credential_id: Vec<u8> = value.passkey.cred_id().as_slice().to_vec();
-                    let credential_id_hex: String = to_hex_string(&credential_id);
+                    let credential_id: CredentialID = CredentialID::new(value.passkey.cred_id());
+                    let credential_id_hex: String = credential_id.to_string();
 
                     let passkey_json: serde_json::Value =
                         serde_json::to_value(&value.passkey).unwrap();
@@ -280,20 +280,17 @@ impl Engine {
                     };
                     assert_eq!(inserted_count, 1);
 
-                    match tx.send(()) {
+                    match tx.send(credential_id) {
                         Ok(_) => {}
                         Err(_) => todo!(),
                     }
                 }
 
                 DbOp::SelectOnePasskeyByCredentialId { tx, selector } => {
-                    let credential_id: Vec<u8> = selector;
-                    let credential_id_hex: String = to_hex_string(&credential_id);
-
                     let rows: Vec<tokio_postgres::Row> = match client
                         .query(
                             tables::passkeys::SELECT_ONE_BY_CREDENTIAL_ID,
-                            &[&credential_id_hex],
+                            &[&selector.to_string()],
                         )
                         .await
                     {
@@ -364,15 +361,12 @@ impl Engine {
                     selector,
                     value,
                 } => {
-                    let credential_id: Vec<u8> = selector;
-                    let credential_id_hex: String = to_hex_string(&credential_id);
-
                     let value: i64 = value as i64;
 
                     let modified_count: u64 = match client
                         .execute(
                             tables::passkeys::UPDATE_ONE_BY_CREDENTIAL_ID_SET_CREDENTIAL_COUNTER,
-                            &[&credential_id_hex, &value],
+                            &[&selector.to_string(), &value],
                         )
                         .await
                     {
@@ -394,21 +388,9 @@ impl Engine {
                     let serial_number: &openssl::asn1::Asn1IntegerRef =
                         cert_decoded.serial_number();
 
-                    /*
-                     * Example:
-                     *
-                     * ```
-                     * 2a:28:e9:b6:46:c7:a6:8a:db:76:ee:5f:6c:04:00:7b:dc:e3:ca:0f
-                     * ```
-                     */
-                    let serial_number_hex_x509: String = serial_number
-                        .to_bn()
-                        .unwrap()
-                        .to_vec()
-                        .iter()
-                        .map(|b| format!("{:02x}", b))
-                        .collect::<Vec<String>>()
-                        .join(":");
+                    let serial_number_hex_x509: String = into_colon_delimited_hex_lower_case(
+                        &serial_number.to_bn().unwrap().to_vec(),
+                    );
 
                     let not_before_utc: chrono::NaiveDateTime =
                         crate::web::asn1_to_chrono(cert_decoded.not_before()).naive_utc();
@@ -573,10 +555,6 @@ LIMIT 1;"#;
     }
 }
 
-pub fn to_hex_string(buf: &[u8]) -> String {
-    buf.iter().map(|b| format!("{:02x}", b)).collect()
-}
-
 struct Parameters {
     user: String,
     password: String,
@@ -601,4 +579,33 @@ impl Parameters {
             database: "rustctl".into(),
         }
     }
+}
+
+#[derive(Clone)]
+pub struct CredentialID(Vec<u8>);
+
+impl CredentialID {
+    pub fn new(bytes: &[u8]) -> Self {
+        Self(bytes.to_vec())
+    }
+}
+
+impl std::fmt::Display for CredentialID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let value: String = into_colon_delimited_hex_lower_case(&self.0);
+        write!(f, "{value}")
+    }
+}
+
+/// Example:
+///
+/// ```
+/// "2a:28:e9:b6:46:c7:a6:8a:db:76:ee:5f:6c:04:00:7b:dc:e3:ca:0f"
+/// ```
+fn into_colon_delimited_hex_lower_case(buf: &[u8]) -> String {
+    buf.to_vec()
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect::<Vec<String>>()
+        .join(":")
 }

@@ -192,7 +192,7 @@ pub async fn auth_sign_up_submit(
     };
 
     let created_at: chrono::DateTime<chrono::Utc> = named_pkr.timestamp;
-    if state
+    let inserted_credential_id: crate::database::CredentialID = match state
         .db_client
         .insert_one_passkey(crate::database::queries::PasskeyInsertable {
             created_at,
@@ -200,18 +200,17 @@ pub async fn auth_sign_up_submit(
             passkey: passkey.clone(),
         })
         .await
-        .is_err()
     {
-        return axum::http::StatusCode::INTERNAL_SERVER_ERROR;
-    }
+        Ok(n) => n,
+        Err(_) => return axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+    };
 
     /*
      * TODO: Set-Cookie.
      */
     log::info!(
-        r#"[{transaction_id}] Sign-up: New passkey "{passkey_name}": {credential_id_hex}"#,
+        r#"[{transaction_id}] Sign-up: New passkey "{passkey_name}": {inserted_credential_id}"#,
         transaction_id = &id.to_string()[..8],
-        credential_id_hex = &crate::database::to_hex_string(passkey.cred_id())[..12],
         passkey_name = named_pkr.inner.passkey_name,
     );
     axum::http::StatusCode::NO_CONTENT
@@ -277,11 +276,12 @@ pub async fn auth_sign_in_submit(
         Err(_err) => return axum::http::StatusCode::BAD_REQUEST,
     };
     let _claimed_passkey_id: uuid::Uuid = c_pk_id;
-    let claimed_passkey_cred_id: &[u8] = c_pk_cred_id;
+    let claimed_passkey_cred_id: crate::database::CredentialID =
+        crate::database::CredentialID::new(c_pk_cred_id);
 
     let passkey_seeked: Option<crate::database::queries::PasskeySelected> = match state
         .db_client
-        .select_one_passkey_by_credential_id(claimed_passkey_cred_id)
+        .select_one_passkey_by_credential_id(&claimed_passkey_cred_id)
         .await
     {
         Ok(n) => n,
@@ -295,7 +295,6 @@ pub async fn auth_sign_in_submit(
         Some(_) => return axum::http::StatusCode::UNAUTHORIZED,
         None => passkey_known.passkey,
     };
-    let credential_id_hex: String = crate::database::to_hex_string(passkey_active.cred_id());
 
     let auth_result: webauthn_rs::prelude::AuthenticationResult = match state
         .webauthn
@@ -325,7 +324,7 @@ pub async fn auth_sign_in_submit(
     if (state
         .db_client
         .update_one_passkey_by_credential_id_set_credential_counter(
-            claimed_passkey_cred_id,
+            &claimed_passkey_cred_id,
             credential_counter_new,
         )
         .await)
@@ -338,9 +337,8 @@ pub async fn auth_sign_in_submit(
      * TODO: Set-Cookie.
      */
     log::info!(
-        r#"[{transaction_id}] Sign-in: Existing passkey "{passkey_name}": {credential_id_hex} (#{credential_counter_new})"#,
+        r#"[{transaction_id}] Sign-in: Existing passkey "{passkey_name}": {claimed_passkey_cred_id} (#{credential_counter_new})"#,
         transaction_id = &id.to_string()[..8],
-        credential_id_hex = &credential_id_hex[..12],
         passkey_name = passkey_known.passkey_name,
     );
     axum::http::StatusCode::NO_CONTENT
@@ -354,6 +352,10 @@ pub async fn poc_require_cookie_signed(
     axum::http::StatusCode::NO_CONTENT
 }
 
+fn to_hex_string(buf: &[u8]) -> String {
+    buf.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
 pub async fn poc_set_cookie_signed(
     axum::extract::State(state): axum::extract::State<crate::web::State>,
 ) -> impl axum::response::IntoResponse {
@@ -365,7 +367,7 @@ pub async fn poc_set_cookie_signed(
     };
 
     let session_json: String = serde_json::to_string(&session).unwrap();
-    let session_hex: String = crate::database::to_hex_string(session_json.as_bytes());
+    let session_hex: String = to_hex_string(session_json.as_bytes());
 
     let mut signing_randomness: [u8; libcrux_ml_dsa::SIGNING_RANDOMNESS_SIZE] =
         [0u8; libcrux_ml_dsa::SIGNING_RANDOMNESS_SIZE];
@@ -382,7 +384,7 @@ pub async fn poc_set_cookie_signed(
     )
     .unwrap();
 
-    let signature_hex: String = crate::database::to_hex_string(signature_obj.as_slice());
+    let signature_hex: String = to_hex_string(signature_obj.as_slice());
 
     let mut response_builder =
         axum::response::Response::builder().status(axum::http::StatusCode::NO_CONTENT);
