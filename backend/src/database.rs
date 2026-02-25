@@ -476,7 +476,7 @@ mod tables {
   created_at_utc     TIMESTAMP    NOT NULL,
   credential_counter INT8         NOT NULL,
   passkey_name       TEXT         NOT NULL,
-  credential_id_hex  VARCHAR(128) PRIMARY KEY,
+  credential_id_hex  TEXT         PRIMARY KEY,
   passkey_json       JSONB        NOT NULL,
   invalidated_at_utc TIMESTAMP    DEFAULT NULL
 );"#;
