@@ -152,38 +152,41 @@ pub async fn serve(
 
         let tcp_listener: tokio::net::TcpListener =
             tokio::net::TcpListener::bind(addr).await.unwrap();
+        log::info!("HTTPS server bound to {addr}");
 
         let router: axum::Router = router;
 
         /*
-         * TODO: Loop accept.
+         * TODO: Accept multiple connections without rebinding TCP listener.
+         *
+         * TODO: Gracefully restart HTTPS server when signaled by `rx_cmd_from_controller`.
          */
 
-        let (tcp_stream, _socket_addr): (tokio::net::TcpStream, std::net::SocketAddr) =
-            tcp_listener.accept().await.unwrap();
-
-        let tls_stream: tokio_rustls::server::TlsStream<tokio::net::TcpStream> =
-            tls_acceptor.accept(tcp_stream).await.unwrap();
-
-        let io: hyper_util::rt::TokioIo<tokio_rustls::server::TlsStream<tokio::net::TcpStream>> =
-            hyper_util::rt::TokioIo::new(tls_stream);
-
-        let service: hyper_util::service::TowerToHyperService<axum::Router> =
-            hyper_util::service::TowerToHyperService::new(router);
-
-        /*
-         * TODO: Restart HTTP(S) server when signaled by `rx_cmd_from_controller`
-         */
-
-        hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new())
-            .serve_connection(io, service)
-            .await
-            .unwrap();
-
-        /*
-         * TODO: Graceful shutdown of HTTP(S) server.
-         */
+        handle_connection(tcp_listener, tls_acceptor, router).await;
     }
+}
+
+async fn handle_connection(
+    tcp_listener: tokio::net::TcpListener,
+    tls_acceptor: tokio_rustls::TlsAcceptor,
+    router: axum::Router,
+) {
+    let (tcp_stream, _socket_addr): (tokio::net::TcpStream, std::net::SocketAddr) =
+        tcp_listener.accept().await.unwrap();
+
+    let tls_stream: tokio_rustls::server::TlsStream<tokio::net::TcpStream> =
+        tls_acceptor.accept(tcp_stream).await.unwrap();
+
+    let io: hyper_util::rt::TokioIo<tokio_rustls::server::TlsStream<tokio::net::TcpStream>> =
+        hyper_util::rt::TokioIo::new(tls_stream);
+
+    let service: hyper_util::service::TowerToHyperService<axum::Router> =
+        hyper_util::service::TowerToHyperService::new(router);
+
+    hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new())
+        .serve_connection(io, service)
+        .await
+        .unwrap();
 }
 
 #[derive(Clone)]
@@ -255,23 +258,6 @@ impl State {
             db_client,
 
             signing_keypair: std::sync::Arc::new(signing_keypair),
-        }
-    }
-}
-
-enum Scheme {
-    Https {
-        server_cfg: rustls::server::ServerConfig,
-    },
-
-    Http,
-}
-
-impl Scheme {
-    pub fn to_url_scheme(&self) -> &str {
-        match self {
-            Scheme::Https { .. } => "https",
-            Scheme::Http => "http",
         }
     }
 }
