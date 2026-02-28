@@ -75,6 +75,7 @@ rustls-pki-types = { workspace = true, features = [
 
 rustls = { workspace = true, features = [
   "aws_lc_rs",
+  "prefer-post-quantum",
   "std",
 ] }
 

@@ -55,10 +55,6 @@ pub async fn serve(
         );
 
         /*
-         * TODO: Use PQC in TLS.
-         */
-
-        /*
          * TLS server config.
          */
         const DOMAIN_NAME: &str = "rustctl.internal";
@@ -108,8 +104,12 @@ pub async fn serve(
             }
         };
 
-        let crypto_provider: rustls::crypto::CryptoProvider =
+        let mut crypto_provider: rustls::crypto::CryptoProvider =
             rustls::crypto::aws_lc_rs::default_provider();
+        /*
+         * Enforce Post Quantum Cryptography (PQC) compliant algorithm.
+         */
+        crypto_provider.kx_groups = vec![rustls::crypto::aws_lc_rs::kx_group::X25519MLKEM768];
 
         let server_cfg_builder: rustls::ConfigBuilder<rustls::ServerConfig, rustls::WantsVersions> =
             rustls::ServerConfig::builder_with_provider(crypto_provider.into());
@@ -187,11 +187,19 @@ async fn handle_connections(
                  * TCP connection.
                  */
                 let (tcp_stream, _socket_addr): (tokio::net::TcpStream, std::net::SocketAddr) = conn.unwrap();
+                log::debug!("TCP connection accepted: {tcp_stream:?}");
 
                 /*
                  * TLS connection.
                  */
-                let tls_stream: tokio_rustls::server::TlsStream<tokio::net::TcpStream> = tls_acceptor.accept(tcp_stream).await.unwrap();
+                let tls_stream: tokio_rustls::server::TlsStream<tokio::net::TcpStream> = match tls_acceptor.accept(tcp_stream).await {
+                    Ok(n) => n,
+                    Err(err) => {
+                        log::error!("{err}", err = crate::get_full_error_message(&err));
+                        continue 'accept_connections;
+                    },
+                };
+                log::debug!("TLS connection accepted: {tls_stream:?}");
 
                 /*
                  * Glue between a bunch of libraries.
