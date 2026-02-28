@@ -89,16 +89,15 @@ impl Expose {
                 private_key_pem.as_bytes(),
             )
             .unwrap();
+
         let certificate: rustls_pki_types::CertificateDer<'static> =
-            rustls::pki_types::CertificateDer::from_slice(certificate_pem.as_bytes()).into_owned();
+            <rustls::pki_types::CertificateDer as rustls_pki_types::pem::PemObject>::from_pem_slice(certificate_pem.as_bytes()).unwrap();
         let certificates: Vec<rustls::pki_types::CertificateDer> = vec![certificate];
-        let tls_server_cfg: rustls::ServerConfig = server_cfg_builder
+        let server_cfg: rustls::ServerConfig = server_cfg_builder
             .with_single_cert(certificates, private_key)
             .unwrap();
 
-        Scheme::Https {
-            tls_config: tls_server_cfg,
-        }
+        Scheme::Https { server_cfg }
     }
 }
 
@@ -181,7 +180,9 @@ pub async fn serve(
             /*
              * TODO: Use PQC in TLS too.
              */
-            Scheme::Https { tls_config } => {
+            Scheme::Https {
+                server_cfg: tls_config,
+            } => {
                 let tls_config: rustls::ServerConfig = tls_config;
 
                 let tls_acceptor: tokio_rustls::TlsAcceptor =
@@ -306,7 +307,7 @@ impl State {
 
 enum Scheme {
     Https {
-        tls_config: rustls::server::ServerConfig,
+        server_cfg: rustls::server::ServerConfig,
     },
 
     Http,
