@@ -1,24 +1,67 @@
 mod handlers;
 
-pub enum Expose {
-    LocalLoopback,
-    Any,
-}
+pub async fn serve(
+    tx_cmd_from_web_client: tokio::sync::mpsc::Sender<crate::ctl::CommandFromWebClient>,
+    mut db_client: crate::database::Client,
+    rx_cmd_from_controller: std::sync::Arc<
+        tokio::sync::Mutex<tokio::sync::mpsc::Receiver<crate::ctl::CommandFromController>>,
+    >,
+) {
+    loop {
+        let mut router: axum::Router<State> = axum::Router::new();
 
-impl Expose {
-    pub fn domain_name(&self) -> &str {
-        match self {
-            Expose::LocalLoopback => "localhost",
-            Expose::Any => "rustctl.internal",
-        }
-    }
+        /*
+         * Public static web content routes.
+         */
+        router = router.route("/", axum::routing::get(handlers::web));
+        router = router.route("/favicon.ico", axum::routing::get(handlers::favicon));
 
-    async fn to_scheme(&self, db_client: &mut crate::database::Client) -> Scheme {
-        match self {
-            Expose::LocalLoopback => return Scheme::Http,
-            Expose::Any => {}
-        }
+        /*
+         * Logic routes.
+         *
+         * TODO: Add access control to some of the logic routes (post-auth).
+         */
+        router = router.route(
+            "/poc/cookie/set",
+            axum::routing::post(handlers::poc_set_cookie_signed),
+        );
+        router = router.route(
+            "/poc/cookie/require",
+            axum::routing::post(handlers::poc_require_cookie_signed),
+        );
+        router = router.route(
+            shared::SIGN_UP_CHALLENGE,
+            axum::routing::post(handlers::auth_sign_up_challenge),
+        );
+        router = router.route(
+            shared::SIGN_UP_SUBMIT,
+            axum::routing::post(handlers::auth_sign_up_submit),
+        );
+        router = router.route(
+            shared::SIGN_IN_CHALLENGE,
+            axum::routing::post(handlers::auth_sign_in_challenge),
+        );
+        router = router.route(
+            shared::SIGN_IN_SUBMIT,
+            axum::routing::post(handlers::auth_sign_in_submit),
+        );
+        router = router.route(
+            "/cmd/system/reboot",
+            axum::routing::post(handlers::reboot_system),
+        );
+        router = router.route(
+            "/cmd/web/restart",
+            axum::routing::post(handlers::restart_web_server),
+        );
 
+        /*
+         * TODO: Use PQC in TLS.
+         */
+
+        /*
+         * TLS server config.
+         */
+        const DOMAIN_NAME: &str = "rustctl.internal";
         let stored: Option<crate::database::queries::TlsPemSelected> =
             db_client.select_tls_pem_latest().await.unwrap();
 
@@ -31,14 +74,12 @@ impl Expose {
             None => {
                 let mut params: rcgen::CertificateParams = rcgen::CertificateParams::default();
 
-                let domain_name: &str = self.domain_name();
-
                 params.distinguished_name = rcgen::DistinguishedName::new();
                 params
                     .distinguished_name
-                    .push(rcgen::DnType::CommonName, domain_name);
+                    .push(rcgen::DnType::CommonName, DOMAIN_NAME);
                 params.subject_alt_names = vec![rcgen::SanType::DnsName(
-                    domain_name.to_string().try_into().unwrap(),
+                    DOMAIN_NAME.to_string().try_into().unwrap(),
                 )];
 
                 let key_pair: rcgen::KeyPair = rcgen::KeyPair::generate().unwrap();
@@ -97,137 +138,51 @@ impl Expose {
             .with_single_cert(certificates, private_key)
             .unwrap();
 
-        Scheme::Https { server_cfg }
-    }
-}
+        let addr: std::net::SocketAddr = "127.0.0.1:8080".parse().unwrap();
 
-impl From<&Expose> for std::net::SocketAddr {
-    fn from(value: &Expose) -> Self {
-        match value {
-            Expose::LocalLoopback => "127.0.0.1:8080".parse().unwrap(),
-            Expose::Any => "0.0.0.0:8080".parse().unwrap(),
-        }
-    }
-}
-
-pub async fn serve(
-    expose: &Expose,
-    tx_cmd_from_web_client: tokio::sync::mpsc::Sender<crate::ctl::CommandFromWebClient>,
-    mut db_client: crate::database::Client,
-    rx_cmd_from_controller: std::sync::Arc<
-        tokio::sync::Mutex<tokio::sync::mpsc::Receiver<crate::ctl::CommandFromController>>,
-    >,
-) {
-    loop {
-        let mut router: axum::Router<State> = axum::Router::new();
-
-        /*
-         * Public static web content routes.
-         */
-        router = router.route("/", axum::routing::get(handlers::web));
-        router = router.route("/favicon.ico", axum::routing::get(handlers::favicon));
-
-        /*
-         * Logic routes.
-         *
-         * TODO: Add access control to some of the logic routes (post-auth).
-         */
-        router = router.route(
-            "/poc/cookie/set",
-            axum::routing::post(handlers::poc_set_cookie_signed),
-        );
-        router = router.route(
-            "/poc/cookie/require",
-            axum::routing::post(handlers::poc_require_cookie_signed),
-        );
-        router = router.route(
-            shared::SIGN_UP_CHALLENGE,
-            axum::routing::post(handlers::auth_sign_up_challenge),
-        );
-        router = router.route(
-            shared::SIGN_UP_SUBMIT,
-            axum::routing::post(handlers::auth_sign_up_submit),
-        );
-        router = router.route(
-            shared::SIGN_IN_CHALLENGE,
-            axum::routing::post(handlers::auth_sign_in_challenge),
-        );
-        router = router.route(
-            shared::SIGN_IN_SUBMIT,
-            axum::routing::post(handlers::auth_sign_in_submit),
-        );
-        router = router.route(
-            "/cmd/system/reboot",
-            axum::routing::post(handlers::reboot_system),
-        );
-        router = router.route(
-            "/cmd/web/restart",
-            axum::routing::post(handlers::restart_web_server),
-        );
-
-        log::info!("Web server starting");
-        let scheme: Scheme = expose.to_scheme(&mut db_client).await;
-        let addr: std::net::SocketAddr = expose.into();
         let router: axum::Router = router.with_state(State::new(
             tx_cmd_from_web_client.clone(),
-            scheme.to_url_scheme(),
-            expose.domain_name(),
+            DOMAIN_NAME,
             addr.port(),
             db_client.clone(),
         ));
 
-        match scheme {
-            /*
-             * TODO: Use PQC in TLS too.
-             */
-            Scheme::Https {
-                server_cfg: tls_config,
-            } => {
-                let tls_config: rustls::ServerConfig = tls_config;
+        let tls_acceptor: tokio_rustls::TlsAcceptor =
+            tokio_rustls::TlsAcceptor::from(std::sync::Arc::new(server_cfg));
 
-                let tls_acceptor: tokio_rustls::TlsAcceptor =
-                    tokio_rustls::TlsAcceptor::from(std::sync::Arc::new(tls_config));
+        let tcp_listener: tokio::net::TcpListener =
+            tokio::net::TcpListener::bind(addr).await.unwrap();
 
-                let tcp_listener: tokio::net::TcpListener =
-                    tokio::net::TcpListener::bind(addr).await.unwrap();
+        let router: axum::Router = router;
 
-                let router: axum::Router = router;
+        /*
+         * TODO: Loop accept.
+         */
 
-                /*
-                 * TODO: Loop accept.
-                 */
+        let (tcp_stream, _socket_addr): (tokio::net::TcpStream, std::net::SocketAddr) =
+            tcp_listener.accept().await.unwrap();
 
-                let (tcp_stream, _socket_addr): (tokio::net::TcpStream, std::net::SocketAddr) =
-                    tcp_listener.accept().await.unwrap();
+        let tls_stream: tokio_rustls::server::TlsStream<tokio::net::TcpStream> =
+            tls_acceptor.accept(tcp_stream).await.unwrap();
 
-                let tls_stream: tokio_rustls::server::TlsStream<tokio::net::TcpStream> =
-                    tls_acceptor.accept(tcp_stream).await.unwrap();
+        let io: hyper_util::rt::TokioIo<tokio_rustls::server::TlsStream<tokio::net::TcpStream>> =
+            hyper_util::rt::TokioIo::new(tls_stream);
 
-                let io: hyper_util::rt::TokioIo<
-                    tokio_rustls::server::TlsStream<tokio::net::TcpStream>,
-                > = hyper_util::rt::TokioIo::new(tls_stream);
+        let service: hyper_util::service::TowerToHyperService<axum::Router> =
+            hyper_util::service::TowerToHyperService::new(router);
 
-                let service: hyper_util::service::TowerToHyperService<axum::Router> =
-                    hyper_util::service::TowerToHyperService::new(router);
+        /*
+         * TODO: Restart HTTP(S) server when signaled by `rx_cmd_from_controller`
+         */
 
-                /*
-                 * TODO: Restart HTTP(S) server when signaled by `rx_cmd_from_controller`
-                 */
+        hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new())
+            .serve_connection(io, service)
+            .await
+            .unwrap();
 
-                hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new())
-                    .serve_connection(io, service)
-                    .await
-                    .unwrap();
-
-                /*
-                 * TODO: Graceful shutdown of HTTP(S) server.
-                 */
-            }
-
-            Scheme::Http => {
-                todo!("non-tls http server");
-            }
-        }
+        /*
+         * TODO: Graceful shutdown of HTTP(S) server.
+         */
     }
 }
 
@@ -260,7 +215,6 @@ struct State {
 impl State {
     fn new(
         tx: tokio::sync::mpsc::Sender<crate::ctl::CommandFromWebClient>,
-        scheme: &str,
         domain_name: &str,
         port: u16,
         db_client: crate::database::Client,
@@ -268,7 +222,7 @@ impl State {
         let (rp_id, rp_origin): (&str, url::Url) = {
             let rp_id: &str = domain_name;
 
-            let rp_origin: url::Url = format!("{scheme}://{domain_name}:{port}").parse().unwrap();
+            let rp_origin: url::Url = format!("https://{domain_name}:{port}").parse().unwrap();
 
             (rp_id, rp_origin)
         };

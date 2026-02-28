@@ -68,12 +68,6 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
             let (tx_cmd_from_controller, rx_cmd_from_controller) =
                 tokio::sync::mpsc::channel::<ctl::CommandFromController>(1);
 
-            let expose: web::Expose = if cfg!(debug_assertions) {
-                web::Expose::LocalLoopback
-            } else {
-                web::Expose::Any
-            };
-
             /*
              * Each task here is supposed to run indefinitely. Therefore, any
              * premature termination should be logged as an ERROR, and in any
@@ -86,7 +80,7 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
                 _ = game::log_game_server_output() => {
                     log::error!("Task terminated: game::log_game_server_output");
                 }
-                _ = web::serve(&expose, tx_cmd_from_web_client, db_client.clone(), std::sync::Arc::new(tokio::sync::Mutex::new(rx_cmd_from_controller))) => {
+                _ = web::serve(tx_cmd_from_web_client, db_client.clone(), std::sync::Arc::new(tokio::sync::Mutex::new(rx_cmd_from_controller))) => {
                     log::error!("Task terminated: web::serve");
                 }
                 _ = ctl::handle_commands_from_web_clients(rx_cmd_from_web_client, tx_cmd_from_controller) => {
