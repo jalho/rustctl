@@ -112,6 +112,8 @@ pub async fn serve(
         crypto_provider.kx_groups = vec![
             /*
              * Enforce Post Quantum Cryptography (PQC) compliant algorithm.
+             *
+             * TODO: Use PQC (ML-DSA) for cert authentication too.
              */
             rustls::crypto::aws_lc_rs::kx_group::X25519MLKEM768,
         ];
