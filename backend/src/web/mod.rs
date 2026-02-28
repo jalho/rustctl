@@ -154,39 +154,43 @@ pub async fn serve(
             tokio::net::TcpListener::bind(addr).await.unwrap();
         log::info!("HTTPS server bound to {addr}");
 
-        let router: axum::Router = router;
+        let router: std::sync::Arc<axum::Router> = std::sync::Arc::new(router);
 
         /*
-         * TODO: Accept multiple connections without rebinding TCP listener.
-         *
          * TODO: Gracefully restart HTTPS server when signaled by `rx_cmd_from_controller`.
          */
 
-        handle_connection(tcp_listener, tls_acceptor, router).await;
+        let task = tokio::spawn(handle_connections(
+            tcp_listener,
+            tls_acceptor,
+            router.clone(),
+        ));
+        let _done = task.await;
     }
 }
 
-async fn handle_connection(
+async fn handle_connections(
     tcp_listener: tokio::net::TcpListener,
     tls_acceptor: tokio_rustls::TlsAcceptor,
-    router: axum::Router,
+    router: std::sync::Arc<axum::Router>,
 ) {
-    let (tcp_stream, _socket_addr): (tokio::net::TcpStream, std::net::SocketAddr) =
-        tcp_listener.accept().await.unwrap();
+    loop {
+        let (tcp_stream, _socket_addr): (tokio::net::TcpStream, std::net::SocketAddr) =
+            tcp_listener.accept().await.unwrap();
 
-    let tls_stream: tokio_rustls::server::TlsStream<tokio::net::TcpStream> =
-        tls_acceptor.accept(tcp_stream).await.unwrap();
+        let tls_stream: tokio_rustls::server::TlsStream<tokio::net::TcpStream> =
+            tls_acceptor.accept(tcp_stream).await.unwrap();
 
-    let io: hyper_util::rt::TokioIo<tokio_rustls::server::TlsStream<tokio::net::TcpStream>> =
-        hyper_util::rt::TokioIo::new(tls_stream);
+        let io: hyper_util::rt::TokioIo<tokio_rustls::server::TlsStream<tokio::net::TcpStream>> =
+            hyper_util::rt::TokioIo::new(tls_stream);
 
-    let service: hyper_util::service::TowerToHyperService<axum::Router> =
-        hyper_util::service::TowerToHyperService::new(router);
+        let service = hyper_util::service::TowerToHyperService::new((*router).clone());
 
-    hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new())
-        .serve_connection(io, service)
-        .await
-        .unwrap();
+        hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new())
+            .serve_connection(io, service)
+            .await
+            .unwrap();
+    }
 }
 
 #[derive(Clone)]
