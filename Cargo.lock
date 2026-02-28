@@ -256,6 +256,7 @@ dependencies = [
  "chrono",
  "clap",
  "futures-util",
+ "hyper",
  "hyper-util",
  "libcrux-ml-dsa",
  "log",

@@ -156,14 +156,11 @@ pub async fn serve(
 
         let router: std::sync::Arc<axum::Router> = std::sync::Arc::new(router);
 
-        /*
-         * TODO: Gracefully restart HTTPS server when signaled by `rx_cmd_from_controller`.
-         */
-
         let task = tokio::spawn(handle_connections(
             tcp_listener,
             tls_acceptor,
             router.clone(),
+            rx_cmd_from_controller.clone(),
         ));
         let _done = task.await;
     }
@@ -173,23 +170,55 @@ async fn handle_connections(
     tcp_listener: tokio::net::TcpListener,
     tls_acceptor: tokio_rustls::TlsAcceptor,
     router: std::sync::Arc<axum::Router>,
+    rx_cmd_from_controller: std::sync::Arc<
+        tokio::sync::Mutex<tokio::sync::mpsc::Receiver<crate::ctl::CommandFromController>>,
+    >,
 ) {
-    loop {
-        let (tcp_stream, _socket_addr): (tokio::net::TcpStream, std::net::SocketAddr) =
-            tcp_listener.accept().await.unwrap();
+    let mut rx_cmd_from_controller = rx_cmd_from_controller.lock().await;
+    let http_server_builder: hyper::server::conn::http1::Builder =
+        hyper::server::conn::http1::Builder::new();
+    let graceful_shutdown: hyper_util::server::graceful::GracefulShutdown =
+        hyper_util::server::graceful::GracefulShutdown::new();
 
-        let tls_stream: tokio_rustls::server::TlsStream<tokio::net::TcpStream> =
-            tls_acceptor.accept(tcp_stream).await.unwrap();
+    'accept_connections: loop {
+        tokio::select! {
+            conn = tcp_listener.accept() => {
+                /*
+                 * TCP connection.
+                 */
+                let (tcp_stream, _socket_addr): (tokio::net::TcpStream, std::net::SocketAddr) = conn.unwrap();
 
-        let io: hyper_util::rt::TokioIo<tokio_rustls::server::TlsStream<tokio::net::TcpStream>> =
-            hyper_util::rt::TokioIo::new(tls_stream);
+                /*
+                 * TLS connection.
+                 */
+                let tls_stream: tokio_rustls::server::TlsStream<tokio::net::TcpStream> = tls_acceptor.accept(tcp_stream).await.unwrap();
 
-        let service = hyper_util::service::TowerToHyperService::new((*router).clone());
+                /*
+                 * Glue between a bunch of libraries.
+                 */
+                let io: hyper_util::rt::TokioIo<_> = hyper_util::rt::TokioIo::new(tls_stream);
+                let service: hyper_util::service::TowerToHyperService<_>  = hyper_util::service::TowerToHyperService::new((*router).clone());
+                let http_connection: hyper::server::conn::http1::Connection<_, _> = http_server_builder.serve_connection(io, service);
 
-        hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new())
-            .serve_connection(io, service)
-            .await
-            .unwrap();
+                /*
+                 * Register connection for draining in graceful shutdown.
+                 */
+                let job = graceful_shutdown.watch(http_connection);
+
+                let _task = tokio::spawn(job);
+            }
+
+            _ = rx_cmd_from_controller.recv() => {
+                break 'accept_connections;
+            }
+        }
+    }
+
+    let connections: usize = graceful_shutdown.count();
+    log::info!("HTTPS server shutting down ({connections} active connections)");
+    graceful_shutdown.shutdown().await;
+    if connections > 0 {
+        log::info!("All connections drained");
     }
 }
 

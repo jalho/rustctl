@@ -29,6 +29,11 @@ futures-util = { workspace = true, default-features = false, features = [
 ] }
 
 hyper-util = { workspace = true, default-features = false, features = [
+  "http1",
+  "server-graceful",
+] }
+
+hyper = { workspace = true, default-features = false, features = [
 ] }
 
 libcrux-ml-dsa = { workspace = true, default-features = false, features = [
