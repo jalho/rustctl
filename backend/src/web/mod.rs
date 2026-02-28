@@ -214,6 +214,9 @@ async fn handle_connections(
         }
     }
 
+    /*
+     * TODO: Add timeout in case a client hangs onto a connection.
+     */
     let connections: usize = graceful_shutdown.count();
     log::info!("HTTPS server shutting down ({connections} active connections)");
     graceful_shutdown.shutdown().await;
