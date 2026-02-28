@@ -180,49 +180,51 @@ pub async fn serve(
         match scheme {
             /*
              * TODO: Use PQC in TLS too.
-             *
-             *       Possibly useful: https://github.com/rustls/rustls/issues/2577
              */
             Scheme::Https { tls_config } => {
-                let handle: axum_server::Handle<std::net::SocketAddr> = axum_server::Handle::new();
+                let tls_config: rustls::ServerConfig = tls_config;
 
-                let server: axum_server::Server<
-                    std::net::SocketAddr,
-                    axum_server::tls_rustls::RustlsAcceptor,
-                > = axum_server::bind_rustls(addr, tls_config).handle(handle.clone());
+                let tls_acceptor: tokio_rustls::TlsAcceptor =
+                    tokio_rustls::TlsAcceptor::from(std::sync::Arc::new(tls_config));
 
-                let job_serving = server.serve(router.into_make_service());
+                let tcp_listener: tokio::net::TcpListener =
+                    tokio::net::TcpListener::bind(addr).await.unwrap();
 
-                let rx_cmd_from_controller = rx_cmd_from_controller.clone();
-                let job_termination: tokio::task::JoinHandle<()> = tokio::spawn(async move {
-                    let _received: crate::ctl::CommandFromController =
-                        rx_cmd_from_controller.lock().await.recv().await.unwrap();
-                    handle.graceful_shutdown(None);
-                });
+                let router: axum::Router = router;
 
-                job_serving.await.unwrap();
-                job_termination.await.unwrap();
-                log::info!("TLS web server stopped");
+                /*
+                 * TODO: Loop accept.
+                 */
+
+                let (tcp_stream, _socket_addr): (tokio::net::TcpStream, std::net::SocketAddr) =
+                    tcp_listener.accept().await.unwrap();
+
+                let tls_stream: tokio_rustls::server::TlsStream<tokio::net::TcpStream> =
+                    tls_acceptor.accept(tcp_stream).await.unwrap();
+
+                let io: hyper_util::rt::TokioIo<
+                    tokio_rustls::server::TlsStream<tokio::net::TcpStream>,
+                > = hyper_util::rt::TokioIo::new(tls_stream);
+
+                let service: hyper_util::service::TowerToHyperService<axum::Router> =
+                    hyper_util::service::TowerToHyperService::new(router);
+
+                /*
+                 * TODO: Restart HTTP(S) server when signaled by `rx_cmd_from_controller`
+                 */
+
+                hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new())
+                    .serve_connection(io, service)
+                    .await
+                    .unwrap();
+
+                /*
+                 * TODO: Graceful shutdown of HTTP(S) server.
+                 */
             }
 
             Scheme::Http => {
-                let handle: axum_server::Handle<std::net::SocketAddr> = axum_server::Handle::new();
-
-                let server: axum_server::Server<std::net::SocketAddr> =
-                    axum_server::bind(addr).handle(handle.clone());
-
-                let job_serving = server.serve(router.into_make_service());
-
-                let rx_cmd_from_controller = rx_cmd_from_controller.clone();
-                let job_termination: tokio::task::JoinHandle<()> = tokio::spawn(async move {
-                    let _received: crate::ctl::CommandFromController =
-                        rx_cmd_from_controller.lock().await.recv().await.unwrap();
-                    handle.graceful_shutdown(None);
-                });
-
-                job_serving.await.unwrap();
-                job_termination.await.unwrap();
-                log::info!("Web server stopped");
+                todo!("non-tls http server");
             }
         }
     }
