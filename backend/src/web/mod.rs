@@ -17,17 +17,11 @@ pub async fn serve(
         router = router.route("/favicon.ico", axum::routing::get(handlers::favicon));
 
         /*
-         * Logic routes.
-         *
-         * TODO: Add access control to some of the logic routes (post-auth).
+         * Pre-auth routes.
          */
         router = router.route(
             "/poc/cookie/set",
             axum::routing::post(handlers::poc_set_cookie_signed),
-        );
-        router = router.route(
-            "/poc/cookie/require",
-            axum::routing::post(handlers::poc_require_cookie_signed),
         );
         router = router.route(
             shared::SIGN_UP_CHALLENGE,
@@ -44,6 +38,15 @@ pub async fn serve(
         router = router.route(
             shared::SIGN_IN_SUBMIT,
             axum::routing::post(handlers::auth_sign_in_submit),
+        );
+        /*
+         * Post-auth routes.
+         *
+         * TODO: Add access control.
+         */
+        router = router.route(
+            "/poc/cookie/require",
+            axum::routing::post(handlers::poc_require_cookie_signed),
         );
         router = router.route(
             "/cmd/system/reboot",
@@ -106,10 +109,12 @@ pub async fn serve(
 
         let mut crypto_provider: rustls::crypto::CryptoProvider =
             rustls::crypto::aws_lc_rs::default_provider();
-        /*
-         * Enforce Post Quantum Cryptography (PQC) compliant algorithm.
-         */
-        crypto_provider.kx_groups = vec![rustls::crypto::aws_lc_rs::kx_group::X25519MLKEM768];
+        crypto_provider.kx_groups = vec![
+            /*
+             * Enforce Post Quantum Cryptography (PQC) compliant algorithm.
+             */
+            rustls::crypto::aws_lc_rs::kx_group::X25519MLKEM768,
+        ];
 
         let server_cfg_builder: rustls::ConfigBuilder<rustls::ServerConfig, rustls::WantsVersions> =
             rustls::ServerConfig::builder_with_provider(crypto_provider.into());
