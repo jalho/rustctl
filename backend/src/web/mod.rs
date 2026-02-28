@@ -22,24 +22,12 @@ impl Expose {
         let stored: Option<crate::database::queries::TlsPemSelected> =
             db_client.select_tls_pem_latest().await.unwrap();
 
-        let tls_config: axum_server::tls_rustls::RustlsConfig = match stored {
-            Some(existing) => {
-                let cert_decoded: openssl::x509::X509 =
-                    openssl::x509::X509::from_pem(existing.certificate_pem.as_bytes()).unwrap();
-                log::info!(
-                    "Using existing TLS server certificate: [{not_before}, {not_after}]",
-                    not_before = asn1_to_chrono(cert_decoded.not_before()),
-                    not_after = asn1_to_chrono(cert_decoded.not_after()),
-                );
-
-                axum_server::tls_rustls::RustlsConfig::from_pem(
-                    existing.certificate_pem.as_bytes().to_vec(),
-                    existing.private_key_pem.as_bytes().to_vec(),
-                )
-                .await
-                .unwrap()
+        let (private_key_pem, certificate_pem): (String, String) = match stored {
+            Some(n) => {
+                let private_key_pem: String = n.private_key_pem;
+                let certificate_pem: String = n.certificate_pem;
+                (private_key_pem, certificate_pem)
             }
-
             None => {
                 let mut params: rcgen::CertificateParams = rcgen::CertificateParams::default();
 
@@ -75,16 +63,42 @@ impl Expose {
                     not_after = asn1_to_chrono(cert_decoded.not_after()),
                 );
 
-                axum_server::tls_rustls::RustlsConfig::from_pem(
-                    certificate_pem.as_bytes().to_vec(),
-                    private_key_pem.as_bytes().to_vec(),
-                )
-                .await
-                .unwrap()
+                (private_key_pem, certificate_pem)
             }
         };
 
-        Scheme::Https { tls_config }
+        let crypto_provider: rustls::crypto::CryptoProvider =
+            rustls::crypto::aws_lc_rs::default_provider();
+
+        let server_cfg_builder: rustls::ConfigBuilder<rustls::ServerConfig, rustls::WantsVersions> =
+            rustls::ServerConfig::builder_with_provider(crypto_provider.into());
+        let server_cfg_builder: rustls::ConfigBuilder<rustls::ServerConfig, rustls::WantsVerifier> =
+            server_cfg_builder
+                .with_protocol_versions(&[&rustls::version::TLS13])
+                .unwrap();
+        let client_cert_verifier: std::sync::Arc<
+            dyn rustls::server::danger::ClientCertVerifier + 'static,
+        > = rustls::server::WebPkiClientVerifier::no_client_auth();
+        let server_cfg_builder: rustls::ConfigBuilder<
+            rustls::ServerConfig,
+            rustls::server::WantsServerCert,
+        > = server_cfg_builder.with_client_cert_verifier(client_cert_verifier);
+
+        let private_key: rustls::pki_types::PrivateKeyDer =
+            <rustls::pki_types::PrivateKeyDer as rustls_pki_types::pem::PemObject>::from_pem_slice(
+                private_key_pem.as_bytes(),
+            )
+            .unwrap();
+        let certificate: rustls_pki_types::CertificateDer<'static> =
+            rustls::pki_types::CertificateDer::from_slice(certificate_pem.as_bytes()).into_owned();
+        let certificates: Vec<rustls::pki_types::CertificateDer> = vec![certificate];
+        let tls_server_cfg: rustls::ServerConfig = server_cfg_builder
+            .with_single_cert(certificates, private_key)
+            .unwrap();
+
+        Scheme::Https {
+            tls_config: tls_server_cfg,
+        }
     }
 }
 
@@ -290,7 +304,7 @@ impl State {
 
 enum Scheme {
     Https {
-        tls_config: axum_server::tls_rustls::RustlsConfig,
+        tls_config: rustls::server::ServerConfig,
     },
 
     Http,

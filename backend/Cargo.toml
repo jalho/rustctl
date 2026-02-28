@@ -5,11 +5,6 @@ version      = { workspace = true }
 rust-version = { workspace = true }
 
 [dependencies]
-axum-server = { workspace = true, features = [
-  "rustls",
-  "tls-rustls",
-] }
-
 axum = { workspace = true, features = [
   "http1", # for compatibility with curl for testing purposes
   "json",
@@ -64,6 +59,15 @@ rcgen = { workspace = true, features = [
 ] }
 
 reqwest = { workspace = true, features = [
+] }
+
+rustls-pki-types = { workspace = true, features = [
+  "alloc",
+] }
+
+rustls = { workspace = true, features = [
+  "aws_lc_rs",
+  "std",
 ] }
 
 serde = { workspace = true, features = [

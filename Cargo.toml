@@ -11,7 +11,6 @@ version      = "0.0.1"
 rust-version = "1.93" # latest stable as of 2026-02-22
 
 [workspace.dependencies]
-axum-server          = { version = "=0.8.0",   default-features = false, features = [] }
 axum                 = { version = "=0.8.4",   default-features = false, features = [] }
 chrono               = { version = "=0.4.43",  default-features = false, features = [] }
 clap                 = { version = "=4.5.51",  default-features = false, features = [] }
@@ -24,6 +23,8 @@ openssl              = { version = "=0.10.75", default-features = false, feature
 rand                 = { version = "=0.10.0",  default-features = false, features = [] }
 rcgen                = { version = "=0.14.7",  default-features = false, features = [] }
 reqwest              = { version = "=0.13.1",  default-features = false, features = [] }
+rustls-pki-types     = { version = "=1.14.0",  default-features = false, features = [] }
+rustls               = { version = "=0.23.37", default-features = false, features = [] }
 serde_json           = { version = "=1.0.149", default-features = false, features = [] }
 serde                = { version = "=1.0.228", default-features = false, features = [] }
 serde_yaml           = { version = "=0.9.34",  default-features = false, features = [] }
