@@ -71,6 +71,10 @@ pub async fn serve(
                 (private_key_pem, certificate_pem)
             }
             None => {
+                /*
+                 * TODO: Generate cert using PQC algs.
+                 *       See cheatsheet: https://github.com/jalho/post-quantum-cryptography
+                 */
                 let mut params: rcgen::CertificateParams = rcgen::CertificateParams::default();
 
                 params.distinguished_name = rcgen::DistinguishedName::new();
@@ -114,6 +118,7 @@ pub async fn serve(
              * Enforce Post Quantum Cryptography (PQC) compliant algorithm.
              *
              * TODO: Use PQC (ML-DSA) for cert authentication too.
+             *       See cheatsheet: https://github.com/jalho/post-quantum-cryptography
              */
             rustls::crypto::aws_lc_rs::kx_group::X25519MLKEM768,
         ];
