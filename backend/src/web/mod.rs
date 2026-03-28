@@ -290,6 +290,8 @@ impl State {
 
         /*
          * TODO: Store signing keypair in database?
+         *
+         * TODO: Use aws_lc_rs instead of libcrux_ml_dsa
          */
         let mut signing_keypair_seed: [u8; libcrux_ml_dsa::KEY_GENERATION_RANDOMNESS_SIZE] =
             [0u8; libcrux_ml_dsa::KEY_GENERATION_RANDOMNESS_SIZE];

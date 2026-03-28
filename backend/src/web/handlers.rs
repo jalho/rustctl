@@ -206,7 +206,7 @@ pub async fn auth_sign_up_submit(
     };
 
     /*
-     * TODO: Set-Cookie.
+     * TODO: Set-Cookie. For reference, see `fn poc_set_cookie_signed`.
      */
     log::info!(
         r#"[{transaction_id}] Sign-up: New passkey "{passkey_name}": {inserted_credential_id}"#,
@@ -350,7 +350,7 @@ pub async fn auth_sign_in_submit(
     }
 
     /*
-     * TODO: Set-Cookie.
+     * TODO: Set-Cookie. For reference, see `fn poc_set_cookie_signed`.
      */
     log::info!(
         r#"[{transaction_id}] Sign-in: Existing passkey "{passkey_name}": {claimed_passkey_cred_id} (#{credential_counter_new})"#,
