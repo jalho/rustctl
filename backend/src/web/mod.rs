@@ -187,8 +187,9 @@ async fn handle_connections(
     >,
 ) {
     let mut rx_cmd_from_controller = rx_cmd_from_controller.lock().await;
-    let http_server_builder: hyper::server::conn::http1::Builder =
+    let mut http_server_builder: hyper::server::conn::http1::Builder =
         hyper::server::conn::http1::Builder::new();
+    http_server_builder.keep_alive(false);
     let graceful_shutdown: hyper_util::server::graceful::GracefulShutdown =
         hyper_util::server::graceful::GracefulShutdown::new();
 
