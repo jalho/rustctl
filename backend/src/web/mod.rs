@@ -199,6 +199,7 @@ async fn handle_connections(
                  * TCP connection.
                  */
                 let (tcp_stream, _socket_addr): (tokio::net::TcpStream, std::net::SocketAddr) = conn.unwrap();
+                let tcp_connection_accepted_at: tokio::time::Instant = tokio::time::Instant::now();
                 log::debug!("TCP connection accepted: {tcp_stream:?}");
 
                 /*
@@ -225,7 +226,20 @@ async fn handle_connections(
                  */
                 let job = graceful_shutdown.watch(http_connection);
 
-                let _task = tokio::spawn(job);
+                let _task = tokio::spawn(async move {
+                    let connection_done = job.await;
+                    let connection_age: tokio::time::Duration = tcp_connection_accepted_at.elapsed();
+
+                    match connection_done {
+                        Ok(_) => log::debug!(
+                            "Connection closed (age: {connection_age:?})"
+                        ),
+                        Err(err) => log::error!(
+                            "Connection closed (age: {connection_age:?}): {err}",
+                            err = crate::get_full_error_message(&err),
+                        ),
+                    };
+                });
             }
 
             _ = rx_cmd_from_controller.recv() => {
