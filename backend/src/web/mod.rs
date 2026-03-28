@@ -198,9 +198,18 @@ async fn handle_connections(
                 /*
                  * TCP connection.
                  */
-                let (tcp_stream, _socket_addr): (tokio::net::TcpStream, std::net::SocketAddr) = conn.unwrap();
                 let tcp_connection_accepted_at: tokio::time::Instant = tokio::time::Instant::now();
-                log::debug!("TCP connection accepted: {tcp_stream:?}");
+                let (tcp_stream, client_addr): (tokio::net::TcpStream, std::net::SocketAddr) = match conn {
+                    Ok(n) => n,
+                    Err(err) => {
+                        let connection_age_millis: f64 = tcp_connection_accepted_at.elapsed().as_micros() as f64 / 1000.0;
+                        log::warn!(
+                            "TCP connection failed (age: TCP {connection_age_millis:.2} ms): {err}",
+                            err = crate::get_full_error_message(&err),
+                        );
+                        continue 'accept_connections;
+                    },
+                };
 
                 /*
                  * TLS connection.
@@ -208,11 +217,15 @@ async fn handle_connections(
                 let tls_stream: tokio_rustls::server::TlsStream<tokio::net::TcpStream> = match tls_acceptor.accept(tcp_stream).await {
                     Ok(n) => n,
                     Err(err) => {
-                        log::error!("{err}", err = crate::get_full_error_message(&err));
+                        let connection_age_millis: f64 = tcp_connection_accepted_at.elapsed().as_micros() as f64 / 1000.0;
+                        log::warn!(
+                            "[client {client_addr}] TLS connection failed (age: TCP {connection_age_millis:.2} ms): {err}",
+                            err = crate::get_full_error_message(&err),
+                        );
                         continue 'accept_connections;
                     },
                 };
-                log::debug!("TLS connection accepted: {tls_stream:?}");
+                let tls_connection_accepted_at: tokio::time::Instant = tokio::time::Instant::now();
 
                 /*
                  * Glue between a bunch of libraries.
@@ -228,14 +241,25 @@ async fn handle_connections(
 
                 let _task = tokio::spawn(async move {
                     let connection_done = job.await;
-                    let connection_age: tokio::time::Duration = tcp_connection_accepted_at.elapsed();
+                    let connection_done_at: tokio::time::Instant = tokio::time::Instant::now();
+
+                    let connection_age: tokio::time::Duration = connection_done_at.duration_since(tcp_connection_accepted_at);
+                    let tls_phase: tokio::time::Duration = tls_connection_accepted_at.duration_since(tcp_connection_accepted_at);
+
+                    let tls_percentage: f64 = {
+                        let connection: f64 = connection_age.as_nanos() as f64;
+                        let tls: f64 = tls_phase.as_nanos() as f64;
+                        let percentage: f64 = tls / connection * 100.0;
+                        percentage
+                    };
+                    let connection_age_millis: f64 = connection_age.as_micros() as f64 / 1000.0;
 
                     match connection_done {
                         Ok(_) => log::debug!(
-                            "Connection closed (age: {connection_age:?})"
+                            "[client {client_addr}] Connection handled (age: TCP {connection_age_millis:.2} ms, TLS {tls_percentage:.2} %)"
                         ),
-                        Err(err) => log::error!(
-                            "Connection closed (age: {connection_age:?}): {err}",
+                        Err(err) => log::warn!(
+                            "[client {client_addr}] Connection closed (age: TCP {connection_age_millis:.2} ms, TLS {tls_percentage:.2} %): {err}",
                             err = crate::get_full_error_message(&err),
                         ),
                     };
