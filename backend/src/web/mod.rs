@@ -70,11 +70,13 @@ pub async fn serve(
                 let certificate_pem: String = n.certificate_pem;
                 (private_key_pem, certificate_pem)
             }
+
+            /*
+             * TODO: Use ACME client to acquire a signed cert from "Let's
+             *       Encrypt" or somewhere. Maybe provide option for using
+             *       self-signed too?
+             */
             None => {
-                /*
-                 * TODO: Generate cert using PQC algs.
-                 *       See cheatsheet: https://github.com/jalho/post-quantum-cryptography
-                 */
                 let mut params: rcgen::CertificateParams = rcgen::CertificateParams::default();
 
                 params.distinguished_name = rcgen::DistinguishedName::new();
@@ -115,10 +117,13 @@ pub async fn serve(
             rustls::crypto::aws_lc_rs::default_provider();
         crypto_provider.kx_groups = vec![
             /*
-             * Enforce Post Quantum Cryptography (PQC) compliant algorithm.
+             * Require Post Quantum Cryptography (PQC) compliant algorithm
+             * (ML-KEM) for TLS key exchange.
              *
-             * TODO: Use PQC (ML-DSA) for cert authentication too.
-             *       See cheatsheet: https://github.com/jalho/post-quantum-cryptography
+             * NOTE: Currently not using PQC (ML-DSA) algorithms for TLS
+             *       certificates's authentication. Maybe later.
+             *       Cheatsheet: https://github.com/jalho/post-quantum-cryptography
+             *
              */
             rustls::crypto::aws_lc_rs::kx_group::X25519MLKEM768,
         ];
@@ -338,7 +343,11 @@ impl State {
         /*
          * TODO: Store signing keypair in database?
          *
-         * TODO: Use aws_lc_rs instead of libcrux_ml_dsa
+         * WONTFIX: Use `aws-lc-rs` instead of `libcrux-ml-dsa`. The `aws-lc-rs`
+         *          is already a transitive dependency via `rustls`, `rcgen`,
+         *          etc., and accomplishes the same as `libcrux-ml-dsa` (i.e.
+         *          ML-DSA signing & verifying). Therefore `libcrux-ml-dsa` is a
+         *          redundant extra dependency and could be removed. CBA.
          */
         let mut signing_keypair_seed: [u8; libcrux_ml_dsa::KEY_GENERATION_RANDOMNESS_SIZE] =
             [0u8; libcrux_ml_dsa::KEY_GENERATION_RANDOMNESS_SIZE];
