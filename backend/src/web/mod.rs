@@ -186,12 +186,20 @@ async fn handle_connections(
         tokio::sync::Mutex<tokio::sync::mpsc::Receiver<crate::ctl::CommandFromController>>,
     >,
 ) {
+    /*
+     * Lifecycle stuff: Shutdown gracefully on signal received via
+     * `tokio::sync::mpsc::Receiver`.
+     */
     let mut rx_cmd_from_controller = rx_cmd_from_controller.lock().await;
+    let graceful_shutdown: hyper_util::server::graceful::GracefulShutdown =
+        hyper_util::server::graceful::GracefulShutdown::new();
+
+    /*
+     * HTTP server options.
+     */
     let mut http_server_builder: hyper::server::conn::http1::Builder =
         hyper::server::conn::http1::Builder::new();
     http_server_builder.keep_alive(false);
-    let graceful_shutdown: hyper_util::server::graceful::GracefulShutdown =
-        hyper_util::server::graceful::GracefulShutdown::new();
 
     'accept_connections: loop {
         tokio::select! {
