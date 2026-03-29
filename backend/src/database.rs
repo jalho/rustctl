@@ -13,6 +13,10 @@ pub enum DbOp {
         selector: CredentialID,
         value: u32,
     },
+    UpdateOnePasskeyByCredentialIdSetInvalidated {
+        tx: tokio::sync::oneshot::Sender<()>,
+        selector: CredentialID,
+    },
 
     InsertOneTlsPem {
         tx: tokio::sync::oneshot::Sender<()>,
@@ -183,6 +187,23 @@ impl Client {
             Ok(_) => Ok(()),
             Err(_) => Err(()),
         }
+    }
+
+    pub async fn update_one_passkey_by_credential_id_set_invalidated(
+        &self,
+        selector: &CredentialID,
+    ) {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        self.tx
+            .send(DbOp::UpdateOnePasskeyByCredentialIdSetInvalidated {
+                tx,
+                selector: selector.clone(),
+            })
+            .await
+            .unwrap();
+
+        rx.await.unwrap()
     }
 }
 
@@ -436,6 +457,26 @@ impl Engine {
 
                     tx.send(()).unwrap();
                 }
+                DbOp::UpdateOnePasskeyByCredentialIdSetInvalidated { tx, selector } => {
+                    let invalidated_at_utc: chrono::NaiveDateTime = chrono::Utc::now().naive_utc();
+
+                    let modified_count: u64 = match client
+                        .execute(
+                            tables::passkeys::UPDATE_ONE_BY_CREDENTIAL_ID_SET_INVALIDATED,
+                            &[&selector.to_string(), &invalidated_at_utc],
+                        )
+                        .await
+                    {
+                        Ok(n) => n,
+                        Err(err) => {
+                            log::error!("{err}", err = crate::get_full_error_message(&err));
+                            return;
+                        }
+                    };
+                    assert_eq!(modified_count, 1);
+
+                    tx.send(()).unwrap();
+                }
                 DbOp::InsertOneTlsPem { tx, value } => {
                     let cert_decoded: openssl::x509::X509 =
                         openssl::x509::X509::from_pem(value.certificate_pem.as_bytes()).unwrap();
@@ -667,6 +708,13 @@ WHERE
     rustctl.passkeys
 SET
     credential_counter = $2
+WHERE
+    credential_id_hex = $1;"#;
+
+        pub const UPDATE_ONE_BY_CREDENTIAL_ID_SET_INVALIDATED: &str = r#"UPDATE
+    rustctl.passkeys
+SET
+    invalidated_at_utc = $2
 WHERE
     credential_id_hex = $1;"#;
     }

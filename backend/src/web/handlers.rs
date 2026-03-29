@@ -332,14 +332,16 @@ pub async fn auth_sign_in_submit(
      *         - Device: Galaxy S22+ (SM-S906B/DS), OS: Android 16
      */
     if credential_counter_new > 0 && credential_counter_new <= passkey_known.credential_counter {
-        /*
-         * TODO: Invalidate the credential.
-         */
+        state
+            .db_client
+            .update_one_passkey_by_credential_id_set_invalidated(&claimed_passkey_cred_id)
+            .await;
         log::warn!(
-            "Passkey may have been cloned: Credential counter {previous} -> {current}",
+            "Passkey invalidated due to possible credential cloning: credential counter {previous} -> {current}",
             previous = passkey_known.credential_counter,
             current = credential_counter_new,
         );
+        return axum::http::StatusCode::UNAUTHORIZED;
     }
 
     if (state
