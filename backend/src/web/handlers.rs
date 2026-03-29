@@ -309,7 +309,7 @@ pub async fn auth_sign_in_submit(
     let credential_counter_new: u32 = auth_result.counter();
 
     /*
-     * TODO: From `finish_discoverable_authentication`:
+     * From `webauthn_rs::Webauthn::finish_discoverable_authentication` docs:
      *
      * > As per <https://www.w3.org/TR/webauthn-3/#sctn-verifying-assertion> 21:
      * >
@@ -317,11 +317,6 @@ pub async fn auth_sign_in_submit(
      * > counter is greater than the stored counter. If the counter is equal
      * > or less than this MAY indicate a cloned credential and you SHOULD
      * > invalidate and reject that credential as a result.
-     * >
-     * > From this [AuthenticationResult] you *should* update the Credential's
-     * > Counter value if it is valid per the above check. If you wish you *may*
-     * > use the content of the [AuthenticationResult] for extended validations
-     * > (such as the user verification flag).
      *
      * NOTE: Sometimes the `webauthn_rs::prelude::AuthenticationResult::counter()`
      *       seems to continuously return 0, as if the passkey store on the client
@@ -336,6 +331,16 @@ pub async fn auth_sign_in_submit(
      *       - Passkey Store: Over Bluetooth to phone: "Samsung Pass"
      *         - Device: Galaxy S22+ (SM-S906B/DS), OS: Android 16
      */
+    if credential_counter_new > 0 && credential_counter_new <= passkey_known.credential_counter {
+        /*
+         * TODO: Invalidate the credential.
+         */
+        log::warn!(
+            "Passkey may have been cloned: Credential counter {previous} -> {current}",
+            previous = passkey_known.credential_counter,
+            current = credential_counter_new,
+        );
+    }
 
     if (state
         .db_client

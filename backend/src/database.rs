@@ -42,6 +42,7 @@ pub mod queries {
         pub invalidated_at: Option<chrono::DateTime<chrono::Utc>>,
         pub passkey_name: String,
         pub passkey: webauthn_rs::prelude::Passkey,
+        pub credential_counter: u32,
     }
 
     pub struct TlsPemInsertable {
@@ -386,10 +387,21 @@ impl Engine {
                                 value
                             };
 
+                            let credential_counter: u32 = {
+                                let deserialized = row.try_get("credential_counter");
+                                let value: i64 = deserialized.unwrap();
+                                let fitted: u32 = match value.try_into() {
+                                    Ok(n) => n,
+                                    Err(_) => todo!(),
+                                };
+                                fitted
+                            };
+
                             Some(queries::PasskeySelected {
                                 invalidated_at,
                                 passkey,
                                 passkey_name,
+                                credential_counter,
                             })
                         }
                         2.. => todo!(),
@@ -644,7 +656,8 @@ VALUES(
     invalidated_at_utc,
     credential_id_hex,
     passkey_name,
-    passkey_json
+    passkey_json,
+    credential_counter
 FROM
     rustctl.passkeys
 WHERE
