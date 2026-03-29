@@ -155,7 +155,7 @@ pub async fn serve(
             .with_single_cert(certificates, private_key)
             .unwrap();
 
-        let addr: std::net::SocketAddr = "127.0.0.1:8080".parse().unwrap();
+        let addr: std::net::SocketAddr = "0.0.0.0:8080".parse().unwrap();
 
         let router: axum::Router = router.with_state(
             State::new(
