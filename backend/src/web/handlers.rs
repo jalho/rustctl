@@ -163,7 +163,7 @@ pub async fn auth_sign_up_challenge(
 
 pub async fn auth_sign_up_submit(
     axum::extract::Path(id): axum::extract::Path<uuid::Uuid>,
-    axum::extract::State(mut state): axum::extract::State<crate::web::State>,
+    axum::extract::State(state): axum::extract::State<crate::web::State>,
     axum::extract::Json(payload): axum::extract::Json<serde_json::Value>,
 ) -> axum::http::StatusCode {
     let pending: Option<crate::web::Timestamped<crate::web::NamedPasskeyRegistration>>;
@@ -253,7 +253,7 @@ pub async fn auth_sign_in_challenge(
 
 pub async fn auth_sign_in_submit(
     axum::extract::Path(id): axum::extract::Path<uuid::Uuid>,
-    axum::extract::State(mut state): axum::extract::State<crate::web::State>,
+    axum::extract::State(state): axum::extract::State<crate::web::State>,
     axum::extract::Json(payload): axum::extract::Json<webauthn_rs::prelude::PublicKeyCredential>,
 ) -> axum::http::StatusCode {
     let pending: Option<crate::web::Timestamped<webauthn_rs::prelude::DiscoverableAuthentication>>;
@@ -385,23 +385,15 @@ pub async fn poc_set_cookie_signed(
 
     let session_json: String = serde_json::to_string(&session).unwrap();
     let session_hex: String = to_hex_string(session_json.as_bytes());
+    let session_hex_bytes: &[u8] = session_hex.as_bytes();
 
-    let mut signing_randomness: [u8; libcrux_ml_dsa::SIGNING_RANDOMNESS_SIZE] =
-        [0u8; libcrux_ml_dsa::SIGNING_RANDOMNESS_SIZE];
-    rand::TryRng::try_fill_bytes(&mut rand::rngs::SysRng, &mut signing_randomness).unwrap();
-
-    /*
-     * ML-DSA-87: NIST security level 5, why not, let's go :D
-     */
-    let signature_obj: libcrux_ml_dsa::MLDSASignature<_> = libcrux_ml_dsa::ml_dsa_87::sign(
-        &state.signing_keypair.signing_key,
-        session_hex.as_bytes(),
-        b"",
-        signing_randomness,
-    )
-    .unwrap();
-
-    let signature_hex: String = to_hex_string(signature_obj.as_slice());
+    let (signing_key, _verifying_key): (crate::crypto::PrivatePEM, crate::crypto::PublicPEM) =
+        match state.db_client.get_web_server_token_signing_key().await {
+            Some(n) => n,
+            None => todo!(),
+        };
+    let signature: Vec<u8> = crate::crypto::sign(signing_key, session_hex_bytes);
+    let signature_hex: String = to_hex_string(&signature);
 
     let mut response_builder =
         axum::response::Response::builder().status(axum::http::StatusCode::NO_CONTENT);
@@ -531,36 +523,30 @@ impl axum::extract::FromRequestParts<crate::web::State> for Session {
             };
             sig_bytes[i / ASCII_CHARS_COUNT_PER_BYTE] = byte;
         }
-        let signature: libcrux_ml_dsa::ml_dsa_87::MLDSA87Signature =
-            libcrux_ml_dsa::ml_dsa_87::MLDSA87Signature::new(sig_bytes);
 
-        /*
-         * Verify signature.
-         */
-        libcrux_ml_dsa::ml_dsa_87::verify(
-            &state.signing_keypair.verification_key,
-            session_hex.as_bytes(),
-            b"",
-            &signature,
-        )
-        .map_err(|_| axum::http::StatusCode::UNAUTHORIZED)?;
-
-        /*
-         * Deserialize the hex encoded JSON session.
-         */
-        let mut session_bytes: Vec<u8> =
-            Vec::with_capacity(session_hex.len() / ASCII_CHARS_COUNT_PER_BYTE);
-        for i in (0..session_hex.len()).step_by(ASCII_CHARS_COUNT_PER_BYTE) {
-            let byte_hex: &str = &session_hex[i..i + ASCII_CHARS_COUNT_PER_BYTE];
-            let byte: u8 = match u8::from_str_radix(byte_hex, 16) {
-                Ok(n) => n,
-                Err(_) => return Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR),
+        let (_signing_key, verfiying_key): (crate::crypto::PrivatePEM, crate::crypto::PublicPEM) =
+            match state.db_client.get_web_server_token_signing_key().await {
+                Some(n) => n,
+                None => todo!(),
             };
-            session_bytes.push(byte);
-        }
-        let session: Session = serde_json::from_slice(&session_bytes)
-            .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+        match crate::crypto::verify(verfiying_key, &sig_bytes, session_hex.as_bytes()) {
+            Ok(_) => {
+                let mut session_bytes: Vec<u8> =
+                    Vec::with_capacity(session_hex.len() / ASCII_CHARS_COUNT_PER_BYTE);
+                for i in (0..session_hex.len()).step_by(ASCII_CHARS_COUNT_PER_BYTE) {
+                    let byte_hex: &str = &session_hex[i..i + ASCII_CHARS_COUNT_PER_BYTE];
+                    let byte: u8 = match u8::from_str_radix(byte_hex, 16) {
+                        Ok(n) => n,
+                        Err(_) => return Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR),
+                    };
+                    session_bytes.push(byte);
+                }
+                let session: Session = serde_json::from_slice(&session_bytes)
+                    .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        Ok(session)
+                Ok(session)
+            }
+            Err(_) => Err(axum::http::StatusCode::UNAUTHORIZED),
+        }
     }
 }

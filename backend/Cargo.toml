@@ -5,6 +5,10 @@ version      = { workspace = true }
 rust-version = { workspace = true }
 
 [dependencies]
+aws-lc-rs= { workspace = true, features = [
+  "unstable",
+] }
+
 axum = { workspace = true, features = [
   "http1", # for compatibility with curl for testing purposes
   "json",
@@ -36,10 +40,6 @@ hyper-util = { workspace = true, default-features = false, features = [
 hyper = { workspace = true, default-features = false, features = [
 ] }
 
-libcrux-ml-dsa = { workspace = true, default-features = false, features = [
-  "mldsa87",
-] }
-
 log4rs = { workspace = true, default-features = false, features = [
  "console_appender",
 ] }
@@ -54,6 +54,9 @@ nix = { workspace = true, features = [
 
 openssl = { workspace = true, features = [
   "vendored",
+] }
+
+pem = { workspace = true, features = [
 ] }
 
 rand = { workspace = true, features = [

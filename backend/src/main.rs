@@ -1,3 +1,4 @@
+mod crypto;
 mod ctl;
 mod database;
 mod game;

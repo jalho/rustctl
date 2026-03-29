@@ -1,0 +1,3 @@
+POST /poc/cookie/set HTTP/1.1
+Host: rustctl.internal
+

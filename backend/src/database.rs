@@ -21,6 +21,14 @@ pub enum DbOp {
     SelectOneTlsPemLatest {
         tx: tokio::sync::oneshot::Sender<Option<queries::TlsPemSelected>>,
     },
+
+    SetWebServerTokenSigningKey {
+        tx: tokio::sync::oneshot::Sender<()>,
+        value: crate::crypto::KeyPairPEM,
+    },
+    GetWebServerTokenSigningKey {
+        tx: tokio::sync::oneshot::Sender<Option<crate::crypto::KeyPairPEM>>,
+    },
 }
 
 pub mod queries {
@@ -57,7 +65,31 @@ impl Client {
         Self { tx }
     }
 
-    pub async fn insert_one_tls_pem(&mut self, value: queries::TlsPemInsertable) -> Result<(), ()> {
+    pub async fn set_web_server_token_signing_key(&self, value: crate::crypto::KeyPairPEM) {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        self.tx
+            .send(DbOp::SetWebServerTokenSigningKey { tx, value })
+            .await
+            .unwrap();
+
+        rx.await.unwrap();
+    }
+
+    pub async fn get_web_server_token_signing_key(&self) -> Option<crate::crypto::KeyPairPEM> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        self.tx
+            .send(DbOp::GetWebServerTokenSigningKey { tx })
+            .await
+            .unwrap();
+
+        let found: Option<crate::crypto::KeyPairPEM> = rx.await.unwrap();
+
+        found
+    }
+
+    pub async fn insert_one_tls_pem(&self, value: queries::TlsPemInsertable) -> Result<(), ()> {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         match self.tx.send(DbOp::InsertOneTlsPem { tx, value }).await {
@@ -71,7 +103,7 @@ impl Client {
         }
     }
 
-    pub async fn select_tls_pem_latest(&mut self) -> Result<Option<queries::TlsPemSelected>, ()> {
+    pub async fn select_tls_pem_latest(&self) -> Result<Option<queries::TlsPemSelected>, ()> {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         match self.tx.send(DbOp::SelectOneTlsPemLatest { tx }).await {
@@ -86,7 +118,7 @@ impl Client {
     }
 
     pub async fn insert_one_passkey(
-        &mut self,
+        &self,
         value: queries::PasskeyInsertable,
     ) -> Result<CredentialID, ()> {
         let (tx, rx) = tokio::sync::oneshot::channel();
@@ -103,7 +135,7 @@ impl Client {
     }
 
     pub async fn select_one_passkey_by_credential_id(
-        &mut self,
+        &self,
         selector: &CredentialID,
     ) -> Result<Option<queries::PasskeySelected>, ()> {
         let (tx, rx) = tokio::sync::oneshot::channel();
@@ -127,7 +159,7 @@ impl Client {
     }
 
     pub async fn update_one_passkey_by_credential_id_set_credential_counter(
-        &mut self,
+        &self,
         selector: &CredentialID,
         value: u32,
     ) -> Result<(), ()> {
@@ -242,6 +274,16 @@ impl Engine {
             }
         }
 
+        match client.execute(tables::constants::CREATE_TABLE, &[]).await {
+            Ok(_) => some_tables_created = true,
+            Err(err) => {
+                let msg: String = crate::get_full_error_message(&err);
+                if !msg.contains("already exists") {
+                    panic!("{msg}");
+                }
+            }
+        }
+
         some_tables_created
     }
 
@@ -289,7 +331,6 @@ impl Engine {
                         Err(_) => todo!(),
                     }
                 }
-
                 DbOp::SelectOnePasskeyByCredentialId { tx, selector } => {
                     let rows: Vec<tokio_postgres::Row> = match client
                         .query(
@@ -359,7 +400,6 @@ impl Engine {
                         Err(_) => todo!(),
                     }
                 }
-
                 DbOp::UpdateOnePasskeyByCredentialIdSetCredentialCounter {
                     tx,
                     selector,
@@ -384,7 +424,6 @@ impl Engine {
 
                     tx.send(()).unwrap();
                 }
-
                 DbOp::InsertOneTlsPem { tx, value } => {
                     let cert_decoded: openssl::x509::X509 =
                         openssl::x509::X509::from_pem(value.certificate_pem.as_bytes()).unwrap();
@@ -425,7 +464,6 @@ impl Engine {
                         Err(_) => todo!(),
                     }
                 }
-
                 DbOp::SelectOneTlsPemLatest { tx } => {
                     let rows: Vec<tokio_postgres::Row> =
                         match client.query(tables::tls_pem::SELECT_ONE_LATEST, &[]).await {
@@ -469,12 +507,112 @@ impl Engine {
                         Err(_) => todo!(),
                     }
                 }
+
+                DbOp::SetWebServerTokenSigningKey { tx, value } => {
+                    let (private_key_pem, public_key_pem): (
+                        crate::crypto::PrivatePEM,
+                        crate::crypto::PublicPEM,
+                    ) = value;
+
+                    let inserted_count: u64 = match client
+                        .execute(
+                            tables::constants::SET_WEB_SERVER_TOKEN_SIGNING_KEY_PAIR_PEM,
+                            &[&private_key_pem, &public_key_pem],
+                        )
+                        .await
+                    {
+                        Ok(n) => n,
+                        Err(err) => todo!("{err}", err = crate::get_full_error_message(&err)),
+                    };
+                    assert_eq!(inserted_count, 2);
+
+                    match tx.send(()) {
+                        Ok(_) => {}
+                        Err(_) => todo!(),
+                    }
+                }
+
+                DbOp::GetWebServerTokenSigningKey { tx } => {
+                    let rows: Vec<tokio_postgres::Row> = match client
+                        .query(
+                            tables::constants::GET_WEB_SERVER_TOKEN_SIGNING_KEY_PAIR_PEM,
+                            &[],
+                        )
+                        .await
+                    {
+                        Ok(n) => n,
+                        Err(_) => todo!(),
+                    };
+
+                    let found: Option<crate::crypto::KeyPairPEM> = match rows.len() {
+                        2 => {
+                            let mut rows = rows.into_iter();
+                            let row_private_key: tokio_postgres::Row = rows.next().unwrap();
+                            let row_public_key: tokio_postgres::Row = rows.next().unwrap();
+
+                            let private_key_pem: crate::crypto::PrivatePEM = {
+                                let deserialized: Result<String, tokio_postgres::Error> =
+                                    row_private_key.try_get("value");
+                                let value: String = match deserialized {
+                                    Ok(n) => n,
+                                    Err(_) => todo!(),
+                                };
+                                value
+                            };
+
+                            let public_key_pem: crate::crypto::PublicPEM = {
+                                let deserialized: Result<String, tokio_postgres::Error> =
+                                    row_public_key.try_get("value");
+                                let value: String = match deserialized {
+                                    Ok(n) => n,
+                                    Err(_) => todo!(),
+                                };
+                                value
+                            };
+
+                            Some((private_key_pem, public_key_pem))
+                        }
+                        _ => None,
+                    };
+
+                    match tx.send(found) {
+                        Ok(_) => {}
+                        Err(_) => todo!(),
+                    }
+                }
             }
         }
     }
 }
 
 mod tables {
+    pub mod constants {
+        pub const CREATE_TABLE: &str = r#"CREATE TABLE rustctl.constants (
+  key   VARCHAR(256) PRIMARY KEY,
+  value TEXT         NOT NULL
+);"#;
+
+        pub const SET_WEB_SERVER_TOKEN_SIGNING_KEY_PAIR_PEM: &str = r#"INSERT INTO
+    rustctl.constants(
+        key,
+        value
+    )
+VALUES
+    ('WEB_SERVER_TOKEN_SIGNING_KEY_PRIVATE_PEM', $1),
+    ('WEB_SERVER_TOKEN_SIGNING_KEY_PUBLIC_PEM', $2);"#;
+
+        pub const GET_WEB_SERVER_TOKEN_SIGNING_KEY_PAIR_PEM: &str = r#"SELECT
+    key,
+    value
+FROM
+    rustctl.constants
+WHERE
+    key IN (
+        'WEB_SERVER_TOKEN_SIGNING_KEY_PRIVATE_PEM',
+        'WEB_SERVER_TOKEN_SIGNING_KEY_PUBLIC_PEM'
+    );"#;
+    }
+
     pub mod passkeys {
         pub const CREATE_TABLE: &str = r#"CREATE TABLE rustctl.passkeys (
   created_at_utc     TIMESTAMP    NOT NULL,

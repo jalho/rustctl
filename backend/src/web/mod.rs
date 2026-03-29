@@ -2,7 +2,7 @@ mod handlers;
 
 pub async fn serve(
     tx_cmd_from_web_client: tokio::sync::mpsc::Sender<crate::ctl::CommandFromWebClient>,
-    mut db_client: crate::database::Client,
+    db_client: crate::database::Client,
     rx_cmd_from_controller: std::sync::Arc<
         tokio::sync::Mutex<tokio::sync::mpsc::Receiver<crate::ctl::CommandFromController>>,
     >,
@@ -157,12 +157,15 @@ pub async fn serve(
 
         let addr: std::net::SocketAddr = "127.0.0.1:8080".parse().unwrap();
 
-        let router: axum::Router = router.with_state(State::new(
-            tx_cmd_from_web_client.clone(),
-            DOMAIN_NAME,
-            addr.port(),
-            db_client.clone(),
-        ));
+        let router: axum::Router = router.with_state(
+            State::new(
+                tx_cmd_from_web_client.clone(),
+                DOMAIN_NAME,
+                addr.port(),
+                db_client.clone(),
+            )
+            .await,
+        );
 
         let tls_acceptor: tokio_rustls::TlsAcceptor =
             tokio_rustls::TlsAcceptor::from(std::sync::Arc::new(server_cfg));
@@ -316,12 +319,10 @@ struct State {
             >,
         >,
     >,
-
-    signing_keypair: std::sync::Arc<libcrux_ml_dsa::ml_dsa_87::MLDSA87KeyPair>,
 }
 
 impl State {
-    fn new(
+    async fn new(
         tx: tokio::sync::mpsc::Sender<crate::ctl::CommandFromWebClient>,
         domain_name: &str,
         port: u16,
@@ -340,20 +341,19 @@ impl State {
 
         let webauthn: webauthn_rs::Webauthn = builder.build().expect("Failed to build Webauthn");
 
-        /*
-         * TODO: Store signing keypair in database?
-         *
-         * WONTFIX: Use `aws-lc-rs` instead of `libcrux-ml-dsa`. The `aws-lc-rs`
-         *          is already a transitive dependency via `rustls`, `rcgen`,
-         *          etc., and accomplishes the same as `libcrux-ml-dsa` (i.e.
-         *          ML-DSA signing & verifying). Therefore `libcrux-ml-dsa` is a
-         *          redundant extra dependency and could be removed. CBA.
-         */
-        let mut signing_keypair_seed: [u8; libcrux_ml_dsa::KEY_GENERATION_RANDOMNESS_SIZE] =
-            [0u8; libcrux_ml_dsa::KEY_GENERATION_RANDOMNESS_SIZE];
-        rand::TryRng::try_fill_bytes(&mut rand::rngs::SysRng, &mut signing_keypair_seed).unwrap();
-        let signing_keypair: libcrux_ml_dsa::ml_dsa_87::MLDSA87KeyPair =
-            libcrux_ml_dsa::ml_dsa_87::generate_key_pair(signing_keypair_seed);
+        match db_client.get_web_server_token_signing_key().await {
+            Some(existing_key_pair) => {
+                let _existing_key_pair: crate::crypto::KeyPairPEM = existing_key_pair;
+            }
+            None => {
+                let web_server_token_signing_keypair: crate::crypto::KeyPairPEM =
+                    crate::crypto::generate_web_server_token_signing_key_pair();
+                db_client
+                    .set_web_server_token_signing_key(web_server_token_signing_keypair)
+                    .await;
+                log::info!("Using new web server token signing keypair");
+            }
+        }
 
         Self {
             tx,
@@ -367,8 +367,6 @@ impl State {
             )),
 
             db_client,
-
-            signing_keypair: std::sync::Arc::new(signing_keypair),
         }
     }
 }
