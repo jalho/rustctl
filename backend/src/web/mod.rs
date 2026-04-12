@@ -42,7 +42,7 @@ pub async fn serve(
         /*
          * Post-auth routes.
          *
-         * TODO: Add access control.
+         * TODO(FEAT-1): Add access control.
          */
         router = router.route(
             "/poc/cookie/require",
@@ -72,9 +72,9 @@ pub async fn serve(
             }
 
             /*
-             * TODO: Use ACME client to acquire a signed cert from "Let's
-             *       Encrypt" or somewhere. Maybe provide option for using
-             *       self-signed too?
+             * TODO(FEAT-0): Use ACME client to acquire a signed cert from
+             *               "Let's Encrypt" or somewhere. Maybe provide option
+             *               for using self-signed too?
              */
             None => {
                 let mut params: rcgen::CertificateParams = rcgen::CertificateParams::default();
