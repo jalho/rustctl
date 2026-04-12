@@ -58,6 +58,17 @@ pub mod queries {
     pub struct TlsPemSelected {
         pub private_key_pem: String,
         pub certificate_pem: String,
+
+        #[allow(dead_code)]
+        pub serial_number_hex_x509: String,
+
+        #[allow(dead_code)]
+        pub not_before: chrono::DateTime<chrono::Utc>,
+
+        pub not_after: chrono::DateTime<chrono::Utc>,
+
+        pub issuer_display: String,
+        pub subject_display: String,
     }
 }
 
@@ -564,9 +575,35 @@ impl Engine {
                                 value
                             };
 
+                            let cert_decoded: openssl::x509::X509 =
+                                openssl::x509::X509::from_pem(certificate_pem.as_bytes()).unwrap();
+
+                            let serial_number: &openssl::asn1::Asn1IntegerRef =
+                                cert_decoded.serial_number();
+                            let serial_number_hex_x509: String =
+                                into_colon_delimited_hex_lower_case(
+                                    &serial_number.to_bn().unwrap().to_vec(),
+                                );
+
+                            let issuer_display: String =
+                                x509_name_display(cert_decoded.issuer_name());
+
+                            let subject_display: String =
+                                x509_name_display(cert_decoded.subject_name());
+
+                            let not_before: chrono::DateTime<chrono::Utc> =
+                                crate::web::asn1_to_chrono(cert_decoded.not_before());
+                            let not_after: chrono::DateTime<chrono::Utc> =
+                                crate::web::asn1_to_chrono(cert_decoded.not_after());
+
                             Some(queries::TlsPemSelected {
                                 private_key_pem,
                                 certificate_pem,
+                                serial_number_hex_x509,
+                                not_before,
+                                not_after,
+                                issuer_display,
+                                subject_display,
                             })
                         }
                         2.. => todo!(),
@@ -868,4 +905,17 @@ fn into_colon_delimited_hex_lower_case(buf: &[u8]) -> String {
         .map(|b| format!("{:02x}", b))
         .collect::<Vec<String>>()
         .join(":")
+}
+
+fn x509_name_display(name: &openssl::x509::X509NameRef) -> String {
+    name.entries()
+        .map(|n| {
+            format!(
+                r#"{} "{}""#,
+                n.object().nid().short_name().unwrap_or("?"),
+                n.data().as_utf8().unwrap(),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }

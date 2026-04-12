@@ -71,7 +71,12 @@ pub async fn serve(
 
         let (private_key_pem, certificate_pem): (String, String) = match stored {
             Some(n) => {
-                log::info!("Using existing TLS server certificate");
+                log::info!(
+                    "Using existing TLS server certificate issued by {issuer} for {subject}, valid till {end}",
+                    issuer = n.issuer_display,
+                    subject = n.subject_display,
+                    end = n.not_after,
+                );
                 let private_key_pem: String = n.private_key_pem;
                 let certificate_pem: String = n.certificate_pem;
                 (private_key_pem, certificate_pem)
