@@ -22,8 +22,9 @@ pub enum DbOp {
         tx: tokio::sync::oneshot::Sender<()>,
         value: queries::TlsPemInsertable,
     },
-    SelectOneTlsPemLatest {
+    SelectOneTlsPemLatestValidFor {
         tx: tokio::sync::oneshot::Sender<Option<queries::TlsPemSelected>>,
+        selector: chrono::DateTime<chrono::Utc>,
     },
 
     SetWebServerTokenSigningKey {
@@ -108,10 +109,20 @@ impl Client {
         }
     }
 
-    pub async fn select_tls_pem_latest(&self) -> Result<Option<queries::TlsPemSelected>, ()> {
+    pub async fn select_tls_pem_latest_valid_for(
+        &self,
+        as_of_instant: &chrono::DateTime<chrono::Utc>,
+    ) -> Result<Option<queries::TlsPemSelected>, ()> {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
-        match self.tx.send(DbOp::SelectOneTlsPemLatest { tx }).await {
+        match self
+            .tx
+            .send(DbOp::SelectOneTlsPemLatestValidFor {
+                tx,
+                selector: as_of_instant.to_owned(),
+            })
+            .await
+        {
             Ok(_) => {}
             Err(_) => todo!(),
         }
@@ -517,12 +528,18 @@ impl Engine {
                         Err(_) => todo!(),
                     }
                 }
-                DbOp::SelectOneTlsPemLatest { tx } => {
-                    let rows: Vec<tokio_postgres::Row> =
-                        match client.query(tables::tls_pem::SELECT_ONE_LATEST, &[]).await {
-                            Ok(n) => n,
-                            Err(_) => todo!(),
-                        };
+                DbOp::SelectOneTlsPemLatestValidFor { tx, selector } => {
+                    let selector_time_instant: chrono::NaiveDateTime = selector.naive_utc();
+                    let rows: Vec<tokio_postgres::Row> = match client
+                        .query(
+                            tables::tls_pem::SELECT_ONE_LATEST_VALID_FOR,
+                            &[&selector_time_instant],
+                        )
+                        .await
+                    {
+                        Ok(n) => n,
+                        Err(_) => todo!(),
+                    };
 
                     let found: Option<queries::TlsPemSelected> = match rows.len() {
                         0 => None,
@@ -744,7 +761,7 @@ VALUES(
     $5
 );"#;
 
-        pub const SELECT_ONE_LATEST: &str = r#"SELECT
+        pub const SELECT_ONE_LATEST_VALID_FOR: &str = r#"SELECT
     serial_number_hex_x509,
     not_before_utc,
     not_after_utc,
@@ -752,6 +769,9 @@ VALUES(
     certificate_pem
 FROM
     rustctl.tls_pem
+WHERE
+    not_before_utc <= $1
+    AND not_after_utc > $1
 ORDER BY
     not_before_utc DESC
 LIMIT 1;"#;

@@ -63,11 +63,11 @@ pub async fn serve(
          */
         const DOMAIN_NAME: &str = "rustctl.internal";
 
-        /*
-         * TODO: Select latest && valid, instead of only latest.
-         */
-        let stored: Option<crate::database::queries::TlsPemSelected> =
-            db_client.select_tls_pem_latest().await.unwrap();
+        let instant: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+        let stored: Option<crate::database::queries::TlsPemSelected> = db_client
+            .select_tls_pem_latest_valid_for(&instant)
+            .await
+            .unwrap();
 
         let (private_key_pem, certificate_pem): (String, String) = match stored {
             Some(n) => {
