@@ -23,10 +23,13 @@ pub enum Command {
     /// Start the controlling & observability service that reads the outputs of
     /// a game server that is running as a separate OS process. Terminating the
     /// service does not affect the running game server.
-    Service,
+    Service {
+        #[arg(long)]
+        self_signed_certificate: bool,
+    },
 }
 
-pub fn init_logger(level: log::LevelFilter) -> Result<log4rs::Handle, std::process::ExitCode> {
+pub fn init_logger(level: &log::LevelFilter) -> Result<log4rs::Handle, std::process::ExitCode> {
     const APPENDER_NAME: &str = "stdout";
 
     let appender: log4rs::append::console::ConsoleAppender =
@@ -55,7 +58,7 @@ pub fn init_logger(level: log::LevelFilter) -> Result<log4rs::Handle, std::proce
     let cfg: log4rs::Config = match config_builder.build(
         log4rs::config::Root::builder()
             .appender(APPENDER_NAME)
-            .build(level),
+            .build(*level),
     ) {
         Ok(n) => n,
         Err(err) => {

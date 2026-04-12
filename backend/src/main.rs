@@ -18,9 +18,10 @@ fn main() -> std::process::ExitCode {
 
     let cli_args: init::Cli = init::Cli::get();
 
-    if let Err(code) = init::init_logger(log::LevelFilter::max()) {
-        return code;
-    }
+    let _logg_handle: log4rs::Handle = match init::init_logger(&log::LevelFilter::max()) {
+        Ok(n) => n,
+        Err(code) => return code,
+    };
 
     log::info!("rustctl v{}", env!("CARGO_PKG_VERSION"));
 
@@ -57,7 +58,9 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
          * Log the outputs of a game server running as a separate OS process by
          * reading from FIFO pipes.
          */
-        init::Command::Service => {
+        init::Command::Service {
+            self_signed_certificate,
+        } => {
             let (mut db_engine, db_client): (database::Engine, database::Client) =
                 database::Engine::new();
 
@@ -68,6 +71,14 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
                 tokio::sync::mpsc::channel::<ctl::CommandFromWebClient>(1);
             let (tx_cmd_from_controller, rx_cmd_from_controller) =
                 tokio::sync::mpsc::channel::<ctl::CommandFromController>(1);
+
+            let web_server_params: &crate::web::WebServerParameters = {
+                if self_signed_certificate {
+                    &crate::web::WebServerParameters::TLSCertificateSelfSigned
+                } else {
+                    &crate::web::WebServerParameters::TLSCertificateLetsEncrypt
+                }
+            };
 
             /*
              * Each task here is supposed to run indefinitely. Therefore, any
@@ -81,7 +92,7 @@ async fn async_tasks(cli_args: &init::Cli) -> RtDone {
                 _ = game::log_game_server_output() => {
                     log::error!("Task terminated: game::log_game_server_output");
                 }
-                _ = web::serve(tx_cmd_from_web_client, db_client.clone(), std::sync::Arc::new(tokio::sync::Mutex::new(rx_cmd_from_controller))) => {
+                _ = web::serve(web_server_params, tx_cmd_from_web_client, db_client.clone(), std::sync::Arc::new(tokio::sync::Mutex::new(rx_cmd_from_controller))) => {
                     log::error!("Task terminated: web::serve");
                 }
                 _ = ctl::handle_commands_from_web_clients(rx_cmd_from_web_client, tx_cmd_from_controller) => {

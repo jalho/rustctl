@@ -1,6 +1,7 @@
 mod handlers;
 
 pub async fn serve(
+    server_params: &WebServerParameters,
     tx_cmd_from_web_client: tokio::sync::mpsc::Sender<crate::ctl::CommandFromWebClient>,
     db_client: crate::database::Client,
     rx_cmd_from_controller: std::sync::Arc<
@@ -61,56 +62,68 @@ pub async fn serve(
          * TLS server config.
          */
         const DOMAIN_NAME: &str = "rustctl.internal";
+
+        /*
+         * TODO: Select latest && valid, instead of only latest.
+         */
         let stored: Option<crate::database::queries::TlsPemSelected> =
             db_client.select_tls_pem_latest().await.unwrap();
 
         let (private_key_pem, certificate_pem): (String, String) = match stored {
             Some(n) => {
+                log::info!("Using existing TLS server certificate");
                 let private_key_pem: String = n.private_key_pem;
                 let certificate_pem: String = n.certificate_pem;
                 (private_key_pem, certificate_pem)
             }
 
-            /*
-             * TODO(FEAT-0): Use ACME client to acquire a signed cert from
-             *               "Let's Encrypt" or somewhere. Maybe provide option
-             *               for using self-signed too?
-             */
-            None => {
-                let mut params: rcgen::CertificateParams = rcgen::CertificateParams::default();
+            None => match server_params {
+                WebServerParameters::TLSCertificateSelfSigned => {
+                    log::info!("Generating self-signed TLS server certificate");
 
-                params.distinguished_name = rcgen::DistinguishedName::new();
-                params
-                    .distinguished_name
-                    .push(rcgen::DnType::CommonName, DOMAIN_NAME);
-                params.subject_alt_names = vec![rcgen::SanType::DnsName(
-                    DOMAIN_NAME.to_string().try_into().unwrap(),
-                )];
+                    let mut params: rcgen::CertificateParams = rcgen::CertificateParams::default();
 
-                let key_pair: rcgen::KeyPair = rcgen::KeyPair::generate().unwrap();
-                let cert: rcgen::Certificate = params.self_signed(&key_pair).unwrap();
+                    params.distinguished_name = rcgen::DistinguishedName::new();
+                    params
+                        .distinguished_name
+                        .push(rcgen::DnType::CommonName, DOMAIN_NAME);
+                    params.subject_alt_names = vec![rcgen::SanType::DnsName(
+                        DOMAIN_NAME.to_string().try_into().unwrap(),
+                    )];
 
-                let private_key_pem: String = key_pair.serialize_pem();
-                let certificate_pem: String = cert.pem();
+                    let key_pair: rcgen::KeyPair = rcgen::KeyPair::generate().unwrap();
+                    let cert: rcgen::Certificate = params.self_signed(&key_pair).unwrap();
 
-                db_client
-                    .insert_one_tls_pem(crate::database::queries::TlsPemInsertable {
-                        private_key_pem: private_key_pem.to_owned(),
-                        certificate_pem: certificate_pem.to_owned(),
-                    })
-                    .await
-                    .unwrap();
+                    let private_key_pem: String = key_pair.serialize_pem();
+                    let certificate_pem: String = cert.pem();
 
-                let cert_decoded: openssl::x509::X509 =
-                    openssl::x509::X509::from_pem(certificate_pem.as_bytes()).unwrap();
-                log::info!(
-                    "Using new TLS server certificate: [{not_before}, {not_after}]",
-                    not_before = asn1_to_chrono(cert_decoded.not_before()),
-                    not_after = asn1_to_chrono(cert_decoded.not_after()),
-                );
+                    db_client
+                        .insert_one_tls_pem(crate::database::queries::TlsPemInsertable {
+                            private_key_pem: private_key_pem.to_owned(),
+                            certificate_pem: certificate_pem.to_owned(),
+                        })
+                        .await
+                        .unwrap();
 
-                (private_key_pem, certificate_pem)
-            }
+                    let cert_decoded: openssl::x509::X509 =
+                        openssl::x509::X509::from_pem(certificate_pem.as_bytes()).unwrap();
+                    log::info!(
+                        "Using new TLS server certificate: [{not_before}, {not_after}]",
+                        not_before = asn1_to_chrono(cert_decoded.not_before()),
+                        not_after = asn1_to_chrono(cert_decoded.not_after()),
+                    );
+
+                    (private_key_pem, certificate_pem)
+                }
+
+                WebServerParameters::TLSCertificateLetsEncrypt => {
+                    log::info!(r#"Acquring TLS server certificate from "Let's Encrypt""#);
+                    /*
+                     * TODO(FEAT-0): Use ACME client to acquire a signed cert from "Let's Encrypt".
+                     */
+                    todo!();
+                }
+            },
         };
 
         let mut crypto_provider: rustls::crypto::CryptoProvider =
@@ -184,6 +197,11 @@ pub async fn serve(
         ));
         let _done = task.await;
     }
+}
+
+pub enum WebServerParameters {
+    TLSCertificateSelfSigned,
+    TLSCertificateLetsEncrypt,
 }
 
 async fn handle_connections(
