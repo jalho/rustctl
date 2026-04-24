@@ -40,6 +40,11 @@ hyper-util = { workspace = true, default-features = false, features = [
 hyper = { workspace = true, default-features = false, features = [
 ] }
 
+instant-acme = { workspace = true, features = [
+  "aws-lc-rs",
+  "hyper-rustls",
+] }
+
 log4rs = { workspace = true, default-features = false, features = [
  "console_appender",
 ] }

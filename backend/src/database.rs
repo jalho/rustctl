@@ -34,6 +34,14 @@ pub enum DbOp {
     GetWebServerTokenSigningKey {
         tx: tokio::sync::oneshot::Sender<Option<crate::crypto::KeyPairPEM>>,
     },
+
+    SetACMEAccountCredentials {
+        tx: tokio::sync::oneshot::Sender<()>,
+        value: instant_acme::AccountCredentials,
+    },
+    GetACMEAccountCredentials {
+        tx: tokio::sync::oneshot::Sender<Option<instant_acme::AccountCredentials>>,
+    },
 }
 
 pub mod queries {
@@ -80,6 +88,30 @@ pub struct Client {
 impl Client {
     pub fn new(tx: tokio::sync::mpsc::Sender<DbOp>) -> Self {
         Self { tx }
+    }
+
+    pub async fn set_acme_account_credentials(&self, value: instant_acme::AccountCredentials) {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        self.tx
+            .send(DbOp::SetACMEAccountCredentials { tx, value })
+            .await
+            .unwrap();
+
+        rx.await.unwrap();
+    }
+
+    pub async fn get_acme_account_credentials(&self) -> Option<instant_acme::AccountCredentials> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        self.tx
+            .send(DbOp::GetACMEAccountCredentials { tx })
+            .await
+            .unwrap();
+
+        let found: Option<instant_acme::AccountCredentials> = rx.await.unwrap();
+
+        found
     }
 
     pub async fn set_web_server_token_signing_key(&self, value: crate::crypto::KeyPairPEM) {
@@ -318,7 +350,7 @@ impl Engine {
             }
         }
 
-        match client.execute(tables::constants::CREATE_TABLE, &[]).await {
+        match client.execute(tables::singletons::CREATE_TABLE, &[]).await {
             Ok(_) => some_tables_created = true,
             Err(err) => {
                 let msg: String = crate::get_full_error_message(&err);
@@ -614,7 +646,6 @@ impl Engine {
                         Err(_) => todo!(),
                     }
                 }
-
                 DbOp::SetWebServerTokenSigningKey { tx, value } => {
                     let (private_key_pem, public_key_pem): (
                         crate::crypto::PrivatePEM,
@@ -623,7 +654,7 @@ impl Engine {
 
                     let inserted_count: u64 = match client
                         .execute(
-                            tables::constants::SET_WEB_SERVER_TOKEN_SIGNING_KEY_PAIR_PEM,
+                            tables::singletons::SET_WEB_SERVER_TOKEN_SIGNING_KEY_PAIR_PEM,
                             &[&private_key_pem, &public_key_pem],
                         )
                         .await
@@ -638,11 +669,10 @@ impl Engine {
                         Err(_) => todo!(),
                     }
                 }
-
                 DbOp::GetWebServerTokenSigningKey { tx } => {
                     let rows: Vec<tokio_postgres::Row> = match client
                         .query(
-                            tables::constants::GET_WEB_SERVER_TOKEN_SIGNING_KEY_PAIR_PEM,
+                            tables::singletons::GET_WEB_SERVER_TOKEN_SIGNING_KEY_PAIR_PEM,
                             &[],
                         )
                         .await
@@ -687,20 +717,68 @@ impl Engine {
                         Err(_) => todo!(),
                     }
                 }
+
+                DbOp::SetACMEAccountCredentials { tx, value } => {
+                    let credentials_serialized: String = serde_json::to_string(&value).unwrap();
+
+                    let upserted_count: u64 = match client
+                        .execute(
+                            tables::singletons::SET_ACME_ACCOUNT_CREDENTIALS,
+                            &[&credentials_serialized],
+                        )
+                        .await
+                    {
+                        Ok(n) => n,
+                        Err(err) => todo!("{err}", err = crate::get_full_error_message(&err)),
+                    };
+                    assert_eq!(upserted_count, 1);
+
+                    match tx.send(()) {
+                        Ok(_) => {}
+                        Err(_) => todo!(),
+                    }
+                }
+
+                DbOp::GetACMEAccountCredentials { tx } => {
+                    let rows: Vec<tokio_postgres::Row> = match client
+                        .query(tables::singletons::GET_ACME_ACCOUNT_CREDENTIALS, &[])
+                        .await
+                    {
+                        Ok(n) => n,
+                        Err(err) => todo!("{err}", err = crate::get_full_error_message(&err)),
+                    };
+
+                    let found: Option<instant_acme::AccountCredentials> = match rows.len() {
+                        0 => None,
+                        1 => {
+                            let row: &tokio_postgres::Row = rows.first().unwrap();
+                            let credentials_serialized: String = row.try_get("value").unwrap();
+                            let credentials_deserialized: instant_acme::AccountCredentials =
+                                serde_json::from_str(&credentials_serialized).unwrap();
+                            Some(credentials_deserialized)
+                        }
+                        _ => todo!(),
+                    };
+
+                    match tx.send(found) {
+                        Ok(_) => {}
+                        Err(_) => todo!(),
+                    }
+                }
             }
         }
     }
 }
 
 mod tables {
-    pub mod constants {
-        pub const CREATE_TABLE: &str = r#"CREATE TABLE rustctl.constants (
+    pub mod singletons {
+        pub const CREATE_TABLE: &str = r#"CREATE TABLE rustctl.singletons (
   key   VARCHAR(256) PRIMARY KEY,
   value TEXT         NOT NULL
 );"#;
 
         pub const SET_WEB_SERVER_TOKEN_SIGNING_KEY_PAIR_PEM: &str = r#"INSERT INTO
-    rustctl.constants(
+    rustctl.singletons(
         key,
         value
     )
@@ -712,12 +790,29 @@ VALUES
     key,
     value
 FROM
-    rustctl.constants
+    rustctl.singletons
 WHERE
     key IN (
         'WEB_SERVER_TOKEN_SIGNING_KEY_PRIVATE_PEM',
         'WEB_SERVER_TOKEN_SIGNING_KEY_PUBLIC_PEM'
     );"#;
+
+        pub const SET_ACME_ACCOUNT_CREDENTIALS: &str = r#"INSERT INTO
+    rustctl.singletons(
+        key,
+        value
+    )
+VALUES
+    ('ACME_ACCOUNT_CREDENTIALS', $1)
+ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value;"#;
+
+        pub const GET_ACME_ACCOUNT_CREDENTIALS: &str = r#"SELECT
+    value
+FROM
+    rustctl.singletons
+WHERE
+    key = 'ACME_ACCOUNT_CREDENTIALS';"#;
     }
 
     pub mod passkeys {

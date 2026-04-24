@@ -69,7 +69,7 @@ pub async fn serve(
             .await
             .unwrap();
 
-        let (private_key_pem, certificate_pem): (String, String) = match stored {
+        let (private_key_pem, certificate_pem): crate::crypto::KeyPairPEM = match stored {
             Some(n) => {
                 log::info!(
                     "Using existing TLS server certificate issued by {issuer} for {subject}, valid till {end}",
@@ -122,11 +122,10 @@ pub async fn serve(
                 }
 
                 WebServerParameters::TLSCertificateLetsEncrypt => {
-                    log::info!(r#"Acquring TLS server certificate from "Let's Encrypt""#);
-                    /*
-                     * TODO(FEAT-0): Use ACME client to acquire a signed cert from "Let's Encrypt".
-                     */
-                    todo!();
+                    let keypair_pem: crate::crypto::KeyPairPEM =
+                        provision_tls_certificate_via_acme(db_client.clone()).await;
+
+                    keypair_pem
                 }
             },
         };
@@ -445,3 +444,60 @@ pub fn asn1_to_chrono(not_before: &openssl::asn1::Asn1TimeRef) -> chrono::DateTi
  * Constants mandated by ML-DSA-87.
  */
 const SIGNATURE_SIZE_BYTES: usize = 4627;
+
+/// Acquire TLS certificate signed by "Let's Encrypt", using an ACME client.
+async fn provision_tls_certificate_via_acme(
+    db_client: crate::database::Client,
+) -> crate::crypto::KeyPairPEM {
+    /*
+     * TODO(FEAT-0): Add support for the non-Staging ("production") URL
+     */
+    let lets_encrypt_url: String = instant_acme::LetsEncrypt::Staging.url().to_owned();
+    log::info!(
+        r#"Acquring TLS server certificate from "Let's Encrypt": {url}"#,
+        url = lets_encrypt_url,
+    );
+
+    let builder: instant_acme::AccountBuilder = instant_acme::Account::builder().unwrap();
+
+    let existing_credentials: Option<instant_acme::AccountCredentials> =
+        db_client.get_acme_account_credentials().await;
+
+    let account: instant_acme::Account = match existing_credentials {
+        Some(credentials) => {
+            let account: instant_acme::Account =
+                builder.from_credentials(credentials).await.unwrap();
+            log::info!(r#"Using existing ACME account for "Let's Encrypt""#);
+
+            account
+        }
+
+        None => {
+            let (account, credentials): (instant_acme::Account, instant_acme::AccountCredentials) =
+                builder
+                    .create(
+                        &instant_acme::NewAccount {
+                            contact: &[],
+                            terms_of_service_agreed: true,
+                            only_return_existing: false,
+                        },
+                        lets_encrypt_url,
+                        None,
+                    )
+                    .await
+                    .unwrap();
+            db_client.set_acme_account_credentials(credentials).await;
+            log::info!(r#"Created new ACME account for "Let's Encrypt""#);
+
+            account
+        }
+    };
+
+    /*
+     * TODO(FEAT-0): Get a signed TLS server cert from "Let's Encrypt" using the
+     *               created ACME Account
+     */
+    dbg!(account.id(), account.key_thumbprint());
+
+    todo!();
+}

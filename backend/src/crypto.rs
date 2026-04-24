@@ -84,7 +84,9 @@ pub fn verify(
         Err(_) => Err(()),
     }
 }
-
+/*
+ * TODO: Define proper types instead of alias
+ */
 pub type KeyPairPEM = (PrivatePEM, PublicPEM);
 pub type PrivatePEM = String;
 pub type PublicPEM = String;
