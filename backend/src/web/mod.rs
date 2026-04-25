@@ -1,6 +1,6 @@
 mod handlers;
 
-const DOMAIN_NAME: &str = "turust.eu";
+const DOMAIN_NAME: &str = "rust.turust.eu";
 
 pub async fn serve(
     server_params: &WebServerParameters,
