@@ -1,5 +1,7 @@
 mod handlers;
 
+const DOMAIN_NAME: &str = "turust.eu";
+
 pub async fn serve(
     server_params: &WebServerParameters,
     tx_cmd_from_web_client: tokio::sync::mpsc::Sender<crate::ctl::CommandFromWebClient>,
@@ -61,15 +63,13 @@ pub async fn serve(
         /*
          * TLS server config.
          */
-        const DOMAIN_NAME: &str = "rustctl.internal";
-
         let instant: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
         let stored: Option<crate::database::queries::TlsPemSelected> = db_client
             .select_tls_pem_latest_valid_for(&instant)
             .await
             .unwrap();
 
-        let (private_key_pem, certificate_pem): crate::crypto::KeyPairPEM = match stored {
+        let (private_key_pem, certificate_chain_pem): crate::crypto::KeyPairPEM = match stored {
             Some(n) => {
                 log::info!(
                     "Using existing TLS server certificate issued by {issuer} for {subject}, valid till {end}",
@@ -78,8 +78,8 @@ pub async fn serve(
                     end = n.not_after,
                 );
                 let private_key_pem: String = n.private_key_pem;
-                let certificate_pem: String = n.certificate_pem;
-                (private_key_pem, certificate_pem)
+                let certificate_chain_pem: String = n.certificate_chain_pem;
+                (private_key_pem, certificate_chain_pem)
             }
 
             None => match server_params {
@@ -105,7 +105,7 @@ pub async fn serve(
                     db_client
                         .insert_one_tls_pem(crate::database::queries::TlsPemInsertable {
                             private_key_pem: private_key_pem.to_owned(),
-                            certificate_pem: certificate_pem.to_owned(),
+                            certificate_chain_pem: certificate_pem.to_owned(),
                         })
                         .await
                         .unwrap();
@@ -113,7 +113,7 @@ pub async fn serve(
                     let cert_decoded: openssl::x509::X509 =
                         openssl::x509::X509::from_pem(certificate_pem.as_bytes()).unwrap();
                     log::info!(
-                        "Using new TLS server certificate: [{not_before}, {not_after}]",
+                        "Using new self-signed TLS server certificate: [{not_before}, {not_after}]",
                         not_before = asn1_to_chrono(cert_decoded.not_before()),
                         not_after = asn1_to_chrono(cert_decoded.not_after()),
                     );
@@ -122,10 +122,16 @@ pub async fn serve(
                 }
 
                 WebServerParameters::TLSCertificateLetsEncrypt => {
-                    let keypair_pem: crate::crypto::KeyPairPEM =
+                    let (private_key_pem, cert_chain_pem): crate::crypto::KeyPairPEM =
                         provision_tls_certificate_via_acme(db_client.clone()).await;
-
-                    keypair_pem
+                    db_client
+                        .insert_one_tls_pem(crate::database::queries::TlsPemInsertable {
+                            private_key_pem: private_key_pem.clone(),
+                            certificate_chain_pem: cert_chain_pem.clone(),
+                        })
+                        .await
+                        .unwrap();
+                    (private_key_pem, cert_chain_pem)
                 }
             },
         };
@@ -165,9 +171,12 @@ pub async fn serve(
             )
             .unwrap();
 
-        let certificate: rustls_pki_types::CertificateDer<'static> =
-            <rustls::pki_types::CertificateDer as rustls_pki_types::pem::PemObject>::from_pem_slice(certificate_pem.as_bytes()).unwrap();
-        let certificates: Vec<rustls::pki_types::CertificateDer> = vec![certificate];
+        let certificates: Vec<rustls::pki_types::CertificateDer> =
+            <rustls::pki_types::CertificateDer as rustls_pki_types::pem::PemObject>::pem_slice_iter(
+                certificate_chain_pem.as_bytes(),
+            )
+            .map(|result| result.unwrap())
+            .collect();
         let server_cfg: rustls::ServerConfig = server_cfg_builder
             .with_single_cert(certificates, private_key)
             .unwrap();
@@ -493,11 +502,111 @@ async fn provision_tls_certificate_via_acme(
         }
     };
 
-    /*
-     * TODO(FEAT-0): Get a signed TLS server cert from "Let's Encrypt" using the
-     *               created ACME Account
-     */
-    dbg!(account.id(), account.key_thumbprint());
+    let identifiers: &[instant_acme::Identifier; 1] =
+        &[instant_acme::Identifier::Dns(String::from(DOMAIN_NAME))];
 
-    todo!();
+    let mut order: instant_acme::Order = account
+        .new_order(&instant_acme::NewOrder::new(identifiers))
+        .await
+        .unwrap();
+
+    let mut authorizations: instant_acme::Authorizations = order.authorizations();
+    while let Some(result) = authorizations.next().await {
+        let mut authz: instant_acme::AuthorizationHandle = result.unwrap();
+        match authz.status {
+            instant_acme::AuthorizationStatus::Pending => {}
+            instant_acme::AuthorizationStatus::Valid => continue,
+            _ => todo!(),
+        }
+
+        let mut challenge: instant_acme::ChallengeHandle = authz
+            .challenge(instant_acme::ChallengeType::Http01)
+            .unwrap();
+
+        let authz_id: &instant_acme::AuthorizedIdentifier = challenge.identifier();
+        log::debug!("{authz_id}");
+
+        let key_authz: instant_acme::KeyAuthorization = challenge.key_authorization();
+        let key_authz_http_01: &str = key_authz.as_str();
+
+        /*
+         * Serve "http-01" challenge
+         */
+        {
+            let shutdown_flag_0: std::sync::Arc<std::sync::atomic::AtomicBool> =
+                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let shutdown_flag_1: std::sync::Arc<std::sync::atomic::AtomicBool> =
+                shutdown_flag_0.clone();
+
+            let listener: tokio::net::TcpListener =
+                match tokio::net::TcpListener::bind("0.0.0.0:80").await {
+                    Ok(l) => l,
+                    Err(_) => todo!("port 80 already in use"),
+                };
+
+            let key_authz_http_01: String = key_authz_http_01.to_string();
+
+            let challenge_server_task: tokio::task::JoinHandle<()> = tokio::spawn(async move {
+                'serve_http_challenge: loop {
+                    if shutdown_flag_1.load(std::sync::atomic::Ordering::Relaxed) {
+                        break 'serve_http_challenge;
+                    }
+
+                    let (mut socket, _): (tokio::net::TcpStream, std::net::SocketAddr) =
+                        match listener.accept().await {
+                            Ok(n) => n,
+                            Err(_) => continue 'serve_http_challenge,
+                        };
+
+                    let mut buf_inbound: Vec<u8> = vec![0u8; 4096];
+                    let bytes_received: usize =
+                        tokio::io::AsyncReadExt::read(&mut socket, &mut buf_inbound)
+                            .await
+                            .unwrap_or(0);
+                    let buf_inbound_utf8: String =
+                        String::from_utf8_lossy(&buf_inbound[..bytes_received]).to_string();
+                    log::debug!("{buf_inbound_utf8}");
+
+                    let buf_outbound_utf8: String = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n{}",
+                        key_authz_http_01.len(),
+                        key_authz_http_01
+                    );
+
+                    tokio::io::AsyncWriteExt::write_all(&mut socket, buf_outbound_utf8.as_bytes())
+                        .await
+                        .unwrap();
+                    tokio::io::AsyncWriteExt::shutdown(&mut socket)
+                        .await
+                        .unwrap();
+                }
+            });
+
+            challenge.set_ready().await.unwrap();
+
+            shutdown_flag_0.store(true, std::sync::atomic::Ordering::Relaxed);
+            let _ = challenge_server_task.await;
+        }
+    }
+
+    let status: instant_acme::OrderStatus = order
+        .poll_ready(&instant_acme::RetryPolicy::default())
+        .await
+        .unwrap();
+
+    if status != instant_acme::OrderStatus::Ready {
+        todo!();
+    }
+
+    let private_key_pem: String = order.finalize().await.unwrap();
+
+    let cert_chain_pem: String = order
+        .poll_certificate(&instant_acme::RetryPolicy::default())
+        .await
+        .unwrap();
+
+    log::debug!("{}", private_key_pem);
+    log::debug!("{}", cert_chain_pem);
+
+    (private_key_pem, cert_chain_pem)
 }
