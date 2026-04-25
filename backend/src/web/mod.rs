@@ -51,14 +51,6 @@ pub async fn serve(
             "/poc/cookie/require",
             axum::routing::post(handlers::poc_require_cookie_signed),
         );
-        router = router.route(
-            "/cmd/system/reboot",
-            axum::routing::post(handlers::reboot_system),
-        );
-        router = router.route(
-            "/cmd/web/restart",
-            axum::routing::post(handlers::restart_web_server),
-        );
 
         /*
          * TLS server config.
@@ -330,6 +322,7 @@ async fn handle_connections(
 
 #[derive(Clone)]
 struct State {
+    #[allow(dead_code)]
     tx: tokio::sync::mpsc::Sender<crate::ctl::CommandFromWebClient>,
 
     db_client: crate::database::Client,

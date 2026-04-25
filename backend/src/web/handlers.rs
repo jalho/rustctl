@@ -48,32 +48,6 @@ pub async fn web() -> impl axum::response::IntoResponse {
     }
 }
 
-pub async fn reboot_system(
-    axum::extract::State(state): axum::extract::State<crate::web::State>,
-) -> axum::response::Response {
-    state
-        .tx
-        .send(crate::ctl::CommandFromWebClient::Reboot)
-        .await
-        .unwrap();
-
-    let payload: Vec<u8> = Vec::new();
-    let body: axum::body::Body = payload.into();
-    axum::response::Response::new(body)
-}
-
-pub async fn restart_web_server(
-    axum::extract::State(state): axum::extract::State<crate::web::State>,
-) -> impl axum::response::IntoResponse {
-    state
-        .tx
-        .send(crate::ctl::CommandFromWebClient::RestartWebServer)
-        .await
-        .unwrap();
-
-    axum::http::StatusCode::NO_CONTENT
-}
-
 async fn prune_pending<T>(
     pending_map: &tokio::sync::Mutex<
         std::collections::HashMap<uuid::Uuid, crate::web::Timestamped<T>>,
