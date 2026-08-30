@@ -21,10 +21,10 @@ pub fn launch_game_server(_config: &GameServerConfig) -> std::process::ExitCode 
      *   Launch RustDedicated and run it to termination: exit with whatever code
      *   the game server exited with.
      *
-     *   Launching: load Carbon modding framework and our custom plugin
-     *   in it. The plugin should write data about the game's state to
-     *   `UNIX_DOMAIN_SOCKET`, i.e. the path needs to be substituted into the
-     *   plugin source at load time.
+     *   Launching: load Carbon modding framework and our custom plugin (see
+     *   `/carbon/plugin.cs` in this repo) in it. The plugin should write data
+     *   about the game's state to `UNIX_DOMAIN_SOCKET`, i.e. the path needs to
+     *   be substituted into the plugin source at load time.
      *
      *   Out of scope: all commands issued via RCON WebSocket client to the
      *   running game server. The managing web server shall take care of that.
@@ -58,7 +58,9 @@ pub fn launch_game_server(_config: &GameServerConfig) -> std::process::ExitCode 
      *
      *   The `wget`, `tar`, etc. commands above are for reference only. Use
      *   mature and popular Rust libraries in actual implementation: `reqwest`
-     *   for HTTP and whatever does the `tar -xzf` trick.
+     *   for HTTP and whatever does the `tar -xzf` trick. Also use `tokio`,
+     *   because this project will be using `tokio` & `axum` in the managing web
+     *   server anyway.
      *
      *   Running the game server: don't use a log file: let `systemd` take care
      *   of collecting timestamped logs.
