@@ -10,6 +10,25 @@
 //! server's state into the Unix domain socket that the managing web server then
 //! reads. The modding framework takes care of detecting changes in the game's state
 //! and passing the information to the plugin.
+//!
+//! The game server and its managing web server should be run as separate Linux
+//! users. The game server user should only have access to the game server
+//! executable and its related files. Likewise the web server should only have
+//! access to the web assets and the web server executable. Both users need to
+//! have access to the shared Unix domain socket. All of these: the users, and the
+//! socket, and any necessary dependencies (such as `steamcmd`, i.e. the game server
+//! installer), are defined in a `cloud-init` file in the repository. No extra
+//! privileges should be granted. For example, web server running user does not need
+//! full root privileges, but only the necessary capability to bind web server to
+//! port 443 for TLS.
+
+/*
+ * TODO(LLM):
+ *
+ *   Define the `cloud-init` file. It must be copy-pasteable as-is to Hetzner,
+ *   which accepts a cloud-init snippet when defining a VM, where we intend to
+ *   deploy this thing. We'll use an Ubuntu x86-64 VM.
+ */
 
 fn main() -> std::process::ExitCode {
     let cli: cli::Cli = <cli::Cli as clap::Parser>::parse();
@@ -63,17 +82,17 @@ mod web {
          *   Note that re-starting the game server with installing updates
          *   and re-generating the map may take up to 30 minutes or something.
          *   Also keep consuming data from the Unix domain socket that the
-         *   instrumented game server writes to: do whatever housekeeping
-         *   is required in that kind of use case: Idk when the socket
-         *   file descriptor needs to be re-created and by which side: the
-         *   instrumented game server's plugin, or its launcher, or this
-         *   managing web server. Note that each of the components must be
-         *   manually restartable and each of them shall remain running if any
-         *   of the other components are taken down. For example, the managing
-         *   web server can be stopped and restarted without having to restart
-         *   the game server, and vice versa. Also document these ideas in doc
-         *   comment of `fn launch_web_server` similar to how I've instructed in
-         *   the TODO of the game server launcher fn.
+         *   instrumented game server writes to.
+         *
+         *   Note that each of the components must be manually restartable and
+         *   each of them shall remain running if any of the other components
+         *   are taken down. For example, the managing web server can be
+         *   stopped and restarted without having to restart the game server,
+         *   and vice versa.
+         *
+         *   Also document these ideas in doc comment of `fn launch_web_server`
+         *   similar to how I've instructed in the TODO of the game server
+         *   launcher fn.
          */
         std::process::ExitCode::from(45)
     }
