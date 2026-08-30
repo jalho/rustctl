@@ -22,14 +22,6 @@
 //! full root privileges, but only the necessary capability to bind web server to
 //! port 443 for TLS.
 
-/*
- * TODO(LLM):
- *
- *   Define the `cloud-init` file. It must be copy-pasteable as-is to Hetzner,
- *   which accepts a cloud-init snippet when defining a VM, where we intend to
- *   deploy this thing. We'll use an Ubuntu x86-64 VM.
- */
-
 fn main() -> std::process::ExitCode {
     let cli: cli::Cli = <cli::Cli as clap::Parser>::parse();
 
@@ -64,36 +56,138 @@ mod cli {
 }
 
 mod web {
-    pub struct WebServerConfig {}
+    pub struct WebServerConfig {
+        pub rcon_host: &'static str,
+        pub rcon_port: u16,
+        pub rcon_password: &'static str,
+    }
 
     impl Default for WebServerConfig {
         fn default() -> Self {
-            Self {}
+            Self {
+                rcon_host: "127.0.0.1",
+                rcon_port: 28016,
+                rcon_password: "",
+            }
         }
     }
 
-    pub fn launch_web_server(_config: &WebServerConfig) -> std::process::ExitCode {
-        /*
-         * TODO(LLM):
-         *
-         *   (Re)connect to the game server's RCON WebSocket API and repeatedly
-         *   query the in-game world time (`env.time`), as a healthiness
-         *   heartbeat signal. Re-establish connection whenever its lost.
-         *   Note that re-starting the game server with installing updates
-         *   and re-generating the map may take up to 30 minutes or something.
-         *   Also keep consuming data from the Unix domain socket that the
-         *   instrumented game server writes to.
-         *
-         *   Note that each of the components must be manually restartable and
-         *   each of them shall remain running if any of the other components
-         *   are taken down. For example, the managing web server can be
-         *   stopped and restarted without having to restart the game server,
-         *   and vice versa.
-         *
-         *   Also document these ideas in doc comment of `fn launch_web_server`
-         *   similar to how I've instructed in the TODO of the game server
-         *   launcher fn.
-         */
-        std::process::ExitCode::from(45)
+    /// This function runs two independent loops until the process stops.
+    ///
+    /// - One loop connects to the running game server's RCON WebSocket API and
+    ///   repeatedly queries the in-game world time (`env.time`), as a
+    ///   healthiness heartbeat signal. It re-connects whenever the connection
+    ///   is lost. Note that re-starting the game server with installing
+    ///   updates and re-generating the map may take up to 30 minutes or
+    ///   something.
+    /// - One loop keeps consuming data from the Unix domain socket that the
+    ///   instrumented game server writes to.
+    ///
+    /// Each loop restarts itself on failure, independently of the other. This
+    /// function, and hence the managing web server, can be stopped and
+    /// restarted without having to restart the game server, and vice versa,
+    /// because the two are run as separate `systemd` units.
+    pub fn launch_web_server(config: &WebServerConfig) -> std::process::ExitCode {
+        let async_runtime = match tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+        {
+            Ok(async_runtime) => async_runtime,
+            Err(err) => {
+                std::eprintln!("failed to start async runtime: {err}");
+                return std::process::ExitCode::from(20);
+            }
+        };
+
+        let rcon_host = config.rcon_host.to_owned();
+        let rcon_port = config.rcon_port;
+        let rcon_password = config.rcon_password.to_owned();
+
+        async_runtime.block_on(async move {
+            let rcon_task =
+                tokio::task::spawn(rcon_heartbeat_loop(rcon_host, rcon_port, rcon_password));
+            let socket_task = tokio::task::spawn(unix_socket_consumer_loop());
+
+            let _ = rcon_task.await;
+            let _ = socket_task.await;
+        });
+
+        std::process::ExitCode::SUCCESS
+    }
+
+    async fn rcon_heartbeat_loop(host: String, port: u16, password: String) {
+        loop {
+            let url = std::format!("ws://{host}:{port}/{password}");
+
+            let mut websocket_stream = match tokio_tungstenite::connect_async(url).await {
+                Ok((websocket_stream, _response)) => websocket_stream,
+                Err(_err) => {
+                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                    continue;
+                }
+            };
+
+            loop {
+                let request = serde_json::json!({
+                    "Identifier": 1,
+                    "Message": "env.time",
+                    "Name": "WebRcon",
+                })
+                .to_string();
+
+                let send_result = futures_util::SinkExt::send(
+                    &mut websocket_stream,
+                    tokio_tungstenite::tungstenite::Message::text(request),
+                )
+                .await;
+
+                if send_result.is_err() {
+                    break;
+                }
+
+                let heartbeat_result = tokio::time::timeout(
+                    std::time::Duration::from_secs(10),
+                    futures_util::StreamExt::next(&mut websocket_stream),
+                )
+                .await;
+
+                match heartbeat_result {
+                    Ok(Some(Ok(_message))) => {}
+                    _ => break,
+                }
+
+                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            }
+
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        }
+    }
+
+    async fn unix_socket_consumer_loop() {
+        loop {
+            let _ = std::fs::remove_file(launcher::UNIX_DOMAIN_SOCKET);
+
+            let listener = match tokio::net::UnixListener::bind(launcher::UNIX_DOMAIN_SOCKET) {
+                Ok(listener) => listener,
+                Err(_err) => {
+                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                    continue;
+                }
+            };
+
+            loop {
+                let (unix_stream, _addr) = match listener.accept().await {
+                    Ok(accepted) => accepted,
+                    Err(_err) => break,
+                };
+
+                tokio::task::spawn(async move {
+                    let mut lines =
+                        tokio::io::AsyncBufReadExt::lines(tokio::io::BufReader::new(unix_stream));
+
+                    while let Ok(Some(_line)) = lines.next_line().await {}
+                });
+            }
+        }
     }
 }

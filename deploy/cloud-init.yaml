@@ -1,0 +1,102 @@
+#cloud-config
+
+package_update: true
+package_upgrade: false
+
+groups:
+  - rustctl
+
+users:
+  - name: rustctl-web
+    system: true
+    primary_group: rustctl
+    shell: /usr/sbin/nologin
+    lock_passwd: true
+  - name: rustctl-game
+    system: true
+    primary_group: rustctl-game
+    groups: rustctl
+    shell: /usr/sbin/nologin
+    lock_passwd: true
+
+write_files:
+  - path: /etc/systemd/system/rustctl-web.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=rustctl web server
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      User=rustctl-web
+      Group=rustctl
+      UMask=0002
+      WorkingDirectory=/srv/rustctl/web
+      ExecStart=/opt/rustctl/rustctl web
+      Restart=on-failure
+      RestartSec=5
+      NoNewPrivileges=yes
+      AmbientCapabilities=CAP_NET_BIND_SERVICE
+      CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+      ProtectSystem=strict
+      ProtectHome=yes
+      ReadWritePaths=/srv/rustctl/web /tmp
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/systemd/system/rustctl-game.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=rustctl game server
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      User=rustctl-game
+      Group=rustctl-game
+      SupplementaryGroups=rustctl
+      WorkingDirectory=/srv/rustctl/game
+      ExecStart=/opt/rustctl/rustctl game
+      Restart=on-failure
+      RestartSec=5
+      NoNewPrivileges=yes
+      ProtectSystem=strict
+      ProtectHome=yes
+      ReadWritePaths=/srv/rustctl/game /tmp
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/apt/apt.conf.d/99rustctl-steam-noninteractive
+    permissions: "0644"
+    content: |
+      APT::Get::Assume-Yes "true";
+      DPkg::options { "--force-confdef"; "--force-confold"; };
+
+  - path: /var/cache/debconf/rustctl-steam.seed
+    permissions: "0644"
+    content: |
+      steam steam/question select I AGREE
+      steam steam/license note ''
+
+runcmd:
+  - dpkg --add-architecture i386
+  - add-apt-repository -y multiverse
+  - apt-get update
+  - debconf-set-selections /var/cache/debconf/rustctl-steam.seed
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y lib32gcc-s1 steamcmd
+  - mkdir -p /opt/rustctl
+  - mkdir -p /srv/rustctl/game
+  - mkdir -p /srv/rustctl/web
+  - chown rustctl-game:rustctl-game /srv/rustctl/game
+  - chown rustctl-web:rustctl /srv/rustctl/web
+  - chown root:rustctl /opt/rustctl
+  - chmod 0750 /opt/rustctl
+  - systemctl daemon-reload
+  - systemctl enable rustctl-game.service
+  - systemctl enable rustctl-web.service
