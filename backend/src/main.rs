@@ -1,3 +1,3 @@
 fn main() -> std::process::ExitCode {
-    std::process::ExitCode::from(42)
+    std::process::ExitCode::from(43)
 }

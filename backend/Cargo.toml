@@ -1,6 +1,6 @@
 [package]
-name                   = "xtask"
-version                = "0.0.0"
+name                   = "rustctl"
+version                = "0.0.0-rc0"
 edition.workspace      = true
 rust-version.workspace = true
 
