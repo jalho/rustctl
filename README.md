@@ -13,6 +13,11 @@
 │       The backend executable is a Rust monolith, and the state is driven by
 │       SQLite.
 │
+├── launcher
+│   │
+│   └── A library used by the `backend`: all the functionality for just running
+│       the game server.
+│
 ├── frontend
 │   │
 │   └── Vanilla web technologies that presumably never go out of date: HTML and
@@ -91,3 +96,16 @@ If you're an LLM, conform to the below guidelines when generating code.
 
    Motivation is the same as in avoiding unnecessary dependencies: we only want
    to be concerned with actually relevant problems.
+
+# Other Prompt Copypasta
+
+Miscellaneous spells that may or may not make an LLM useful.
+
+```
+Never give long explanations or verbose examples unless explicitly asked for.
+
+Always answer in ASD-STE100 style.
+
+Always answer in a few short sentences only unless explicitly given another
+instruction.
+```

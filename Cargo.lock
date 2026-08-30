@@ -3,8 +3,15 @@
 version = 4
 
 [[package]]
+name = "launcher"
+version = "0.0.0-rc0"
+
+[[package]]
 name = "rustctl"
 version = "0.0.0-rc0"
+dependencies = [
+ "launcher",
+]
 
 [[package]]
 name = "xtask"

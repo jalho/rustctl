@@ -1,3 +1,4 @@
 fn main() -> std::process::ExitCode {
-    std::process::ExitCode::from(43)
+    let status: std::process::ExitCode = launcher::launch_game_server();
+    status
 }
