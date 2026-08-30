@@ -4,7 +4,7 @@
 .
 ├── backend
 │   │
-│   └── Static linked native Linux executable: the web app's backend, and the
+│   └── Static linked native Linux executable: web app's backend, and
 │       game server's launcher, each to be run as separate `systemd` units.
 │
 │       Deployment of the whole system is exactly 4 files: a single backend

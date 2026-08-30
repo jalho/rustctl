@@ -5,4 +5,5 @@ edition.workspace      = true
 rust-version.workspace = true
 
 [dependencies]
+clap     = { workspace = true, features = [ "color", "derive", "error-context", "help", "std",  "suggestions", "usage" ] }
 launcher = { path = "../launcher" }
