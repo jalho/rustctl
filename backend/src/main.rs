@@ -54,6 +54,27 @@ mod web {
     }
 
     pub fn launch_web_server(_config: &WebServerConfig) -> std::process::ExitCode {
+        /*
+         * TODO(LLM):
+         *
+         *   (Re)connect to the game server's RCON WebSocket API and repeatedly
+         *   query the in-game world time (`env.time`), as a healthiness
+         *   heartbeat signal. Re-establish connection whenever its lost.
+         *   Note that re-starting the game server with installing updates
+         *   and re-generating the map may take up to 30 minutes or something.
+         *   Also keep consuming data from the Unix domain socket that the
+         *   instrumented game server writes to: do whatever housekeeping
+         *   is required in that kind of use case: Idk when the socket
+         *   file descriptor needs to be re-created and by which side: the
+         *   instrumented game server's plugin, or its launcher, or this
+         *   managing web server. Note that each of the components must be
+         *   manually restartable and each of them shall remain running if any
+         *   of the other components are taken down. For example, the managing
+         *   web server can be stopped and restarted without having to restart
+         *   the game server, and vice versa. Also document these ideas in doc
+         *   comment of `fn launch_web_server` similar to how I've instructed in
+         *   the TODO of the game server launcher fn.
+         */
         std::process::ExitCode::from(45)
     }
 }
