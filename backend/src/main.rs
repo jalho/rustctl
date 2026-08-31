@@ -66,7 +66,7 @@ mod web {
         fn default() -> Self {
             Self {
                 rcon_host: "127.0.0.1",
-                rcon_port: 28016,
+                rcon_port: launcher::RCON_PORT,
                 rcon_password: "",
             }
         }

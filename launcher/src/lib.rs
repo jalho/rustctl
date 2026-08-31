@@ -1,13 +1,16 @@
 pub const UNIX_DOMAIN_SOCKET: &'static str = "/tmp/rustctl.sock";
+pub const RCON_PORT: u16 = 28016;
 
 pub struct GameServerConfig {
     pub install_dir: std::path::PathBuf,
+    pub rcon_password: &'static str,
 }
 
 impl Default for GameServerConfig {
     fn default() -> Self {
         Self {
             install_dir: std::path::PathBuf::from("/srv/rustctl/game/RustDedicated"),
+            rcon_password: "",
         }
     }
 }
@@ -22,9 +25,12 @@ impl Default for GameServerConfig {
 /// - The function writes the custom Carbon plugin from `/carbon/plugin.cs`
 ///   into the Carbon plugins directory, with `UNIX_DOMAIN_SOCKET` substituted
 ///   into the plugin source.
-/// - The function starts `RustDedicated` through Carbon, with output sent
-///   directly to standard output and standard error, and waits for it to
-///   stop.
+/// - The function starts `RustDedicated` through a generated startup script
+///   that sets `LD_LIBRARY_PATH`, sources Carbon's `carbon/tools/environment.sh`,
+///   and passes `-batchmode` together with the RCON flags that the managing
+///   web server needs to connect (`RCON_PORT`, `rcon_password`), with output
+///   sent directly to standard output and standard error, and waits for it
+///   to stop.
 /// - The function stops with the same exit code as `RustDedicated`.
 ///
 /// Issuing commands to a running game server via the RCON WebSocket API is
@@ -113,7 +119,36 @@ pub fn launch_game_server(config: &GameServerConfig) -> std::process::ExitCode {
         return std::process::ExitCode::from(14);
     }
 
-    match std::process::Command::new(config.install_dir.join("carbon.sh"))
+    let startup_script_path = config.install_dir.join("rustctl-run-with-carbon.sh");
+    let startup_script_content = std::format!(
+        "#!/bin/bash\nset -e\nexport LD_LIBRARY_PATH=\"{install_dir}\"\nsource \"{install_dir}/carbon/tools/environment.sh\"\nexec \"{install_dir}/RustDedicated\" \\\n    -batchmode \\\n    +rcon.port \"{rcon_port}\" \\\n    +rcon.web \"1\" \\\n    +rcon.password \"{rcon_password}\"\n",
+        install_dir = config.install_dir.display(),
+        rcon_port = RCON_PORT,
+        rcon_password = config.rcon_password,
+    );
+
+    if let Err(err) = std::fs::write(&startup_script_path, startup_script_content) {
+        std::eprintln!("failed to write game server startup script: {err}");
+        return std::process::ExitCode::from(16);
+    }
+
+    let mut startup_script_permissions = match std::fs::metadata(&startup_script_path) {
+        Ok(metadata) => metadata.permissions(),
+        Err(err) => {
+            std::eprintln!("failed to read game server startup script metadata: {err}");
+            return std::process::ExitCode::from(16);
+        }
+    };
+    {
+        use std::os::unix::fs::PermissionsExt;
+        startup_script_permissions.set_mode(0o755);
+    }
+    if let Err(err) = std::fs::set_permissions(&startup_script_path, startup_script_permissions) {
+        std::eprintln!("failed to make game server startup script executable: {err}");
+        return std::process::ExitCode::from(16);
+    }
+
+    match std::process::Command::new(&startup_script_path)
         .current_dir(&config.install_dir)
         .status()
     {
