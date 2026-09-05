@@ -1,4 +1,4 @@
-pub const UNIX_DOMAIN_SOCKET: &'static str = "/tmp/rustctl.sock";
+pub const UNIX_DOMAIN_SOCKET: &str = "/tmp/rustctl.sock";
 pub const RCON_PORT: u16 = 28016;
 
 pub struct GameServerConfig {

@@ -197,7 +197,7 @@ mod web {
     /// Evidence: Error seen in `RustDedicated` buildid `19600410` (latest as
     /// of 2025-08-27):
     ///
-    /// ```
+    /// ```text
     /// JsonReaderException: JSON integer 3921165172 is too large or small for an Int32. Path 'Identifier', line 1, position 24.
     /// ```
     fn random_rcon_identifier() -> i32 {
