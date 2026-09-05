@@ -1,16 +1,6 @@
 pub const UNIX_DOMAIN_SOCKET: &str = "/tmp/rustctl.sock";
 pub const RCON_PORT: u16 = 28016;
-
-/*
- * TODO:
- *
- *   Check this LLM picked port: it might collide with some default port used by
- *   the game (`RustDedicated`). It might not be a problem though, because this
- *   local loopback server and the game will always be on different interfaces.
- *   The game is open to the public internet, whereas local loopback is for
- *   local processes only. I've not tested how Linux behaves in in this regard.
- */
-pub const RCON_PASSWORD_LOCAL_PORT: u16 = 28017;
+pub const RCON_PASSWORD_LOCAL_PORT: u16 = 29542;
 
 pub struct GameServerConfig {
     pub install_dir: std::path::PathBuf,
