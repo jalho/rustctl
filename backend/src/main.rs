@@ -157,42 +157,14 @@ mod web {
             loop {
                 heartbeat_interval.tick().await;
 
-                /*
-                 * TODO:
-                 *
-                 *   Refactor so that `crate::rcon::Message` has method
-                 *
-                 *       send(&self, websocket, timeout) -> Result
-                 *
-                 *   i.e., each message can be sent with a given timeout
-                 *   (`std::time::Duration`), and the `Result` then carries
-                 *   the response received within the timeout. Note the
-                 *   RCON semantics: the response is transmitted in the same
-                 *   WebSocket connection, and matched with the command by the
-                 *   `Identifier`.
-                 *
-                 *   The response RCON message carried in `Result::Ok` should
-                 *   also be `crate::rcon::Message`, deserialized using `serde`.
-                 */
-
                 let command = crate::rcon::Message::new("env.time");
 
-                let send_result =
-                    futures_util::SinkExt::send(&mut websocket_stream, command.into()).await;
-
-                if send_result.is_err() {
-                    break;
-                }
-
-                let heartbeat_result = tokio::time::timeout(
-                    std::time::Duration::from_secs(10),
-                    futures_util::StreamExt::next(&mut websocket_stream),
-                )
-                .await;
-
-                match heartbeat_result {
-                    Ok(Some(Ok(_message))) => {}
-                    _ => break,
+                match command
+                    .send(&mut websocket_stream, std::time::Duration::from_secs(10))
+                    .await
+                {
+                    Ok(_response) => {}
+                    Err(_err) => break,
                 }
             }
 
@@ -336,7 +308,11 @@ mod web {
 }
 
 mod rcon {
-    #[derive(serde::Serialize)]
+    pub(crate) type WebSocketStream = tokio_tungstenite::WebSocketStream<
+        tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+    >;
+
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[allow(non_snake_case)]
     pub struct Message {
         Identifier: i32,
@@ -350,14 +326,59 @@ mod rcon {
                 Message: command.to_string(),
             }
         }
-    }
 
-    impl From<Message> for tokio_tungstenite::tungstenite::Message {
-        fn from(value: Message) -> Self {
-            let json: String =
-                serde_json::to_string(&value).expect("RCON message should be serializable as JSON");
+        /// Send this message over WebSocket, and wait up to given timeout for
+        /// the response.
+        ///
+        /// RCON response is transmitted in the same WebSocket connection as
+        /// the request, interleaved with unrelated broadcast messages (such
+        /// as console log lines), so responses are matched to their request
+        /// by `Identifier` rather than simply taking whichever message arrives
+        /// next.
+        pub async fn send(
+            &self,
+            websocket: &mut WebSocketStream,
+            timeout: std::time::Duration,
+        ) -> Result<Message, String> {
+            let request_json: String =
+                serde_json::to_string(self).map_err(|err| err.to_string())?;
 
-            tokio_tungstenite::tungstenite::Message::text(json)
+            futures_util::SinkExt::send(
+                websocket,
+                tokio_tungstenite::tungstenite::Message::text(request_json),
+            )
+            .await
+            .map_err(|err| err.to_string())?;
+
+            tokio::time::timeout(timeout, Self::receive_matching(websocket, self.Identifier))
+                .await
+                .map_err(|_elapsed| "RCON response timed out".to_string())?
+        }
+
+        async fn receive_matching(
+            websocket: &mut WebSocketStream,
+            identifier: i32,
+        ) -> Result<Message, String> {
+            loop {
+                let websocket_message = futures_util::StreamExt::next(websocket)
+                    .await
+                    .ok_or_else(|| "RCON WebSocket connection closed".to_string())?
+                    .map_err(|err| err.to_string())?;
+
+                let response_text = match websocket_message {
+                    tokio_tungstenite::tungstenite::Message::Text(text) => text,
+                    _ => continue,
+                };
+
+                let response: Message = match serde_json::from_str(&response_text) {
+                    Ok(response) => response,
+                    Err(_err) => continue,
+                };
+
+                if response.Identifier == identifier {
+                    return Ok(response);
+                }
+            }
         }
     }
 
