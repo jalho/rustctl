@@ -54,7 +54,6 @@ fn main() -> std::process::ExitCode {
          *   Describe this idea in short also in the crate top level doc
          *   comment.
          */
-
         cli::Command::Game => {
             let cfg = launcher::GameServerConfig::default();
             launcher::launch_game_server(&cfg)
@@ -193,11 +192,14 @@ mod web {
         }
     }
 
-    /*
-     * TODO:
-     *
-     *   Check the supported range for RCON message identifiers.
-     */
+    /// The RCON identifier must presumably fit in a signed 32-bit integer.
+    ///
+    /// Evidence: Error seen in `RustDedicated` buildid `19600410` (latest as
+    /// of 2025-08-27):
+    ///
+    /// ```
+    /// JsonReaderException: JSON integer 3921165172 is too large or small for an Int32. Path 'Identifier', line 1, position 24.
+    /// ```
     fn random_rcon_identifier() -> i32 {
         let random_state = std::collections::hash_map::RandomState::new();
         let mut hasher = std::hash::BuildHasher::build_hasher(&random_state);
