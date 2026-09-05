@@ -29,30 +29,39 @@ fn main() -> std::process::ExitCode {
         /*
          * TODO:
          *
-         *   Add static linked ("vendored") SQLite backed by a single state
-         *   file in a hard-coded file system path defined in a constant used by
-         *   both the game server and the web server. The game server shall read
-         *   RCON password from the DB and use it when launching the game, or
-         *   generate a password and then use it if no password exists yet from
-         *   a previous run. The web server shall read the password from the DB
-         *   and use it when connecting to the RCON.
+         *   Add statically linked ("vendored") SQLite backed by a single state
+         *   file in a hard-coded file system path defined in a constant. Only
+         *   the web server user shall have access to the SQLite database.
          *
-         *   The web server will later be implemented with `axum` libraries and
-         *   it will persist its state, whatever it may be, in the same SQLite
-         *   DB. Keep that in mind when adding the SQLite.
+         *   The web server shall initialize the RCON password at startup:
+         *   read it from the database if it already exists, or generate a new
+         *   password and store it if none exists yet. The web server shall then
+         *   use that password for its RCON connection.
          *
-         *   An idea to be considered: replace the `&cfg` passed to both game
-         *   server and web server entry points with a DB client of some sort,
-         *   i.e. source all parameters from the database. Intent is to minimize
-         *   the amount of required CLI args: ideally, the program will only
-         *   read the state from a single DB state file, and any configuration
-         *   is done by altering that state. Given a hard-coded DB state file
-         *   path, there shouldn't be any need for any additional CLI args,
-         *   other than the "subcommand" distinguishing whether running the game
-         *   server or the web server systemd unit.
+         *   The game server shall not have access to the SQLite database.
+         *   Instead, the web server shall provide the RCON password to the game
+         *   server over a server bound to the local loopback interface. The
+         *   game server shall connect to this local endpoint when it needs the
+         *   password, including after a game server restart. The password must
+         *   never be exposed on a non-loopback network interface.
          *
-         *   Describe this idea in short also in the crate top level doc
-         *   comment.
+         *   This avoids giving the game server access to the web server's
+         *   persistent state while still allowing both processes to use
+         *   the same RCON password. The web server owns the persistent
+         *   configuration and acts as the authority that supplies the password
+         *   to the game server.
+         *
+         *   The web server will later be implemented with `axum` libraries
+         *   and will persist its state, whatever it may be, in the same SQLite
+         *   database. Keep that in mind when adding the SQLite integration.
+         *
+         *   Update the cloud-init configuration as needed to enforce the
+         *   resulting permission model: only the web server user shall have
+         *   access to the SQLite database, while the game server user shall
+         *   have access only to the game server files (and the local loopback
+         *   endpoint used to obtain the RCON password). The existing shared
+         *   Unix domain socket used for game-state reporting must remain
+         *   separately accessible to both users.
          */
         cli::Command::Game => {
             let cfg = launcher::GameServerConfig::default();
