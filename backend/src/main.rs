@@ -98,9 +98,9 @@ mod web {
             }
         };
 
-        let rcon_host = config.rcon_host.to_owned();
-        let rcon_port = config.rcon_port;
-        let rcon_password = config.rcon_password.to_owned();
+        let rcon_host: String = config.rcon_host.to_owned();
+        let rcon_port: u16 = config.rcon_port;
+        let rcon_password: String = config.rcon_password.to_owned();
 
         async_runtime.block_on(async move {
             let rcon_task =
@@ -116,7 +116,7 @@ mod web {
 
     async fn rcon_heartbeat_loop(host: String, port: u16, password: String) {
         loop {
-            let url = std::format!("ws://{host}:{port}/{password}");
+            let url: String = std::format!("ws://{host}:{port}/{password}");
 
             let mut websocket_stream = match tokio_tungstenite::connect_async(url).await {
                 Ok((websocket_stream, _response)) => websocket_stream,
@@ -127,10 +127,10 @@ mod web {
             };
 
             loop {
-                let request = serde_json::json!({
+                // TODO: use a random RCON message ID every time
+                let request: String = serde_json::json!({
                     "Identifier": 1,
                     "Message": "env.time",
-                    "Name": "WebRcon",
                 })
                 .to_string();
 
@@ -155,6 +155,15 @@ mod web {
                     _ => break,
                 }
 
+                /*
+                 * TODO:
+                 *
+                 *   Query in-game state (i.e., just the `env.time` query for
+                 *   now) once a second, instead of every 30 secs.
+                 *
+                 *   Use `tokio::time::interval` with `MissedTickBehavior::Skip`,
+                 *   instead of a loop with `sleep`.
+                 */
                 tokio::time::sleep(std::time::Duration::from_secs(30)).await;
             }
 
@@ -164,6 +173,17 @@ mod web {
 
     async fn unix_socket_consumer_loop() {
         loop {
+            /*
+             * TODO:
+             *
+             *   Check this LLM generated Unix socket handling logic: what
+             *   happens if the game is running with the plugin attempting
+             *   to write to the socket but the web server restarts and thus
+             *   removes the socket file? Note that each should be independently
+             *   restartable: the game server whose loaded Carbon plugin writes
+             *   to the socket, and the managing web server that reads from
+             *   the socket.
+             */
             let _ = std::fs::remove_file(launcher::UNIX_DOMAIN_SOCKET);
 
             let listener = match tokio::net::UnixListener::bind(launcher::UNIX_DOMAIN_SOCKET) {
