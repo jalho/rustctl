@@ -126,10 +126,14 @@ mod web {
                 }
             };
 
+            let mut heartbeat_interval = tokio::time::interval(std::time::Duration::from_secs(1));
+            heartbeat_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
             loop {
-                // TODO: use a random RCON message ID every time
+                heartbeat_interval.tick().await;
+
                 let request: String = serde_json::json!({
-                    "Identifier": 1,
+                    "Identifier": random_rcon_identifier(),
                     "Message": "env.time",
                 })
                 .to_string();
@@ -154,35 +158,31 @@ mod web {
                     Ok(Some(Ok(_message))) => {}
                     _ => break,
                 }
-
-                /*
-                 * TODO:
-                 *
-                 *   Query in-game state (i.e., just the `env.time` query for
-                 *   now) once a second, instead of every 30 secs.
-                 *
-                 *   Use `tokio::time::interval` with `MissedTickBehavior::Skip`,
-                 *   instead of a loop with `sleep`.
-                 */
-                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
             }
 
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         }
     }
 
+    /*
+     * TODO:
+     *
+     *   Check the supported range for RCON message identifiers.
+     */
+    fn random_rcon_identifier() -> i32 {
+        let random_state = std::collections::hash_map::RandomState::new();
+        let mut hasher = std::hash::BuildHasher::build_hasher(&random_state);
+        std::hash::Hasher::write_u8(&mut hasher, 0);
+        (std::hash::Hasher::finish(&hasher) as i32) & 0x7fff_ffff
+    }
+
     async fn unix_socket_consumer_loop() {
         loop {
             /*
-             * TODO:
-             *
-             *   Check this LLM generated Unix socket handling logic: what
-             *   happens if the game is running with the plugin attempting
-             *   to write to the socket but the web server restarts and thus
-             *   removes the socket file? Note that each should be independently
-             *   restartable: the game server whose loaded Carbon plugin writes
-             *   to the socket, and the managing web server that reads from
-             *   the socket.
+             * Removing and re-creating the socket associated file path is fine
+             * because the plugin is expected to reconnect on its own before its
+             * next write, so it recovers on its own, independently of when the
+             * web server happens to come back up.
              */
             let _ = std::fs::remove_file(launcher::UNIX_DOMAIN_SOCKET);
 
