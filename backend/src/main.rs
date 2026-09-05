@@ -161,7 +161,7 @@ mod web {
                 heartbeat_interval.tick().await;
 
                 let request: String = serde_json::json!({
-                    "Identifier": random_rcon_identifier(),
+                    "Identifier": generate_random_rcon_msg_id(),
                     "Message": "env.time",
                 })
                 .to_string();
@@ -194,13 +194,12 @@ mod web {
 
     /// The RCON identifier must presumably fit in a signed 32-bit integer.
     ///
-    /// Evidence: Error seen in `RustDedicated` buildid `19600410` (latest as
-    /// of 2025-08-27):
+    /// Evidence: error seen in `RustDedicated` buildid `19600410` (2025-08-27):
     ///
     /// ```text
     /// JsonReaderException: JSON integer 3921165172 is too large or small for an Int32. Path 'Identifier', line 1, position 24.
     /// ```
-    fn random_rcon_identifier() -> i32 {
+    fn generate_random_rcon_msg_id() -> i32 {
         let random_state = std::collections::hash_map::RandomState::new();
         let mut hasher = std::hash::BuildHasher::build_hasher(&random_state);
         std::hash::Hasher::write_u8(&mut hasher, 0);
