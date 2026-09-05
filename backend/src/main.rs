@@ -72,21 +72,20 @@ mod web {
         }
     }
 
-    /// This function runs two independent loops until the process stops.
+    /// This function runs two independent loops until the process stops: RCON
+    /// connection, and Unix domain socket reader.
     ///
-    /// - One loop connects to the running game server's RCON WebSocket API and
-    ///   repeatedly queries the in-game world time (`env.time`), as a
-    ///   healthiness heartbeat signal. It re-connects whenever the connection
-    ///   is lost. Note that re-starting the game server with installing
-    ///   updates and re-generating the map may take up to 30 minutes or
-    ///   something.
-    /// - One loop keeps consuming data from the Unix domain socket that the
-    ///   instrumented game server writes to.
+    /// - *RCON connection:* connect to the running game server's RCON WebSocket
+    ///   API and repeatedly query the in-game world time (`env.time`), as a
+    ///   healthiness heartbeat signal. Re-connect if the connection is lost.
     ///
-    /// Each loop restarts itself on failure, independently of the other. This
-    /// function, and hence the managing web server, can be stopped and
-    /// restarted without having to restart the game server, and vice versa,
-    /// because the two are run as separate `systemd` units.
+    /// - *Unix domain socket reader:* Consume data from the Unix domain socket
+    ///   that the instrumented game server writes to.
+    ///
+    /// Each loop restarts itself on failure, independently of the other.
+    /// This function, and hence the managing web server, can be stopped and
+    /// restarted without having to restart the game server, and vice versa. The
+    /// game and its managing webserver are run as separate `systemd` units.
     pub fn launch_web_server(config: &WebServerConfig) -> std::process::ExitCode {
         let async_runtime = match tokio::runtime::Builder::new_multi_thread()
             .enable_all()
