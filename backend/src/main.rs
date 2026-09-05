@@ -160,17 +160,28 @@ mod web {
             loop {
                 heartbeat_interval.tick().await;
 
-                let request: String = serde_json::json!({
-                    "Identifier": generate_random_rcon_msg_id(),
-                    "Message": "env.time",
-                })
-                .to_string();
+                /*
+                 * TODO:
+                 *
+                 *   Refactor so that `crate::rcon::Message` has method
+                 *
+                 *       send(&self, websocket, timeout) -> Result
+                 *
+                 *   i.e., each message can be sent with a given timeout
+                 *   (`std::time::Duration`), and the `Result` then carries
+                 *   the response received within the timeout. Note the
+                 *   RCON semantics: the response is transmitted in the same
+                 *   WebSocket connection, and matched with the command by the
+                 *   `Identifier`.
+                 *
+                 *   The response RCON message carried in `Result::Ok` should
+                 *   also be `crate::rcon::Message`, deserialized using `serde`.
+                 */
 
-                let send_result = futures_util::SinkExt::send(
-                    &mut websocket_stream,
-                    tokio_tungstenite::tungstenite::Message::text(request),
-                )
-                .await;
+                let command = crate::rcon::Message::new("env.time");
+
+                let send_result =
+                    futures_util::SinkExt::send(&mut websocket_stream, command.into()).await;
 
                 if send_result.is_err() {
                     break;
@@ -190,33 +201,6 @@ mod web {
 
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         }
-    }
-
-    /// The RCON identifier must presumably fit in a signed 32-bit integer.
-    ///
-    /// Evidence: error seen in `RustDedicated` buildid `19600410` (2025-08-27):
-    ///
-    /// ```text
-    /// JsonReaderException: JSON integer 3921165172 is too large or small for an Int32. Path 'Identifier', line 1, position 24.
-    /// ```
-    ///
-    /// There's no spec, as far as I'm aware, but let's also assume it has to be
-    /// a non-negative integer.
-    fn generate_random_rcon_msg_id() -> i32 {
-        /*
-         * Generating a random value using only standard library.
-         */
-        let random_state = std::collections::hash_map::RandomState::new();
-        let mut hasher = std::hash::BuildHasher::build_hasher(&random_state);
-        std::hash::Hasher::write_u8(&mut hasher, 0);
-
-        // possibly negative
-        let value: i32 = std::hash::Hasher::finish(&hasher) as i32;
-
-        // make non-negative by clearing the high bit
-        let value_bounded: i32 = value & 0x_7fff_ffff_i32;
-
-        value_bounded
     }
 
     async fn unix_socket_consumer_loop() {
@@ -251,5 +235,59 @@ mod web {
                 });
             }
         }
+    }
+}
+
+mod rcon {
+    #[derive(serde::Serialize)]
+    #[allow(non_snake_case)]
+    pub struct Message {
+        Identifier: i32,
+        Message: String,
+    }
+
+    impl Message {
+        pub fn new(command: &str) -> Self {
+            Self {
+                Identifier: generate_random_id(),
+                Message: command.to_string(),
+            }
+        }
+    }
+
+    impl From<Message> for tokio_tungstenite::tungstenite::Message {
+        fn from(value: Message) -> Self {
+            let json: String =
+                serde_json::to_string(&value).expect("RCON message should be serializable as JSON");
+
+            tokio_tungstenite::tungstenite::Message::text(json)
+        }
+    }
+
+    /// The RCON identifier must presumably fit in a signed 32-bit integer.
+    ///
+    /// Evidence: error seen in `RustDedicated` buildid `19600410` (2025-08-27):
+    ///
+    /// ```text
+    /// JsonReaderException: JSON integer 3921165172 is too large or small for an Int32. Path 'Identifier', line 1, position 24.
+    /// ```
+    ///
+    /// There's no spec, as far as I'm aware, but let's also assume it has to be
+    /// a non-negative integer.
+    fn generate_random_id() -> i32 {
+        /*
+         * Generating a random value using only standard library.
+         */
+        let random_state = std::collections::hash_map::RandomState::new();
+        let mut hasher = std::hash::BuildHasher::build_hasher(&random_state);
+        std::hash::Hasher::write_u8(&mut hasher, 0);
+
+        // possibly negative
+        let value: i32 = std::hash::Hasher::finish(&hasher) as i32;
+
+        // make non-negative by clearing the high bit
+        let value_bounded: i32 = value & 0x_7fff_ffff_i32;
+
+        value_bounded
     }
 }

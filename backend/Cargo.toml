@@ -6,8 +6,9 @@ rust-version.workspace = true
 
 [dependencies]
 clap              = { workspace = true, features = [ "color", "derive", "error-context", "help", "std",  "suggestions", "usage" ] }
-launcher          = { path = "../launcher" }
-tokio             = { workspace = true }
-tokio-tungstenite = { workspace = true }
 futures-util      = { workspace = true }
+launcher          = { path = "../launcher" }
 serde_json        = { workspace = true }
+serde             = { workspace = true, features = [ "derive" ] }
+tokio-tungstenite = { workspace = true }
+tokio             = { workspace = true }
