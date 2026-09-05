@@ -21,48 +21,16 @@
 //! source. No extra privileges should be granted to the system users: for example,
 //! the web server running user does not need full root privileges, but only the
 //! necessary capability to bind a web server to port 443 for TLS.
+//!
+//! The web server owns an SQLite database that only its own Linux user can access,
+//! holding e.g. the RCON password. The game server has no access to that database;
+//! instead, it fetches the RCON password from the web server over a server bound to
+//! the local loopback interface only, never on a non-loopback network interface.
 
 fn main() -> std::process::ExitCode {
     let cli: cli::Cli = <cli::Cli as clap::Parser>::parse();
 
     match cli.command {
-        /*
-         * TODO:
-         *
-         *   Add statically linked ("vendored") SQLite backed by a single state
-         *   file in a hard-coded file system path defined in a constant. Only
-         *   the web server user shall have access to the SQLite database.
-         *
-         *   The web server shall initialize the RCON password at startup:
-         *   read it from the database if it already exists, or generate a new
-         *   password and store it if none exists yet. The web server shall then
-         *   use that password for its RCON connection.
-         *
-         *   The game server shall not have access to the SQLite database.
-         *   Instead, the web server shall provide the RCON password to the game
-         *   server over a server bound to the local loopback interface. The
-         *   game server shall connect to this local endpoint when it needs the
-         *   password, including after a game server restart. The password must
-         *   never be exposed on a non-loopback network interface.
-         *
-         *   This avoids giving the game server access to the web server's
-         *   persistent state while still allowing both processes to use
-         *   the same RCON password. The web server owns the persistent
-         *   configuration and acts as the authority that supplies the password
-         *   to the game server.
-         *
-         *   The web server will later be implemented with `axum` libraries
-         *   and will persist its state, whatever it may be, in the same SQLite
-         *   database. Keep that in mind when adding the SQLite integration.
-         *
-         *   Update the cloud-init configuration as needed to enforce the
-         *   resulting permission model: only the web server user shall have
-         *   access to the SQLite database, while the game server user shall
-         *   have access only to the game server files (and the local loopback
-         *   endpoint used to obtain the RCON password). The existing shared
-         *   Unix domain socket used for game-state reporting must remain
-         *   separately accessible to both users.
-         */
         cli::Command::Game => {
             let cfg = launcher::GameServerConfig::default();
             launcher::launch_game_server(&cfg)
@@ -96,7 +64,6 @@ mod web {
     pub struct WebServerConfig {
         pub rcon_host: &'static str,
         pub rcon_port: u16,
-        pub rcon_password: &'static str,
     }
 
     impl Default for WebServerConfig {
@@ -104,13 +71,16 @@ mod web {
             Self {
                 rcon_host: "127.0.0.1",
                 rcon_port: launcher::RCON_PORT,
-                rcon_password: "",
             }
         }
     }
 
-    /// This function runs two independent loops until the process stops: RCON
-    /// connection, and Unix domain socket reader.
+    /// This function first reads the RCON password from [`STATE_DB_PATH`], an
+    /// SQLite database that only this web server process ever opens, generating
+    /// and storing a random password there if none is stored yet. It then
+    /// runs three independent loops until the process stops: RCON connection,
+    /// Unix domain socket reader, and RCON password server (to communicate the
+    /// password to the separate game server launching process).
     ///
     /// - *RCON connection:* connect to the running game server's RCON WebSocket
     ///   API and repeatedly query the in-game world time (`env.time`), as a
@@ -119,11 +89,24 @@ mod web {
     /// - *Unix domain socket reader:* Consume data from the Unix domain socket
     ///   that the instrumented game server writes to.
     ///
+    /// - *RCON password server:* serve the RCON password to the game server,
+    ///   which has no access to the database itself. This is served on the
+    ///   local loopback interface only, never on a non-loopback network
+    ///   interface.
+    ///
     /// Each loop restarts itself on failure, independently of the other.
     /// This function, and hence the managing web server, can be stopped and
     /// restarted without having to restart the game server, and vice versa. The
     /// game and its managing webserver are run as separate `systemd` units.
     pub fn launch_web_server(config: &WebServerConfig) -> std::process::ExitCode {
+        let rcon_password: std::sync::Arc<str> = match ensure_rcon_password() {
+            Ok(rcon_password) => std::sync::Arc::from(rcon_password),
+            Err(err) => {
+                std::eprintln!("failed to read or generate RCON password: {err}");
+                return std::process::ExitCode::from(21);
+            }
+        };
+
         let async_runtime = match tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
@@ -137,23 +120,28 @@ mod web {
 
         let rcon_host: String = config.rcon_host.to_owned();
         let rcon_port: u16 = config.rcon_port;
-        let rcon_password: String = config.rcon_password.to_owned();
 
         async_runtime.block_on(async move {
-            let rcon_task =
-                tokio::task::spawn(rcon_heartbeat_loop(rcon_host, rcon_port, rcon_password));
+            let rcon_task = tokio::task::spawn(rcon_heartbeat_loop(
+                rcon_host,
+                rcon_port,
+                std::sync::Arc::clone(&rcon_password),
+            ));
             let socket_task = tokio::task::spawn(unix_socket_consumer_loop());
+            let password_server_task =
+                tokio::task::spawn(password_server_loop(std::sync::Arc::clone(&rcon_password)));
 
             let _ = rcon_task.await;
             let _ = socket_task.await;
+            let _ = password_server_task.await;
         });
 
         std::process::ExitCode::SUCCESS
     }
 
-    async fn rcon_heartbeat_loop(host: String, port: u16, password: String) {
+    async fn rcon_heartbeat_loop(host: String, port: u16, rcon_password: std::sync::Arc<str>) {
         loop {
-            let url: String = std::format!("ws://{host}:{port}/{password}");
+            let url: String = std::format!("ws://{host}:{port}/{rcon_password}");
 
             let mut websocket_stream = match tokio_tungstenite::connect_async(url).await {
                 Ok((websocket_stream, _response)) => websocket_stream,
@@ -244,6 +232,106 @@ mod web {
                 });
             }
         }
+    }
+
+    /*
+     * TODO:
+     *
+     *   Use axum instead of a loop, since we're gonna depend on axum in the
+     *   program anyway. I.e., create an axum web server for this local loopback
+     *   purpose only. There will be a separate axum server instance in this
+     *   same process for the public web app serving. Also add additional
+     *   security: this local loopback server should check that the connected
+     *   client's address is also on the local loopback interface.
+     */
+    async fn password_server_loop(rcon_password: std::sync::Arc<str>) {
+        loop {
+            let listener = match tokio::net::TcpListener::bind((
+                "127.0.0.1",
+                launcher::RCON_PASSWORD_LOCAL_PORT,
+            ))
+            .await
+            {
+                Ok(listener) => listener,
+                Err(_err) => {
+                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                    continue;
+                }
+            };
+
+            loop {
+                let (mut tcp_stream, _addr) = match listener.accept().await {
+                    Ok(accepted) => accepted,
+                    Err(_err) => break,
+                };
+
+                let rcon_password = std::sync::Arc::clone(&rcon_password);
+
+                tokio::task::spawn(async move {
+                    let _ = tokio::io::AsyncWriteExt::write_all(
+                        &mut tcp_stream,
+                        rcon_password.as_bytes(),
+                    )
+                    .await;
+                    let _ = tokio::io::AsyncWriteExt::shutdown(&mut tcp_stream).await;
+                });
+            }
+        }
+    }
+
+    const STATE_DB_PATH: &str = "/srv/rustctl/web/state.sqlite3";
+
+    fn ensure_rcon_password() -> Result<String, String> {
+        let connection =
+            rusqlite::Connection::open(STATE_DB_PATH).map_err(|err| err.to_string())?;
+
+        connection
+            .busy_timeout(std::time::Duration::from_secs(5))
+            .map_err(|err| err.to_string())?;
+
+        connection
+            .execute("PRAGMA journal_mode = WAL", [])
+            .map_err(|err| err.to_string())?;
+
+        connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS rcon_password (password TEXT NOT NULL)",
+                [],
+            )
+            .map_err(|err| err.to_string())?;
+
+        let existing_password: Option<String> = rusqlite::OptionalExtension::optional(
+            connection.query_row("SELECT password FROM rcon_password LIMIT 1", [], |row| {
+                row.get(0)
+            }),
+        )
+        .map_err(|err| err.to_string())?;
+
+        if let Some(existing_password) = existing_password {
+            return Ok(existing_password);
+        }
+
+        let generated_password = generate_random_password();
+
+        connection
+            .execute(
+                "INSERT INTO rcon_password (password) VALUES (?1)",
+                [&generated_password],
+            )
+            .map_err(|err| err.to_string())?;
+
+        Ok(generated_password)
+    }
+
+    fn generate_random_password() -> String {
+        fn random_u64() -> u64 {
+            let random_state = std::collections::hash_map::RandomState::new();
+            let mut hasher = std::hash::BuildHasher::build_hasher(&random_state);
+            std::hash::Hasher::write_u8(&mut hasher, 0);
+            std::hash::Hasher::finish(&hasher)
+        }
+
+        std::format!("{:016x}{:016x}", random_u64(), random_u64())
     }
 }
 

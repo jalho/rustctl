@@ -8,6 +8,7 @@ rust-version.workspace = true
 clap              = { workspace = true, features = [ "color", "derive", "error-context", "help", "std",  "suggestions", "usage" ] }
 futures-util      = { workspace = true }
 launcher          = { path = "../launcher" }
+rusqlite          = { workspace = true }
 serde_json        = { workspace = true }
 serde             = { workspace = true, features = [ "derive" ] }
 tokio-tungstenite = { workspace = true }

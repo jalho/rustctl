@@ -1,16 +1,25 @@
 pub const UNIX_DOMAIN_SOCKET: &str = "/tmp/rustctl.sock";
 pub const RCON_PORT: u16 = 28016;
 
+/*
+ * TODO:
+ *
+ *   Check this LLM picked port: it might collide with some default port used by
+ *   the game (`RustDedicated`). It might not be a problem though, because this
+ *   local loopback server and the game will always be on different interfaces.
+ *   The game is open to the public internet, whereas local loopback is for
+ *   local processes only. I've not tested how Linux behaves in in this regard.
+ */
+pub const RCON_PASSWORD_LOCAL_PORT: u16 = 28017;
+
 pub struct GameServerConfig {
     pub install_dir: std::path::PathBuf,
-    pub rcon_password: &'static str,
 }
 
 impl Default for GameServerConfig {
     fn default() -> Self {
         Self {
             install_dir: std::path::PathBuf::from("/srv/rustctl/game/RustDedicated"),
-            rcon_password: "",
         }
     }
 }
@@ -20,25 +29,31 @@ impl Default for GameServerConfig {
 ///
 /// In more detail:
 ///
-/// - The function checks that `steamcmd` is present. If `steamcmd` is not
-///   present, the function stops with an error code.
+/// - Check that `steamcmd` is present. If `steamcmd` is not present, stop with
+///   an error code.
 ///
-/// - The function installs or updates `RustDedicated` with `steamcmd`.
+/// - Install or update `RustDedicated` with `steamcmd`.
 ///
-/// - The function downloads and unpacks the Carbon modding framework from
-///   GitHub.
+/// - Download and unpack the Carbon modding framework from GitHub.
 ///
-/// - The function writes the custom Carbon plugin (named `rustctl_sock`) into the
-///   Carbon plugins directory, with [`UNIX_DOMAIN_SOCKET`] substituted into the
-///   plugin source.
+/// - Write the custom Carbon plugin (named `rustctl_sock`) into the Carbon
+///   plugins directory, with [`UNIX_DOMAIN_SOCKET`] substituted into the plugin
+///   source.
 ///
-/// - The function starts `RustDedicated` through a generated startup script that
-///   sets `LD_LIBRARY_PATH`, sources Carbon's `carbon/tools/environment.sh`, and
+/// - Fetch the RCON password from the managing web server, which is the
+///   sole owner of that password's persistent storage, by connecting to
+///   [`RCON_PASSWORD_LOCAL_PORT`] on the local loopback interface, retrying
+///   with a fixed delay until the web server is up and answers. This game
+///   server process shall never accesses the web server's persistent state
+///   directly.
+///
+/// - Start `RustDedicated` through a generated startup script that sets
+///   `LD_LIBRARY_PATH`, sources Carbon's `carbon/tools/environment.sh`, and
 ///   passes the RCON flags that the managing web server needs to connect (RCON
 ///   TCP port, RCON password), with output sent directly to standard output and
-///   standard error, and waits for it to stop.
+///   standard error, and wait for it to stop.
 ///
-/// - The function stops with the same exit code as `RustDedicated`.
+/// - Stop with the same exit code as `RustDedicated`.
 ///
 /// Issuing commands to a running game server via the RCON WebSocket API, like any
 /// configuring of Carbon via RCON, is out of scope for this function. The managing
@@ -127,12 +142,13 @@ pub fn launch_game_server(config: &GameServerConfig) -> std::process::ExitCode {
         return std::process::ExitCode::from(14);
     }
 
+    let rcon_password = fetch_rcon_password();
+
     let startup_script_path = config.install_dir.join("rustctl-run-with-carbon.sh");
     let startup_script_content = std::format!(
         "#!/bin/bash\nset -e\nexport LD_LIBRARY_PATH=\"{install_dir}\"\nsource \"{install_dir}/carbon/tools/environment.sh\"\nexec \"{install_dir}/RustDedicated\" \\\n    -batchmode \\\n    +rcon.port \"{rcon_port}\" \\\n    +rcon.web \"1\" \\\n    +rcon.password \"{rcon_password}\"\n",
         install_dir = config.install_dir.display(),
         rcon_port = RCON_PORT,
-        rcon_password = config.rcon_password,
     );
 
     if let Err(err) = std::fs::write(&startup_script_path, startup_script_content) {
@@ -165,5 +181,31 @@ pub fn launch_game_server(config: &GameServerConfig) -> std::process::ExitCode {
             std::eprintln!("failed to launch `RustDedicated`: {err}");
             std::process::ExitCode::from(15)
         }
+    }
+}
+
+fn fetch_rcon_password() -> String {
+    loop {
+        if let Some(rcon_password) = try_fetch_rcon_password() {
+            return rcon_password;
+        }
+
+        std::thread::sleep(std::time::Duration::from_secs(2));
+    }
+}
+
+fn try_fetch_rcon_password() -> Option<String> {
+    let mut tcp_stream =
+        std::net::TcpStream::connect(("127.0.0.1", RCON_PASSWORD_LOCAL_PORT)).ok()?;
+
+    let mut rcon_password = String::new();
+    std::io::Read::read_to_string(&mut tcp_stream, &mut rcon_password).ok()?;
+
+    let rcon_password = rcon_password.trim();
+
+    if rcon_password.is_empty() {
+        None
+    } else {
+        Some(rcon_password.to_owned())
     }
 }

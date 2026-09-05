@@ -95,6 +95,8 @@ runcmd:
   - mkdir -p /srv/rustctl/web
   - chown rustctl-game:rustctl-game /srv/rustctl/game
   - chown rustctl-web:rustctl /srv/rustctl/web
+  - chmod 0700 /srv/rustctl/game
+  - chmod 0700 /srv/rustctl/web
   - chown root:rustctl /opt/rustctl
   - chmod 0750 /opt/rustctl
   - systemctl daemon-reload
