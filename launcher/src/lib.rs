@@ -15,26 +15,34 @@ impl Default for GameServerConfig {
     }
 }
 
-/// This function does these steps.
+/// Update and launch game server (executable named `RustDedicated`) with a _Carbon_
+/// (modding framework) plugin installed.
+///
+/// In more detail:
 ///
 /// - The function checks that `steamcmd` is present. If `steamcmd` is not
 ///   present, the function stops with an error code.
+///
 /// - The function installs or updates `RustDedicated` with `steamcmd`.
+///
 /// - The function downloads and unpacks the Carbon modding framework from
 ///   GitHub.
-/// - The function writes the custom Carbon plugin from `/carbon/plugin.cs`
-///   into the Carbon plugins directory, with `UNIX_DOMAIN_SOCKET` substituted
-///   into the plugin source.
-/// - The function starts `RustDedicated` through a generated startup script
-///   that sets `LD_LIBRARY_PATH`, sources Carbon's `carbon/tools/environment.sh`,
-///   and passes `-batchmode` together with the RCON flags that the managing
-///   web server needs to connect (`RCON_PORT`, `rcon_password`), with output
-///   sent directly to standard output and standard error, and waits for it
-///   to stop.
+///
+/// - The function writes the custom Carbon plugin (named `rustctl_sock`) into the
+///   Carbon plugins directory, with [`UNIX_DOMAIN_SOCKET`] substituted into the
+///   plugin source.
+///
+/// - The function starts `RustDedicated` through a generated startup script that
+///   sets `LD_LIBRARY_PATH`, sources Carbon's `carbon/tools/environment.sh`, and
+///   passes the RCON flags that the managing web server needs to connect (RCON
+///   TCP port, RCON password), with output sent directly to standard output and
+///   standard error, and waits for it to stop.
+///
 /// - The function stops with the same exit code as `RustDedicated`.
 ///
-/// Issuing commands to a running game server via the RCON WebSocket API is
-/// out of scope for this function. The managing web server does that.
+/// Issuing commands to a running game server via the RCON WebSocket API, like any
+/// configuring of Carbon via RCON, is out of scope for this function. The managing
+/// web server shall do that.
 pub fn launch_game_server(config: &GameServerConfig) -> std::process::ExitCode {
     let steamcmd_present = std::process::Command::new("which")
         .arg("steamcmd")
