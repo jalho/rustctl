@@ -199,11 +199,24 @@ mod web {
     /// ```text
     /// JsonReaderException: JSON integer 3921165172 is too large or small for an Int32. Path 'Identifier', line 1, position 24.
     /// ```
+    ///
+    /// There's no spec, as far as I'm aware, but let's also assume it has to be
+    /// a non-negative integer.
     fn generate_random_rcon_msg_id() -> i32 {
+        /*
+         * Generating a random value using only standard library.
+         */
         let random_state = std::collections::hash_map::RandomState::new();
         let mut hasher = std::hash::BuildHasher::build_hasher(&random_state);
         std::hash::Hasher::write_u8(&mut hasher, 0);
-        (std::hash::Hasher::finish(&hasher) as i32) & 0x7fff_ffff
+
+        // possibly negative
+        let value: i32 = std::hash::Hasher::finish(&hasher) as i32;
+
+        // make non-negative by clearing the high bit
+        let value_bounded: i32 = value & 0x_7fff_ffff_i32;
+
+        value_bounded
     }
 
     async fn unix_socket_consumer_loop() {
