@@ -26,6 +26,35 @@ fn main() -> std::process::ExitCode {
     let cli: cli::Cli = <cli::Cli as clap::Parser>::parse();
 
     match cli.command {
+        /*
+         * TODO:
+         *
+         *   Add static linked ("vendored") SQLite backed by a single state
+         *   file in a hard-coded file system path defined in a constant used by
+         *   both the game server and the web server. The game server shall read
+         *   RCON password from the DB and use it when launching the game, or
+         *   generate a password and then use it if no password exists yet from
+         *   a previous run. The web server shall read the password from the DB
+         *   and use it when connecting to the RCON.
+         *
+         *   The web server will later be implemented with `axum` libraries and
+         *   it will persist its state, whatever it may be, in the same SQLite
+         *   DB. Keep that in mind when adding the SQLite.
+         *
+         *   An idea to be considered: replace the `&cfg` passed to both game
+         *   server and web server entry points with a DB client of some sort,
+         *   i.e. source all parameters from the database. Intent is to minimize
+         *   the amount of required CLI args: ideally, the program will only
+         *   read the state from a single DB state file, and any configuration
+         *   is done by altering that state. Given a hard-coded DB state file
+         *   path, there shouldn't be any need for any additional CLI args,
+         *   other than the "subcommand" distinguishing whether running the game
+         *   server or the web server systemd unit.
+         *
+         *   Describe this idea in short also in the crate top level doc
+         *   comment.
+         */
+
         cli::Command::Game => {
             let cfg = launcher::GameServerConfig::default();
             launcher::launch_game_server(&cfg)
