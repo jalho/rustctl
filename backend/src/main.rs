@@ -17,10 +17,10 @@
 //! access to the web assets and the web server executable. Both users need to
 //! have access to the shared Unix domain socket. All of these: the users, and the
 //! socket, and any necessary dependencies (such as `steamcmd`, i.e. the game server
-//! installer), are defined in a `cloud-init` file in the repository. No extra
-//! privileges should be granted. For example, web server running user does not need
-//! full root privileges, but only the necessary capability to bind web server to
-//! port 443 for TLS.
+//! installer), are defined in a `cloud-init` file in the same repository with the
+//! source. No extra privileges should be granted to the system users: for example,
+//! the web server running user does not need full root privileges, but only the
+//! necessary capability to bind a web server to port 443 for TLS.
 
 fn main() -> std::process::ExitCode {
     let cli: cli::Cli = <cli::Cli as clap::Parser>::parse();
